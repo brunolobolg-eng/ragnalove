@@ -1,6 +1,6 @@
-echo node_modules/ > .gitignore
-echo dist/ >> .gitignore
-echo build/ >> .gitignore
-echo Executavel/ >> .gitignore
-echo .env >> .gitignore
-echo *.log >> .gitignore
+node_modules/
+dist/
+build/
+Executavel/
+.env
+*.log
