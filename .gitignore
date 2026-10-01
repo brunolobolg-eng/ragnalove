@@ -1,6 +1,7 @@
-node_modules/
-dist/
-build/
-Executavel/
-.env
-*.log
+node_modules/ 
+Executavel/Vanguarda/Vanguarda.exe 
+Executavel/Vanguarda.zip.001 
+Executavel/Vanguarda.zip.002 
+Executavel/Vanguarda.zip.003 
+Executavel/Vanguarda.zip.004 
+Executavel/Vanguarda.zip.005 
