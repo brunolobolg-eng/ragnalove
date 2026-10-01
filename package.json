@@ -1,0 +1,52 @@
+{
+  "name": "vanguarda",
+  "private": true,
+  "version": "0.5.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "sim:check": "tsx scripts/simCheck.ts",
+    "desktop:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "desktop:start": "npm run build && electron .",
+    "desktop:build": "npm run build && electron-builder --win dir",
+    "desktop:installer": "npm run build && electron-builder --win nsis"
+  },
+  "dependencies": {
+    "three": "^0.169.0",
+    "three.quarks": "^0.16.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.169.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "concurrently": "^9.1.0",
+    "wait-on": "^8.0.1",
+    "cross-env": "^7.0.3"
+  },
+  "main": "electron/main.cjs",
+  "description": "ROguard — RPG idle tático de hordas",
+  "build": {
+    "appId": "com.vanguarda.game",
+    "productName": "ROguard",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "dir"
+      ],
+      "icon": "electron/icon.ico"
+    }
+  }
+}
