@@ -48,6 +48,14 @@ function around(o: MapObject, sim: Simulation, r: number): Vec2[] {
 const nearObject = (o: MapObject, p: Vec2, r: number) => o.tiles.some((t) => chebyshev(t, p) <= r);
 
 export const OBJECT_RULES: Record<MapObjectType, ObjectRule> = {
+  shieldWall: {
+    label: 'Muralha do Guerreiro',
+    desc: 'Bloco intransponível: a horda precisa quebrá-lo para passar.',
+    blocksWalk: standing,
+    blocksSight: never,
+    hp: GAME_CONFIG.archetypes.warrior.shieldWall.hp,
+    breakable: true,
+  },
   cart: {
     label: 'Carroça tombada',
     desc: 'Cobertura: bloqueia passagem e visão. Vasculhe antes da horda por Zeni ou almas.',

@@ -22,6 +22,10 @@ export const VISUAL_CONFIG = {
   /** Investida: tremor sutil, menor que um Golpe em Área cheio. */
   bash: { shake: 0.09 },
   unit: { hitFlashTime: 0.15, deathTime: 1.1 },
+  /** Planejamento: heróis passeiam em volta do posto (raio em tiles, velocidades em tiles/s, esperas em s). */
+  idleWander: { radius: 0.85, speed: 0.9, orderSpeed: 3.2, waitMin: 1.5, waitMax: 4.5, lookAtCameraAfter: 1.2 },
+  /** Ordem de posição: marca no chão (duração em s). */
+  orders: { markerTime: 0.7 },
   /**
    * Câmera tática nos mapas grandes: segue a ação na onda e deixa o jogador inspecionar o mapa
    * (WASD/setas ou arrastar com o botão do meio/direito, roda = zoom, F = centralizar/seguir).
@@ -118,3 +122,221 @@ export const VISUAL_THEMES = {
     camera: { fov: 32, height: 18.5, distance: 17.5, lookZ: 0.4 },
   },
 } as const;
+
+/**
+ * Monstros importados (GLB com esqueleto padrão de 26 ossos + 7 clipes, em public/models).
+ * `height` = altura no mundo; `aura` = casco brilhante permanente (RGB, >1 brilha no bloom).
+ */
+export interface MonsterModelVisual {
+  file: string;
+  height: number;
+  walkRate: number;
+  outline: number;
+  aura?: [number, number, number];
+  /** Heróis: cor do espectro ao usar habilidade. */
+  ghost?: [number, number, number];
+  /** Usa as animações do personagem do jogo (o GLB traz só malha + esqueleto com os mesmos nomes de ossos). */
+  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute';
+  /** Variantes de cor: texturas alternativas no mesmo atlas do GLB (cada inimigo sorteia uma, ou a original). */
+  skins?: string[];
+  /** Armas presas nos ossos da mão (para modelos que vêm de mãos vazias); accent = cor do brilho. */
+  weapons?: { type: 'bow' | 'dagger' | 'axe'; bone: string; accent?: number; tilt?: number; scale?: number }[];
+}
+
+/** Heróis avançados (GLB com o mesmo esqueleto padrão). Até carregar, usam o modelo de uma classe parecida. */
+export const HERO_MODELS: Record<string, MonsterModelVisual> = {
+  // Eliana (arte do jogador → 3D): textura + espada e escudo; animações do Guerreiro
+  warrior: { file: 'models/eliana.glb', height: 2.0, walkRate: 1, outline: 0.012, ghost: [0.35, 1.25, 1.0], clips: 'warrior' },
+  // Cléria (arte do jogador → 3D): cajado com cristal e livro; animações da Maga
+  mage: { file: 'models/cleria.glb', height: 1.9, walkRate: 1, outline: 0.012, ghost: [0.55, 0.8, 1.6], clips: 'mage' },
+  // Líria (modelo do V2Fun no esqueleto padrão): animações da Arqueira
+  archer: { file: 'models/liria.glb', height: 1.9, walkRate: 1, outline: 0.012, ghost: [0.5, 1.4, 0.6], clips: 'archer', weapons: [{ type: 'bow', bone: 'hand.L', accent: 0x9aff7a }] },
+  sorcerer: { file: 'models/sorcerer.glb', height: 1.75, walkRate: 1, outline: 0.012, ghost: [1.2, 0.55, 1.8] },
+  warlock: { file: 'models/warlock.glb', height: 1.75, walkRate: 1, outline: 0.012, ghost: [1.6, 0.25, 0.6] },
+  // Cavaleiro sombrio (modelo do V2Fun no esqueleto padrão): animações de golpe do Guerreiro (corpo a corpo)
+  assassin: { file: 'models/assassin_dk.glb', height: 1.9, walkRate: 1.05, outline: 0.012, ghost: [1.6, 1.3, 0.3], clips: 'warrior', weapons: [{ type: 'dagger', bone: 'hand.R', accent: 0xc070ff }, { type: 'dagger', bone: 'hand.L', accent: 0xc070ff }] },
+};
+/** Zumbi do Ato III: coveiro, afogado, pesteado, luto e cinzas (além da cor original do modelo). */
+const ZOMBIE_SKINS = ['coveiro', 'afogado', 'pesteado', 'luto', 'cinzas'].map((n) => `models/zombie_${n}.jpg`);
+/** Machado de batalha do orc: mão direita, cabo inclinado 35° para baixo, brilho do gume avermelhado. */
+const ORC_AXE = { type: 'axe' as const, bone: 'hand.R', accent: 0xff7040, tilt: 35, scale: 1.35 };
+export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
+  // Ato I — ratos
+  rat: { file: 'models/rato.glb', height: 1.45, walkRate: 1.3, outline: 0.013 },
+  ratRunner: { file: 'models/rato.glb', height: 1.15, walkRate: 2.4, outline: 0.013 },
+  ratBrute: { file: 'models/rato.glb', height: 1.95, walkRate: 0.85, outline: 0.012 },
+  ratNecro: { file: 'models/rato.glb', height: 1.5, walkRate: 1.2, outline: 0.013, aura: [0.7, 0.2, 1.6] },
+  ratElite: { file: 'models/ratochefe.glb', height: 2.4, walkRate: 0.85, outline: 0.011, aura: [0.9, 0.3, 1.8] },
+  ratBoss: { file: 'models/ratochefe.glb', height: 3.1, walkRate: 0.9, outline: 0.009, aura: [1.6, 0.15, 0.4] },
+  // Ato II — goblins (o chefe é o goblin grande repintado, maior e com aura dourada)
+  goblin: { file: 'models/goblin2.glb', height: 1.6, walkRate: 1.3, outline: 0.013 },
+  goblinRunner: { file: 'models/goblin2.glb', height: 1.3, walkRate: 2.4, outline: 0.013 },
+  goblinBrute: { file: 'models/goblin1.glb', height: 2.0, walkRate: 0.85, outline: 0.012 },
+  goblinNecro: { file: 'models/goblin2.glb', height: 1.65, walkRate: 1.2, outline: 0.013, aura: [0.7, 0.2, 1.6] },
+  goblinElite: { file: 'models/goblin1.glb', height: 2.5, walkRate: 0.85, outline: 0.011, aura: [0.9, 0.3, 1.8] },
+  goblinBoss: { file: 'models/goblinboss.glb', height: 3.4, walkRate: 0.9, outline: 0.009, aura: [2.0, 1.4, 0.3] },
+  // Ato III — zumbi chibi (V2Fun no esqueleto padrão), animações de zumbi do jogo; 5 variantes fúnebres de cor
+  zombie: { file: 'models/zombie.glb', height: 1.6, walkRate: 1.3, outline: 0.013, clips: 'zombie', skins: ZOMBIE_SKINS },
+  zombieRunner: { file: 'models/zombie.glb', height: 1.35, walkRate: 2.4, outline: 0.013, clips: 'zombieRunner', skins: ZOMBIE_SKINS },
+  zombieBrute: { file: 'models/zombie.glb', height: 2.0, walkRate: 0.85, outline: 0.012, clips: 'zombieBrute', skins: ZOMBIE_SKINS },
+  zombieNecro: { file: 'models/zombie.glb', height: 1.65, walkRate: 1.2, outline: 0.013, clips: 'zombie', skins: ZOMBIE_SKINS, aura: [0.7, 0.2, 1.6] },
+  // Ato III — orc guerreiro chibi (V2Fun): golpe de machado por cima vem do próprio GLB, o resto é do brutamonte
+  orcWarrior: { file: 'models/orc.glb', height: 2.3, walkRate: 0.85, outline: 0.011, clips: 'brute', aura: [0.9, 0.3, 1.8], weapons: [ORC_AXE] },
+  orcLord: { file: 'models/orc.glb', height: 3.3, walkRate: 0.9, outline: 0.009, clips: 'brute', aura: [1.6, 0.15, 0.4], weapons: [ORC_AXE] },
+};
+
+/**
+ * Visual dos inimigos por ato (índice = act do world.ts). Só troca o MODELO — a simulação
+ * continua usando o tipo original (grunt, runner...), então stats, drops e aggro não mudam.
+ * Ato III: zumbi chibi em várias cores; elite e Senhor Orc = orc guerreiro chibi com machado.
+ */
+export const ACT_MONSTERS: Record<number, Record<string, string>> = {
+  0: { grunt: 'rat', runner: 'ratRunner', brute: 'ratBrute', necro: 'ratNecro', elite: 'ratElite', boss: 'ratBoss', boss2: 'ratBoss' },
+  1: { grunt: 'goblin', runner: 'goblinRunner', brute: 'goblinBrute', necro: 'goblinNecro', elite: 'goblinElite', boss: 'goblinBoss', boss2: 'goblinBoss' },
+  // elite = orc guerreiro; Senhor Orc (chefe final) = o mesmo orc, maior e com aura vermelha
+  2: { grunt: 'zombie', runner: 'zombieRunner', brute: 'zombieBrute', necro: 'zombieNecro', elite: 'orcWarrior', orcboss: 'orcLord' },
+};
+
+/** Setas discretas no chão mostrando o caminho que a horda tende a seguir (spawn → alvo). */
+export const PATH_ARROWS = {
+  enabled: true,
+  spacing: 3, // tiles entre setas
+  skipStart: 2, // tiles livres perto do portal
+  skipEnd: 2, // tiles livres perto do alvo
+  size: 0.72,
+  opacity: 0.13,
+  pulse: 0.3, // variação da opacidade (fração)
+  pulseSpeed: 1.1,
+  color: 0xfff0d0,
+  height: 0.016,
+  maxSteps: 400,
+};
+
+/** Cenário temático dos monstros do ato, espalhado em volta de cada portal de spawn. */
+export const ACT_DRESSING = {
+  radiusMin: 1.6,
+  radiusMax: 5.5,
+  flatPerSpawn: 7, // peças baixas (tocas, ossos, cinzas) — podem ficar no chão andável
+  tallPerSpawn: 4, // peças altas (totens, estandartes, estacas) — só em tiles bloqueados
+};
+
+/**
+ * Menu principal (tela de título): a arte `tela-entrada.png` enche a tela; por cima, os botões, o
+ * painel de Ranking e o slogan recortados da mesma arte, com as áreas clicáveis e os valores vivos. Coordenadas em pixels da imagem original (x, y, largura, altura).
+ */
+export const MENU_VISUAL = {
+  version: 'v0.5',
+  image: 'tela-entrada.png',
+  width: 1672,
+  height: 941,
+  /**
+   * Peças recortadas da arte que ficam sempre inteiras na tela: quando a tela não é 16:9 e o
+   * fundo é cortado, elas são empurradas para dentro (cobrindo a parte cortada da arte de fundo).
+   */
+  pieces: {
+    left: [0, 355, 425, 415],
+    right: [1250, 0, 422, 620],
+    title: [0, 0, 580, 140], // slogan do canto superior esquerdo
+  } as Record<'left' | 'right' | 'title', [number, number, number, number]>,
+  /** Esfumado das bordas das peças (px da imagem), para se misturarem ao fundo. */
+  feather: 24,
+  /** Áreas clicáveis sobre os botões desenhados na arte. */
+  buttons: {
+    start: [41, 403, 350, 90],
+    options: [41, 507, 350, 63],
+    info: [41, 583, 350, 64],
+    donate: [41, 660, 350, 64],
+  } as Record<'start' | 'options' | 'info' | 'donate', [number, number, number, number]>,
+  /** Linha "jornada em andamento" logo abaixo do botão Donate. */
+  continueLabel: [41, 736, 350, 26] as [number, number, number, number],
+  /** Valores do Ranking (cobrem os "???" da arte quando o recorde existe): borda direita e centro vertical de cada linha. */
+  rankValues: { right: 1634, h: 28, rows: { difficulty: 115, longest: 164, fastest: 213, damage: 264, level: 314, runs: 366 } },
+  /** Lista de apoiadores (cobre os nomes de exemplo da arte). */
+  donors: [1306, 438, 328, 106] as [number, number, number, number],
+  /** Cor do fundo do painel na arte (os valores vivos usam a mesma, para não aparecer emenda). */
+  panelColor: 'rgb(5, 14, 28)',
+};
+
+/** Cidade (Valnor): arte de fundo e posição de cada serviço na arte (pixels da imagem; o clique vira % na tela). */
+export const CITY_ART = {
+  file: 'sprites/city_valnor_chibi.jpg',
+  width: 1536,
+  height: 1024,
+  /** centro e tamanho da área clicável (ícone + placa) de cada serviço */
+  spots: {
+    priestess: { x: 935, y: 125, w: 180, h: 110 },
+    master: { x: 578, y: 262, w: 200, h: 100 },
+    smith: { x: 226, y: 338, w: 160, h: 100 },
+    merchant: { x: 558, y: 612, w: 150, h: 100 },
+    oracle: { x: 1190, y: 535, w: 150, h: 100 },
+  } as Record<string, { x: number; y: number; w: number; h: number }>,
+};
+
+/** Mapa-múndi (Aurenthal): arte, ponto de cada região na arte (pixels) e névoa do que ainda não foi explorado. */
+export const MAP_ART = {
+  file: 'sprites/world_aurenthal.jpg',
+  width: 1536,
+  height: 1024,
+  anchors: {
+    ashPeak: [485, 180], frostPass: [767, 183], rustGorge: [1076, 215],
+    whisperWood: [206, 357], crookedWood: [478, 347], valdrec: [608, 453], ashenFields: [861, 362],
+    saltCove: [1068, 399], saltreach: [1240, 505], ravenIsle: [1452, 299],
+    ravenGlade: [194, 540], rootVale: [425, 578], dryCrossing: [585, 600], redDunes: [737, 652], selmara: [1072, 572],
+    duneSea: [455, 831], dunehold: [785, 825], solarRuins: [1068, 807],
+  } as Record<string, [number, number]>,
+  fog: {
+    /** raio (px da arte) da área revelada em volta de cada região visitada */
+    revealRadius: 175,
+    /** borda suave da revelação (fração do raio) */
+    softEdge: 0.45,
+    /** desfoque e cor da névoa sobre o que não foi explorado (o bioma ainda dá para adivinhar) */
+    blurPx: 16,
+    tint: 'rgba(214,222,236,0.55)',
+    /** velocidade da animação de revelação (por segundo) */
+    revealSpeed: 0.7,
+    /** raio revelado em volta da party durante a viagem */
+    travelRadius: 120,
+    /** distância máxima (px da arte) para um clique escolher a região mais próxima */
+    clickRadius: 140,
+  },
+};
+
+/** Seleção de personagem: arte das cartas, chibis, frases e som ao passar o mouse. */
+export const CHARSELECT_ART = {
+  background: 'sprites/city_valnor_chibi.jpg',
+  cards: {
+    warrior: 'sprites/cs/card_warrior.jpg', mage: 'sprites/cs/card_mage.jpg', archer: 'sprites/cs/card_archer.jpg',
+    sorcerer: 'sprites/cs/card_sorcerer.jpg', warlock: 'sprites/cs/card_warlock.jpg', assassin: 'sprites/cs/card_assassin.jpg',
+  } as Record<string, string>,
+  /** chibi de corpo inteiro no painel de detalhes (vazio = usa a arte da carta) */
+  chibis: {
+    warrior: 'sprites/cs/chibi_warrior.png', mage: 'sprites/cs/chibi_mage.png', archer: 'sprites/cs/chibi_archer.png',
+    sorcerer: 'sprites/cs/chibi_sorcerer.png', warlock: '', assassin: 'sprites/cs/chibi_assassin.png',
+  } as Record<string, string>,
+  quotes: {
+    warrior: 'Honra guia meu caminho.',
+    mage: 'Mesmo na escuridão, a luz sempre encontra um caminho.',
+    archer: 'A floresta me guia, e eu nunca me perco.',
+    sorcerer: 'O conhecimento é luz na escuridão.',
+    warlock: 'Toda maldição cobra o seu preço.',
+    assassin: 'Um passo... e já é tarde.',
+  } as Record<string, string>,
+  /** som ao passar o mouse sobre uma carta (sorteia uma das variações) */
+  hoverSounds: ['audio/cs_hover0.mp3', 'audio/cs_hover1.mp3', 'audio/cs_hover2.mp3', 'audio/cs_hover3.mp3'],
+  hoverVolume: 0.8,
+  /** variação aleatória da velocidade do som (±) */
+  hoverPitch: 0.05,
+  /** faíscas: por segundo com o mouse em cima, e a explosão ao escolher */
+  sparksPerSecond: 38,
+  selectBurst: 70,
+};
+
+/** Ícones dos tipos de fase (escolha do caminho no mapa). Vazio = desenho em canvas. */
+export const NODE_ICONS: Record<string, string> = {
+  horde: 'sprites/nodes/horde.png',
+  elite: 'sprites/nodes/elite.png',
+  event: 'sprites/nodes/event.png',
+  city: 'sprites/nodes/city.png',
+  boss: 'sprites/nodes/boss.png',
+  survival: 'sprites/nodes/survival.png',
+};

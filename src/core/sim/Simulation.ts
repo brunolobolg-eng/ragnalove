@@ -5,18 +5,42 @@ import { FlowField, canStep, stepCost } from '../grid/pathfinding';
 import { DIRS8, chebyshev, isDiagonal, type Vec2 } from '../grid/types';
 import { OBJECT_RULES, makeObject } from './objects';
 import { ATTRIBUTES_CONFIG, computeStats, type HeroStats } from '../progression/attributes';
-import { dropChance, gearBonus, itemName, rollItem, type Item } from '../progression/equipment';
+import { LOOT_CONFIG, dropChance, gearBonus, itemName, rollItem, type Item } from '../progression/equipment';
 import { expToNext, starterWeapon, type WaveResult } from '../progression/profile';
 
 /** Sem loadout (testes/sandbox): herói com a arma inicial. */
 const defaultGear = (kind: string) => gearBonus([starterWeapon(kind)]);
 import { Rng } from './rng';
-import type { AreaEffect, DamageSource, MapObject, SimEvent, SimPhase, Unit, WaveReport } from './types';
+import type { AreaEffect, CombatMoveStats, DamageSource, MapObject, SimEvent, SimPhase, Trap, Unit, WaveReport } from './types';
 import { SKILL_NUM, lvOf } from '../progression/skills';
+import { neutralMods, testRangeMult, type SimMods } from './RangeSystem';
+import { updateCombatMovement } from './CombatMovement';
 
 /** Números de cada tipo de zumbi (cai no comum se o tipo não existir). */
 export function enemyStats(kind: string) {
   return GAME_CONFIG.enemies[kind] ?? GAME_CONFIG.enemies.grunt;
+}
+
+/** Recompensas fixas de um abate (almas, EXP, Zeni) — as mesmas tabelas da onda. */
+export function killRewards(kind: string): { souls: number; exp: number; zeni: number } {
+  return {
+    souls: GAME_CONFIG.souls.dropPerKill[kind] ?? GAME_CONFIG.souls.defaultDrop,
+    exp: GAME_CONFIG.progression.expPerKill[kind] ?? GAME_CONFIG.progression.defaultExp,
+    zeni: GAME_CONFIG.zeni.dropPerKill[kind] ?? GAME_CONFIG.zeni.defaultDrop,
+  };
+}
+
+/**
+ * Sorteio do drop de equipamento de um abate (o mesmo da onda; o Loot Tester usa esta função).
+ * Chefes sempre deixam um item: elite Raro/Épico, chefes de ato Épico/Lendário, o final Lendário/Mítico.
+ */
+export function rollLoot(rng: Rng, kind: string, luck: number, users: string[], idOf: (n: number) => string): Item | undefined {
+  const isBoss = GAME_CONFIG.bossKinds.includes(kind);
+  if (rng.next() >= (isBoss ? 1 : dropChance(luck))) return undefined;
+  const r = rng.next();
+  const rule = LOOT_CONFIG.bossRarity[kind] ?? LOOT_CONFIG.bossRarity.default;
+  const bossRarity = r < rule.topChance ? rule.top : rule.base;
+  return rollItem(rng, luck, idOf(rng.int(1e9)), isBoss ? { rarity: bossRarity } : {}, users);
 }
 
 /** Comportamento de aggro do tipo de inimigo (ENEMY_CONFIG.aggroType). */
@@ -63,7 +87,11 @@ export class Simulation {
   /** Equipamentos dropados nesta onda (coletados automaticamente no fim). */
   readonly drops: Item[] = [];
   /** Trapaças de teste (só o painel de debug liga). Desligadas, a simulação é a original. */
-  readonly cheats = { invincible: false, noCooldowns: false };
+  readonly cheats = { invincible: false, noCooldowns: false, oneHit: false };
+  /** Modificadores de teste do Dev Lab (temporários; neutros = jogo original). */
+  mods: SimMods = neutralMods();
+  /** Métricas do movimento de combate por herói. */
+  readonly combatStats: Record<string, CombatMoveStats> = {};
 
   private nextId = 1;
   private occ: Int32Array; // id da unidade no tile (0 = vazio)
@@ -106,6 +134,13 @@ export class Simulation {
 
   // ---- tempestade de areia ----
   private stormUntil = 0;
+
+  // ---- Muralha do Guerreiro e Armadilhas da Arqueira ----
+  /** Armadilhas armadas no chão. */
+  readonly traps: Trap[] = [];
+  private nextTrapId = 1;
+  /** Ids dos objetos criados na onda começam aqui (não colidem com os do mapa). */
+  private nextObjectId = 10000;
 
   // ---- métricas do relatório (WAVE_RESULT) ----
   private readonly dealt: Record<string, number> = {};
@@ -164,6 +199,7 @@ export class Simulation {
       st.arrowDamage *= k;
       st.rainDamage *= k;
       st.skillDamageMult *= k;
+      st.classPower *= k;
       const c = (t: number) => Math.max(1, Math.round(t * B.cooldown));
       st.cooldownMult *= B.cooldown;
       st.boltCooldownTicks = c(st.boltCooldownTicks);
@@ -260,6 +296,51 @@ export class Simulation {
   /** Alcance dos ataques à distância (a tempestade de areia encurta). */
   get rangeMult(): number {
     return this.stormActive ? GAME_CONFIG.biome.sandstorm.rangeMult : 1;
+  }
+
+  /** Alcance de um herói à distância: ambiente (tempestade) × modificadores de teste. */
+  rangeMultFor(u: Unit): number {
+    return this.rangeMult * testRangeMult(u, this.mods);
+  }
+
+  /** O movimento de combate dos heróis está ligado nesta onda? */
+  get combatMovementOn(): boolean {
+    return this.mods.combatMovement ?? GAME_CONFIG.combatAI.enabled;
+  }
+
+  moveStats(kind: string): CombatMoveStats {
+    return (this.combatStats[kind] ??= { tilesMoved: 0, repositions: 0, ticksMoving: 0, ticksAttacking: 0 });
+  }
+
+  /** O herói pode dar este passo (tile livre, andável, fora da cidade, sem cortar quina)? */
+  canHeroStep(u: Unit, d: Vec2): boolean {
+    const x = u.x + d.x;
+    const y = u.y + d.y;
+    return this.board.isWalkable(x, y) && !this.unitAt(x, y) && !this.board.isCity(x, y) && canStep(this.board, u, d);
+  }
+
+  /** Passo de um herói (movimento de combate): mesma ocupação e interpolação dos inimigos. */
+  stepUnit(u: Unit, d: Vec2, ticks: number): void {
+    this.occ[this.board.idx(u.x, u.y)] = 0;
+    u.prevX = u.x;
+    u.prevY = u.y;
+    u.x += d.x;
+    u.y += d.y;
+    this.occ[this.board.idx(u.x, u.y)] = u.id;
+    u.facing = d;
+    u.moveStartTick = this.tick;
+    u.moveTicks = ticks;
+    this.emit({ type: 'move', unitId: u.id });
+  }
+
+  /**
+   * Dispara uma habilidade de um herói pelo mesmo código da IA (CAST do Dev Lab).
+   * Os eventos ficam na fila: quem chamou usa `flushEvents()`.
+   */
+  castSkill(u: Unit, id: string): boolean {
+    const sk = ARCHETYPES[u.kind]?.skills.find((s) => s.id === id);
+    if (!sk || !u.alive || u.team !== 'party') return false;
+    return sk.cast(u, this, true);
   }
 
   private updateStorm(): void {
@@ -389,6 +470,10 @@ export class Simulation {
         return;
       }
     }
+    // Maldição (Bruxa): o amaldiçoado sofre mais dano de toda a party
+    if (u.team === 'enemy' && (u.cursedUntil ?? 0) > this.tick) amount *= 1 + (u.curseAmp ?? 0);
+    // Dano infinito (Dev Lab): qualquer golpe da party mata
+    if (this.cheats.oneHit && u.team === 'enemy' && sourceId !== undefined && this.units.get(sourceId)?.team === 'party') amount = u.hp;
     const applied = Math.min(u.hp, amount);
     u.hp = Math.max(0, u.hp - amount);
     // métricas do relatório
@@ -409,14 +494,27 @@ export class Simulation {
         this.grantZeni(u);
         if (GAME_CONFIG.bossKinds.includes(u.kind)) this.bossLevelUp();
         this.rollDrop(u, hero);
+        this.soulHarvest(sourceId);
       }
+    }
+  }
+
+  /** Colheita de Almas (Bruxa): abate cura a party e pode render alma extra. */
+  private soulHarvest(sourceId?: number): void {
+    const w = sourceId !== undefined ? this.units.get(sourceId) : undefined;
+    const lv = lvOf(w?.stats?.skills, 'soulHarvest');
+    if (!w || !lv || w.team !== 'party') return;
+    const n = SKILL_NUM.soulHarvest(lv);
+    for (const p of this.sortedUnits('party')) this.heal(p, n.heal);
+    if (this.combatRng.next() < n.soulChance) {
+      w.souls++;
+      this.souls++;
     }
   }
 
   /** Roubo de alma: calculado aqui (autoritativo), o render só desenha o evento. */
   private stealSoul(victim: Unit, sourceId?: number): Unit | undefined {
-    const cfg = GAME_CONFIG.souls;
-    const amount = cfg.dropPerKill[victim.kind] ?? cfg.defaultDrop;
+    const amount = killRewards(victim.kind).souls;
     let hero = sourceId !== undefined ? this.units.get(sourceId) : undefined;
     if (!hero || !hero.alive || hero.team !== 'party') {
       // fonte desconhecida: vai para o herói vivo mais próximo
@@ -435,8 +533,7 @@ export class Simulation {
 
   /** EXP para toda a party viva; níveis sobem aqui (os pontos são aplicados no perfil). */
   private grantExp(victim: Unit): void {
-    const P = GAME_CONFIG.progression;
-    const amount = P.expPerKill[victim.kind] ?? P.defaultExp;
+    const amount = killRewards(victim.kind).exp;
     this.emit({ type: 'exp', x: victim.x, y: victim.y, amount });
     this.expEarned += amount;
     for (const p of this.sortedUnits('party')) {
@@ -451,8 +548,7 @@ export class Simulation {
   }
 
   private grantZeni(victim: Unit): void {
-    const Z = GAME_CONFIG.zeni;
-    const amount = Z.dropPerKill[victim.kind] ?? Z.defaultDrop;
+    const amount = killRewards(victim.kind).zeni;
     this.zeni += amount;
     this.emit({ type: 'zeni', x: victim.x, y: victim.y, amount });
   }
@@ -502,6 +598,110 @@ export class Simulation {
     return (u.frozenUntil ?? 0) > this.tick;
   }
 
+  /** Atordoa: o alvo perde o próximo passo/ataque (sem sair do lugar). */
+  stun(u: Unit, ticks: number): void {
+    if (!u.alive) return;
+    u.nextActTick = Math.max(u.nextActTick, this.tick) + ticks;
+  }
+
+  /** Dano contínuo (veneno, maldição, enxame): `perPulse` a cada GAME_CONFIG.dot.intervalTicks. */
+  addDot(u: Unit, perPulse: number, ticks: number, source: DamageSource, ownerId: number): void {
+    if (!u.alive || perPulse <= 0) return;
+    (u.dots ??= []).push({ perPulse, until: this.tick + ticks, source, ownerId });
+  }
+
+  /** Amaldiçoa: dano recebido +amp até o fim. */
+  curse(u: Unit, amp: number, ticks: number): void {
+    if (!u.alive) return;
+    u.cursedUntil = Math.max(u.cursedUntil ?? 0, this.tick + ticks);
+    u.curseAmp = Math.max(u.curseAmp ?? 0, amp);
+  }
+
+  private tickDots(): void {
+    const iv = GAME_CONFIG.dot.intervalTicks;
+    if (this.tick % iv !== 0) return;
+    for (const u of this.sortedUnits('enemy')) {
+      if (!u.dots?.length) continue;
+      u.dots = u.dots.filter((d) => d.until > this.tick);
+      for (const d of [...u.dots]) if (u.alive) this.damage(u, d.perPulse, d.source, d.ownerId);
+    }
+  }
+
+  // ---------- Muralha do Guerreiro ----------
+
+  /** Ergue blocos de muralha (1 tile cada) nos tiles livres. Devolve quantos subiram. */
+  raiseWall(ownerId: number, tiles: Vec2[], hp: number): number {
+    let n = 0;
+    for (const t of tiles) {
+      if (!this.board.isWalkable(t.x, t.y) || this.unitAt(t.x, t.y) || this.board.isCity(t.x, t.y)) continue;
+      if (GAME_CONFIG.wave.spawnPoints.some((p) => p.x === t.x && p.y === t.y)) continue;
+      const o = makeObject(this.nextObjectId++, { type: 'shieldWall', x: t.x, y: t.y });
+      o.hp = o.maxHp = hp;
+      this.objects.set(o.id, o);
+      this.syncObject(o);
+      this.emit({ type: 'objectSpawn', object: o });
+      n++;
+    }
+    if (n) this.emit({ type: 'cast', unitId: ownerId, ability: 'shieldWall' });
+    return n;
+  }
+
+  /** Blocos de muralha ainda de pé. */
+  wallsStanding(): number {
+    let n = 0;
+    for (const o of this.objects.values()) if (o.type === 'shieldWall' && o.state !== 'broken') n++;
+    return n;
+  }
+
+  /** Muralha de pé no tile: todos os inimigos a atacam para passar (custo de "quebrar"). */
+  private wallPass(x: number, y: number): number {
+    const o = this.objects.get(this.board.objectAt(x, y));
+    return o && o.type === 'shieldWall' && o.state !== 'broken' ? GAME_CONFIG.pathing.breakCost : -1;
+  }
+
+  // ---------- Armadilhas da Arqueira ----------
+
+  /** Arma uma armadilha no tile (livre, andável, sem outra armadilha). */
+  placeTrap(ownerId: number, at: Vec2, damage: number, slowTicks: number, slowMult: number): boolean {
+    if (!this.board.isWalkable(at.x, at.y) || this.unitAt(at.x, at.y) || this.board.isCity(at.x, at.y)) return false;
+    if (this.traps.some((t) => t.x === at.x && t.y === at.y)) return false;
+    const trap: Trap = { id: this.nextTrapId++, x: at.x, y: at.y, ownerId, damage, slowTicks, slowMult };
+    this.traps.push(trap);
+    this.emit({ type: 'trapSet', trap });
+    return true;
+  }
+
+  /** Tile `steps` passos à frente do inimigo no caminho que ele vai seguir (até o portão). */
+  pathAhead(u: Unit, steps: number): Vec2 | undefined {
+    let cur: Vec2 = { x: u.x, y: u.y };
+    for (let i = 0; i < steps; i++) {
+      let best: Vec2 | undefined;
+      let bd = this.flow.at(cur.x, cur.y);
+      for (const d of DIRS8) {
+        if (!canStep(this.board, cur, d)) continue;
+        const nd = this.flow.at(cur.x + d.x, cur.y + d.y);
+        if (nd < bd) {
+          bd = nd;
+          best = { x: cur.x + d.x, y: cur.y + d.y };
+        }
+      }
+      if (!best) break;
+      cur = best;
+    }
+    return cur.x === u.x && cur.y === u.y ? undefined : cur;
+  }
+
+  private triggerTrap(u: Unit): void {
+    const i = this.traps.findIndex((t) => t.x === u.x && t.y === u.y);
+    if (i < 0) return;
+    const t = this.traps[i];
+    this.traps.splice(i, 1);
+    this.emit({ type: 'trapTrigger', trapId: t.id, x: t.x, y: t.y, targetId: u.id });
+    u.slowUntil = this.tick + t.slowTicks;
+    u.slowMult = t.slowMult;
+    this.damage(u, t.damage, 'trap', t.ownerId);
+  }
+
   /** Move uma unidade até `steps` tiles na direção (dx, dy), parando em obstáculo/ocupado. */
   private displace(u: Unit, dx: number, dy: number, steps: number): boolean {
     if (!u.alive || (dx === 0 && dy === 0)) return false;
@@ -542,14 +742,9 @@ export class Simulation {
   /** Drop de equipamento com raridade (Sorte do herói que matou influencia). */
   private rollDrop(victim: Unit, hero?: Unit): void {
     const luck = hero?.stats?.luck ?? 0;
-    const isBoss = GAME_CONFIG.bossKinds.includes(victim.kind);
-    // Chefes sempre deixam um item: elite Raro/Épico, chefes de ato Épico/Lendário, o final Lendário/Mítico.
-    if (this.lootRng.next() >= (isBoss ? 1 : dropChance(luck))) return;
-    const r = this.lootRng.next();
-    const bossRarity =
-      victim.kind === 'orcboss' ? (r < 0.35 ? 'mythic' : 'legendary') : victim.kind === 'elite' ? (r < 0.3 ? 'epic' : 'rare') : r < 0.3 ? 'legendary' : 'epic';
     const users = [...new Set([...this.units.values()].filter((u) => u.team === 'party').map((u) => u.kind))];
-    const item = rollItem(this.lootRng, luck, `it-${this.tick}-${victim.id}-${this.lootRng.int(1e9)}`, isBoss ? { rarity: bossRarity } : {}, users);
+    const item = rollLoot(this.lootRng, victim.kind, luck, users, (n) => `it-${this.tick}-${victim.id}-${n}`);
+    if (!item) return;
     this.drops.push(item);
     this.emit({ type: 'drop', item, x: victim.x, y: victim.y });
   }
@@ -693,13 +888,20 @@ export class Simulation {
     this.refreshCityFlows();
     this.spawnEnemies();
 
+    const moving = this.combatMovementOn;
     for (const u of this.sortedUnits('party')) {
       if (this.cheats.noCooldowns) u.cooldowns = {};
       this.regen(u);
+      if (moving) updateCombatMovement(u, this);
+      // velocidade de ataque de teste: encurta as recargas que o arquétipo acabou de marcar
+      const speed = this.mods.heroes[u.kind]?.attackSpeed ?? 1;
+      const before = speed !== 1 ? { ...u.cooldowns } : undefined;
       ARCHETYPES[u.kind].update(u, this);
+      if (before) for (const [k, v] of Object.entries(u.cooldowns)) if (v !== before[k] && v > this.tick) u.cooldowns[k] = this.tick + Math.max(1, Math.round((v - this.tick) / speed));
     }
 
     this.applyBurn();
+    this.tickDots();
     this.landMeteors();
     this.updateEnemies();
     this.cleanupDead();
@@ -892,7 +1094,7 @@ export class Simulation {
   private refreshCityFlows(): void {
     if (this.board.version === this.flowVersion) return;
     const P = GAME_CONFIG.pathing;
-    this.flow.compute(this.cityGoals, P);
+    this.flow.compute(this.cityGoals, P, (x, y) => this.wallPass(x, y));
     this.heavyFlow.compute(this.cityGoals, P, (x, y) => this.passCost(x, y));
     this.flowVersion = this.board.version;
   }
@@ -922,7 +1124,7 @@ export class Simulation {
       if (t) taunters.set(t.id, t);
     }
     this.tauntActive = taunters.size > 0;
-    if (this.tauntActive) this.tauntFlow.compute([...taunters.values()], GAME_CONFIG.pathing);
+    if (this.tauntActive) this.tauntFlow.compute([...taunters.values()], GAME_CONFIG.pathing, (x, y) => this.wallPass(x, y));
 
     for (const u of this.sortedUnits('enemy')) {
       if (!u.alive) continue;
@@ -967,7 +1169,7 @@ export class Simulation {
       if (aggro === 'hunter' || flow.at(u.x, u.y) >= FlowField.INF) {
         // sem caminho até a cidade (bloqueado): cai no comportamento antigo, vai atrás da party
         if (this.partyFlowTick !== this.tick) {
-          this.partyFlow.compute(party, GAME_CONFIG.pathing);
+          this.partyFlow.compute(party, GAME_CONFIG.pathing, (x, y) => this.wallPass(x, y));
           this.partyFlowTick = this.tick;
         }
         flow = this.partyFlow;
@@ -1010,7 +1212,8 @@ export class Simulation {
       const ny = u.y + d.y;
       if (!this.board.isWalkable(nx, ny)) {
         // obstáculo destrutível no caminho de quem quebra (só passo ortogonal)
-        if (!breaker || isDiagonal(d) || this.passCost(nx, ny) < 0) continue;
+        // a Muralha do Guerreiro todos quebram; o resto (raízes, colunas) só os pesados
+        if (isDiagonal(d) || this.passCost(nx, ny) < 0 || (!breaker && this.wallPass(nx, ny) < 0)) continue;
         const dn = f.at(nx, ny);
         if (dn >= here) continue;
         const total = dn + P.stepCost;
@@ -1070,9 +1273,12 @@ export class Simulation {
     u.moveStartTick = this.tick;
     // lama/raízes atrasam o passo
     const base = isDiagonal(d) ? Math.round(g.moveTicks * 1.4) : g.moveTicks;
-    u.moveTicks = Math.max(1, Math.round(base * this.board.slowAt(u.x, u.y)));
+    const slowed = (u.slowUntil ?? 0) > this.tick ? (u.slowMult ?? 1) : 1;
+    u.moveTicks = Math.max(1, Math.round(base * this.board.slowAt(u.x, u.y) * slowed));
     u.nextActTick = this.tick + u.moveTicks;
     this.emit({ type: 'move', unitId: u.id });
+    if (this.traps.length) this.triggerTrap(u);
+    if (!u.alive) return;
     if (this.board.isCity(u.x, u.y)) this.enterCity(u);
   }
 

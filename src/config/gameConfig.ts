@@ -25,8 +25,11 @@ export const GAME_CONFIG = {
   pathing: {
     stepCost: 10,
     diagonalCost: 14,
-    /** Custo extra por tile de efeito hostil: alto, mas não é bloqueio absoluto. */
-    hazardCost: 150,
+    /**
+     * Custo extra por tile de fogo: maior que qualquer caminho livre do mapa — enquanto existir
+     * caminho sem obstrução, a horda sempre contorna; só atravessa o fogo se não houver outra rota.
+     */
+    hazardCost: 100000,
     /** Custo extra para os pesados atravessarem um obstáculo destrutível (eles quebram no caminho). */
     breakCost: 60,
   },
@@ -239,7 +242,40 @@ export const GAME_CONFIG = {
     warrior: { hp: 0.3, damage: 0.2, cooldown: 0.9 },
     mage: { hp: 1.5, damage: 0.7, cooldown: 0.7 },
     archer: { hp: 0.8, damage: 0.5, cooldown: 0.75 },
+    sorcerer: { hp: 1.4, damage: 0.6, cooldown: 0.75 },
+    warlock: { hp: 1.2, damage: 0.6, cooldown: 0.75 },
+    assassin: { hp: 0.6, damage: 0.4, cooldown: 0.85 },
   } as Record<string, { hp: number; damage: number; cooldown: number }>,
+  /** Dano contínuo (veneno, maldição, enxame): intervalo entre os pulsos. */
+  dot: { intervalTicks: 10 },
+  /**
+   * Movimento de combate dos heróis (COMBAT_AI): na onda, passos curtos e automáticos para entrar no
+   * alcance, manter a distância e voltar ao posto. Distâncias em tiles (euclidiana); tempos em ticks.
+   * O alcance de ataque dos heróis à distância é o da própria arma (GAME_CONFIG.archetypes);
+   * `attackRange` aqui vale para os de corpo a corpo.
+   */
+  combatAI: {
+    enabled: true,
+    rangedKinds: ['mage', 'archer', 'sorcerer', 'warlock'] as string[],
+    heroes: {
+      warrior: { detectionRange: 8, attackRange: 1.5, preferredRange: 1, maxCombatMoveDistance: 2, moveTicks: 5 },
+      assassin: { detectionRange: 8, attackRange: 1.5, preferredRange: 1, maxCombatMoveDistance: 2, moveTicks: 4 },
+      archer: { detectionRange: 15, preferredRange: 6, maxCombatMoveDistance: 2, moveTicks: 5 },
+      mage: { detectionRange: 12, preferredRange: 5, maxCombatMoveDistance: 2, moveTicks: 6 },
+      sorcerer: { detectionRange: 12, preferredRange: 5, maxCombatMoveDistance: 2, moveTicks: 6 },
+      warlock: { detectionRange: 12, preferredRange: 4, maxCombatMoveDistance: 2, moveTicks: 6 },
+    } as Record<string, { detectionRange: number; attackRange?: number; preferredRange: number; maxCombatMoveDistance: number; moveTicks: number }>,
+    /** Herói à distância recua um passo se um inimigo chegar a esta distância (dentro do raio máximo). */
+    retreatDistance: 1.5,
+    /** Intervalo mínimo entre recuos (sem "kite" infinito). */
+    retreatCooldownTicks: 20,
+    /** Sem alvo por este tempo: volta ao posto (evita anda-para-anda). */
+    returnDelayTicks: 15,
+    /** Um passo só acontece se melhorar a distância ao objetivo pelo menos isto (evita tremer). */
+    minStepGain: 0.25,
+    /** Passo diagonal custa este múltiplo do tempo do passo reto. */
+    diagonalMult: 1.4,
+  },
   /** Tipos que contam como chefe/mini-chefe: derrotá-los dá +1 nível a toda a party e drop garantido. */
   bossKinds: ['elite', 'boss', 'boss2', 'orcboss'] as string[],
   archetypes: {
@@ -248,7 +284,7 @@ export const GAME_CONFIG = {
       /** 3 barreiras curtas; cada uma tem sua recarga (maior que a duração: o fogo pisca). */
       fireBarrier: {
         count: 3,
-        length: 3,
+        length: 5,
         durationTicks: 90,
         cooldownTicks: 125,
         burnDamage: 5,
@@ -269,6 +305,8 @@ export const GAME_CONFIG = {
       arrow: { range: 7, damage: 8, cooldownTicks: 13 },
       /** Chuva de Flechas: área 3×3 no grupo mais denso ao alcance. */
       rain: { range: 7, radius: 1, damage: 9, cooldownTicks: 70, minTargets: 3 },
+      /** Armadilha: dano alto em 1 alvo + lentidão. Armada no caminho, `ahead` passos à frente do inimigo. */
+      trap: { range: 7, ahead: 3, damage: 38, damagePerLevel: 9, slowTicks: 40, slowMult: 2.2, maxTraps: 2, cooldownTicks: 60 },
     },
     warrior: {
       hp: 180,
@@ -283,6 +321,26 @@ export const GAME_CONFIG = {
         damage: 16,
         cooldownTicks: 9,
       },
+      /** Muralha: blocos intransponíveis que a horda precisa quebrar. Vida escala com a Vitalidade. */
+      shieldWall: { length: 5, hp: 90, hpPerLevel: 20, hpPerVit: 4, cooldownTicks: 120, cooldownPerLevel: 6 },
+    },
+    /** Feiticeira: dano arcano (Inteligência). */
+    sorcerer: {
+      hp: 70,
+      orb: { range: 6, damage: 10, cooldownTicks: 14 },
+      meteor: { range: 7, radius: 1, damage: 26, cooldownTicks: 85, minTargets: 3 },
+    },
+    /** Bruxa: dreno e maldições (Inteligência). */
+    warlock: {
+      hp: 85,
+      drain: { range: 5, damage: 8, cooldownTicks: 14 },
+      curse: { range: 6, radius: 1, damage: 4, durationTicks: 60, cooldownTicks: 90, minTargets: 2 },
+    },
+    /** Assassino: corpo a corpo letal (Destreza). */
+    assassin: {
+      hp: 110,
+      backstab: { damage: 14, cooldownTicks: 8, critBonus: 0.15 },
+      fan: { range: 3, halfAngleDeg: 40, damage: 13, cooldownTicks: 40, minTargets: 2 },
     },
   },
 };
@@ -348,7 +406,7 @@ export function applyZone(zone: ZoneDef, o: WaveOptions = {}): void {
 /** Zona em jogo (muda quando a run entra numa região). */
 export const ZONE_STATE: { current: ZoneDef } = { current: ACTIVE_ZONE };
 
-export type ArchetypeId = 'mage' | 'warrior' | 'archer';
+export type ArchetypeId = 'mage' | 'warrior' | 'archer' | 'sorcerer' | 'warlock' | 'assassin';
 
 export interface MemberSetup {
   archetype: ArchetypeId;
@@ -364,6 +422,8 @@ export interface PartySetup {
   members: MemberSetup[];
   /** As 3 Barreiras de Fogo do Mago (curtas; o jogador posiciona cada uma). */
   barriers: BarrierSetup[];
+  /** Muralha do Guerreiro (centro + orientação); sem valor = na frente do Guerreiro. */
+  wall?: BarrierSetup;
 }
 
 /** Mago sozinho: as 3 barreiras formam um "U" de proteção em volta dele. */

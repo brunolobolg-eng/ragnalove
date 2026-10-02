@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Bezier, ConstantColor, ConstantValue, Gradient, IntervalValue, PiecewiseBezier, Vector3 as QV3, Vector4 as QV4, type BurstParameters } from 'three.quarks';
 import { softCircle } from '../../../textures';
-import { decalTexture, ribbonTexture, smokeAtlas, sparkTexture } from '../../kit/vfxTextures';
+import { decalTexture, impactTexture, ribbonTexture, smokeAtlas, sparkTexture } from '../../kit/vfxTextures';
 import type { VfxBuildKit } from '../VFXManager';
 
 /** Atalhos para montar efeitos do Quarks de forma legível (só visual). */
@@ -32,6 +32,11 @@ export function additive(k: VfxBuildKit, tex: 'spark' | 'soft' | 'ribbon' | 'rin
     const map = tex === 'spark' ? sparkTexture() : tex === 'soft' ? softCircle() : tex === 'ribbon' ? ribbonTexture() : decalTexture(tex);
     return new THREE.MeshBasicMaterial({ map, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   });
+}
+
+/** Estrela de impacto anime (mistura normal: cor chapada, sem estourar no bloom). */
+export function impact(k: VfxBuildKit): THREE.MeshBasicMaterial {
+  return k.material('cel-impact', () => new THREE.MeshBasicMaterial({ map: impactTexture(), transparent: true, depthWrite: false, side: THREE.DoubleSide }));
 }
 
 /** Fumaça/poeira (mistura normal, atlas 4×4 de fumaça). */

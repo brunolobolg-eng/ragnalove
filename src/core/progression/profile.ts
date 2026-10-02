@@ -2,6 +2,7 @@ import { GAME_CONFIG } from '../../config/gameConfig';
 import { ATTRIBUTES_CONFIG, ATTR_KEYS, computeStats, type AttrKey, type Attrs, type HeroStats } from './attributes';
 import { KIND_SLOT, SLOTS, canUse, gearBonus, itemKind, weaponPower, type Item, type Slot } from './equipment';
 import { startingSkills, type HeroKind, type SkillLevels } from './skills';
+import { HERO_ORDER, familyOf } from '../../config/heroes';
 
 /**
  * Progressão persistente entre ondas (o "save" do jogador). A simulação recebe um
@@ -52,18 +53,25 @@ export function createProfile(): Profile {
     skillPoints: 0,
     equipment: { weapon: starterWeapon(k) },
   });
-  return { version: 1, souls: 0, zeni: 0, heroes: { warrior: hero('warrior'), mage: hero('mage'), archer: hero('archer') }, inventory: [] };
+  return { version: 1, souls: 0, zeni: 0, heroes: Object.fromEntries(HERO_ORDER.map((k) => [k, hero(k)])), inventory: [] };
 }
 
 /** Arma inicial de cada classe (Comum, sem atributos extras). */
 export function starterWeapon(k: string): Item {
-  const kind = k === 'mage' ? 'staff' : k === 'archer' ? 'bow' : 'sword';
+  const kind = k === 'assassin' ? 'dagger' : familyOf(k) === 'mage' ? 'staff' : k === 'archer' ? 'bow' : 'sword';
   return { id: `starter-${k}`, slot: 'weapon', rarity: 'common', rolls: [], kind, ...weaponPower('common', kind) };
 }
 
 /** "Poder" do herói para comparar equipamentos: dano por segundo das habilidades + sobrevivência. */
 export function heroPower(kind: string, st: HeroStats): number {
   const per = (dmg: number, cd: number) => (dmg * 10) / Math.max(1, cd);
+  const fam = familyOf(kind);
+  if (kind === 'sorcerer' || kind === 'warlock' || kind === 'assassin') {
+    // classes avançadas: o dano vem do multiplicador da classe (atributo principal + arma)
+    const off = st.classPower * 30 * (1 + st.crit) / Math.max(0.3, st.cooldownMult);
+    const def = st.maxHp * (1 + st.dodge + st.block) / Math.max(0.4, st.damageTakenMult) + st.hpRegenPerSec * 20;
+    return off * 1.3 + def * (fam === 'archer' ? 0.09 : 0.06);
+  }
   const off =
     kind === 'mage'
       ? per(st.boltDamage, st.boltCooldownTicks) + per(st.burnDamage * st.barrierLength * 2, st.barrierCooldownTicks) * 0.6
@@ -294,7 +302,8 @@ export function clearInventory(p: Profile): void {
 /** Saves antigos: preenche campos novos (habilidades, Zeni). */
 export function migrateProfile(p: Profile): Profile {
   p.zeni ??= 0;
-  if (!p.heroes.archer) p.heroes.archer = createProfile().heroes.archer;
+  const fresh = createProfile();
+  for (const k of HERO_ORDER) if (!p.heroes[k]) p.heroes[k] = fresh.heroes[k];
   // itens antigos: ganham tipo, o slot novo (capacete, capa, botas...) e o Ataque da arma
   const fixWeapon = (it: Item) => {
     it.kind ??= itemKind(it);
@@ -305,6 +314,8 @@ export function migrateProfile(p: Profile): Profile {
   p.inventory.forEach(fixWeapon);
   for (const [k, h] of Object.entries(p.heroes)) {
     h.skills ??= startingSkills(k as HeroKind);
+    // habilidades iniciais novas (ex.: Muralha, Armadilha) entram aprendidas no nível 1
+    for (const [id, lv] of Object.entries(startingSkills(k as HeroKind))) h.skills[id as keyof SkillLevels] ??= lv;
     h.skillPoints ??= (h.level - 1) * PROGRESSION.skillPointsPerLevel;
     const eq = h.equipment as Record<string, Item | undefined>;
     const worn = Object.entries(eq).filter(([, it]) => it) as [string, Item][];

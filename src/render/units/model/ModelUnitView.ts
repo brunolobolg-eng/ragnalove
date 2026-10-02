@@ -5,6 +5,7 @@ import { softCircle } from '../../textures';
 import { archerClips, gruntClips, mageClips, warriorClips, type ClipName } from './anims';
 import { buildArcher, buildBrute, buildGrunt, buildMage, buildRunner, buildWarrior } from './characters';
 import { instantiateSkeleton, type BuiltModel } from './ModelBuilder';
+import { attachWeapon, type WeaponAttach } from './weapons';
 import { createBodyMaterial, createGlowMaterial, createOutlineMaterial, createSpectreMaterial, createUnitUniforms, type UnitUniforms } from './toonMaterials';
 
 /** Definição de cada personagem 3D. A escala compensa a câmera alta (vista de cima encolhe a altura). */
@@ -18,6 +19,8 @@ export interface ModelDef {
   aura?: THREE.Color;
   /** Pés batem no chão ao andar em quantos "passos por tile". */
   walkRate: number;
+  /** Armas presas nos ossos (modelos importados que vêm de mãos vazias). */
+  weapons?: WeaponAttach[];
 }
 
 export const MODELS: Record<string, ModelDef> = {
@@ -35,6 +38,10 @@ export const MODELS: Record<string, ModelDef> = {
 };
 /** Necromante: zumbi conjurador com aura violeta. */
 MODELS.necro = { ...MODELS.grunt, scale: 1.3, aura: new THREE.Color(0.7, 0.2, 1.6) };
+// Heróis avançados: até o GLB carregar, usam o corpo de uma classe parecida (cor do espectro própria).
+MODELS.sorcerer = { ...MODELS.mage, ghost: new THREE.Color(1.2, 0.55, 1.8) };
+MODELS.warlock = { ...MODELS.mage, ghost: new THREE.Color(1.6, 0.25, 0.6) };
+MODELS.assassin = { ...MODELS.archer, ghost: new THREE.Color(1.6, 1.3, 0.3) };
 // Até o GLB do orc carregar, o chefe final usa o Colosso com aura vermelha.
 MODELS.orcboss = { ...MODELS.boss, scale: 2.6 };
 
@@ -84,6 +91,7 @@ export class ModelUnitView {
   private readonly u: UnitUniforms;
   private readonly materials: THREE.Material[] = [];
   private readonly capeBones: THREE.Bone[] = [];
+  private readonly weapons: THREE.Object3D[] = [];
   private readonly contact: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   private readonly hpBar = new THREE.Group();
   private readonly hpFill: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -152,6 +160,10 @@ export class ModelUnitView {
       gm.position.copy(g.pos);
       sk.byName.get(g.bone)!.add(gm);
       this.materials.push(m);
+    }
+    for (const w of this.def.weapons ?? []) {
+      const o = attachWeapon(sk.byName, w);
+      if (o) this.weapons.push(o);
     }
     for (const n of ['cape0', 'cape1', 'cape2']) {
       const b = sk.byName.get(n);
@@ -389,12 +401,13 @@ export class ModelUnitView {
     this.mesh.skeleton.dispose();
     this.contact.material.dispose();
     this.contact.geometry.dispose();
-    this.hpBar.traverse((o) => {
-      if (o instanceof THREE.Mesh) {
-        o.geometry.dispose();
-        (o.material as THREE.Material).dispose();
-      }
-    });
+    for (const g of [this.hpBar, ...this.weapons])
+      g.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          o.geometry.dispose();
+          (o.material as THREE.Material).dispose();
+        }
+      });
     this.root.removeFromParent();
   }
 }

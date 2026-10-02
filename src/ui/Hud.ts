@@ -5,11 +5,13 @@ import { itemArtCanvas } from './itemArt';
 import { ATTR_KEYS, ATTR_LABEL, type AttrKey } from '../core/progression/attributes';
 import { ICONS, SKILL_ICONS } from './icons';
 import { itemIconUrl } from './itemArt';
+import { HERO_INFO, HERO_NAME, HERO_ORDER } from '../config/heroes';
+import { SKILL_BY_ID, type HeroKind } from '../core/progression/skills';
 
-export type HeroKind = 'warrior' | 'mage' | 'archer';
-const ALL_HEROES: HeroKind[] = ['warrior', 'mage', 'archer'];
+export type { HeroKind };
+const ALL_HEROES: HeroKind[] = HERO_ORDER;
 
-export type Tool = 'warrior' | 'mage' | 'archer' | 'barrier' | 'barrier2' | 'barrier3';
+export type Tool = HeroKind | 'barrier' | 'barrier2' | 'barrier3' | 'wall';
 
 export interface HudCallbacks {
   onTool(t: Tool): void;
@@ -79,19 +81,26 @@ export interface HudState {
   members: HudMember[];
 }
 
-const ORIENT_LABEL: Record<Orientation, string> = { H: '─', V: '│', DIAG_DOWN: '╲', DIAG_UP: '╱' };
-const NAME = { mage: 'Mago', warrior: 'Guerreiro', archer: 'Arqueira' } as const;
+const NAME: Record<HeroKind, string> = HERO_NAME;
 /** Barra de atalhos: por herói, 1 habilidade de área/controle + 1 ataque básico de alvo único. */
-const SKILL: Record<string, { name: string; icon: () => string }> = {
-  mage: { name: 'Barreiras de Fogo — área/controle (Mago)', icon: ICONS.fireBarrier },
-  warrior: { name: 'Golpe em Área — área/controle (Guerreiro)', icon: ICONS.cleave },
-  archer: { name: 'Chuva de Flechas — área (Arqueira)', icon: () => SKILL_ICONS.arrowRain() },
-  mage_basic: { name: 'Raio Gélido — alvo único, escala com Inteligência (Mago)', icon: ICONS.frostBolt },
-  warrior_basic: { name: 'Investida — alvo único, escala com Força (Guerreiro)', icon: ICONS.bash },
-  archer_basic: { name: 'Flecha Precisa — alvo único, escala com Destreza (Arqueira)', icon: () => SKILL_ICONS.preciseShot() },
+const SKILL: Record<string, { name: string; icon: () => string }> = Object.fromEntries(
+  HERO_ORDER.flatMap((k) => {
+    const i = HERO_INFO[k];
+    return [
+      [k, { name: `${SKILL_BY_ID[i.area].name} — área/controle (${i.name})`, icon: () => SKILL_ICONS[i.area]() }],
+      [`${k}_basic`, { name: `${SKILL_BY_ID[i.basic].name} — alvo único (${i.name})`, icon: () => SKILL_ICONS[i.basic]() }],
+    ];
+  }),
+);
+SKILL.mage.icon = ICONS.fireBarrier;
+SKILL.warrior.icon = ICONS.cleave;
+SKILL.mage_basic.icon = ICONS.frostBolt;
+SKILL.warrior_basic.icon = ICONS.bash;
+const PORTRAIT: Record<string, string> = {
+  warrior: 'sprites/portrait_warrior.png', mage: 'sprites/portrait_mage.png', archer: 'sprites/portrait_archer.png',
+  sorcerer: 'sprites/portrait_sorcerer.png', warlock: 'sprites/portrait_warlock.png', assassin: 'sprites/portrait_assassin.png',
 };
-const PORTRAIT: Record<HeroKind, string> = { mage: 'sprites/mage_front.png', warrior: 'sprites/warrior_front.png', archer: '' };
-const UNLOCK_HINT: Record<HeroKind, string> = { warrior: 'Chefe do Ato I', mage: 'Chefe do Ato I', archer: 'Chefe do Ato II' };
+const UNLOCK_HINT = 'Chefe de um ato';
 
 /**
  * HUD no estilo das janelas clássicas de MMO isométrico: janelas azul-acinzentadas
@@ -194,9 +203,12 @@ export class Hud {
   setParty(party: HeroKind[], dead: HeroKind[] = []): void {
     this.party = party;
     if (!party.includes(this.charKind)) this.charKind = party[0];
+    // janelas: os heróis da party + lugares vagos (até 3) como "???"
+    const vacant = ALL_HEROES.filter((k) => !party.includes(k)).slice(0, Math.max(0, 3 - party.length));
     for (const k of ALL_HEROES) {
       const w = this.el.querySelector<HTMLElement>(`[data-member="${k}"]`)!;
       const on = party.includes(k);
+      w.hidden = !on && !vacant.includes(k);
       w.classList.toggle('locked', !on);
       w.querySelector<HTMLElement>('.stats-live')!.hidden = !on;
       w.querySelector<HTMLElement>('.stats-locked')!.hidden = on;
@@ -206,9 +218,9 @@ export class Hud {
     }
     this.el.querySelectorAll<HTMLElement>('[data-tool]').forEach((b) => {
       const t = b.dataset.tool!;
-      b.hidden = t.startsWith('barrier') ? !party.includes('mage') || dead.includes('mage') : !party.includes(t as HeroKind) || dead.includes(t as HeroKind);
+      const owner = t.startsWith('barrier') ? 'mage' : t === 'wall' ? 'warrior' : (t as HeroKind);
+      b.hidden = !party.includes(owner) || dead.includes(owner);
     });
-    this.el.querySelector<HTMLElement>('.orient-set')!.hidden = !party.includes('mage');
     const keys = party.flatMap((k) => [k, `${k}_basic`]);
     for (const k of [...this.slotEls.keys()]) if (!k.startsWith('x:')) this.slotEls.delete(k);
     this.baseEl.innerHTML = keys
@@ -243,7 +255,7 @@ export class Hud {
         <div class="win-title"><span>${NAME[k]}</span><i class="lock-ico" hidden></i></div>
         <div class="win-body status-body">
           <div class="portrait"><img src="${PORTRAIT[k] || 'data:,'}" alt=""></div>
-          <div class="stats stats-locked" hidden><div class="line"><b>???</b></div><div class="soon" title="Libere derrotando o ${UNLOCK_HINT[k]}">🔒 ${UNLOCK_HINT[k]}</div></div>
+          <div class="stats stats-locked" hidden><div class="line"><b>???</b></div><div class="soon" title="Um herói novo se junta ao derrotar o ${UNLOCK_HINT}">🔒 ${UNLOCK_HINT}</div></div>
           <div class="stats stats-live">
             <div class="line"><b>${NAME[k]}</b><span class="lv">Nv. 1</span></div>
             <div class="bar-row"><span class="lbl">HP</span><div class="bar"><div class="fill hp"></div></div></div>
@@ -254,7 +266,7 @@ export class Hud {
       </div>`;
 
     root.innerHTML = `
-      <div class="party">${statusWin('warrior')}${statusWin('mage')}${statusWin('archer')}</div>
+      <div class="party">${ALL_HEROES.map(statusWin).join('')}</div>
       <div class="win charwin rog" hidden>
         <div class="win-title"><span>Ficha do Herói</span><button class="x" data-act="char-close">×</button></div>
         <div class="win-body char-body"></div>
@@ -269,33 +281,21 @@ export class Hud {
           <div class="soul-line" title="Almas roubadas: moeda de evolução da party"><i class="soul-ico big"></i><span>Almas</span><b class="soul-total">0</b></div>
           <div class="zeni-line" title="Zeni: moeda para atributos, redistribuição, lojas e refino"><i class="zeni-ico"></i><span>Zeni</span><b class="zeni-total">0</b></div>
           <div class="phase"></div>
-          <fieldset>
-            <legend>Posicionar <em>ou arraste no campo</em></legend>
-            <div class="row" data-group="tool">
-              <button data-tool="warrior" class="on">Guerreiro</button>
-              <button data-tool="mage">Mago</button>
-              <button data-tool="archer">Arqueira</button>
-              <button data-tool="barrier" title="Barreira de Fogo 1">🔥1</button>
-              <button data-tool="barrier2" title="Barreira de Fogo 2">🔥2</button>
-              <button data-tool="barrier3" title="Barreira de Fogo 3">🔥3</button>
-            </div>
-          </fieldset>
-          <fieldset class="orient-set">
-            <legend>Barreira selecionada <em>clique nela ou R gira</em></legend>
-            <div class="row" data-group="orient">
-              ${(['H', 'V', 'DIAG_DOWN', 'DIAG_UP'] as Orientation[])
-                .map((o, i) => `<button data-orient="${o}" class="${i === 0 ? 'on' : ''}">${ORIENT_LABEL[o]}</button>`)
-                .join('')}
-            </div>
-          </fieldset>
+          <div class="plan-only tool-chips" data-group="tool" title="Selecione e clique no chão — ou arraste direto no campo">
+            ${ALL_HEROES.map((k, i) => `<button data-tool="${k}" class="${i === 0 ? 'on' : ''}" title="Posicionar ${NAME[k]}">${NAME[k]}</button>`).join('')}
+            <button data-tool="wall" title="Muralha do Guerreiro">🧱 Muralha</button>
+            <button data-tool="barrier" title="Barreira de Fogo 1">🔥1</button>
+            <button data-tool="barrier2" title="Barreira de Fogo 2">🔥2</button>
+            <button data-tool="barrier3" title="Barreira de Fogo 3">🔥3</button>
+          </div>
           <div class="row">
             <button data-act="char">Personagem (C)<span class="badge" hidden></span></button>
             <button data-act="skills">Habilidades (K)</button>
           </div>
           <div class="row"><button class="retreat" data-act="retreat" hidden>🏳 Recuar e coletar prêmios</button></div>
-          <div class="row">
-            <button class="primary" data-act="start">Iniciar onda</button>
-            <button data-act="reset" title="Volta a party para a posição inicial da zona">Reposicionar</button>
+          <div class="row plan-only">
+            <button data-act="reset" title="Volta a party para a posição inicial da zona">↺ Reposicionar</button>
+            <button class="primary" data-act="start" hidden>Iniciar onda</button>
           </div>
           <div class="row speed" data-group="speed">
             <span class="lbl">Vel.</span>
@@ -308,9 +308,19 @@ export class Hud {
       </div>
 
       <div class="start-bar">
-        <button class="start-big" data-act="start-big"><span class="tri">▶</span> INICIAR HORDA <kbd>Espaço</kbd></button>
-        <div class="start-tips"><span>🖱 <b>Arraste</b> heróis e barreiras</span><span>🔥 <b>Clique</b> na barreira (ou <kbd>R</kbd> / roda do mouse) para girar</span><span>✦ <b>Clique</b> nos objetos brilhando para usá-los</span><span>⏩ Velocidade <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd></span></div>
-        <div class="start-tips cam-tips"><span>🎥 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / setas ou arraste com o botão direito: mover a câmera</span><span>roda (fora das barreiras): zoom</span><span><kbd>F</kbd> seguir a batalha</span></div>
+        <div class="start-help" hidden>
+          <b>Planejamento</b>
+          <span>🖱 <b>Arraste</b> heróis, barreiras e a muralha no campo</span>
+          <span>🔥 <b>Arraste a ponta</b> da barreira para girar (ou clique nela / <kbd>R</kbd>)</span>
+          <span>✦ <b>Clique</b> nos objetos brilhando para usá-los</span>
+          <b>Câmera</b>
+          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ou botão direito arrastando · roda = zoom · <kbd>F</kbd> centraliza</span>
+          <span>Velocidade <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd></span>
+        </div>
+        <div class="start-row">
+          <button class="help-btn" data-act="help" title="Como jogar">?</button>
+          <button class="start-big" data-act="start-big"><span class="tri">▶</span> Iniciar horda <kbd>Espaço</kbd></button>
+        </div>
       </div>
       <div class="city-bar" title="Vida da cidade: cada inimigo que alcança o portão invade e desconta a vida dela. Zero = fim da jornada.">
         <span class="cb-name">🏰 Cidade</span>
@@ -431,6 +441,10 @@ export class Hud {
     );
     this.startBtn.addEventListener('click', () => cb.onStart());
     root.querySelector('[data-act="start-big"]')!.addEventListener('click', () => cb.onStart());
+    root.querySelector('[data-act="help"]')!.addEventListener('click', () => {
+      const h = root.querySelector<HTMLElement>('.start-help')!;
+      h.hidden = !h.hidden;
+    });
     root.querySelector('[data-act="reset"]')!.addEventListener('click', () => cb.onReset());
     root.querySelector('[data-act="retreat"]')!.addEventListener('click', () => cb.onRetreat());
     root.querySelector('.obj-menu')!.addEventListener('click', (ev) => {
@@ -600,7 +614,7 @@ export class Hud {
     if (!vm) return;
     const h = vm.heroes.find((x) => x.kind === this.charKind) ?? vm.heroes[0];
     const dis = (on: boolean) => (on ? '' : ' disabled');
-    const ROLE: Record<HeroKind, string> = { warrior: 'Linha de frente', mage: 'Conjurador', archer: 'Atiradora' };
+    const ROLE = Object.fromEntries(HERO_ORDER.map((k) => [k, HERO_INFO[k].role])) as Record<HeroKind, string>;
     const tabs = vm.heroes
       .map(
         (x) => `<button data-c="tab" data-kind="${x.kind}" class="cw-tab ${x.kind === h.kind ? 'on' : ''}">

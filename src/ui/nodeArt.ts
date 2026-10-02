@@ -1,4 +1,5 @@
 import type { NodeType } from '../config/world';
+import { NODE_ICONS } from '../config/visualConfig';
 
 /**
  * Ícones pintados (canvas, arte original) dos tipos de fase no mapa:
@@ -16,6 +17,9 @@ export const NODE_COLOR: Record<NodeType, string> = {
 };
 
 export function nodeIconUrl(t: NodeType, size = 128): string {
+  // arte pintada (sprites/nodes); o desenho em canvas fica de reserva
+  const art = NODE_ICONS[t];
+  if (art) return art;
   const key = `${t}:${size}`;
   let url = cache.get(key);
   if (!url) {

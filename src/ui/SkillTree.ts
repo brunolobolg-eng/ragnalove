@@ -1,6 +1,7 @@
 import { SKILL_BY_ID, heroSkills, lvOf, missingRequirements, skillState, skillZeniCost, type HeroKind, type SkillDef, type SkillId } from '../core/progression/skills';
 import { learnSkill, type RunState } from '../core/run/run';
 import { SKILL_ICONS } from './icons';
+import { HERO_NAME } from '../config/heroes';
 
 /**
  * Janela da árvore de habilidades: nós ligados por linhas, estados bloqueado / disponível /
@@ -12,7 +13,7 @@ export interface SkillTreeCallbacks {
   onUi(): void;
 }
 
-const HERO_PT: Record<HeroKind, string> = { warrior: 'Guerreiro', mage: 'Mago', archer: 'Arqueira' };
+const HERO_PT: Record<HeroKind, string> = HERO_NAME;
 const NODE_W = 150;
 const NODE_H = 118;
 
@@ -98,6 +99,7 @@ export class SkillTree {
     const r = this.run!;
     const hp = r.profile.heroes[this.hero];
     const skills = heroSkills(this.hero);
+    const cols = Math.max(3, ...skills.map((d) => d.col + 1));
     const pos = (d: SkillDef) => ({ x: 30 + d.col * (NODE_W + 40), y: 24 + (d.tier - 1) * (NODE_H + 34) });
     const lines = skills
       .flatMap((d) =>
@@ -146,7 +148,7 @@ export class SkillTree {
           <div class="tabs-row">${r.party.map((h) => `<button data-c="tab" data-h="${h}" class="${h === this.hero ? 'on' : ''}">${HERO_PT[h]} <small>Nv.${r.profile.heroes[h].level}</small>${r.profile.heroes[h].skillPoints ? ` <span class="badge">${r.profile.heroes[h].skillPoints}</span>` : ''}</button>`).join('')}
             <span class="sk-bank">Pontos: <b>${hp.skillPoints}</b> · <i class="zeni-ico"></i>${r.profile.zeni.toLocaleString('pt-BR')}</span></div>
           <div class="sk-wrap">
-            <div class="sk-tree"><svg width="${3 * NODE_W + 2 * 40 + 60}" height="${3 * NODE_H + 2 * 34 + 40}">${lines}</svg>${nodes}</div>
+            <div class="sk-tree"><svg width="${(cols) * NODE_W + (cols - 1) * 40 + 60}" height="${3 * NODE_H + 2 * 34 + 40}">${lines}</svg>${nodes}</div>
             <div class="sk-side">${detail}<div class="sk-msg">${this.msg}</div></div>
           </div>
         </div>

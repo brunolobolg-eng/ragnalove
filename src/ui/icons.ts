@@ -548,3 +548,173 @@ Object.assign(SKILL_ICONS, {
       g.fillRect(6, 31, 52, 2);
     }),
 });
+
+// ---------------- Muralha, Armadilha e classes avançadas ----------------
+/** Ícone simples: fundo radial + traço brilhante desenhado por `draw`. */
+const glyph = (inner: string, outer: string, stroke: string, draw: (g: CanvasRenderingContext2D) => void) => () =>
+  icon((g) => {
+    bgRadial(g, inner, outer);
+    glowStroke(g, stroke, 3, 10);
+    g.fillStyle = stroke;
+    draw(g);
+    g.shadowBlur = 0;
+  });
+const star = (g: CanvasRenderingContext2D, x: number, y: number, r: number, n = 5) => {
+  g.beginPath();
+  for (let i = 0; i < n * 2; i++) {
+    const a = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2;
+    const rr = i % 2 ? r * 0.45 : r;
+    g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  g.closePath();
+};
+Object.assign(SKILL_ICONS, {
+  shieldWall: glyph('#6a6458', '#16140f', '#e8e0cc', (g) => {
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) g.strokeRect(10 + c * 15 + (r % 2) * 7 - 3, 14 + r * 12, 14, 10);
+    g.beginPath();
+    g.moveTo(32, 22);
+    g.lineTo(44, 28);
+    g.lineTo(42, 44);
+    g.lineTo(32, 52);
+    g.lineTo(22, 44);
+    g.lineTo(20, 28);
+    g.closePath();
+    g.fill();
+  }),
+  snareTrap: glyph('#5a4a2a', '#120c04', '#f0d8a0', (g) => {
+    g.beginPath();
+    g.arc(32, 36, 16, 0, Math.PI * 2);
+    g.stroke();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      g.beginPath();
+      g.moveTo(32 + Math.cos(a) * 16, 36 + Math.sin(a) * 16);
+      g.lineTo(32 + Math.cos(a) * 8, 36 + Math.sin(a) * 8);
+      g.stroke();
+    }
+  }),
+  arcaneOrb: glyph('#7a3ac0', '#12041e', '#f0d0ff', (g) => {
+    g.beginPath();
+    g.arc(32, 32, 11, 0, Math.PI * 2);
+    g.fill();
+    g.beginPath();
+    g.arc(32, 32, 19, 0.3, Math.PI * 1.6);
+    g.stroke();
+  }),
+  meteorStrike: glyph('#a04a1a', '#1e0804', '#ffd08a', (g) => {
+    g.beginPath();
+    g.arc(38, 38, 10, 0, Math.PI * 2);
+    g.fill();
+    for (const o of [-6, 0, 6]) {
+      g.beginPath();
+      g.moveTo(10 + o, 12 - o);
+      g.lineTo(30 + o, 32 - o);
+      g.stroke();
+    }
+  }),
+  arcaneFlow: glyph('#4a3a9a', '#0a0620', '#d8c8ff', (g) => {
+    for (let i = 0; i < 3; i++) {
+      g.beginPath();
+      g.moveTo(10, 22 + i * 10);
+      g.bezierCurveTo(24, 12 + i * 10, 40, 32 + i * 10, 54, 22 + i * 10);
+      g.stroke();
+    }
+  }),
+  chainLightning: glyph('#3a5ac0', '#060a24', '#e0f0ff', (g) => {
+    g.beginPath();
+    g.moveTo(12, 14);
+    g.lineTo(28, 30);
+    g.lineTo(22, 34);
+    g.lineTo(40, 52);
+    g.lineTo(34, 36);
+    g.lineTo(42, 32);
+    g.lineTo(28, 14);
+    g.stroke();
+  }),
+  meteorShower: glyph('#a0381a', '#1a0604', '#ffc070', (g) => {
+    for (const [x, y] of [[20, 24], [40, 20], [32, 44]]) {
+      g.beginPath();
+      g.arc(x, y, 6, 0, Math.PI * 2);
+      g.fill();
+    }
+  }),
+  lifeDrain: glyph('#8a1a3a', '#1a0408', '#ffb0c8', (g) => {
+    g.beginPath();
+    g.moveTo(32, 50);
+    g.bezierCurveTo(10, 34, 16, 14, 32, 24);
+    g.bezierCurveTo(48, 14, 54, 34, 32, 50);
+    g.fill();
+  }),
+  curse: glyph('#6a1a6a', '#120412', '#ff9aff', (g) => {
+    star(g, 32, 32, 18);
+    g.stroke();
+    g.beginPath();
+    g.arc(32, 32, 22, 0, Math.PI * 2);
+    g.stroke();
+  }),
+  darkPact: glyph('#3a0a2a', '#08020a', '#ff6a9a', (g) => {
+    g.beginPath();
+    g.moveTo(32, 10);
+    g.lineTo(32, 54);
+    g.moveTo(18, 24);
+    g.lineTo(46, 24);
+    g.stroke();
+  }),
+  shadowSwarm: glyph('#2a1a4a', '#06040e', '#c8a0ff', (g) => {
+    for (const [x, y] of [[20, 22], [40, 18], [28, 38], [46, 40], [16, 46]]) {
+      g.beginPath();
+      g.arc(x, y, 4, 0, Math.PI * 2);
+      g.fill();
+    }
+  }),
+  soulHarvest: glyph('#1a5a5a', '#041212', '#a0fff0', (g) => {
+    g.beginPath();
+    g.arc(32, 30, 14, Math.PI * 0.2, Math.PI * 1.4);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(32, 30);
+    g.lineTo(32, 54);
+    g.stroke();
+  }),
+  backstab: glyph('#5a4a1a', '#120e04', '#ffe8a0', (g) => {
+    g.beginPath();
+    g.moveTo(14, 50);
+    g.lineTo(46, 18);
+    g.lineTo(50, 14);
+    g.lineTo(48, 22);
+    g.closePath();
+    g.stroke();
+  }),
+  bladeFan: glyph('#6a5a1a', '#141004', '#fff0b0', (g) => {
+    for (const a of [-0.5, 0, 0.5]) {
+      g.beginPath();
+      g.moveTo(32, 50);
+      g.lineTo(32 + Math.sin(a) * 30, 50 - Math.cos(a) * 30);
+      g.stroke();
+    }
+  }),
+  shadowStep: glyph('#2a2a3a', '#06060a', '#c8d0ff', (g) => {
+    for (const [x, y] of [[22, 44], [32, 32], [42, 20]]) {
+      g.beginPath();
+      g.ellipse(x, y, 5, 8, 0.4, 0, Math.PI * 2);
+      g.fill();
+    }
+  }),
+  poisonBlades: glyph('#2a5a1a', '#061204', '#b0ff80', (g) => {
+    g.beginPath();
+    g.moveTo(16, 48);
+    g.lineTo(44, 20);
+    g.stroke();
+    g.beginPath();
+    g.arc(46, 46, 6, 0, Math.PI * 2);
+    g.fill();
+  }),
+  execute: glyph('#7a1a1a', '#160404', '#ffd0a0', (g) => {
+    g.beginPath();
+    g.moveTo(14, 14);
+    g.lineTo(50, 50);
+    g.moveTo(50, 14);
+    g.lineTo(14, 50);
+    g.stroke();
+  }),
+});

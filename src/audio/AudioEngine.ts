@@ -532,4 +532,44 @@ export class AudioEngine {
     };
     schedule();
   }
+
+  /** Efeitos gravados (arquivos): lidos inteiros para a memória — o app:// não faz streaming. */
+  private readonly samples = new Map<string, Promise<AudioBuffer | undefined>>();
+  private loadSample(url: string): Promise<AudioBuffer | undefined> | undefined {
+    const c = this.ctx;
+    if (!c) return undefined;
+    let p = this.samples.get(url);
+    if (!p) {
+      p = fetch(new URL(url, document.baseURI).href)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))))
+        .then((b) => c.decodeAudioData(b))
+        .catch((err) => {
+          console.warn(`Som ${url} indisponível.`, err);
+          return undefined;
+        });
+      this.samples.set(url, p);
+    }
+    return p;
+  }
+
+  /** Carrega os arquivos antes de usar (evita atraso no primeiro toque). */
+  preloadSamples(urls: string[]): void {
+    for (const u of urls) void this.loadSample(u);
+  }
+
+  /** Toca um efeito gravado no canal de Efeitos. */
+  playSample(url: string, volume = 1, rate = 1): void {
+    const c = this.ctx;
+    if (!c || c.state !== 'running' || this.vol.muted) return;
+    void this.loadSample(url)?.then((buf) => {
+      if (!buf) return;
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = rate;
+      const g = c.createGain();
+      g.gain.value = volume;
+      src.connect(g).connect(this.sfxBus);
+      src.start();
+    });
+  }
 }

@@ -9,7 +9,7 @@ import { GAME_CONFIG } from '../../config/gameConfig';
  * - Pré-requisito = outras habilidades em um nível mínimo.
  * - As 4 habilidades originais começam no nível 1 (o herói já sabe usá-las).
  */
-export type HeroKind = 'mage' | 'warrior' | 'archer';
+export type HeroKind = 'mage' | 'warrior' | 'archer' | 'sorcerer' | 'warlock' | 'assassin';
 
 export type SkillId =
   // Mago
@@ -30,6 +30,7 @@ export type SkillId =
   | 'battleBreath'
   | 'shockwave'
   | 'fury'
+  | 'shieldWall'
   // Arqueira
   | 'preciseShot'
   | 'arrowRain'
@@ -38,14 +39,33 @@ export type SkillId =
   | 'volley'
   | 'doubleShot'
   | 'fireRain'
-  | 'hunterFocus';
+  | 'hunterFocus'
+  | 'snareTrap'
+  // Feiticeira
+  | 'arcaneOrb'
+  | 'meteorStrike'
+  | 'arcaneFlow'
+  | 'chainLightning'
+  | 'meteorShower'
+  // Bruxa
+  | 'lifeDrain'
+  | 'curse'
+  | 'darkPact'
+  | 'shadowSwarm'
+  | 'soulHarvest'
+  // Assassino
+  | 'backstab'
+  | 'bladeFan'
+  | 'shadowStep'
+  | 'poisonBlades'
+  | 'execute';
 
 export interface SkillDef {
   id: SkillId;
   hero: HeroKind;
   name: string;
   tier: 1 | 2 | 3;
-  /** Coluna na tela da árvore (0..2). */
+  /** Coluna na tela da árvore (0..3). */
   col: number;
   kind: 'active' | 'passive';
   maxLevel: number;
@@ -79,9 +99,10 @@ export const SKILL_NUM = {
     const k = Math.max(0, lv - 1);
     return { radius: T.range + T.rangePerLevel * k, duration: T.durationTicks + T.durationPerLevel * k, maxEnemies: T.maxEnemies + T.maxPerLevel * k, pull: lv >= 3 ? 2 : 1, cooldown: T.cooldownTicks + T.cooldownPerLevel * lv };
   },
-  shatter: (lv: number) => ({ chance: Math.min(1, 0.4 + 0.12 * lv), distance: lv >= 4 ? 2 : 1 }),
+  /** Atordoa (sem empurrar): o alvo perde o próximo passo/ataque. */
+  shatter: (lv: number) => ({ chance: Math.min(1, 0.4 + 0.12 * lv), stun: 6 + 2 * lv }),
   battleBreath: (lv: number) => ({ heal: 1 + lv }),
-  shockwave: (lv: number) => ({ radius: lv >= 4 ? 3 : 2, damage: 18 + 7 * lv, push: 2, cooldown: 115 - 6 * lv }),
+  shockwave: (lv: number) => ({ radius: lv >= 4 ? 3 : 2, damage: 18 + 7 * lv, stun: 10 + 2 * lv, cooldown: 115 - 6 * lv }),
   fury: (lv: number) => ({ duration: 40 + 8 * lv, cdMult: 0.7 - 0.04 * lv, cooldown: 170 - 6 * lv }),
   preciseShot: (lv: number) => ({ dmgMult: 1 + 0.12 * (lv - 1) }),
   arrowRain: (lv: number) => ({ dmgMult: 1 + 0.1 * (lv - 1) }),
@@ -91,6 +112,31 @@ export const SKILL_NUM = {
   doubleShot: (lv: number) => ({ chance: 0.1 + 0.08 * lv }),
   fireRain: (lv: number) => ({ burnTicks: 20 + 8 * lv }),
   hunterFocus: (lv: number) => ({ duration: 40 + 8 * lv, cdMult: 0.65 - 0.04 * lv, cooldown: 170 - 6 * lv }),
+  /** Muralha do Guerreiro: números base em GAME_CONFIG.archetypes.warrior.shieldWall. */
+  shieldWall: (lv: number) => {
+    const W = GAME_CONFIG.archetypes.warrior.shieldWall;
+    return { length: W.length + (lv >= 4 ? 2 : lv >= 2 ? 1 : 0), hp: W.hp + W.hpPerLevel * (lv - 1), cooldown: Math.max(20, W.cooldownTicks - W.cooldownPerLevel * (lv - 1)) };
+  },
+  /** Armadilha da Arqueira: números base em GAME_CONFIG.archetypes.archer.trap. */
+  snareTrap: (lv: number) => {
+    const T = GAME_CONFIG.archetypes.archer.trap;
+    return { damage: T.damage + T.damagePerLevel * (lv - 1), slowTicks: T.slowTicks + 6 * (lv - 1), slowMult: T.slowMult, maxTraps: T.maxTraps + (lv >= 3 ? 1 : 0), cooldown: Math.max(20, T.cooldownTicks - 4 * (lv - 1)) };
+  },
+  arcaneOrb: (lv: number) => ({ dmgMult: 1 + 0.12 * (lv - 1) }),
+  meteorStrike: (lv: number) => ({ dmgMult: 1 + 0.1 * (lv - 1) }),
+  arcaneFlow: (lv: number) => ({ cdr: 0.02 * lv }),
+  chainLightning: (lv: number) => ({ jumps: 2 + lv, damage: 12 + 5 * lv, cooldown: 80 - 5 * lv }),
+  meteorShower: (lv: number) => ({ extra: lv >= 4 ? 2 : 1, dmgMult: 0.5 + 0.08 * lv }),
+  lifeDrain: (lv: number) => ({ dmgMult: 1 + 0.12 * (lv - 1), heal: 0.35 + 0.03 * (lv - 1) }),
+  curse: (lv: number) => ({ dmgMult: 1 + 0.1 * (lv - 1), amp: 0.2 + 0.03 * (lv - 1) }),
+  darkPact: (lv: number) => ({ dmg: 0.04 * lv }),
+  shadowSwarm: (lv: number) => ({ targets: 2 + lv, dot: 3 + 1.5 * lv, ticks: 40 + 6 * lv, cooldown: 90 - 5 * lv }),
+  soulHarvest: (lv: number) => ({ heal: 2 + lv, soulChance: 0.08 * lv }),
+  backstab: (lv: number) => ({ dmgMult: 1 + 0.12 * (lv - 1) }),
+  bladeFan: (lv: number) => ({ dmgMult: 1 + 0.1 * (lv - 1) }),
+  shadowStep: (lv: number) => ({ dodge: 0.02 * lv, crit: 0.02 * lv }),
+  poisonBlades: (lv: number) => ({ dot: 2 + lv, ticks: 30 + 6 * lv }),
+  execute: (lv: number) => ({ threshold: 0.18 + 0.04 * lv, range: 2, cooldown: 110 - 8 * lv }),
 } satisfies Record<SkillId, (lv: number) => Record<string, number>>;
 
 const N = SKILL_NUM;
@@ -167,8 +213,8 @@ export const SKILLS: SkillDef[] = [
   },
   {
     id: 'shatter', hero: 'warrior', name: 'Golpe Estilhaçante', tier: 2, col: 1, kind: 'passive', maxLevel: 5, requires: [{ id: 'cleave', level: 3 }], start: 0,
-    desc: 'Passiva: o Golpe em Área empurra os inimigos atingidos.',
-    effect: (lv) => `${pct(N.shatter(lv).chance)} de chance · empurra ${N.shatter(lv).distance} tile(s)`,
+    desc: 'Passiva: o Golpe em Área atordoa os inimigos atingidos (sem empurrar).',
+    effect: (lv) => `${pct(N.shatter(lv).chance)} de chance · atordoa ${sec(N.shatter(lv).stun)}`,
   },
   {
     id: 'taunt', hero: 'warrior', name: 'Provocar', tier: 2, col: 2, kind: 'active', maxLevel: 5, requires: [{ id: 'ironSkin', level: 3 }], start: 0,
@@ -178,8 +224,8 @@ export const SKILLS: SkillDef[] = [
   {
     id: 'shockwave', hero: 'warrior', name: 'Onda de Choque', tier: 3, col: 1, kind: 'active', maxLevel: 5,
     requires: [{ id: 'shatter', level: 3 }, { id: 'taunt', level: 3 }], start: 0,
-    desc: 'Golpe no chão: dano em área grande e empurrão forte.',
-    effect: (lv) => { const n = N.shockwave(lv); return `Raio ${n.radius} · dano ${n.damage} · empurra ${n.push} · recarga ${sec(n.cooldown)}`; },
+    desc: 'Golpe no chão: dano em área grande e atordoa quem estiver em volta (sem empurrar).',
+    effect: (lv) => { const n = N.shockwave(lv); return `Raio ${n.radius} · dano ${n.damage} · atordoa ${sec(n.stun)} · recarga ${sec(n.cooldown)}`; },
   },
   // ---------------- Arqueira ----------------
   {
@@ -223,6 +269,98 @@ export const SKILLS: SkillDef[] = [
     requires: [{ id: 'volley', level: 3 }, { id: 'preciseShot', level: 3 }], start: 0,
     desc: 'Passiva: a Chuva de Flechas deixa o chão em chamas.',
     effect: (lv) => `Fogo por ${sec(N.fireRain(lv).burnTicks)}`,
+  },
+  {
+    id: 'snareTrap', hero: 'archer', name: 'Armadilha', tier: 1, col: 3, kind: 'active', maxLevel: 10, requires: [], start: 1,
+    desc: 'Arma uma armadilha no caminho da horda: o primeiro inimigo que pisar leva dano alto e fica lento. Só 1 alvo.',
+    effect: (lv) => { const n = N.snareTrap(lv); return `Dano ${n.damage} · lento ×${n.slowMult} por ${sec(n.slowTicks)} · até ${n.maxTraps} armadas · recarga ${sec(n.cooldown)}`; },
+  },
+  // ---------------- Guerreiro (muralha) ----------------
+  {
+    id: 'shieldWall', hero: 'warrior', name: 'Muralha', tier: 1, col: 3, kind: 'active', maxLevel: 10, requires: [], start: 1,
+    desc: 'Ergue uma muralha intransponível onde você posicionar (arraste no campo). A horda precisa quebrá-la para passar; ela volta depois da recarga.',
+    effect: (lv) => { const n = N.shieldWall(lv); return `${n.length} blocos · ${n.hp} de vida cada · reergue em ${sec(n.cooldown)}`; },
+  },
+  // ---------------- Feiticeira ----------------
+  {
+    id: 'arcaneOrb', hero: 'sorcerer', name: 'Orbe Arcano', tier: 1, col: 0, kind: 'active', maxLevel: 10, requires: [], start: 1,
+    desc: 'Orbe de energia no inimigo mais próximo (exige linha de visão). Escala com Inteligência.',
+    effect: (lv) => `Dano ×${N.arcaneOrb(lv).dmgMult.toFixed(2)}`,
+  },
+  {
+    id: 'meteorStrike', hero: 'sorcerer', name: 'Meteoro', tier: 1, col: 1, kind: 'active', maxLevel: 10, requires: [], start: 1,
+    desc: 'Invoca um meteoro sobre o grupo mais denso ao alcance.',
+    effect: (lv) => `Dano ×${N.meteorStrike(lv).dmgMult.toFixed(2)}`,
+  },
+  {
+    id: 'arcaneFlow', hero: 'sorcerer', name: 'Fluxo Arcano', tier: 1, col: 2, kind: 'passive', maxLevel: 10, requires: [], start: 0,
+    desc: 'Passiva: recargas mais curtas.',
+    effect: (lv) => `Recarga −${pct(N.arcaneFlow(lv).cdr)}`,
+  },
+  {
+    id: 'chainLightning', hero: 'sorcerer', name: 'Corrente Elétrica', tier: 2, col: 0, kind: 'active', maxLevel: 5, requires: [{ id: 'arcaneOrb', level: 3 }], start: 0,
+    desc: 'Um raio que salta de inimigo em inimigo.',
+    effect: (lv) => { const n = N.chainLightning(lv); return `${n.jumps} saltos · dano ${n.damage} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'meteorShower', hero: 'sorcerer', name: 'Chuva de Meteoros', tier: 3, col: 1, kind: 'passive', maxLevel: 5,
+    requires: [{ id: 'meteorStrike', level: 4 }, { id: 'chainLightning', level: 2 }], start: 0,
+    desc: 'Passiva: cada Meteoro traz meteoros menores nos grupos vizinhos.',
+    effect: (lv) => `+${N.meteorShower(lv).extra} meteoro(s) com ${pct(N.meteorShower(lv).dmgMult)} do dano`,
+  },
+  // ---------------- Bruxa ----------------
+  {
+    id: 'lifeDrain', hero: 'warlock', name: 'Dreno de Vida', tier: 1, col: 0, kind: 'active', maxLevel: 10, requires: [], start: 1,
+    desc: 'Rouba vida do inimigo mais próximo: cura a Bruxa com parte do dano.',
+    effect: (lv) => `Dano ×${N.lifeDrain(lv).dmgMult.toFixed(2)} · cura ${pct(N.lifeDrain(lv).heal)} do dano`,
+  },
+  {
+    id: 'curse', hero: 'warlock', name: 'Maldição', tier: 1, col: 1, kind: 'active', maxLevel: 10, requires: [], start: 1,
+    desc: 'Amaldiçoa um grupo: dano contínuo e os amaldiçoados sofrem mais dano de toda a party.',
+    effect: (lv) => `Dano ×${N.curse(lv).dmgMult.toFixed(2)} · +${pct(N.curse(lv).amp)} de dano recebido`,
+  },
+  {
+    id: 'darkPact', hero: 'warlock', name: 'Pacto Sombrio', tier: 1, col: 2, kind: 'passive', maxLevel: 10, requires: [], start: 0,
+    desc: 'Passiva: mais dano em todas as magias da Bruxa.',
+    effect: (lv) => `Dano +${pct(N.darkPact(lv).dmg)}`,
+  },
+  {
+    id: 'shadowSwarm', hero: 'warlock', name: 'Enxame de Sombras', tier: 2, col: 1, kind: 'active', maxLevel: 5, requires: [{ id: 'curse', level: 3 }], start: 0,
+    desc: 'Sombras devoram vários inimigos aos poucos (dano contínuo).',
+    effect: (lv) => { const n = N.shadowSwarm(lv); return `${n.targets} alvos · ${n.dot} por segundo por ${sec(n.ticks)} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'soulHarvest', hero: 'warlock', name: 'Colheita de Almas', tier: 3, col: 0, kind: 'passive', maxLevel: 5,
+    requires: [{ id: 'lifeDrain', level: 4 }, { id: 'shadowSwarm', level: 2 }], start: 0,
+    desc: 'Passiva: inimigos mortos pela Bruxa curam a party e podem render almas extras.',
+    effect: (lv) => `+${N.soulHarvest(lv).heal} HP para a party · ${pct(N.soulHarvest(lv).soulChance)} de alma extra`,
+  },
+  // ---------------- Assassino ----------------
+  {
+    id: 'backstab', hero: 'assassin', name: 'Golpe Furtivo', tier: 1, col: 0, kind: 'active', maxLevel: 10, requires: [], start: 1,
+    desc: 'Ataque rápido no inimigo adjacente mais ferido, com muito crítico.',
+    effect: (lv) => `Dano ×${N.backstab(lv).dmgMult.toFixed(2)}`,
+  },
+  {
+    id: 'bladeFan', hero: 'assassin', name: 'Leque de Lâminas', tier: 1, col: 1, kind: 'active', maxLevel: 10, requires: [], start: 1,
+    desc: 'Arremessa lâminas em cone curto na direção com mais inimigos.',
+    effect: (lv) => `Dano ×${N.bladeFan(lv).dmgMult.toFixed(2)}`,
+  },
+  {
+    id: 'shadowStep', hero: 'assassin', name: 'Passo das Sombras', tier: 1, col: 2, kind: 'passive', maxLevel: 10, requires: [], start: 0,
+    desc: 'Passiva: mais esquiva e mais crítico.',
+    effect: (lv) => `Esquiva +${pct(N.shadowStep(lv).dodge)} · crítico +${pct(N.shadowStep(lv).crit)}`,
+  },
+  {
+    id: 'poisonBlades', hero: 'assassin', name: 'Lâminas Envenenadas', tier: 2, col: 1, kind: 'passive', maxLevel: 5, requires: [{ id: 'bladeFan', level: 3 }], start: 0,
+    desc: 'Passiva: os golpes envenenam (dano contínuo).',
+    effect: (lv) => `${N.poisonBlades(lv).dot} por segundo por ${sec(N.poisonBlades(lv).ticks)}`,
+  },
+  {
+    id: 'execute', hero: 'assassin', name: 'Execução', tier: 3, col: 0, kind: 'active', maxLevel: 5,
+    requires: [{ id: 'backstab', level: 4 }, { id: 'poisonBlades', level: 2 }], start: 0,
+    desc: 'Finaliza na hora um inimigo próximo com pouca vida (não funciona em chefes).',
+    effect: (lv) => { const n = N.execute(lv); return `Abaixo de ${pct(n.threshold)} da vida · alcance ${n.range} · recarga ${sec(n.cooldown)}`; },
   },
 ];
 

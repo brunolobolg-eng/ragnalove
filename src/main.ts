@@ -30,7 +30,7 @@ import {
 } from './core/run/run';
 import { OBJECT_RULES } from './core/sim/objects';
 import { waveReportHtml } from './ui/WaveReport';
-import { VISUAL_CONFIG } from './config/visualConfig';
+import { CHARSELECT_ART, VISUAL_CONFIG } from './config/visualConfig';
 import type { WaveReport } from './core/sim/types';
 import { SKILL_BY_ID, SKILL_NUM, SKILLS, lvOf, type HeroKind, type SkillId } from './core/progression/skills';
 import { WorldMap, PORTRAITS } from './ui/WorldMap';
@@ -42,7 +42,7 @@ import { SKILL_ICONS } from './ui/icons';
 import { maxRefine, itemName, RARITIES, type Item } from './core/progression/equipment';
 import { Roulette } from './ui/Roulette';
 import { conePattern, linePattern } from './core/grid/patterns';
-import { ORIENTATIONS, type Vec2 } from './core/grid/types';
+import { ORIENTATIONS, type Orientation, type Vec2 } from './core/grid/types';
 import { Simulation } from './core/sim/Simulation';
 import type { SimEvent } from './core/sim/types';
 import { GameView } from './render/GameView';
@@ -78,8 +78,16 @@ import { rollItem } from './core/progression/equipment';
 import { Rng } from './core/sim/rng';
 import { tileToWorld } from './render/coords';
 import type { DevApi } from './debug/DebugPanel';
+import type { DevLabApi } from './dev/DevLab/DevLab';
+import { DEV_MODE } from './dev/devConfig';
+import { neutralMods } from './core/sim/RangeSystem';
+import { REFINE, WEAPON_USERS } from './core/progression/equipment';
 import type { HeroLoadout } from './core/sim/Simulation';
-import { LoginScreen } from './ui/LoginScreen';
+import { MainMenu, type MenuState } from './ui/menu/MainMenu';
+import { legendsFrom } from './ui/menu/HallOfLegends';
+import { emptyRecords, updateRecords, type Records } from './core/run/records';
+import { SaveStore, type SaveKey } from './save/SaveStore';
+import type { BattleSeal } from './core/run/run';
 import { SettingsStore, graphicsFrom } from './settings/Settings';
 import { AudioEngine, type SfxName } from './audio/AudioEngine';
 import { SettingsPanels } from './ui/SettingsPanels';
@@ -90,32 +98,32 @@ import { UNIT_STYLE } from './render/units/createUnitView';
 import { ModelUnitView } from './render/units/model/ModelUnitView';
 import { BoardView } from './render/BoardView';
 import { loadBossModel } from './render/units/model/bossLoader';
+import { loadMonsterModels } from './render/units/model/glbMonsters';
 import { VFX } from './render/fx/kit/vfxSettings';
 import { QUALITY_LABEL, type QualityPreset } from './settings/Settings';
+import { applyOverrides } from './editor/overrides';
+import { HERO_INFO, HERO_ORDER, emptyMeta, heroUnlocked, isHeroKind, type MetaStats } from './config/heroes';
+import { BALANCE_OVERRIDES } from './config/balance';
+
+// ---------- Balanceamento salvo pelo Game Editor (vale em todos os builds) ----------
+applyOverrides(BALANCE_OVERRIDES);
 
 // ---------- Configurações do jogador + áudio ----------
 const settings = new SettingsStore();
 const audio = new AudioEngine();
 
-// ---------- Tela inicial (login visual; autenticação real entra depois) ----------
+// ---------- Menu principal (jogo offline: sem login) — criado depois dos painéis, abaixo ----------
 const hudRoot = document.getElementById('hud')!;
 hudRoot.style.visibility = 'hidden';
-const login = new LoginScreen(() => {
-  audio.stopMenuMusic(); // a música do menu é só da tela inicial
-  audio.unlock(); // o navegador só libera som após um gesto do jogador
-  hudRoot.style.visibility = '';
-  if (hasSavedRun) openMap();
-  else openCharSelect();
-});
 audio.setVolumes(settings.value.audio);
 audio.playMenuMusic();
 
 // ---------- Run (jornada de 3 atos) salva localmente ----------
-const RUN_KEY = 'vanguarda.run.v1';
-const META_KEY = 'vanguarda.meta.v1';
+const RUN_KEY: SaveKey = 'run';
+const META_KEY: SaveKey = 'meta';
 function loadRun(): RunState | undefined {
   try {
-    const raw = localStorage.getItem(RUN_KEY);
+    const raw = SaveStore.get(RUN_KEY);
     if (raw) {
       const r = JSON.parse(raw) as RunState;
       if (r && r.version === 1 && r.profile?.heroes?.warrior && !r.ended) return migrateRun(r);
@@ -149,18 +157,62 @@ function autoGear(): void {
 function saveProfile(): void {
   autoGear();
   try {
-    localStorage.setItem(RUN_KEY, JSON.stringify(run));
+    SaveStore.set(RUN_KEY, JSON.stringify(run));
   } catch {
     /* ignora */
   }
 }
+/** Conquistas entre jornadas (liberam as classes avançadas) — no mesmo save do jogador. */
+function loadMetaStats(): MetaStats {
+  try {
+    const m = JSON.parse(SaveStore.get(META_KEY) ?? '{}') as { wins?: number; stats?: Partial<MetaStats> };
+    return { ...emptyMeta(), ...m.stats, runsWon: m.wins ?? 0, bossesKilled: { ...(m.stats?.bossesKilled ?? {}) } };
+  } catch {
+    return emptyMeta();
+  }
+}
+function saveMetaStats(st: MetaStats): void {
+  try {
+    const m = JSON.parse(SaveStore.get(META_KEY) ?? '{}') as Record<string, unknown>;
+    m.stats = { kills: st.kills, perfectNights: st.perfectNights, bossesKilled: st.bossesKilled };
+    SaveStore.set(META_KEY, JSON.stringify(m));
+  } catch {
+    /* ignora */
+  }
+}
+/** Heróis que a conta já desbloqueou. */
+function availableHeroes(): HeroKind[] {
+  const m = loadMetaStats();
+  return HERO_ORDER.filter((k) => heroUnlocked(k, m));
+}
 function saveMeta(result: 'defeat' | 'victory'): void {
   try {
-    const m = JSON.parse(localStorage.getItem(META_KEY) ?? '{}') as { runs?: number; wins?: number; best?: number };
+    const m = JSON.parse(SaveStore.get(META_KEY) ?? '{}') as { runs?: number; wins?: number; best?: number };
     m.runs = (m.runs ?? 0) + 1;
     if (result === 'victory') m.wins = (m.wins ?? 0) + 1;
     m.best = Math.max(m.best ?? 0, phaseNumber(run));
-    localStorage.setItem(META_KEY, JSON.stringify(m));
+    SaveStore.set(META_KEY, JSON.stringify(m));
+  } catch {
+    /* ignora */
+  }
+}
+/** Recordes do Ranking da tela inicial — no mesmo save das conquistas (`best` antigo vira a fase mais distante). */
+function loadRecords(): { rec: Records; runs: number } {
+  try {
+    const m = JSON.parse(SaveStore.get(META_KEY) ?? '{}') as { runs?: number; best?: number; records?: Partial<Records> };
+    const rec = { ...emptyRecords(), ...m.records };
+    rec.farthestPhase = Math.max(rec.farthestPhase, m.best ?? 0);
+    return { rec, runs: m.runs ?? 0 };
+  } catch {
+    return { rec: emptyRecords(), runs: 0 };
+  }
+}
+/** Atualiza os recordes com a jornada atual (fim de onda e fim de fase). */
+function noteRecords(): void {
+  try {
+    const m = JSON.parse(SaveStore.get(META_KEY) ?? '{}') as Record<string, unknown>;
+    m.records = updateRecords(loadRecords().rec, run);
+    SaveStore.set(META_KEY, JSON.stringify(m));
   } catch {
     /* ignora */
   }
@@ -188,6 +240,8 @@ const C_BARRIER2 = new THREE.Color(1.2, 0.3, 0.05);
 const C_CITY = new THREE.Color(1.0, 0.7, 0.2);
 const C_SPAWN = new THREE.Color(0.8, 0.15, 0.7);
 const C_OIL = new THREE.Color(0.9, 0.55, 0.15);
+const C_WALL = new THREE.Color(0.75, 0.7, 0.6);
+const C_HANDLE = new THREE.Color(1.4, 1.2, 0.5);
 
 const stage = new Stage(document.getElementById('app')!, GAME_CONFIG.board.width, GAME_CONFIG.board.height);
 const view = new GameView(stage);
@@ -195,8 +249,15 @@ view.onBossDeath = (kind) => onFinalBossDeath(kind);
 // Toda mudança nas Configurações vale na hora (sem reiniciar).
 UNIT_STYLE.value = settings.value.video.characters;
 let lastVsync = settings.value.video.vsync;
-// Chefe final importado (orc em GLB + auto-rig). Carrega enquanto a tela de login está aberta.
+// Chefe final importado (orc em GLB + auto-rig). Carrega enquanto o menu principal está aberto.
 void loadBossModel().catch((err) => console.warn('Chefe GLB indisponível, usando o Colosso procedural.', err));
+// Monstros dos Atos I e II e classes avançadas (GLB já riggados). Heróis: refaz retratos ao carregar.
+void loadMonsterModels((kind) => {
+  if (!isHeroKind(kind)) return;
+  charSelect.refreshHero(kind);
+  refreshHeroArt(kind);
+  if (sim.phase !== 'running' && mode === 'battle') view.bind(sim);
+});
 settings.onChange((s) => {
   const g = graphicsFrom(s);
   stage.applyGraphics(g);
@@ -259,15 +320,11 @@ const hud = new Hud(document.getElementById('hud')!, {
   onRetreat: () => {
     if (sim.phase === 'running') sim.endSurvival();
   },
-  onStart: () => {
-    if (sim.phase !== 'setup') return;
-    sim.start();
-    hud.log('A horda se aproxima!', 'warn');
-    hud.setPlanning(false);
-  },
+  onStart: () => startHorde(),
   onReset: () => {
     if (sim.phase !== 'setup') return;
-    setup = structuredClone(ZONE_STATE.current.defaultSetup);
+    setup = withPartyMembers(structuredClone(ZONE_STATE.current.defaultSetup), ZONE_STATE.current);
+    setup.wall = defaultWall(setup);
     resetSim(false);
   },
   onSpeed: (s) => (speed = s),
@@ -285,6 +342,39 @@ const hud = new Hud(document.getElementById('hud')!, {
 
 const panels = new SettingsPanels(hudRoot, settings, () => audio.sfx('ui'));
 const confirmBox = new ConfirmDialog(() => audio.sfx('ui'));
+
+/** Estado que o menu principal mostra: run em andamento e recordes. */
+function menuState(): MenuState {
+  return {
+    continueLabel: hasSavedRun && !run.ended ? `${currentAct(run).name.split(' — ')[0]} · fase ${phaseNumber(run)}/${totalPhases()}` : undefined,
+    legends: (({ rec, runs }) => legendsFrom(rec, runs))(loadRecords()),
+  };
+}
+const menu = new MainMenu({
+  onStart: () => {
+    audio.stopMenuMusic(); // a música do menu é só da tela inicial
+    audio.unlock(); // o navegador só libera som após um gesto do jogador
+    hudRoot.classList.remove('menu-options');
+    panels.closeAll();
+    hudRoot.style.visibility = '';
+    if (hasSavedRun && !run.ended) {
+      if (run.battle) resumeBattle(run.battle);
+      else openMap();
+    } else openCharSelect();
+  },
+  // Opções: as mesmas janelas de Áudio/Vídeo da HUD, mostradas por cima do menu
+  onOptions: (id) => {
+    hudRoot.classList.add('menu-options');
+    panels.closeAll();
+    panels.toggle(id);
+  },
+  onCloseOptions: () => {
+    panels.closeAll();
+    hudRoot.classList.remove('menu-options');
+  },
+  onUi: () => audio.sfx('ui'),
+  state: menuState,
+});
 
 // ---------- Fluxo da run: mapa-múndi → fase (batalha/cidade/evento) → mapa ----------
 type Mode = 'menu' | 'select' | 'map' | 'battle' | 'city' | 'event' | 'end';
@@ -328,15 +418,26 @@ const skillTree = new SkillTree({
   },
   onUi: ui,
 });
-const charSelect = new CharSelect(() => {
-  charSelect.close();
-  returnToMenu();
-}, ui);
+const charSelect = new CharSelect(
+  () => {
+    charSelect.close();
+    returnToMenu();
+  },
+  ui,
+  () => {
+    const a = CHARSELECT_ART;
+    audio.playSample(a.hoverSounds[Math.floor(Math.random() * a.hoverSounds.length)], a.hoverVolume, 1 + (Math.random() * 2 - 1) * a.hoverPitch);
+  },
+);
 // Retrato da Arqueira: renderizado do próprio modelo 3D
-PORTRAITS.archer = charSelect.portrait('archer');
-hud.setPortrait('archer', PORTRAITS.archer);
 // Marcador da party no mapa: heróis andando, renderizados dos modelos 3D
-for (const k of ['warrior', 'mage', 'archer'] as const) {
+for (const k of HERO_ORDER) refreshHeroArt(k);
+/** Retrato, corpo inteiro e quadros de caminhada do herói (renderizados do modelo 3D atual). */
+function refreshHeroArt(k: HeroKind): void {
+  if (!PORTRAITS[k]) {
+    PORTRAITS[k] = charSelect.portrait(k);
+    hud.setPortrait(k, PORTRAITS[k]);
+  }
   worldMap.setWalkFrames(k, charSelect.walkFrames(k));
   hud.setFullBody(k, charSelect.fullBody(k));
 }
@@ -406,6 +507,8 @@ function startNewRun(): void {
 function openCharSelect(): void {
   closeOverlays();
   setMode('select');
+  const meta = loadMetaStats();
+  audio.preloadSamples(CHARSELECT_ART.hoverSounds);
   charSelect.open((h) => {
     charSelect.close();
     run = newRun(h);
@@ -416,7 +519,7 @@ function openCharSelect(): void {
     hud.setParty(run.party, run.dead);
     hud.setCharacter(characterVM());
     openMap();
-  });
+  }, HERO_ORDER.filter((k) => !heroUnlocked(k, meta)), meta);
 }
 
 /** Opção escolhida no nó atual do mapa. */
@@ -448,6 +551,44 @@ function enterBattle(t: NodeType): void {
   focusParty(true);
 }
 
+/**
+ * Inicia a horda e grava o selo de batalha (formação + status com que a onda começou).
+ * Fechar o jogo ou voltar ao menu no meio não descarta mais a onda: ela recomeça igual (resumeBattle).
+ */
+function startHorde(): void {
+  if (sim.phase !== 'setup') return;
+  if (mode === 'battle' && run.choice) {
+    run.battle = { act: run.act, node: run.node, choice: run.choice, setup: structuredClone(sim.setup), loadout: loadout() };
+    SaveStore.set(RUN_KEY, JSON.stringify(run));
+  }
+  sim.start();
+  hud.log('A horda se aproxima!', 'warn');
+  hud.setPlanning(false);
+}
+
+/** Batalha interrompida (jogo fechado/queda/menu no meio da onda): recomeça do zero com o selo, travada. */
+function resumeBattle(seal: BattleSeal): void {
+  if (seal.act !== run.act || seal.node !== run.node) {
+    run.battle = undefined;
+    saveProfile();
+    return openMap();
+  }
+  run.choice = seal.choice;
+  enterBattle(seal.choice);
+  setup = structuredClone(seal.setup);
+  resetSim(false, seal);
+  focusParty(true);
+  hud.log('A batalha foi interrompida e recomeça do início, com a mesma formação.', 'warn');
+  sim.start();
+  hud.setPlanning(false);
+}
+
+// Ao fechar a janela (X, ALT+F4): grava o relógio da jornada. Queda/travamento não passa por aqui —
+// por isso o selo de batalha já está no disco desde o início da horda.
+window.addEventListener('beforeunload', () => {
+  if (hasSavedRun) SaveStore.set(RUN_KEY, JSON.stringify(run));
+});
+
 /** Centraliza a câmera na party. */
 function focusParty(immediate = false): void {
   const ms = setup.members.filter((m) => run.party.includes(m.archetype) && !run.dead.includes(m.archetype));
@@ -467,29 +608,49 @@ function loadZone(zone: ZoneDef, wave: WaveOptions): void {
   audio.setAmbience(zone.theme);
   if (themeChanged || !view.boardView) view.rebuildBoard();
   run.usedObjects ??= [];
-  setup = withArcher(structuredClone(zone.defaultSetup), zone);
+  setup = withPartyMembers(structuredClone(zone.defaultSetup), zone);
   if (run.party.length === 1 && run.party[0] === 'mage') {
     const m = setup.members.find((mm) => mm.archetype === 'mage')!;
     setup.barriers = barriersShield(m.x, m.y);
   }
+  setup.wall = defaultWall(setup);
   tool = run.party[0];
   resetSim(false);
 }
 
-/** A Arqueira não está no setup padrão das zonas: entra num tile livre perto do Mago. */
-function withArcher(s: PartySetup, zone: ZoneDef): PartySetup {
-  if (s.members.some((m) => m.archetype === 'archer')) return s;
+/** Muralha padrão: duas casas à frente do Guerreiro. */
+function defaultWall(s: PartySetup): PartySetup['wall'] {
+  const wm = s.members.find((mm) => mm.archetype === 'warrior');
+  return wm ? { x: wm.x, y: wm.y - 2, orientation: 'H' } : undefined;
+}
+
+/** Heróis da party que não estão no setup padrão da zona entram em tiles livres perto do grupo. */
+function withPartyMembers(s: PartySetup, zone: ZoneDef): PartySetup {
+  // a classe inicial ocupa o lugar padrão da classe-base da mesma família (ex.: Feiticeira no lugar do Mago)
+  for (const k of run.party) {
+    if (s.members.some((m) => m.archetype === k)) continue;
+    const fam = HERO_INFO[k].family;
+    const slot = s.members.find((m) => m.archetype === fam && !run.party.includes(fam));
+    if (slot) slot.archetype = k;
+  }
+  for (const k of run.party) if (!s.members.some((m) => m.archetype === k)) s = withMember(s, zone, k);
+  return s;
+}
+
+/** Coloca `kind` num tile livre perto do Mago (ou do primeiro herói). */
+function withMember(s: PartySetup, zone: ZoneDef, kind: HeroKind): PartySetup {
+  if (s.members.some((m) => m.archetype === kind)) return s;
   const pz = parseZone(zone);
   const free = (x: number, y: number) => pz.floor.some((f) => f.x === x && f.y === y) && !s.members.some((m) => m.x === x && m.y === y);
   const m = s.members.find((mm) => mm.archetype === 'mage') ?? s.members[0];
   const tries: [number, number][] = [[2, 0], [-2, 0], [2, 1], [-2, 1], [1, 1], [-1, 1], [3, 0], [-3, 0], [0, 1], [0, -1]];
   for (const [dx, dy] of tries)
     if (free(m.x + dx, m.y + dy)) {
-      s.members.push({ archetype: 'archer', x: m.x + dx, y: m.y + dy });
+      s.members.push({ archetype: kind, x: m.x + dx, y: m.y + dy });
       return s;
     }
   const f = pz.floor.filter((t) => t.y > pz.height / 2 && free(t.x, t.y))[0];
-  if (f) s.members.push({ archetype: 'archer', x: f.x, y: f.y });
+  if (f) s.members.push({ archetype: kind, x: f.x, y: f.y });
   return s;
 }
 
@@ -497,6 +658,7 @@ function withArcher(s: PartySetup, zone: ZoneDef): PartySetup {
 function completeNode(outcome: string): void {
   const from = currentNode(run).region;
   const newAct = advance(run, outcome);
+  noteRecords();
   saveProfile();
   if (run.ended === 'victory') {
     saveMeta('victory');
@@ -573,11 +735,11 @@ function openSkills(hero: HeroKind = 'warrior'): void {
 /** Habilidades ativas da árvore aprendidas (vão para a barra de atalhos). */
 const CD_KEY: Partial<Record<SkillId, string>> = { doubleBarrier: 'fireBarrier2' };
 function extraSkills(): { id: string; hero: string; name: string; icon: string }[] {
-  const base = new Set(['frostBolt', 'fireBarrier', 'bash', 'cleave']);
-  return SKILLS.filter((d) => d.kind === 'active' && !base.has(d.id) && lvOf(profile.heroes[d.hero].skills, d.id) > 0).map((d) => ({
+  const base = new Set<string>(HERO_ORDER.flatMap((k) => [HERO_INFO[k].area, HERO_INFO[k].basic]));
+  return SKILLS.filter((d) => d.kind === 'active' && run.party.includes(d.hero) && !base.has(d.id) && lvOf(profile.heroes[d.hero].skills, d.id) > 0).map((d) => ({
     id: d.id,
     hero: d.hero,
-    name: `${d.name} (${d.hero === 'mage' ? 'Mago' : 'Guerreiro'})`,
+    name: `${d.name} (${NAME_PT[d.hero]})`,
     icon: (iconCache[d.id] ??= SKILL_ICONS[d.id]()),
   }));
 }
@@ -599,17 +761,17 @@ function extraCd(k: HeroKind, id: SkillId): number {
 void SKILL_BY_ID;
 void ACTS;
 
-/** ESC na partida → confirmação → volta para a tela inicial (a onda atual é descartada). */
+/** ESC na partida → confirmação → volta para a tela inicial (onda em andamento fica selada e recomeça igual). */
 function returnToMenu(): void {
   panels.closeAll();
   closeOverlays();
-  mode = 'menu';
+  setMode('menu');
   resetSim();
   saveProfile();
   hudRoot.style.visibility = 'hidden';
   audio.stopGameMusic();
   audio.playMenuMusic();
-  login.open();
+  menu.open();
 }
 
 /** Mudanças de atributo/equipamento só entre ondas: salva e recria a onda com os novos status. */
@@ -638,7 +800,7 @@ function characterVM(): CharacterVM {
       const gear = gearBonus(SLOTS.map((s) => h.equipment[s]));
       const wm = weaponMult(kind, gear);
       const common: [string, string][] = [
-        [kind === 'mage' ? 'Ataque mágico (cajado)' : 'Ataque da arma', `${kind === 'mage' ? gear.matk : gear.atk} → dano ×${wm.toFixed(2)}`],
+        [HERO_INFO[kind].family === 'mage' ? 'Ataque mágico (cajado)' : 'Ataque da arma', `${HERO_INFO[kind].family === 'mage' ? gear.matk : gear.atk} → dano ×${wm.toFixed(2)}`],
         ['HP máximo', String(st.maxHp)],
         ['Recarga das habilidades', `−${fmtPct(1 - st.cooldownMult)}`],
         ['Esquiva / Bloqueio', `${fmtPct(st.dodge)} / ${fmtPct(st.block)}`],
@@ -647,7 +809,14 @@ function characterVM(): CharacterVM {
       ];
       const cdS = (t: number) => `${(t / GAME_CONFIG.sim.tickRate).toFixed(1)} s`;
       const own: [string, string][] =
-        kind === 'archer'
+        kind === 'sorcerer' || kind === 'warlock' || kind === 'assassin'
+          ? [
+              ['Poder da classe (dano ×)', st.classPower.toFixed(2)],
+              ['Crítico', fmtPct(st.crit)],
+              [`${SKILL_BY_ID[HERO_INFO[kind].area].name}: recarga`, cdS(SKILL_CD(kind))],
+              [`${SKILL_BY_ID[HERO_INFO[kind].basic].name}: recarga`, cdS(BASIC_CD(kind))],
+            ]
+          : kind === 'archer'
           ? [
               ['Flecha Precisa: dano / alcance', `${st.arrowDamage.toFixed(1)} / ${st.arrowRange}`],
               ['Flecha: recarga', cdS(st.arrowCooldownTicks)],
@@ -694,6 +863,7 @@ function nightReport(): WaveReport {
 
 /** Fim de onda: aplica EXP/níveis/almas/drops no perfil, coleta os itens do chão. */
 function finishWave(): void {
+  run.battle = undefined; // a onda terminou: o selo sai junto com o próximo save
   if (run.choice === 'survival') return finishSurvival();
   const report = nightReport();
   const r = sim.result();
@@ -707,6 +877,17 @@ function finishWave(): void {
     addZeni(profile, bonus);
   }
   run.kills += sim.killed;
+  run.damage = (run.damage ?? 0) + report.damageDealtByUnit.reduce((s, d) => s + d.amount, 0);
+  noteRecords();
+  // conquistas entre jornadas (liberam classes): abates, noites perfeitas e chefes
+  const metaBefore = loadMetaStats();
+  const meta: MetaStats = { ...metaBefore, bossesKilled: { ...metaBefore.bossesKilled } };
+  meta.kills += sim.killed;
+  if (won && report.cityDamageTaken <= 0) meta.perfectNights++;
+  if (won && run.choice === 'boss' && GAME_CONFIG.wave.boss) meta.bossesKilled[GAME_CONFIG.wave.boss] = (meta.bossesKilled[GAME_CONFIG.wave.boss] ?? 0) + 1;
+  saveMetaStats(meta);
+  const newClasses = HERO_ORDER.filter((k) => !heroUnlocked(k, metaBefore) && heroUnlocked(k, meta));
+  for (const k of newClasses) hud.log(`Nova classe desbloqueada: ${NAME_PT[k]}! Escolha-a ao iniciar uma nova jornada.`, 'good');
   hud.log(`Zeni ganho: ${r.zeni + bonus}${won ? ' (inclui bônus de vitória)' : ''}.`, 'good');
   const n = view.collectDrops();
   if (n > 0) hud.log(`Coletado: ${r.drops.map((d) => itemName(d)).join(', ')}.`, 'good');
@@ -716,12 +897,15 @@ function finishWave(): void {
   run.dead.push(...fell);
   hud.setCharacter(characterVM());
   const lvls = run.party.filter((h) => profile.heroes[h].level > before[h]).map((h) => `${NAME_PT[h]} → Nv. ${profile.heroes[h].level}`);
-  const summary = waveReportHtml(report, { zeniBonus: bonus, portraits: PORTRAITS }) + (lvls.length ? `<ul class="run-sum">${lvls.map((l) => `<li>⬆ ${l}</li>`).join('')}</ul>` : '');
+  const summary =
+    waveReportHtml(report, { zeniBonus: bonus, portraits: PORTRAITS }) +
+    (lvls.length ? `<ul class="run-sum">${lvls.map((l) => `<li>⬆ ${l}</li>`).join('')}</ul>` : '') +
+    newClasses.map((k) => `<div class="unlock"><img src="${PORTRAITS[k] ?? ''}" alt=""><div><b>Nova classe desbloqueada: ${NAME_PT[k]}!</b><small>Disponível ao iniciar uma nova jornada (e como reforço quando um chefe cair).</small></div></div>`).join('');
   const node = run.choice ?? 'horde';
   // Chefe de ato derrotado: um novo herói se junta à party
   let unlockHtml = '';
   if (won && node === 'boss') {
-    const nh = nextUnlock(run);
+    const nh = nextUnlock(run, availableHeroes());
     if (nh) {
       unlockHero(run, nh);
       unlockHtml = `<div class="unlock"><img src="${PORTRAITS[nh]}" alt=""><div><b>${NAME_PT[nh]} se juntou à party!</b><small>Chega no nível ${profile.heroes[nh].level}, com pontos para distribuir.</small></div></div>`;
@@ -777,6 +961,8 @@ function finishSurvival(): void {
   const r = sim.result();
   applyWaveResult(profile, r);
   run.kills += sim.killed;
+  run.damage = (run.damage ?? 0) + report.damageDealtByUnit.reduce((s, d) => s + d.amount, 0);
+  noteRecords();
   view.collectDrops();
   const seconds = Math.round(sim.tick / GAME_CONFIG.sim.tickRate);
   const { score, rarities } = survivalRewards(sim.killed, seconds);
@@ -794,15 +980,18 @@ function finishSurvival(): void {
 }
 
 /** Trapaças de teste ligadas no painel de debug (sobrevivem ao reinício da onda). */
-const cheats = { invincible: false, noCooldowns: false };
+const cheats = { invincible: false, noCooldowns: false, oneHit: false };
+/** Modificadores de teste do Dev Lab (temporários, só em memória; neutros fora do Dev Lab). */
+const simMods = neutralMods();
 
-function resetSim(clearLog = true): void {
-  sim = new Simulation(liveSetup(), undefined, loadout(), simOpts());
+function resetSim(clearLog = true, seal?: BattleSeal): void {
+  sim = new Simulation(seal?.setup ?? liveSetup(), undefined, seal?.loadout ?? loadout(), simOpts());
   view.setHeroAuras(Object.fromEntries(run.party.map((h) => [h, maxRefine(SLOTS.map((s) => profile.heroes[h].equipment[s]))])));
   hud.setParty(run.party, run.dead);
   hud.setExtraSkills(extraSkills());
   hud.setSurvival(GAME_CONFIG.wave.endless);
   Object.assign(sim.cheats, cheats);
+  sim.mods = simMods;
   view.bind(sim);
   acc = 0;
   lastSouls.mage = lastSouls.warrior = 0;
@@ -822,19 +1011,48 @@ function resetSim(clearLog = true): void {
 const ndc = new THREE.Vector2();
 const canvas = stage.renderer.domElement;
 /** Arrastar no planejamento: pega um herói ou uma barreira direto no campo. */
-let drag: { tool: Tool; from: Vec2; moved: boolean } | undefined;
-/** Quem está sob o cursor (herói tem prioridade sobre barreira). */
+let drag: { tool: Tool; from: Vec2; moved: boolean; rotate?: boolean } | undefined;
+/** Muralha disponível (Guerreiro na fase com a habilidade). */
+const wallActive = () => run.party.includes('warrior') && !run.dead.includes('warrior') && lvOf(profile.heroes.warrior?.skills, 'shieldWall') > 0;
+const wallLength = () => SKILL_NUM.shieldWall(Math.max(1, lvOf(profile.heroes.warrior?.skills, 'shieldWall'))).length;
+/** Linha (centro + orientação) de uma ferramenta de linha: barreira ou muralha. */
+function linePlan(t: Tool): { plan: { x: number; y: number; orientation: Orientation }; len: number } | undefined {
+  const bi = barrierIndex(t);
+  if (bi >= 0) return { plan: setup.barriers[bi], len: heroStats(profile, 'mage').barrierLength };
+  if (t === 'wall' && setup.wall) return { plan: setup.wall, len: wallLength() };
+  return undefined;
+}
+const lineTiles = (t: Tool) => {
+  const l = linePlan(t);
+  return l ? sim.board.clip(linePattern(l.plan, l.plan.orientation, l.len)) : [];
+};
+/** Quem está sob o cursor (herói tem prioridade sobre barreira/muralha). */
 function grabbableAt(t: Vec2): Tool | undefined {
   const m = setup.members.find((mm) => mm.x === t.x && mm.y === t.y && !run.dead.includes(mm.archetype as HeroKind));
   if (m) return m.archetype as Tool;
-  if (!setup.members.some((mm) => mm.archetype === 'mage') || run.dead.includes('mage')) return undefined;
-  const len = heroStats(profile, 'mage').barrierLength;
-  const tools: Tool[] = ['barrier', 'barrier2', 'barrier3'];
-  for (let i = 0; i < setup.barriers.length; i++) {
-    const b = setup.barriers[i];
-    if (sim.board.clip(linePattern(b, b.orientation, len)).some((p) => p.x === t.x && p.y === t.y)) return tools[i];
-  }
+  const lines: Tool[] = [];
+  if (setup.members.some((mm) => mm.archetype === 'mage') && !run.dead.includes('mage')) lines.push('barrier', 'barrier2', 'barrier3');
+  if (wallActive()) lines.push('wall');
+  for (const tl of lines) if (lineTiles(tl).some((p) => p.x === t.x && p.y === t.y)) return tl;
   return undefined;
+}
+/** O tile é uma das pontas da linha? (arrastar a ponta gira; o meio move) */
+function isLineEnd(t: Tool, at: Vec2): boolean {
+  const l = linePlan(t);
+  if (!l) return false;
+  const tiles = linePattern(l.plan, l.plan.orientation, l.len);
+  const a = tiles[0];
+  const b = tiles[tiles.length - 1];
+  return (a.x === at.x && a.y === at.y) || (b.x === at.x && b.y === at.y);
+}
+/** Orientação da linha apontando do centro para `to` (o jogador "puxa" a ponta). */
+function orientationToward(c: Vec2, to: Vec2): Orientation | undefined {
+  const dx = to.x - c.x;
+  const dy = to.y - c.y;
+  if (dx === 0 && dy === 0) return undefined;
+  if (Math.abs(dx) >= 2 * Math.abs(dy)) return 'H';
+  if (Math.abs(dy) >= 2 * Math.abs(dx)) return 'V';
+  return Math.sign(dx) === Math.sign(dy) ? 'DIAG_DOWN' : 'DIAG_UP';
 }
 /** Objeto do mapa sob o cursor (id), se houver. */
 function objectAt(t: Vec2): number | undefined {
@@ -870,27 +1088,44 @@ function openObjectMenu(id: number, cx: number, cy: number): void {
   );
 }
 
+/** A ferramenta existe nesta fase? (barreiras só com o Mago vivo na party; muralha só com a habilidade) */
+function toolAvailable(t: Tool): boolean {
+  const alive = (h: HeroKind) => setup.members.some((m) => m.archetype === h) && !run.dead.includes(h);
+  if (t.startsWith('barrier')) return alive('mage');
+  if (t === 'wall') return wallActive();
+  return alive(t as HeroKind);
+}
 function selectTool(t: Tool): void {
+  if (!toolAvailable(t)) {
+    // sem dono na party: volta para o primeiro herói disponível
+    const h = setup.members.find((m) => !run.dead.includes(m.archetype as HeroKind));
+    if (!h) return;
+    t = h.archetype as Tool;
+  }
   tool = t;
   hud.setTool(t);
-  const bi = barrierIndex(t);
-  if (bi >= 0) hud.showOrientation(setup.barriers[bi].orientation);
 }
-function rotateBarrier(bi: number, dir = 1): void {
-  const b = setup.barriers[bi];
+/** Gira uma linha (barreira ou muralha) para a próxima orientação. */
+function rotateLine(t: Tool, dir = 1): void {
+  const l = linePlan(t);
+  if (!l) return;
   const n = ORIENTATIONS.length;
-  b.orientation = ORIENTATIONS[(ORIENTATIONS.indexOf(b.orientation) + dir + n) % n];
-  hud.showOrientation(b.orientation);
+  l.plan.orientation = ORIENTATIONS[(ORIENTATIONS.indexOf(l.plan.orientation) + dir + n) % n];
 }
 function pickTile(e: PointerEvent | WheelEvent | MouseEvent): Vec2 | undefined {
   ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
   return view.boardView.pick(ndc, stage.camera);
 }
 function placeTool(t: Tool, at: Vec2): void {
+  if (!toolAvailable(t)) return;
   const bi = barrierIndex(t);
   if (bi >= 0) {
     setup.barriers[bi].x = at.x;
     setup.barriers[bi].y = at.y;
+    return;
+  }
+  if (t === 'wall') {
+    if (wallActive()) setup.wall = { x: at.x, y: at.y, orientation: setup.wall?.orientation ?? 'H' };
     return;
   }
   if (!canPlaceMember(t, at)) return;
@@ -899,7 +1134,13 @@ function placeTool(t: Tool, at: Vec2): void {
     m.x = at.x;
     m.y = at.y;
   }
+  // ordem: o herói vai andando até o posto novo (em vez de "teletransportar")
+  view.keepPartyPositions();
   resetSim();
+  if (m) {
+    view.orderMarker(at.x, at.y, isHeroKind(t) ? HERO_INFO[t].color : 0xffd67a);
+    audio.sfx('ui');
+  }
 }
 /** Arrastar a câmera com o botão direito/do meio (em qualquer fase da batalha). */
 let camDrag: { x: number; y: number; moved: boolean; button: number } | undefined;
@@ -940,7 +1181,13 @@ canvas.addEventListener('pointermove', (e) => {
   if (drag) {
     if (hover && (hover.x !== drag.from.x || hover.y !== drag.from.y)) drag.moved = true;
     canvas.style.cursor = 'grabbing';
-    hud.planHint(undefined);
+    // puxando a ponta: a linha gira para apontar para o cursor
+    const l = drag.rotate ? linePlan(drag.tool) : undefined;
+    if (l && hover) {
+      const o = orientationToward(l.plan, hover);
+      if (o) l.plan.orientation = o;
+    }
+    hud.planHint(drag.rotate ? 'Solte para fixar a direção' : undefined, e.clientX, e.clientY);
     return;
   }
   const g = hover && grabbableAt(hover);
@@ -949,16 +1196,24 @@ canvas.addEventListener('pointermove', (e) => {
   canvas.style.cursor = g ? 'grab' : obj ? 'pointer' : '';
   hud.planHint(
     g
-      ? g.startsWith('barrier')
-        ? 'Arraste para mover · clique para girar'
-        : `Arraste para mover o ${NAME_PT[g as HeroKind]}`
+      ? g.startsWith('barrier') || g === 'wall'
+        ? isLineEnd(g, hover!)
+          ? `${g === 'wall' ? 'Muralha' : 'Barreira'}: arraste a ponta para girar`
+          : `${g === 'wall' ? 'Muralha' : 'Barreira'}: arraste para mover · clique para girar`
+        : g === tool
+          ? `${NAME_PT[g as HeroKind]} aguarda ordens — clique no chão para mandar`
+          : `Clique para dar ordens: ${NAME_PT[g as HeroKind]}`
       : obj
         ? `${OBJECT_RULES[obj.type].label} — clique para ver`
         : hover && GAME_CONFIG.wave.spawnPoints.some((p) => p.x === hover!.x && p.y === hover!.y)
           ? 'Portal de spawn: a horda nasce aqui'
           : hover && sim.board.isCity(hover.x, hover.y)
             ? 'Portão da cidade: inimigo que chegar aqui invade a cidade'
-            : undefined,
+            : hover && isHeroKind(tool) && setup.members.some((mm) => mm.archetype === tool)
+              ? canPlaceMember(tool, hover)
+                ? `Ordem: ${NAME_PT[tool as HeroKind]} vai para cá`
+                : 'Não dá para ir até aqui'
+              : undefined,
     e.clientX,
     e.clientY,
   );
@@ -972,9 +1227,15 @@ canvas.addEventListener('pointerdown', (e) => {
   const t = pickTile(e);
   if (!t) return;
   const g = grabbableAt(t);
+  // herói: clicar seleciona (o jogador dá ordens; não carrega o boneco)
+  if (g && !linePlan(g)) {
+    selectTool(g);
+    audio.sfx('ui');
+    return;
+  }
   if (g) {
     selectTool(g);
-    drag = { tool: g, from: t, moved: false };
+    drag = { tool: g, from: t, moved: false, rotate: isLineEnd(g, t) };
     canvas.setPointerCapture(e.pointerId);
     return;
   }
@@ -994,11 +1255,12 @@ canvas.addEventListener('pointerup', (e) => {
   drag = undefined;
   canvas.releasePointerCapture?.(e.pointerId);
   const t = pickTile(e);
-  const bi = barrierIndex(d.tool);
+  const isLine = !!linePlan(d.tool);
   if (!d.moved) {
-    if (bi >= 0) rotateBarrier(bi); // clique simples na barreira: gira
+    if (isLine) rotateLine(d.tool); // clique simples na barreira/muralha: gira
     return;
   }
+  if (d.rotate) return; // girou puxando a ponta
   if (t) placeTool(d.tool, t);
 });
 // botão direito / roda do mouse sobre uma barreira: gira
@@ -1009,9 +1271,9 @@ canvas.addEventListener('contextmenu', (e) => {
   if (sim.phase !== 'setup') return;
   const t = pickTile(e);
   const g = t && grabbableAt(t);
-  if (g && barrierIndex(g) >= 0) {
+  if (g && linePlan(g)) {
     selectTool(g);
-    rotateBarrier(barrierIndex(g));
+    rotateLine(g);
   }
 });
 canvas.addEventListener(
@@ -1021,9 +1283,9 @@ canvas.addEventListener(
     e.preventDefault();
     const t = sim.phase === 'setup' ? pickTile(e) : undefined;
     const g = t && grabbableAt(t);
-    if (g && barrierIndex(g) >= 0) {
+    if (g && linePlan(g)) {
       selectTool(g);
-      rotateBarrier(barrierIndex(g), e.deltaY > 0 ? 1 : -1);
+      rotateLine(g, e.deltaY > 0 ? 1 : -1);
       return;
     }
     // fora das barreiras: zoom da câmera
@@ -1035,7 +1297,7 @@ canvas.addEventListener(
 const camKeys = new Set<string>();
 const CAM_DIR: Record<string, [number, number]> = { KeyW: [0, -1], ArrowUp: [0, -1], KeyS: [0, 1], ArrowDown: [0, 1], KeyA: [-1, 0], ArrowLeft: [-1, 0], KeyD: [1, 0], ArrowRight: [1, 0] };
 window.addEventListener('keydown', (e) => {
-  if (mode !== 'battle' || login.active || e.target instanceof HTMLInputElement) return;
+  if (mode !== 'battle' || menu.active || e.target instanceof HTMLInputElement) return;
   if (CAM_DIR[e.code]) {
     camKeys.add(e.code);
     e.preventDefault();
@@ -1066,12 +1328,16 @@ function updateCamera(dt: number): void {
   }
 }
 window.addEventListener('keydown', (e) => {
-  if (login.active || mode === 'menu') return;
+  if (menu.active || mode === 'menu') return;
   if (e.key === 'Escape') {
     e.preventDefault();
     confirmBox.ask(
       'Voltar ao menu',
-      mode === 'battle' ? 'Deseja voltar para a tela inicial? A fase atual recomeça quando você continuar a jornada.' : 'Deseja voltar para a tela inicial? A jornada fica salva.',
+      mode === 'battle'
+        ? sim.phase === 'running'
+          ? 'Deseja voltar para a tela inicial? A onda recomeça do início, com a mesma formação, quando você continuar a jornada.'
+          : 'Deseja voltar para a tela inicial? A fase atual recomeça quando você continuar a jornada.'
+        : 'Deseja voltar para a tela inicial? A jornada fica salva.',
       'Sim, voltar ao menu',
       returnToMenu,
     );
@@ -1082,7 +1348,8 @@ window.addEventListener('keydown', (e) => {
   if (mode !== 'battle' || resultModal.visible) return;
   if (e.key === 'r' || e.key === 'R') {
     if (sim.phase !== 'setup') return;
-    rotateBarrier(Math.max(0, barrierIndex(tool)));
+    const lt = linePlan(tool) ? tool : 'barrier';
+    if (toolAvailable(lt)) rotateLine(lt);
   }
   // 1–4: velocidade do jogo
   const sp = { Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Numpad1: 1, Numpad2: 2, Numpad3: 3, Numpad4: 4 }[e.code];
@@ -1092,11 +1359,7 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.key === ' ') {
     e.preventDefault();
-    if (sim.phase === 'setup') {
-      sim.start();
-      hud.log('A horda se aproxima!', 'warn');
-      hud.setPlanning(false);
-    }
+    startHorde();
   }
 });
 
@@ -1114,6 +1377,7 @@ function drawOverlay(): void {
   const bv = view.boardView;
   bv.clearOverlay();
   const planning = sim.phase === 'setup';
+  if (planning && !toolAvailable(tool)) selectTool(tool);
   if (planning) {
     const ms = heroStats(profile, 'mage');
     const ws = heroStats(profile, 'warrior');
@@ -1121,10 +1385,21 @@ function drawOverlay(): void {
     const sel = barrierIndex(drag?.tool ?? tool);
     if (hasMage)
       setup.barriers.forEach((b, i) => bv.mark(sim.board.clip(linePattern(b, b.orientation, ms.barrierLength)), i === sel ? C_BARRIER2 : C_BARRIER, i === sel ? 0.75 : 0.5));
-    const w = setup.members.find((m) => m.archetype === 'warrior');
+    if (wallActive()) bv.mark(lineTiles('wall'), C_WALL, (drag?.tool ?? tool) === 'wall' ? 0.8 : 0.5);
+    // pontas da linha selecionada: "alças" para girar
+    const selLine = drag?.tool ?? tool;
+    const sl = linePlan(selLine);
+    if (sl && (selLine !== 'wall' || wallActive()) && (barrierIndex(selLine) < 0 || hasMage)) {
+      const ends = linePattern(sl.plan, sl.plan.orientation, sl.len);
+      bv.mark(sim.board.clip([ends[0], ends[ends.length - 1]]), C_HANDLE, 0.9);
+    }
+    // herói selecionado (aguardando ordens): tile destacado
+    const selHero = sim.setup.members.find((m) => m.archetype === tool);
+    if (selHero) bv.mark([selHero], C_HANDLE, 0.55 + 0.25 * Math.sin(performance.now() / 220));
+    const w = sim.setup.members.find((m) => m.archetype === 'warrior');
     if (w) bv.mark(sim.board.clip(conePattern(w, { x: 0, y: -1 }, ws.cleaveRange, ws.cleaveHalfAngleDeg)), C_CONE, 0.22);
     // alcance do Raio Gélido do Mago (anel sutil)
-    const mg = setup.members.find((m) => m.archetype === 'mage');
+    const mg = sim.setup.members.find((m) => m.archetype === 'mage');
     if (mg) {
       const ring: Vec2[] = [];
       for (let y = 0; y < sim.board.height; y++)
@@ -1148,8 +1423,12 @@ function drawOverlay(): void {
         const gi = barrierIndex(grab);
         if (gi >= 0) bv.mark(sim.board.clip(linePattern(setup.barriers[gi], setup.barriers[gi].orientation, ms.barrierLength)), C_HOVER, 0.55);
         else bv.mark([hover], C_HOVER, 0.8);
-      } else if (sel >= 0) {
+      } else if (sel >= 0 && hasMage && !drag?.rotate) {
         bv.mark(sim.board.clip(linePattern(hover, setup.barriers[sel].orientation, ms.barrierLength)), C_BARRIER2, drag ? 0.7 : 0.35);
+      } else if ((drag?.tool ?? tool) === 'wall' && wallActive() && !drag?.rotate) {
+        bv.mark(sim.board.clip(linePattern(hover, setup.wall?.orientation ?? 'H', wallLength())), C_WALL, drag ? 0.75 : 0.4);
+      } else if (drag?.rotate) {
+        /* girando: a linha já mostra a direção */
       } else {
         const t = drag?.tool ?? tool;
         bv.mark([hover], canPlaceMember(t, hover) ? C_HOVER : C_BAD, 1);
@@ -1333,6 +1612,8 @@ function frame(now: number): void {
   panels.setFps(fps);
   tickCinematic(dt);
   last = now;
+  // relógio da jornada (Ranking "mais rápido"): só com a jornada aberta; dt já vem limitado (janela minimizada não conta)
+  if (!menu.active && !run.ended && mode !== 'menu' && mode !== 'select' && mode !== 'end') run.playMs = (run.playMs ?? 0) + dt * 1000;
   const paused = confirmBox.isOpen || skillTree.visible || mode !== 'battle';
   const gdt = paused ? 0 : dt * speed; // pausa com confirmação/árvore abertas ou fora da batalha
 
@@ -1365,8 +1646,8 @@ function frame(now: number): void {
     else hud.setCharacter(characterVM());
   }
 
-  // Tela de login, mapa, cidade e fim de jornada cobrem a tela: a cena 3D não é desenhada.
-  if (login.active || mode === 'map' || mode === 'city' || mode === 'end' || mode === 'select') {
+  // Menu principal, mapa, cidade e fim de jornada cobrem a tela: a cena 3D não é desenhada.
+  if (menu.active || mode === 'map' || mode === 'city' || mode === 'end' || mode === 'select') {
     requestAnimationFrame(frame);
     return;
   }
@@ -1383,20 +1664,29 @@ const NAME_PT: Record<string, string> = HERO_NAME;
 /** RNG só para itens criados pelo debug (não toca nos RNGs da onda). */
 const debugRng = new Rng(Date.now() >>> 0);
 /** Recarga total de cada habilidade, já com Destreza/equipamento. */
-const SKILL_CD = (k: HeroKind) => {
+const ADV = GAME_CONFIG.archetypes;
+function SKILL_CD(k: HeroKind): number {
   const st = heroStats(profile, k);
+  const c = (t: number) => Math.max(1, Math.round(t * st.cooldownMult));
+  if (k === 'sorcerer') return c(ADV.sorcerer.meteor.cooldownTicks);
+  if (k === 'warlock') return c(ADV.warlock.curse.cooldownTicks);
+  if (k === 'assassin') return c(ADV.assassin.fan.cooldownTicks);
   return k === 'mage' ? st.barrierCooldownTicks : k === 'archer' ? st.rainCooldownTicks : st.cleaveCooldownTicks;
-};
-const SKILL_KEY: Record<HeroKind, string> = { mage: 'fireBarrier', warrior: 'cleave', archer: 'arrowRain' };
-/** Ataque básico de alvo único: Raio Gélido / Investida / Flecha Precisa. */
-const BASIC_KEY: Record<HeroKind, string> = { mage: 'frostBolt', warrior: 'bash', archer: 'preciseShot' };
-const BASIC_CD = (k: HeroKind) => {
+}
+const SKILL_KEY = Object.fromEntries(HERO_ORDER.map((k) => [k, HERO_INFO[k].area])) as Record<HeroKind, string>;
+/** Ataque básico de alvo único de cada classe. */
+const BASIC_KEY = Object.fromEntries(HERO_ORDER.map((k) => [k, HERO_INFO[k].basic])) as Record<HeroKind, string>;
+function BASIC_CD(k: HeroKind): number {
   const st = heroStats(profile, k);
+  const c = (t: number) => Math.max(1, Math.round(t * st.cooldownMult));
+  if (k === 'sorcerer') return c(ADV.sorcerer.orb.cooldownTicks);
+  if (k === 'warlock') return c(ADV.warlock.drain.cooldownTicks);
+  if (k === 'assassin') return c(ADV.assassin.backstab.cooldownTicks);
   return k === 'mage' ? st.boltCooldownTicks : k === 'archer' ? st.arrowCooldownTicks : st.bashCooldownTicks;
-};
+}
 
 /** Almas de heróis caídos continuam visíveis no HUD. */
-const lastSouls: Record<string, number> = { mage: 0, warrior: 0, archer: 0 };
+const lastSouls: Record<string, number> = Object.fromEntries(HERO_ORDER.map((k) => [k, 0]));
 
 function updateStatus(): void {
   hud.setCity(sim.cityHp, sim.cityMaxHp, sim.reachedCity);
@@ -1520,12 +1810,129 @@ hud.setPlanning(true);
 hud.setCharacter(characterVM());
 requestAnimationFrame(frame);
 
+// ---------- Game Editor V1 (F10): só no client desktop; lê/grava o balanceamento pelo Electron ----------
+const desktopBalance = window.vanguardaDesktop?.balance;
+if (desktopBalance)
+  void desktopBalance.load().then(async (r) => {
+    // o balanceamento salvo (balance.ts do projeto ou do jogador) vale por cima do que veio no build,
+    // mesmo antes de recompilar (o executável dentro da pasta do projeto grava no balance.ts)
+    if (r.data) applyOverrides(r.data);
+    const { installEditor } = await import('./editor/GameEditor');
+    installEditor(r.data, (h, t, fn) => panels.addButton(h, t, fn));
+  });
+
 // ---------- Painel de debug: só em desenvolvimento ----------
 // No build de produção o Vite troca `import.meta.env.DEV` por `false`, este bloco
 // é eliminado e o módulo de debug não entra no pacote da Steam.
 if (import.meta.env.DEV) {
   (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic }; // inspeção no console (dev)
-  void import('./debug/DebugPanel').then(({ installDebug }) => installDebug(hudRoot, devApi(), (h, t, fn) => panels.addButton(h, t, fn)));
+  void import('./debug/DebugPanel').then(({ installDebug }) => installDebug(hudRoot, devApi(), (h, t, fn) => panels.addButton(h, t, fn)));}
+
+// ---------- Dev Lab (F8): só no client desktop (executável) e com DEV_MODE ligado ----------
+if (DEV_MODE && window.vanguardaDesktop)
+  void import('./dev/DevLab/DevLab').then(({ installDevLab }) => installDevLab(hudRoot, devLabApi(), (h, t, fn) => panels.addButton(h, t, fn)));
+
+/** O que o Dev Lab pode fazer — por cima da DevApi, sempre pelas funções do jogo. */
+function devLabApi(): DevLabApi {
+  sim.mods = simMods;
+  /** Setup da party numa zona (mesma regra do loadZone), sem os heróis caídos. */
+  const setupFor = (zone: ZoneDef): PartySetup => {
+    const s = withPartyMembers(structuredClone(zone.defaultSetup), zone);
+    if (run.party.length === 1 && run.party[0] === 'mage') {
+      const m = s.members.find((mm) => mm.archetype === 'mage');
+      if (m) s.barriers = barriersShield(m.x, m.y);
+    }
+    s.wall = defaultWall(s);
+    s.members = s.members.filter((m) => run.party.includes(m.archetype) && !run.dead.includes(m.archetype));
+    return s;
+  };
+  const flush = () => {
+    const ev = sim.flushEvents();
+    view.handle(ev);
+    logEvents(ev);
+    playSounds(ev);
+  };
+  return {
+    base: devApi(),
+    cheats,
+    mods: simMods,
+    sim: () => sim,
+    flush,
+    mode: () => mode,
+    party: () => [...run.party],
+    dead: () => [...run.dead],
+    heroLevel: (k) => ({ level: profile.heroes[k].level, exp: profile.heroes[k].exp, next: expToNext(profile.heroes[k].level), skills: { ...profile.heroes[k].skills } }),
+    setPartyMember: (k, on) => {
+      if (!isHeroKind(k)) return `Herói desconhecido: ${k}.`;
+      if (sim.phase === 'running') return 'A equipe só muda entre ondas (resete a arena).';
+      if (on) {
+        unlockHero(run, k);
+        run.dead = run.dead.filter((h) => h !== k);
+      } else {
+        if (!run.party.includes(k)) return undefined;
+        if (run.party.length <= 1) return 'A party precisa de pelo menos 1 herói.';
+        run.party = run.party.filter((h) => h !== k);
+        run.dead = run.dead.filter((h) => h !== k);
+      }
+      saveProfile();
+      hud.setParty(run.party, run.dead);
+      if (mode === 'battle') {
+        setup = setupFor(ZONE_STATE.current);
+        resetSim(false);
+      }
+      return undefined;
+    },
+    maxGear: (k) => {
+      if (sim.phase === 'running') return 'Equipamento só muda entre ondas (resete a arena).';
+      for (const slot of SLOTS) {
+        const it = rollItem(debugRng, 0, `dev-${slot}-${Date.now()}-${debugRng.int(1e9)}`, { rarity: 'mythic', slot, kind: slot === 'weapon' ? WEAPON_USERS[k]?.[0] : undefined }, [k]);
+        it.refine = REFINE.max;
+        addItem(profile, it);
+        equip(profile, k, it.id);
+      }
+      saveProfile();
+      progressionChanged(true);
+      return undefined;
+    },
+    currencies: () => ({ zeni: profile.zeni, souls: profile.souls }),
+    setCurrency: (which, n) => {
+      profile[which] = Math.max(0, Math.round(n));
+      saveProfile();
+      hud.setCharacter(characterVM());
+    },
+    castSkill: (k, id) => {
+      const u = [...sim.units.values()].find((x) => x.team === 'party' && x.kind === k && x.alive);
+      if (!u) return false;
+      const ok = sim.castSkill(u, id);
+      flush();
+      return ok;
+    },
+    headless: {
+      zoneFor: (act, node, type) => battleFor({ ...run, act, node }, type),
+      setupFor,
+      loadout: () => loadout(),
+      cityMaxHp: () => run.cityMaxHp,
+    },
+    playPhase: (act, node, type) => {
+      if (sim.phase === 'running') return;
+      run.act = act;
+      run.node = node;
+      run.choice = type;
+      saveProfile();
+      closeOverlays();
+      enterBattle(type);
+    },
+    scenarioStore: window.vanguardaDesktop?.devlab,
+    setSpeed: (s) => {
+      speed = s;
+      if (s > 0) hud.setSpeed(s);
+    },
+    getSpeed: () => speed,
+    waveFor: (act, node, type) => {
+      const { zone, wave } = battleFor({ ...run, act, node }, type);
+      return { count: wave.count ?? zone.wave.count, mix: wave.mix ?? zone.wave.mix, boss: wave.boss === null ? undefined : (wave.boss ?? zone.wave.boss), zone: zone.name };
+    },
+  };
 }
 
 /** Ids negativos para efeitos forçados pelo debug (não colidem com os da simulação). */

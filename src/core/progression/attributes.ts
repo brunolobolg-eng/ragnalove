@@ -1,5 +1,6 @@
 import { GAME_CONFIG } from '../../config/gameConfig';
 import { SKILL_NUM, lvOf, type SkillLevels } from './skills';
+import { familyOf } from '../../config/heroes';
 
 /** Atributos distribuíveis. */
 export type AttrKey = 'str' | 'int' | 'vit' | 'dex' | 'luk';
@@ -24,6 +25,9 @@ export const ATTRIBUTES_CONFIG = {
     warrior: { str: 5, int: 1, vit: 5, dex: 3, luk: 1 },
     mage: { str: 1, int: 5, vit: 2, dex: 3, luk: 2 },
     archer: { str: 2, int: 1, vit: 3, dex: 6, luk: 3 },
+    sorcerer: { str: 1, int: 6, vit: 2, dex: 3, luk: 2 },
+    warlock: { str: 1, int: 5, vit: 3, dex: 2, luk: 3 },
+    assassin: { str: 3, int: 1, vit: 3, dex: 6, luk: 4 },
   } as Record<string, Attrs>,
   vit: { hpPerPoint: 8 },
   str: {
@@ -36,7 +40,7 @@ export const ATTRIBUTES_CONFIG = {
   },
   int: {
     barrierLengthEveryPoints: 6, // +1 tile em cada barreira a cada 6 pontos
-    barrierLengthMax: 6,
+    barrierLengthMax: 8,
     barrierDurationPerPoint: 3, // ticks
     boltDamagePerPoint: 0.8,
   },
@@ -50,6 +54,8 @@ export const ATTRIBUTES_CONFIG = {
   /** Arqueira: Destreza é o atributo de dano (além de reduzir recargas). */
   archer: { arrowDamagePerDex: 0.9, rainDamagePerDex: 0.6, critPerLuk: 0.005 },
   caps: { dodge: 0.5, block: 0.5 },
+  /** Classes avançadas: quanto cada ponto do atributo principal acima da base soma ao dano. */
+  classPowerPerPoint: 0.05,
   /**
    * Arma: classes físicas dependem do Ataque (desarmado = 45% do dano; arma inicial ATQ 12 = 100%);
    * o Mago depende menos do cajado (Ataque mágico) e mais da Inteligência.
@@ -60,7 +66,7 @@ export const ATTRIBUTES_CONFIG = {
 /** Multiplicador de dano vindo da arma equipada. */
 export function weaponMult(kind: string, gear: GearBonus): number {
   const W = ATTRIBUTES_CONFIG.weapon;
-  return kind === 'mage' ? W.magicBase + gear.matk * W.magicPerMatk : W.physBase + gear.atk * W.physPerAtk;
+  return familyOf(kind) === 'mage' ? W.magicBase + gear.matk * W.magicPerMatk : W.physBase + gear.atk * W.physPerAtk;
 }
 
 /** Bônus planos vindos de equipamento (somados antes das fórmulas). */
@@ -120,11 +126,14 @@ export interface HeroStats {
   damageTakenMult: number;
   /** Multiplicador de dano das habilidades novas (refino da arma). */
   skillDamageMult: number;
+  /** Classes avançadas: multiplicador de dano (atributo principal + arma + passivas). */
+  classPower: number;
   /** Níveis da árvore de habilidades (a simulação lê os números em SKILL_NUM). */
   skills: SkillLevels;
 }
 
 export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emptyGear(), skills: SkillLevels = {}): HeroStats {
+  const fam = familyOf(kind);
   const A = ATTRIBUTES_CONFIG;
   const base = A.base[kind] ?? emptyAttrs();
   const attrs = emptyAttrs();
@@ -134,12 +143,12 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
   const mCfg = GAME_CONFIG.archetypes.mage;
   const wCfg = GAME_CONFIG.archetypes.warrior;
   const aCfg = GAME_CONFIG.archetypes.archer;
-  const baseHp = kind === 'mage' ? mCfg.hp : kind === 'archer' ? aCfg.hp : wCfg.hp;
+  const baseHp = (GAME_CONFIG.archetypes as Record<string, { hp: number }>)[kind]?.hp ?? wCfg.hp;
   const lv = (id: Parameters<typeof lvOf>[1]) => lvOf(skills, id);
-  const med = lv('meditation') ? SKILL_NUM.meditation(lv('meditation')).cdr : 0;
+  const med = (lv('meditation') ? SKILL_NUM.meditation(lv('meditation')).cdr : 0) + (lv('arcaneFlow') ? SKILL_NUM.arcaneFlow(lv('arcaneFlow')).cdr : 0);
   const cdr = Math.min(
     A.dex.cooldownReductionMax + 0.1,
-    d('dex') * A.dex.cooldownReductionPerPoint + gear.cooldownReduction + gear.attackSpeed + (kind === 'mage' ? med : 0),
+    d('dex') * A.dex.cooldownReductionPerPoint + gear.cooldownReduction + gear.attackSpeed + (fam === 'mage' ? med : 0),
   );
   const cooldownMult = 1 - cdr;
   const cd = (ticks: number) => Math.max(1, Math.round(ticks * cooldownMult));
@@ -149,7 +158,10 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
   barrierLength = Math.min(A.int.barrierLengthMax + amp.extraLen, barrierLength);
   const fb = SKILL_NUM.fireBarrier(Math.max(1, lv('fireBarrier')));
   const barrierDurationTicks = mCfg.fireBarrier.durationTicks + d('int') * A.int.barrierDurationPerPoint + fb.extraTicks + amp.extraTicks;
-  const dm = gear.damageMult * weaponMult(kind, gear);
+  const dm = gear.damageMult * weaponMult(fam, gear);
+  const step = lv('shadowStep') ? SKILL_NUM.shadowStep(lv('shadowStep')) : { dodge: 0, crit: 0 };
+  const primary: AttrKey = fam === 'mage' ? 'int' : fam === 'archer' ? 'dex' : 'str';
+  const pact = lv('darkPact') ? SKILL_NUM.darkPact(lv('darkPact')).dmg : 0;
   const iron = kind === 'warrior' && lv('ironSkin') ? SKILL_NUM.ironSkin(lv('ironSkin')) : { hp: 0, reduce: 0 };
   const shield = kind === 'mage' && lv('arcaneShield') ? SKILL_NUM.arcaneShield(lv('arcaneShield')) : { block: 0, reduce: 0 };
 
@@ -158,10 +170,11 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
     maxHp: Math.round((baseHp + d('vit') * A.vit.hpPerPoint) * gear.hpMult * (1 + iron.hp)),
     hpRegenPerSec: gear.hpRegen,
     cooldownMult,
-    dodge: Math.min(A.caps.dodge, d('luk') * A.luk.dodgePerPoint + gear.dodge),
+    dodge: Math.min(A.caps.dodge, d('luk') * A.luk.dodgePerPoint + gear.dodge + step.dodge),
     block: Math.min(A.caps.block, gear.block + shield.block),
     damageTakenMult: Math.max(0.4, 1 - iron.reduce - shield.reduce),
     skillDamageMult: dm,
+    classPower: (1 + d(primary) * A.classPowerPerPoint) * dm * (1 + pact),
     skills: { ...skills },
     luck: attrs.luk,
     barrierLength,
@@ -184,6 +197,6 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
     rainDamage: (aCfg.rain.damage + d('dex') * A.archer.rainDamagePerDex) * SKILL_NUM.arrowRain(Math.max(1, lv('arrowRain'))).dmgMult * dm * (lv('volley') ? SKILL_NUM.volley(lv('volley')).dmgMult : 1),
     rainRadius: aCfg.rain.radius + (lv('volley') ? SKILL_NUM.volley(lv('volley')).radius : 0),
     rainCooldownTicks: cd(aCfg.rain.cooldownTicks),
-    crit: Math.min(0.6, (kind === 'archer' ? d('luk') * A.archer.critPerLuk : 0) + (lv('eagleEye') ? SKILL_NUM.eagleEye(lv('eagleEye')).crit : 0)),
+    crit: Math.min(0.6, (fam === 'archer' ? d('luk') * A.archer.critPerLuk : 0) + (lv('eagleEye') ? SKILL_NUM.eagleEye(lv('eagleEye')).crit : 0) + step.crit),
   };
 }

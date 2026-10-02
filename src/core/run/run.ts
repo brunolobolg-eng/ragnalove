@@ -1,10 +1,12 @@
-import { GAME_CONFIG, type WaveOptions } from '../../config/gameConfig';
+import { GAME_CONFIG, type PartySetup, type WaveOptions } from '../../config/gameConfig';
+import type { HeroLoadout } from '../sim/Simulation';
 import { ZONES, type ZoneDef } from '../../config/zones';
 import { ACTS, EVENTS, REGION_BY_ID, type EventDef, type EventEffect, type NodeType, type Region } from '../../config/world';
 import { REFINE, RARITIES, RARITY_INFO, rollItem, type Item, type Rarity, type Slot } from '../progression/equipment';
 import { addExperience, addZeni, createProfile, migrateProfile, resetAttributes, type Profile } from '../progression/profile';
 import { SKILL_BY_ID, SKILL_ZENI, heroSkills, investedSkillPoints, lvOf, missingRequirements, skillZeniCost, type HeroKind, type SkillId } from '../progression/skills';
 import { Rng } from '../sim/rng';
+import { HERO_INFO, HERO_ORDER, HERO_NAME as HERO_NAMES } from '../../config/heroes';
 import { OBJECT_RULES } from '../sim/objects';
 import type { WaveReport } from '../sim/types';
 
@@ -40,22 +42,50 @@ export interface RunState {
   reports: WaveReport[];
   /** Objetos do mapa já acionados na fase atual (ids = índice + 1 no MAP_CONFIG). */
   usedObjects: number[];
+  /** Dano total causado pela party nesta jornada (Ranking: maior dano). */
+  damage?: number;
+  /** Tempo real jogado nesta jornada, em ms (Ranking: mais rápido). */
+  playMs?: number;
+  /**
+   * Selo de batalha: a formação e os status com que a onda atual começou. Gravado ao iniciar a horda
+   * e apagado quando ela termina. Se o jogo fechar (ou voltar ao menu) no meio, a onda recomeça do zero
+   * com este selo e sem poder mexer — como a onda é determinística, o resultado é o mesmo.
+   */
+  battle?: BattleSeal;
+}
+
+export interface BattleSeal {
+  act: number;
+  node: number;
+  choice: NodeType;
+  setup: PartySetup;
+  loadout: Record<string, HeroLoadout>;
 }
 
 /** Todos os heróis do jogo, na ordem da HUD. */
-export const HEROES: HeroKind[] = ['warrior', 'mage', 'archer'];
-export const HERO_NAME: Record<HeroKind, string> = { warrior: 'Guerreiro', mage: 'Mago', archer: 'Arqueira' };
+export const HEROES: HeroKind[] = HERO_ORDER;
+export const HERO_NAME: Record<HeroKind, string> = HERO_NAMES;
 
 export function newRun(starter: HeroKind = 'warrior', seed = (Date.now() ^ (Math.random() * 1e9)) >>> 0): RunState {
   const C = GAME_CONFIG.cityDefense;
   return { version: 1, seed, act: 0, node: 0, profile: createProfile(), dead: [], history: [], kills: 0, party: [starter], cityHp: C.maxHp, cityMaxHp: C.maxHp, nights: 0, reports: [], usedObjects: [] };
 }
 
-/** Próximo herói liberado ao vencer o chefe do ato (ou undefined). */
-export function nextUnlock(r: RunState): HeroKind | undefined {
+/**
+ * Próximo herói liberado ao vencer o chefe do ato (ou undefined). `available` = heróis que a conta
+ * já desbloqueou. A party fecha em 3: um de linha de frente, um conjurador e um de dano.
+ */
+export function nextUnlock(r: RunState, available: HeroKind[] = ['warrior', 'mage', 'archer']): HeroKind | undefined {
   if (r.party.length >= 3) return undefined;
-  if (r.party.length === 1) return r.party[0] === 'warrior' ? 'mage' : r.party[0] === 'mage' ? 'warrior' : 'warrior';
-  return HEROES.find((h) => !r.party.includes(h));
+  const pool = HEROES.filter((h) => available.includes(h) && !r.party.includes(h));
+  const fams = new Set(r.party.map((k) => HERO_INFO[k].family));
+  // primeiro uma família que a party ainda não tem (na ordem: frente, conjurador, dano)
+  for (const f of ['warrior', 'mage', 'archer'] as const) {
+    if (fams.has(f)) continue;
+    const h = pool.find((k) => HERO_INFO[k].family === f);
+    if (h) return h;
+  }
+  return pool[0];
 }
 
 /** Libera um herói novo no nível médio da party (com os pontos desses níveis). */

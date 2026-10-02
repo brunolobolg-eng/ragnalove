@@ -42,6 +42,50 @@ export interface Unit {
   tauntUntil?: number;
   /** Nasceu em qual spawn (0 ou 1) — só apresentação/estatística. */
   spawnIndex?: number;
+  /** Lento (armadilha) até este tick: passos custam `slowMult` vezes mais. */
+  slowUntil?: number;
+  slowMult?: number;
+  /** Amaldiçoado (Bruxa) até este tick: recebe `curseAmp` a mais de dano. */
+  cursedUntil?: number;
+  curseAmp?: number;
+  /** Danos contínuos ativos (veneno, maldição, enxame). */
+  dots?: { perPulse: number; until: number; source: DamageSource; ownerId: number }[];
+  /** Só party: estado do movimento de combate (CombatMovement). */
+  ai?: CombatAIState;
+}
+
+export type CombatAIStateName = 'IDLE' | 'ATTACK' | 'MOVE_TO_ATTACK_RANGE' | 'RETURN_TO_POSITION' | 'DEAD';
+
+export interface CombatAIState {
+  /** Posição planejada (posto) do herói. */
+  homeX: number;
+  homeY: number;
+  state: CombatAIStateName;
+  targetId?: number;
+  /** Por que está parado (ex.: 'limite' = alvo fora do raio máximo). */
+  reason?: string;
+  /** Ticks seguidos sem alvo (histerese do retorno). */
+  idleTicks: number;
+  lastRetreatTick: number;
+}
+
+/** Métricas do movimento de combate por herói (relatórios do Dev Lab). */
+export interface CombatMoveStats {
+  tilesMoved: number;
+  repositions: number;
+  ticksMoving: number;
+  ticksAttacking: number;
+}
+
+/** Armadilha armada no chão (Arqueira): dispara no primeiro inimigo que pisar. */
+export interface Trap {
+  id: number;
+  x: number;
+  y: number;
+  ownerId: number;
+  damage: number;
+  slowTicks: number;
+  slowMult: number;
 }
 
 /** Estado de um objeto interativo do mapa (autoritativo; o render só lê). */
@@ -61,7 +105,7 @@ export interface MapObject {
   area: Vec2[];
 }
 
-export type DamageSource = 'burn' | 'cleave' | 'melee' | 'bolt' | 'bash' | 'debug' | 'nova' | 'storm' | 'shock' | 'combust' | 'arrow' | 'rain' | 'pierce' | 'spell' | 'meteor' | 'oil' | 'ruin';
+export type DamageSource = 'burn' | 'cleave' | 'melee' | 'bolt' | 'bash' | 'debug' | 'nova' | 'storm' | 'shock' | 'combust' | 'arrow' | 'rain' | 'pierce' | 'spell' | 'meteor' | 'oil' | 'ruin' | 'trap' | 'arcane' | 'shadow' | 'blade' | 'poison' | 'curse' | 'execute';
 
 export interface AreaEffect {
   id: number;
@@ -122,6 +166,15 @@ export type SimEvent =
   /** Tempestade de areia: aviso antes, começo e fim. */
   | { type: 'sandWarn'; ticks: number }
   | { type: 'sandstorm'; on: boolean }
+  /** Objeto criado durante a onda (Muralha do Guerreiro). */
+  | { type: 'objectSpawn'; object: MapObject }
+  /** Armadilha armada / disparada. */
+  | { type: 'trapSet'; trap: Trap }
+  | { type: 'trapTrigger'; trapId: number; x: number; y: number; targetId: number }
+  /** Maldição lançada numa área. */
+  | { type: 'curse'; unitId: number; x: number; y: number; radius: number }
+  /** Execução do Assassino. */
+  | { type: 'execute'; unitId: number; targetId: number; x: number; y: number }
   /** Unidade provocada (aggro trocou para `targetId`). */
   | { type: 'aggro'; unitId: number; targetId: number; ticks: number };
 

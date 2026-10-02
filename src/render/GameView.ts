@@ -28,6 +28,30 @@ import { FogView } from './FogView';
 import { OBJECT_RULES } from '../core/sim/objects';
 import { VFXManager, type VfxHandle } from './fx/vfx/VFXManager';
 import { registerVfxLibrary } from './fx/vfx/library';
+import { isHeroKind } from '../config/heroes';
+import { VISUAL_CONFIG } from '../config/visualConfig';
+
+/** Armadilha no chão: aro de ferro com dentes (só visual). */
+function trapMesh(): THREE.Group {
+  const g = new THREE.Group();
+  const iron = new THREE.MeshLambertMaterial({ color: 0x6e6a62, flatShading: true });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.035, 5, 16).rotateX(-Math.PI / 2), iron);
+  ring.position.y = 0.03;
+  g.add(ring);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 4), iron);
+    tooth.position.set(Math.cos(a) * 0.24, 0.08, Math.sin(a) * 0.24);
+    tooth.rotation.z = Math.cos(a) * 0.5;
+    tooth.rotation.x = -Math.sin(a) * 0.5;
+    g.add(tooth);
+  }
+  const plate = new THREE.Mesh(new THREE.CircleGeometry(0.12, 10).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x8a6a3a }));
+  plate.position.y = 0.025;
+  g.add(plate);
+  g.traverse((o: THREE.Object3D) => (o.castShadow = true));
+  return g;
+}
 
 registerVfxLibrary();
 
@@ -83,6 +107,122 @@ export class GameView {
   private auras: Record<string, number> = {};
   private auraT = 0;
   private ringT = 0;
+
+  /**
+   * Planejamento "com vida": cada herói passeia perto do posto que o jogador ordenou
+   * (só apresentação — a simulação continua com o herói no tile do posto).
+   */
+  private idle = new Map<string, { pos: THREE.Vector3; path: THREE.Vector3[]; wait: number; ordered: boolean; post: string }>();
+  private keepIdle = false;
+
+  /** A próxima troca de simulação é só uma ordem de posição: os heróis andam até o posto novo. */
+  keepPartyPositions(): void {
+    this.keepIdle = true;
+  }
+
+  /** Marca no chão onde o jogador mandou o herói ir. */
+  orderMarker(x: number, y: number, color: number): void {
+    const cfg = VISUAL_CONFIG.orders;
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.38, 32).rotateX(-Math.PI / 2), mat);
+    const dot = new THREE.Mesh(new THREE.CircleGeometry(0.12, 16).rotateX(-Math.PI / 2), mat.clone());
+    const g = new THREE.Group();
+    g.add(ring, dot);
+    g.position.copy(tileToWorld(x, y, undefined, 0.05));
+    this.world.add(g);
+    let t = 0;
+    this.oneShots.push({
+      group: g,
+      done: false,
+      update(dt: number) {
+        t += dt / cfg.markerTime;
+        const k = Math.min(1, t);
+        ring.scale.setScalar(1 + k * 1.4);
+        mat.opacity = 0.9 * (1 - k);
+        (dot.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - k);
+        if (k >= 1) {
+          this.done = true;
+          g.removeFromParent();
+        }
+      },
+    });
+  }
+
+  /** Caminho em tiles (8 direções, só chão) do tile a ao b; vazio se não houver. */
+  private tilePath(a: { x: number; y: number }, b: { x: number; y: number }): { x: number; y: number }[] {
+    const board = this.sim.board;
+    const key = (x: number, y: number) => y * board.width + x;
+    const prev = new Map<number, number>();
+    const q: [number, number][] = [[a.x, a.y]];
+    prev.set(key(a.x, a.y), -1);
+    while (q.length) {
+      const [x, y] = q.shift()!;
+      if (x === b.x && y === b.y) break;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (prev.has(key(nx, ny)) || !board.isWalkable(nx, ny)) continue;
+        if (dx && dy && (!board.isWalkable(x + dx, y) || !board.isWalkable(x, y + dy))) continue;
+        prev.set(key(nx, ny), key(x, y));
+        q.push([nx, ny]);
+      }
+    }
+    if (!prev.has(key(b.x, b.y))) return [];
+    const out: { x: number; y: number }[] = [];
+    for (let k = key(b.x, b.y); k !== -1; k = prev.get(k)!) out.push({ x: k % board.width, y: Math.floor(k / board.width) });
+    return out.reverse();
+  }
+
+  /** Movimento livre do herói no planejamento; devolve se está andando. */
+  private idleStep(kind: string, u: { x: number; y: number }, v: AnyUnitView, dt: number): boolean {
+    const cfg = VISUAL_CONFIG.idleWander;
+    const post = `${u.x},${u.y}`;
+    const anchor = tileToWorld(u.x, u.y);
+    let st = this.idle.get(kind);
+    if (!st) {
+      st = { pos: anchor.clone(), path: [], wait: Math.random() * cfg.waitMax, ordered: false, post };
+      this.idle.set(kind, st);
+    }
+    if (st.post !== post) {
+      // ordem nova: vai andando até o posto pelo chão
+      st.post = post;
+      st.ordered = true;
+      const from = { x: Math.round(st.pos.x + this.sim.board.width / 2 - 0.5), y: Math.round(st.pos.z + this.sim.board.height / 2 - 0.5) };
+      st.path = this.tilePath(from, u).slice(1).map((t) => tileToWorld(t.x, t.y));
+      if (!st.path.length) st.path = [anchor.clone()];
+      st.wait = 0;
+    }
+    if (!st.path.length) {
+      st.wait -= dt;
+      if (st.wait <= 0) {
+        // passeio curto em volta do posto
+        const a = Math.random() * Math.PI * 2;
+        const r = cfg.radius * Math.sqrt(Math.random());
+        st.path = [anchor.clone().add(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r))];
+        st.wait = cfg.waitMin + Math.random() * (cfg.waitMax - cfg.waitMin);
+      }
+    }
+    let moving = false;
+    if (st.path.length) {
+      const goal = st.path[0];
+      const d = goal.clone().sub(st.pos);
+      d.y = 0;
+      const dist = d.length();
+      const step = (st.ordered ? cfg.orderSpeed : cfg.speed) * dt;
+      if (dist <= step) {
+        st.pos.copy(goal);
+        st.path.shift();
+        if (!st.path.length) st.ordered = false;
+      } else {
+        st.pos.addScaledVector(d, step / dist);
+        v.setFacing(d.x, d.z);
+        moving = true;
+      }
+    }
+    v.root.position.copy(st.pos);
+    if (!moving && st.wait < cfg.lookAtCameraAfter) v.setFacing(0, 1);
+    return moving;
+  }
 
   setHeroAuras(a: Record<string, number>): void {
     this.auras = { ...a };
@@ -152,6 +292,8 @@ export class GameView {
     this.stormOn = false;
     this.aggroShown.clear();
     this.sim = sim;
+    if (!this.keepIdle) this.idle.clear();
+    this.keepIdle = false;
     for (const u of this.units.values()) u.dispose();
     for (const c of this.corpses) c.dispose();
     for (const f of this.fires.values()) f.dispose();
@@ -159,6 +301,8 @@ export class GameView {
     this.fading = [];
     for (const o of this.oneShots) o.group.removeFromParent();
     for (const l of this.loot) l.dispose();
+    for (const g of this.trapMeshes.values()) g.removeFromParent();
+    this.trapMeshes.clear();
     this.loot = [];
     this.units.clear();
     this.kinds.clear();
@@ -188,6 +332,9 @@ export class GameView {
     this.kinds.set(id, u.kind);
     return v;
   }
+
+  /** Armadilhas armadas (visual), por id. */
+  private readonly trapMeshes = new Map<number, THREE.Group>();
 
   /** Mão do arco da Arqueira (origem das flechas). */
   private bowTip(id: number, from: { x: number; y: number }): THREE.Vector3 {
@@ -403,6 +550,53 @@ export class GameView {
           }
           break;
         }
+        case 'objectSpawn': {
+          this.objectView?.handle([e], this.particles);
+          const c = tileToWorld(e.object.x, e.object.y);
+          this.particles.smoke.emit({ pos: c.clone().setY(0.2), posJitter: 0.4, vel: new THREE.Vector3(0, 1.0, 0), velJitter: 0.8, life: 0.8, size: 0.35, sizeEnd: 0.9, color: new THREE.Color(0.55, 0.5, 0.42), alpha: 0.6, count: 6 });
+          break;
+        }
+        case 'trapSet': {
+          const g = trapMesh();
+          g.position.copy(tileToWorld(e.trap.x, e.trap.y, undefined, 0.02));
+          this.world.add(g);
+          this.trapMeshes.set(e.trap.id, g);
+          break;
+        }
+        case 'trapTrigger': {
+          const g = this.trapMeshes.get(e.trapId);
+          if (g) {
+            g.removeFromParent();
+            g.traverse((o: THREE.Object3D) => {
+              const m = o as THREE.Mesh;
+              m.geometry?.dispose();
+              (m.material as THREE.Material | undefined)?.dispose();
+            });
+            this.trapMeshes.delete(e.trapId);
+          }
+          const p = tileToWorld(e.x, e.y, undefined, 0.4);
+          this.particles.glow.emit({ pos: p, posJitter: 0.2, vel: new THREE.Vector3(0, 2.0, 0), velJitter: 1.6, life: 0.4, size: 0.12, sizeEnd: 0.03, color: new THREE.Color(1.6, 1.4, 0.8), colorEnd: new THREE.Color(0.4, 0.3, 0.1), count: 10 });
+          this.float('Armadilha!', p.clone().setY(1.7), '#ffd08a', 0.28);
+          this.stage.addShake(0.05);
+          break;
+        }
+        case 'curse': {
+          const v = this.units.get(e.unitId);
+          v?.cast();
+          this.spectre(e.unitId, 0.7);
+          telegraph(this.kit, tileToWorld(e.x, e.y), e.radius, 0.6);
+          for (const u of this.sim.units.values())
+            if (u.team === 'enemy' && Math.max(Math.abs(u.x - e.x), Math.abs(u.y - e.y)) <= e.radius)
+              this.particles.glow.emit({ pos: tileToWorld(u.x, u.y, undefined, 1.0), posJitter: 0.3, vel: new THREE.Vector3(0, 0.8, 0), velJitter: 0.4, life: 0.9, size: 0.18, sizeEnd: 0.05, color: new THREE.Color(1.4, 0.2, 1.2), colorEnd: new THREE.Color(0.2, 0.0, 0.2), count: 4 });
+          break;
+        }
+        case 'execute': {
+          const v = this.units.get(e.unitId);
+          if (v instanceof ModelUnitView) v.attack('heavy');
+          else v?.attack();
+          this.float('EXECUÇÃO!', tileToWorld(e.x, e.y, undefined, 1.8), '#ffd04a', 0.36, 1.1);
+          break;
+        }
         case 'objectHit':
         case 'objectState':
         case 'oilIgnite':
@@ -616,7 +810,7 @@ export class GameView {
           this.units.delete(e.unitId);
           this.corpses.push(v);
           const kind = this.kinds.get(e.unitId) ?? '';
-          if (kind !== 'warrior' && kind !== 'mage' && kind !== 'archer')
+          if (!isHeroKind(kind))
             this.vfx.play('enemyDeath', { position: v.root.position.clone().setY(0), scale: GAME_CONFIG.bossKinds.includes(kind) ? 2 : kind === 'brute' ? 1.4 : 1 });
           // "Alma" escapando: satisfatório mas curto, para não poluir com muitos inimigos.
           this.particles.glow.emit({
@@ -689,8 +883,12 @@ export class GameView {
       v.root.position.lerpVectors(p0, p1, e);
       if (t < 1 || u.team === 'enemy') v.setFacing(u.facing.x, u.facing.y);
       if (u.team === 'party' && u.kind === 'warrior') v.setFacing(u.facing.x, u.facing.y);
-      // Planejamento: heróis se viram para a câmera (só apresentação; na onda encaram a horda).
-      if (u.team === 'party' && this.sim.phase === 'setup') v.setFacing(0, 1);
+      // Planejamento: heróis passeiam perto do posto e vão andando até onde o jogador mandar.
+      if (u.team === 'party' && this.sim.phase === 'setup') {
+        const walking = this.idleStep(u.kind, u, v, dt);
+        v.update(dt, walking ? 0 : 1, u.hp / u.maxHp, camQ);
+        continue;
+      }
       v.update(dt, t, u.hp / u.maxHp, camQ);
     }
     // Estados contínuos: gelo, fúria, cura e aura de refino
