@@ -331,7 +331,11 @@ const hud = new Hud(document.getElementById('hud')!, {
     resetSim(false);
   },
   onSpeed: (s) => (speed = s),
-  onAttr: (kind, key, d) => progressionChanged(d > 0 && addPoint(profile, kind, key)),
+  onAttr: (kind, key, n) => {
+    let any = false;
+    for (let i = 0; i < n && addPoint(profile, kind, key); i++) any = true;
+    progressionChanged(any);
+  },
   onSkills: () => openSkills(),
   onEquip: (kind, id) => {
     equip(profile, kind, id);
@@ -474,7 +478,7 @@ function closeOverlays(): void {
 }
 
 function refreshOverlays(): void {
-  if (mode === 'map') openMap();
+  if (mode === 'map') openMap(true);
   city.refresh();
 }
 
@@ -541,11 +545,13 @@ function heroCardVM(kind: HeroKind): HeroCardVM {
   };
 }
 
-function openMap(): void {
+/** `redraw`: só atualiza o mapa (ex.: distribuiu um ponto) sem fechar a janela de Personagem. */
+function openMap(redraw = false): void {
   const hero = mode === 'map' ? worldMap.heroOpen : undefined; // redesenho do mapa (ex.: equipou um item) mantém a janelinha
   closeOverlays();
   setMode('map');
-  if (!hero) hud.toggleCharacter(false);
+  if (!hero && !redraw) hud.toggleCharacter(false);
+  hud.setCharacter(characterVM()); // no mapa a ficha é sempre editável
   worldMap.show(mapState());
   if (hero) worldMap.openHero(hero);
 }

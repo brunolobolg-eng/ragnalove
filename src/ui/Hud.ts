@@ -2,7 +2,7 @@ import type { Orientation } from '../core/grid/types';
 import type { Item, Slot } from '../core/progression/equipment';
 import { ITEM_KIND_LABEL, RARITY_INFO, SLOT_GROUP, SLOT_KINDS, SLOT_LABEL, canUse, itemKind, itemLines, itemName } from '../core/progression/equipment';
 import { itemArtCanvas } from './itemArt';
-import { ATTR_KEYS, ATTR_LABEL, type AttrKey } from '../core/progression/attributes';
+import { ATTR_KEYS, ATTR_LABEL, attrHint, type AttrKey } from '../core/progression/attributes';
 import { ICONS, SKILL_ICONS } from './icons';
 import { itemIconUrl } from './itemArt';
 import { HERO_INFO, HERO_NAME, HERO_ORDER } from '../config/heroes';
@@ -20,7 +20,8 @@ export interface HudCallbacks {
   onRetreat(): void;
   onReset(): void;
   onSpeed(s: number): void;
-  onAttr(kind: string, key: AttrKey, delta: 1 | -1): void;
+  /** Distribui `amount` pontos (ou o que houver) no atributo. */
+  onAttr(kind: string, key: AttrKey, amount: number): void;
   onSkills(): void;
   onEquip(kind: string, itemId: string): void;
   onUnequip(kind: string, slot: Slot): void;
@@ -376,7 +377,7 @@ export class Hud {
       } else if (c === 'filter') {
         this.bagFilter = t.dataset.f as typeof this.bagFilter;
         this.renderCharacter();
-      } else if (c === 'plus') cb.onAttr(k, t.dataset.key as AttrKey, 1);
+      } else if (c === 'plus') cb.onAttr(k, t.dataset.key as AttrKey, Number(t.dataset.n ?? 1));
       else if (c === 'equip') cb.onEquip(k, t.dataset.id!);
       else if (c === 'unequip') cb.onUnequip(k, t.dataset.slot as Slot);
     });
@@ -650,8 +651,8 @@ export class Hud {
     const bestRefine = Math.max(0, ...Object.values(h.equipment).map((it) => it?.refine ?? 0));
     const attrs = ATTR_KEYS.map((k) => {
       const gear = h.gearAttrs[k] ? `<em>+${h.gearAttrs[k]}</em>` : '<em></em>';
-      return `<div class="cw-attr"><span>${ATTR_LABEL[k]}</span><b>${h.attrs[k]}</b>${gear}
-        <button data-c="plus" data-key="${k}"${dis(vm.editable && h.points > 0)}>+</button></div>`;
+      return `<div class="cw-attr" data-tip="attr:${k}"><span>${ATTR_LABEL[k]}</span><b>${h.attrs[k]}</b>${gear}
+        <button data-c="plus" data-key="${k}" data-n="1" title="+1 ponto"${dis(vm.editable && h.points > 0)}>+</button><button class="p5" data-c="plus" data-key="${k}" data-n="5" title="+5 pontos (ou o que sobrar)"${dis(vm.editable && h.points > 0)}>+5</button></div>`;
     }).join('');
     const derived = h.derived.map(([a, b]) => `<div class="cw-drv"><span>${a}</span><b>${b}</b></div>`).join('');
     const F = this.bagFilter;
@@ -700,6 +701,13 @@ export class Hud {
     if (!vm) return undefined;
     const h = vm.heroes.find((x) => x.kind === this.charKind) ?? vm.heroes[0];
     const [src, id] = key.split(':');
+    if (src === 'attr') {
+      const k = id as AttrKey;
+      const fam = HERO_INFO[h.kind].family;
+      const main = (fam === 'mage' ? 'int' : fam === 'archer' ? 'dex' : 'str') === k;
+      return `<b class="t-name">${ATTR_LABEL[k]}</b><small class="t-type">Cada ponto dá:</small>
+        <ul>${attrHint(k).map((l) => `<li>${l}</li>`).join('')}</ul>${main ? `<div class="t-foot">★ Atributo principal do ${NAME[h.kind]}</div>` : ''}`;
+    }
     if (src === 'slot') return `<b class="t-name">${SLOT_LABEL[id as Slot]}</b><small class="t-type">Vazio</small>`;
     const it = src === 'eq' ? h.equipment[id as Slot] : vm.inventory.find((x) => x.id === id);
     if (!it) return undefined;
