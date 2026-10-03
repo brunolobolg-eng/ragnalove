@@ -79,6 +79,15 @@ export interface ZoneDef {
   objects: MapObjectDef[];
   defaultSetup: PartySetup;
   wave: { count: number; spawnIntervalTicks: number; seed: number; mix: WaveMix[]; boss?: string; bossDelayTicks: number };
+  /**
+   * Mapa PINTADO (arte do dono): a imagem é o chão inteiro da zona e a grade só diz onde se anda.
+   * Sem cenário 3D por cima. `fx` = pontos animados na imagem (0..1 da largura/altura):
+   * cachoeiras (névoa), tochas (brilho) e o portal.
+   */
+  painted?: {
+    image: string;
+    fx?: { mist?: [number, number][]; torches?: [number, number][]; glow?: [number, number, number][] };
+  };
 }
 
 const PROP_OF: Record<string, PropKind | undefined> = {
@@ -232,6 +241,83 @@ export const ZONES: Record<string, ZoneDef> = {
     objects: [],
     defaultSetup: setup(9, 6, 6, 10, 6, 5),
     wave: { count: 40, spawnIntervalTicks: 5, seed: 1337, mix: [{ kind: 'grunt', weight: 1 }], bossDelayTicks: 0 },
+  },
+};
+
+// ---------------- Mapa pintado oficial: Floresta Serena (80 × 40) ----------------
+/**
+ * Arte do dono (public/maps/floresta_serena.webp) como chão. A horda sai do Portal Antigo (leste)
+ * e tem dois caminhos até a vila (oeste): a ponte de pedra (norte) e a ponte de madeira (sul).
+ * Os dois caminhos se encontram no pátio da vila (a trilha da margem sobe da ponte de madeira).
+ * ~ = rio (não bloqueia flechas), T = mata/rocha/ruína, g = porta da vila (a cidade).
+ */
+ZONES.serene = {
+  id: 'serene',
+  name: 'Floresta Serena',
+  theme: 'forest',
+  widthTiles: 80,
+  heightTiles: 40,
+  map: [
+      'TTTTTTTTTTT~~~~~~~~~TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTT~~~~~~~~~TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTT~~~~~~~~~TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTT~~~~~~~~~TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTT~~~~~~~~~TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTT~~~~~~~~~TTTTTTT..............TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTT~~~~~~~~~TTTTTTT..............TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTT~~~~~~~~~TT...................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTT~~~~~~~~~TT...................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTT~~~~~~~~......................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTTTTTTT......TTTTT...............TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTTT.....TTT~~~~TTTTTTTTTTT.......TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTTT.....TTT~~~~TTTTTTTTTTT.......TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTTT.....TTT~~~~TTTTTTTTTTT.......TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTTTT.....TTT~~~~TTTTTTTTTTT.......TTTTT...........................TTTTTT',
+      'TTTTTTTTTT.......TTT~~~~TTTTTTTTTTT.......TTTTT...........................TTTTTT',
+      'TTTTTTTTTT......TTTT~~~~TTTTTTTTTTT.......................................TTTTTT',
+      'TTTTTTTTTT......TTTT~~~~TTTTTTTTTTT.......................................TTTTTT',
+      'TTTTTTTTTT......TTTT~~~~TTTTTTTTTTT.......................................TTTTTT',
+      'TTTTTT..........TTTT~~~~TTTTTTTTTTTTTTTTT........TTT......................TTTTTT',
+      'TTTTTg......TTTT~~~~~~~~~~~~~TTTTTTTTTTTTTTTTTTTTTT...................TTTTTTTTTT',
+      'TTTTTg......TTTT~~~~~~~~~~~~~TTTTTTTTTTTTTTTTTTTTT....................TTTTTTTTTT',
+      'TTTTTg......TTTT~~~~~~~~~~~~~TTTTTTTTTTTTTTTTTTTTT....................TTTTTTTTTT',
+      'TTTTTg......TTTT~~~~~~~~~~~~~TTTTTTTTTTTTTTTTTTTTT....................TTTTTTTTTT',
+      'TTTTTg......TTTT~~~~~~~~~~~~~TTTTTTTTTTTTTTTTTTTTT....................TTTTTTTTTT',
+      'TTTTTTT....TTTTT~~~~~~~~~~~~~TTTTTTTT.................................TTTTTTTTTT',
+      'TTTTTTT....T~~~~~~~~~~~~~~~~~TTT......................................TTTTTTTTTT',
+      'TTTTTTT....T~~~~~~~~~~TTTTTTTTTT......................................TTTTTTTTTT',
+      'TTTTTTT....T~~~~~~~~~~TTTTTTTTTT......................................TTTTTTTTTT',
+      'TTTTTTT....T~~~~~~~~~~TTTTTTTTTT......................................TTTTTTTTTT',
+      'TTTTTTT....T~~~~~~~~~~TT..........................................TTTTTTTTTTTTTT',
+      'TTTTTTT....T~~~~~~~~~~TT.....................................TTTTTTTTTTTTTTTTTTT',
+      'TTTTTTT....T~~~~~~~~~........................................TTTTTTTTTTTTTTTTTTT',
+      'TTTTTTT....T~~~~~~~~~........................................TTTTTTTTTTTTTTTTTTT',
+      'TTTTTTT....T~~~~.........TTTTTTT.............................TTTTTTTTTTTTTTTTTTT',
+      'TTTTTT...............~TTTTTTTTTT.............................TTTTTTTTTTTTTTTTTTT',
+      'TTTTTT..........~~~~~~TTTTTTTTTT.............TTTT...........TTTTTTTTTTTTTTTTTTTT',
+      'TTTTTT....~~~~~~~~~~~~TTTTTTTTTT.............TTTT.T.........TTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTT...~~~~~~~~~~~~TTTTTTTTTT.............TTTT.T.........TTTTTTTTTTTTTTTTTTTT',
+      'TTTTTTTTTT~~~~~~~~~~~~TTTTTTTTTT.............TTTT.T.........TTTTTTTTTTTTTTTTTTTT',
+  ],
+  spawnPoints: [{ x: 69, y: 15 }, { x: 71, y: 16 }],
+  objects: [],
+  defaultSetup: {
+    members: [
+      { archetype: 'warrior', x: 10, y: 20 },
+      { archetype: 'mage', x: 7, y: 22 },
+    ],
+    // ponte de pedra (norte), trilha da margem (sul) e a descida até o pátio
+    barriers: [{ x: 24, y: 9, orientation: 'V' }, { x: 9, y: 29, orientation: 'H' }, { x: 13, y: 14, orientation: 'H' }],
+  },
+  wave: wave(1601, UNDEAD, 60, 3),
+  painted: {
+    image: 'maps/floresta_serena.webp',
+    fx: {
+      // cachoeiras (névoa subindo) e tochas da ponte/vila (posições na imagem, 0..1)
+      mist: [[0.28, 0.5], [0.2, 0.75]],
+      torches: [[0.215, 0.29], [0.335, 0.18], [0.078, 0.6], [0.135, 0.88], [0.83, 0.3], [0.924, 0.374]],
+      glow: [[0.89, 0.27, 0x5a8cff]],
+    },
   },
 };
 

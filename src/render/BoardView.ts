@@ -7,6 +7,7 @@ import { buildBridgeScenery, type SceneryHandle } from './scenery/BridgeScenery'
 import { parseZone } from '../config/zones';
 import { GAME_CONFIG, ZONE_STATE } from '../config/gameConfig';
 import { buildBiomeScenery } from './scenery/BiomeScenery';
+import { buildPaintedScenery } from './scenery/PaintedScenery';
 import type { ParticleLayer } from './fx/Particles';
 import { softCircle, tileOutline } from './textures';
 import { PathArrows } from './PathArrows';
@@ -118,8 +119,9 @@ export class BoardView {
 
     // Cenário da zona ativa — só visual (a grade vem do mapa da zona).
     const zone = ZONE_STATE.current;
-    this.scenery =
-      zone.theme === 'bridge'
+    this.scenery = zone.painted
+      ? buildPaintedScenery(zone)
+      : zone.theme === 'bridge'
         ? buildBridgeScenery(parseZone(zone))
         : zone.theme === 'town'
           ? { group: buildScenery(board), update: () => {}, setLights: () => {} }
@@ -127,7 +129,7 @@ export class BoardView {
     this.scenery.setLights(BoardView.sceneryLights);
     this.group.add(this.scenery.group);
     // Cenário temático dos monstros do ato + setas discretas do caminho da horda
-    this.group.add(buildActDressing(board));
+    if (!zone.painted) this.group.add(buildActDressing(board)); // mapa pintado já traz o cenário
     this.arrows = new PathArrows(board);
     if (this.arrows.mesh) this.group.add(this.arrows.mesh);
 

@@ -32,3 +32,11 @@ Jornada (RunState)
 ## Regras
 - Nova região/ato/evento = dados em `world.ts` (+ zona em `zones.ts` + âncora na arte em `MAP_ART.anchors`).
 - A UI do mapa não decide caminho; mostra `options` do nó e chama `onChoose`.
+
+## Mapas pintados (arte do dono como chão)
+- `ZoneDef.painted = { image, fx }` (ex.: `ZONES.serene`, Floresta Serena 80×40, usada nas fases de combate do Ato I).
+  A imagem (`public/maps/*.webp`) cobre a grade inteira; a grade (`map`) só diz onde se anda (T = bloqueado, ~ = rio,
+  g = porta da cidade). Render: `render/scenery/PaintedScenery.ts` (pintura sem luz, plano de sombras, tochas, névoa, brilho).
+- Câmera: `Stage.setPainted` — sem névoa, zoom em `VISUAL_CONFIG.cameraControl.painted`, presa dentro da pintura; sem giro.
+- Novo mapa pintado: arte SEM interface, mesmo ângulo de câmera (~55°, vista de frente), largura/altura da imagem na proporção
+  W : H×0,82. Marque a grade sobre a imagem com uma grade numerada e confira com BFS que o portal alcança a porta da cidade.
