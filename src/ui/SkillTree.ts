@@ -151,7 +151,7 @@ export class SkillTree {
         const br = d.branch ? `<i class="sk-br ${chosen && chosen !== d.branch ? 'off' : ''}">${branchName(this.hero, d.branch).replace(/ \(.*\)/, '')}</i>` : '';
         const tag = !usesSlot(d.id) ? '' : equipped.includes(d.id) ? '<i class="sk-slot on">No slot</i>' : lv > 0 ? '<i class="sk-slot">Fora</i>' : '';
         return `<button class="sk-node ${st} ${this.sel === d.id ? 'sel' : ''}" data-c="node" data-id="${d.id}" style="left:${p.x}px;top:${p.y}px">
-          <img src="${this.icon(d.id)}" alt=""><span class="lv">${lv}/${d.maxLevel}</span>${tag}${br}
+          <span class="sk-ic"><img src="${this.icon(d.id)}" alt=""><span class="lv">${lv}/${d.maxLevel}</span></span>${tag}${br}
           <b>${d.name}</b><small>${d.kind === 'active' ? 'Ativa' : 'Passiva'} · Tier ${d.tier}</small></button>`;
       })
       .join('');
@@ -175,7 +175,7 @@ export class SkillTree {
     }
     this.el.innerHTML = `
       <div class="win skilltree">
-        <div class="win-title"><span>Árvore de habilidades</span><button class="x" data-c="close" title="Fechar (Esc/K)">×</button></div>
+        <div class="win-title"><i class="au-ico">✦</i><span>Árvore de habilidades</span><button class="au-x" data-c="close" title="Fechar (Esc/K)">×</button></div>
         <div class="win-body">
           <div class="tabs-row">${r.party.map((h) => `<button data-c="tab" data-h="${h}" class="${h === this.hero ? 'on' : ''}">${HERO_PT[h]} <small>Nv.${r.profile.heroes[h].level}</small>${r.profile.heroes[h].skillPoints ? ` <span class="badge">${r.profile.heroes[h].skillPoints}</span>` : ''}</button>`).join('')}
             <span class="sk-bank">Pontos: <b>${hp.skillPoints}</b> · <i class="zeni-ico"></i>${r.profile.zeni.toLocaleString('pt-BR')}</span></div>
