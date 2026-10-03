@@ -672,6 +672,7 @@ function loadZone(zone: ZoneDef, wave: WaveOptions): void {
   const themeChanged = ZONE_STATE.current.id !== zone.id;
   applyZone(zone, wave);
   stage.applyTheme(zone.theme);
+  stage.setPainted(!!zone.painted);
   audio.setAmbience(zone.theme);
   if (themeChanged || !view.boardView) view.rebuildBoard();
   run.usedObjects ??= [];

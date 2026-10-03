@@ -151,8 +151,7 @@ export class Stage {
     const fog = this.scene.fog as THREE.Fog;
     fog.color.set(V.background);
     this.fogBase = { ...V.fog };
-    fog.near = V.fog.near * this.zoom;
-    fog.far = V.fog.far * this.zoom;
+    this.applyFog();
     this.scene.environmentIntensity = V.envIntensity;
     this.hemi.color.set(V.light.sky);
     this.hemi.groundColor.set(V.light.ground);
@@ -202,10 +201,26 @@ export class Stage {
 
   zoomBy(steps: number): void {
     const C = VISUAL_CONFIG.cameraControl;
-    this.zoom = THREE.MathUtils.clamp(this.zoom * (1 + C.zoomStep * steps), C.zoomMin, C.zoomMax);
+    const lim = this.painted ? C.painted : C;
+    this.zoom = THREE.MathUtils.clamp(this.zoom * (1 + C.zoomStep * steps), lim.zoomMin, lim.zoomMax);
+    this.applyFog();
+    this.clampFocus();
+  }
+
+  /** Mapa pintado: sem névoa (a pintura já tem profundidade), zoom maior, câmera dentro da arte. */
+  private painted = false;
+  setPainted(on: boolean): void {
+    this.painted = on;
+    const C = VISUAL_CONFIG.cameraControl;
+    this.zoom = on ? C.painted.zoomStart : THREE.MathUtils.clamp(this.zoom, C.zoomMin, C.zoomMax);
+    this.applyFog();
+    this.clampFocus();
+  }
+
+  private applyFog(): void {
     const fog = this.scene.fog as THREE.Fog;
-    fog.near = this.fogBase.near * this.zoom;
-    fog.far = this.fogBase.far * this.zoom;
+    fog.near = this.painted ? 1e4 : this.fogBase.near * this.zoom;
+    fog.far = this.painted ? 2e4 : this.fogBase.far * this.zoom;
   }
 
   /** Volta a seguir a ação imediatamente. */
@@ -222,6 +237,18 @@ export class Stage {
   }
 
   private clampFocus(): void {
+    if (this.painted) {
+      // o que a câmera enxerga no chão (meia largura/profundidade) não passa da borda da pintura
+      const dist = this.camOffset.length() * this.zoom;
+      const halfV = dist * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+      const pitch = Math.atan2(this.camOffset.y, this.camOffset.z);
+      // + perspectiva: o fundo da tela abre mais que a frente
+      const hw = Math.max(0, this.boardHalf.x - halfV * this.camera.aspect * 1.15);
+      const hd = Math.max(0, this.boardHalf.y - (halfV / Math.sin(pitch)) * 1.2);
+      this.focus.x = THREE.MathUtils.clamp(this.focus.x, -hw, hw);
+      this.focus.z = THREE.MathUtils.clamp(this.focus.z, -hd, hd);
+      return;
+    }
     this.focus.x = THREE.MathUtils.clamp(this.focus.x, -this.boardHalf.x, this.boardHalf.x);
     this.focus.z = THREE.MathUtils.clamp(this.focus.z, -this.boardHalf.y, this.boardHalf.y + 2);
   }
