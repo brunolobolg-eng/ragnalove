@@ -50,8 +50,8 @@ export const HERO_INFO: Record<HeroKind, HeroInfo> = {
   },
   mage: {
     name: 'Mago',
-    role: 'Controle de área',
-    line: 'Três barreiras de fogo desviam a horda; raios gélidos à distância.',
+    role: 'Maga divina',
+    line: 'Barreiras de fogo e raios gélidos. Especialize em Cura (santuário, escudo, bênção) ou em Dano (nova, tempestade, julgamento).',
     family: 'mage',
     color: 0x6aa8ff,
     area: 'fireBarrier',

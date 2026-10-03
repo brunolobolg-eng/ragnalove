@@ -30,6 +30,12 @@ Stack: TypeScript + Vite + Three.js, desktop via Electron (Windows/Steam). Sem f
 6. **Nada de arquivo-fonte pesado no repositório** (modelos originais, PSD, vídeos brutos). O jogo usa
    só versões otimizadas em `public/`. Fontes editáveis vão zipadas para a branch `fontes`.
 
+## Regras de design fixas (definidas pelo dono — pese o balanceamento antes de mudar)
+- **Mana = slots de habilidade** (não é MP, não gasta, não regenera). Custo do slot: Mago 1×, Arqueira/Assassino 1,5×, Guerreiro 2×. Mana é escassa.
+- **Skill Haste** é o único atributo que acelera a recuperação das habilidades. **Chance de crítico** e **Dano crítico** são separados.
+- **Loot = RNG**: nenhum item garantido no começo da jornada. **Mítico** é raríssimo, com 1 garantia ao vencer o 1º chefe.
+- Cada atributo tem UMA função; nada de recursos abundantes ou sistemas redundantes. Detalhes: skill `combat-system`.
+
 ## Skills do projeto (`.claude/skills/`)
 Carregue a skill do assunto antes de mexer nele — elas descrevem as regras reais do jogo:
 

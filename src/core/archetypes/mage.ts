@@ -98,7 +98,101 @@ function frostBolt(unit: Unit, sim: Simulation, force: boolean): boolean {
   return true;
 }
 
+// ---------------- Especialização Divina (cura) ----------------
+
+/** Força das curas: Dom da Cura e a arma mágica (cajado/livro) aumentam. */
+const healPower = (unit: Unit) => {
+  const g = lvOf(unit.stats?.skills, 'healGift');
+  return (g ? SKILL_NUM.healGift(g).healMult : 1) * dm(unit);
+};
+const ratio = (u: Unit) => u.hp / Math.max(1, u.maxHp);
+/** Aliados vivos (inclui a própria Cléria), do mais ferido para o menos. */
+const alliesByNeed = (unit: Unit, sim: Simulation, range: number) =>
+  sim.sortedUnits('party').filter((u) => Math.hypot(u.x - unit.x, u.y - unit.y) <= range).sort((a, b) => ratio(a) - ratio(b) || a.id - b.id);
+
+/** Cura: o(s) aliado(s) mais ferido(s) ao alcance (abaixo de 80% de vida). */
+function heal(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'heal', force);
+  if (!lv || !(force || ready(unit, sim, 'heal'))) return false;
+  const n = SKILL_NUM.heal(lv);
+  const g = lvOf(unit.stats?.skills, 'healGift');
+  const want = g ? SKILL_NUM.healGift(g).targets : 1;
+  const list = alliesByNeed(unit, sim, n.range).filter((u) => force || ratio(u) < 0.8).slice(0, want);
+  if (!list.length) return false;
+  for (const t of list) {
+    sim.emit({ type: 'divineHeal', unitId: unit.id, targetId: t.id });
+    sim.heal(t, n.amount * healPower(unit));
+  }
+  unit.cooldowns.heal = sim.tick + cdOf(unit, n.cooldown);
+  return true;
+}
+
+/** Santuário: no aliado mais ferido quando 2+ estão feridos (ou alguém abaixo de 50%). */
+function sanctuary(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'sanctuary', force);
+  if (!lv || !(force || ready(unit, sim, 'sanctuary'))) return false;
+  const n = SKILL_NUM.sanctuary(lv);
+  const list = alliesByNeed(unit, sim, 7);
+  const hurt = list.filter((u) => ratio(u) < 0.75);
+  if (!force && !(hurt.length >= 2 || (hurt[0] && ratio(hurt[0]) < 0.5))) return false;
+  const c = (hurt[0] ?? list[0] ?? unit);
+  sim.addSanctuary(unit, { x: c.x, y: c.y }, n.radius, n.perSec * healPower(unit), n.ticks);
+  unit.cooldowns.sanctuary = sim.tick + cdOf(unit, n.cooldown);
+  return true;
+}
+
+/** Escudo Sagrado: no aliado sem escudo que está sendo atacado (inimigo colado), o mais ferido. */
+function holyShield(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'holyShield', force);
+  if (!lv || !(force || ready(unit, sim, 'holyShield'))) return false;
+  const n = SKILL_NUM.holyShield(lv);
+  const t = alliesByNeed(unit, sim, 7).find((u) => ((u.shield ?? 0) <= 0 || (u.shieldUntil ?? 0) <= sim.tick) && (force || sim.enemiesWithin(u, 1).length > 0));
+  if (!t) return false;
+  sim.shieldAlly(unit, t, Math.round(n.absorb * healPower(unit)), n.ticks);
+  unit.cooldowns.holyShield = sim.tick + cdOf(unit, n.cooldown);
+  return true;
+}
+
+/** Bênção: com a horda ao alcance, a party por perto causa mais dano. */
+function blessing(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'blessing', force);
+  if (!lv || !(force || ready(unit, sim, 'blessing'))) return false;
+  const n = SKILL_NUM.blessing(lv);
+  if (!force && sim.visibleEnemies().length < 3) return false;
+  const targets = sim.sortedUnits('party').filter((u) => Math.hypot(u.x - unit.x, u.y - unit.y) <= n.radius);
+  sim.bless(unit, targets, n.amp, n.ticks);
+  unit.cooldowns.blessing = sim.tick + cdOf(unit, n.cooldown);
+  return true;
+}
+
+/** Julgamento Divino (especialização Arcana): cruz de luz no grupo mais denso. */
+function judgment(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'judgment', force);
+  if (!lv || !(force || ready(unit, sim, 'judgment'))) return false;
+  const n = SKILL_NUM.judgment(lv);
+  const all = sim.visibleEnemies().filter((e) => Math.hypot(e.x - unit.x, e.y - unit.y) <= CFG.frostBolt.range + 2);
+  if (!all.length) return false;
+  const best = all.map((e) => ({ e, c: all.filter((o) => chebyshev(o, e) <= 1).length })).sort((a, b) => b.c - a.c || a.e.id - b.e.id)[0];
+  if (best.c < (force ? 1 : 3)) return false;
+  const c = { x: best.e.x, y: best.e.y };
+  const cross = [c, ...[1, 2].flatMap((k) => [{ x: c.x + k, y: c.y }, { x: c.x - k, y: c.y }, { x: c.x, y: c.y + k }, { x: c.x, y: c.y - k }])];
+  sim.emit({ type: 'storm', unitId: unit.id, strikes: cross.filter((t, i) => i < 5 && sim.board.inBounds(t.x, t.y)) });
+  for (const t of cross) {
+    const e = sim.unitAt(t.x, t.y);
+    if (!e || e.team !== 'enemy') continue;
+    sim.damage(e, n.damage * dm(unit), 'spell', unit.id);
+    sim.stun(e, n.stun);
+  }
+  unit.cooldowns.judgment = sim.tick + cdOf(unit, n.cooldown);
+  return true;
+}
+
 const SKILLS: ArchetypeSkill[] = [
+  { id: 'heal', cast: heal },
+  { id: 'holyShield', cast: holyShield },
+  { id: 'sanctuary', cast: sanctuary },
+  { id: 'blessing', cast: blessing },
+  { id: 'judgment', cast: judgment },
   { id: 'fireBarrier', cast: fireBarrier },
   { id: 'frostNova', cast: frostNova },
   { id: 'thunderstorm', cast: thunderstorm },
@@ -106,17 +200,23 @@ const SKILLS: ArchetypeSkill[] = [
 ];
 
 /**
- * Mago: controle de área + dano à distância.
- * Prioridade: 1) Barreira de Fogo (monta o funil) → Nova Congelante → Tempestade Elétrica →
- * 2) Raio Gélido no inimigo mais próximo dentro do alcance e com linha de visão.
+ * Mago (Cléria, maga divina): controle de área + cura OU dano, conforme a especialização.
+ * Prioridade: Cura → Escudo Sagrado → Santuário → Bênção (Divina) → Barreira de Fogo →
+ * Nova Congelante → Julgamento → Tempestade (Arcana) → Raio Gélido (ataque básico).
+ * Habilidades fora dos slots de Mana nunca são usadas (a simulação as segura).
  */
 export const mage: Archetype = {
   id: 'mage',
   maxHp: CFG.hp,
   skills: SKILLS,
   update(unit, sim) {
+    if (heal(unit, sim, false)) return;
+    if (holyShield(unit, sim, false)) return;
+    if (sanctuary(unit, sim, false)) return;
+    if (blessing(unit, sim, false)) return;
     if (fireBarrier(unit, sim, false)) return;
     if (frostNova(unit, sim, false)) return;
+    if (judgment(unit, sim, false)) return;
     if (thunderstorm(unit, sim, false)) return;
     frostBolt(unit, sim, false);
   },

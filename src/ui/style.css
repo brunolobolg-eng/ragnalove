@@ -427,7 +427,7 @@ body[data-mode='map'] #hud, body[data-mode='city'] #hud, body[data-mode='event']
 .skilltree .tabs-row { display: flex; gap: 4px; align-items: center; margin-bottom: 6px; }
 .skilltree .tabs-row button.on { background: linear-gradient(180deg, #e8c86e, #b58a2e); }
 .sk-bank { margin-left: auto; font-weight: bold; }
-.sk-wrap { display: grid; grid-template-columns: 590px 1fr; gap: 12px; }
+.sk-wrap { display: grid; grid-template-columns: auto minmax(300px, 1fr); gap: 12px; }
 .sk-tree { position: relative; height: 470px; border-radius: 4px; background: radial-gradient(ellipse at 50% 30%, #2a3258, #0e1224); overflow: hidden; }
 .sk-tree svg { position: absolute; inset: 0; }
 .sk-tree path { fill: none; stroke: #5a6488; stroke-width: 3; stroke-dasharray: 6 5; }
@@ -1535,9 +1535,7 @@ body.sand-warn #app::after { opacity: 0.12; }
 .city-screen .pcard.cons .eff small { font-weight: normal; color: var(--au-dim); }
 .city-screen .pcard.locked { filter: grayscale(0.85) brightness(0.55); cursor: default; }
 .city-screen .pcard .soon { margin-top: 4px; padding: 4px 12px; border-radius: 10px; font: 700 11px Cinzel, serif; letter-spacing: 1px; text-transform: uppercase; color: var(--au-dim); background: rgba(4, 8, 22, 0.7); border: 1px dashed #5a6a9a; }
-/* mana (MP): barra azul no HUD de combate e na ficha do herói */
-.bar.mp { height: 6px; background: #1a2448; border-color: #121a38; }
-.fill.mp { background: linear-gradient(180deg, #8ac4ff, #2a62e0); transition: width 0.15s linear; }
+/* Mana (slots de habilidade) na ficha do herói */
 .hc-mp { margin-top: 4px; }
 .hc-mp svg { color: #6aaaff; fill: #6aaaff; }
 .hc-mp i { background: linear-gradient(180deg, #3a7aff, #1a3a9a); }
@@ -1545,3 +1543,27 @@ body.sand-warn #app::after { opacity: 0.12; }
 .cw-attr { grid-template-columns: 1fr 26px 26px 22px 28px; }
 #hud .charwin.rog .cw-attr button.p5 { width: 26px; font-size: 11px; background: linear-gradient(180deg, #e8c86e, #b58a2e); color: #2a1405; border-color: #6a4a10; }
 .cw-attr[data-tip] { cursor: help; }
+/* Árvore de habilidades: slots de Mana */
+.sk-slots { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 8px; padding: 8px 12px; border-radius: 10px; background: rgba(8, 12, 30, 0.62); border: 1px solid #34457e; color: #e9eefc; }
+.sk-mana b { color: #8ab8ff; font-size: 15px; } .sk-mana small, .sk-basic { color: #a9b4d8; }
+.sk-cells { display: flex; gap: 6px; }
+.sk-cell { all: unset; box-sizing: border-box; width: 40px; height: 40px; border-radius: 8px; border: 1.5px dashed #5a6a9a; background: #0a1028; display: grid; place-items: center; }
+.sk-cell.on { border: 1.5px solid #ffd36a; box-shadow: 0 0 10px rgba(255, 196, 80, 0.45); cursor: pointer; }
+.sk-cell.locked { opacity: 0.35; }
+.sk-cell img { width: 32px; height: 32px; }
+.sk-count { color: #ffd36a; }
+.sk-slot { position: absolute; top: 4px; left: 4px; font-style: normal; font-size: 9.5px; font-weight: bold; padding: 1px 6px; border-radius: 8px; background: #2a3150; color: #a9b4d8; }
+.sk-slot.on { background: linear-gradient(180deg, #ffd36a, #c79d48); color: #2a1405; }
+/* Árvore: especialização (ramos exclusivos) */
+.sk-branches { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 8px; padding: 6px 12px; border-radius: 10px; background: rgba(8, 12, 30, 0.62); border: 1px solid #34457e; color: #e9eefc; }
+.sk-branches b { color: #ffe6a8; font-family: Cinzel, serif; }
+.sk-branches em { font-style: normal; color: #a9b4d8; }
+.sk-branches small { color: #a9b4d8; }
+.sk-bopt { padding: 3px 12px; border-radius: 12px; border: 1px solid #5a6a9a; background: #121a3a; font-weight: bold; }
+.sk-bopt.on { border-color: #ffd36a; color: #ffd36a; box-shadow: 0 0 10px rgba(255, 196, 80, 0.4); }
+.sk-bopt.off { opacity: 0.4; text-decoration: line-through; }
+.sk-br { position: absolute; top: 4px; right: 4px; font-style: normal; font-size: 9.5px; font-weight: bold; padding: 1px 6px; border-radius: 8px; background: #3a2a6a; color: #e8d8ff; }
+.sk-br.off { background: #2a2a2a; color: #777; }
+/* árvore com 5 colunas (especializações): janela mais larga e rolagem se faltar espaço */
+.skilltree { width: min(1380px, 98vw); }
+.sk-tree { overflow: auto; }

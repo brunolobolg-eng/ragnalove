@@ -1,5 +1,7 @@
-import { SKILL_BY_ID, heroSkills, lvOf, missingRequirements, skillState, skillZeniCost, type HeroKind, type SkillDef, type SkillId } from '../core/progression/skills';
+import { BRANCHES, SKILL_BY_ID, branchName, chosenBranch, heroSkills, lvOf, missingRequirements, skillState, skillZeniCost, type HeroKind, type SkillDef, type SkillId } from '../core/progression/skills';
 import { learnSkill, type RunState } from '../core/run/run';
+import { heroEquipped, heroStats, toggleSkillSlot } from '../core/progression/profile';
+import { manaToNextSlot, slotCost, slotCount, usesSlot } from '../core/progression/skillSlots';
 import { SKILL_ICONS } from './icons';
 import { HERO_NAME } from '../config/heroes';
 
@@ -49,6 +51,12 @@ export class SkillTree {
         this.msg = err ?? `${SKILL_BY_ID[this.sel].name} agora no nível ${lvOf(this.run.profile.heroes[this.hero].skills, this.sel)}!`;
         this.cb.onChange(!err);
         if (!err) this.pulse(this.sel);
+      } else if (c === 'slot' && this.run) {
+        const id = b.dataset.id as SkillId;
+        const was = heroEquipped(this.run.profile, this.hero).includes(id);
+        const err = toggleSkillSlot(this.run.profile, this.hero, id);
+        this.msg = err ?? (was ? `${SKILL_BY_ID[id].name} saiu do slot.` : `${SKILL_BY_ID[id].name} equipada!`);
+        this.cb.onChange(!err);
       }
       this.render();
     });
@@ -100,7 +108,25 @@ export class SkillTree {
     const hp = r.profile.heroes[this.hero];
     const skills = heroSkills(this.hero);
     const cols = Math.max(3, ...skills.map((d) => d.col + 1));
-    const pos = (d: SkillDef) => ({ x: 30 + d.col * (NODE_W + 40), y: 24 + (d.tier - 1) * (NODE_H + 34) });
+    const gap = cols >= 5 ? 20 : 40; // com especializações (5 colunas) os nós ficam mais juntos
+    const pos = (d: SkillDef) => ({ x: 24 + d.col * (NODE_W + gap), y: 24 + (d.tier - 1) * (NODE_H + 34) });
+    const treeW = cols * NODE_W + (cols - 1) * gap + 48;
+    const mana = heroStats(r.profile, this.hero).mana;
+    const equipped = heroEquipped(r.profile, this.hero);
+    const total = slotCount(this.hero, mana);
+    const slotBar = `<div class="sk-slots" title="Mana não é gasta em combate: ela só define quantas habilidades ativas o herói leva para a luta.">
+      <span class="sk-mana">◆ Mana <b>${mana}</b> <small>· ${slotCost(this.hero)} por slot · próximo slot: +${manaToNextSlot(this.hero, mana)}</small></span>
+      <span class="sk-cells">${Array.from({ length: Math.max(total, 1) }, (_, i) => {
+        const id = equipped[i];
+        return id ? `<button class="sk-cell on" data-c="node" data-id="${id}" title="${SKILL_BY_ID[id].name}"><img src="${this.icon(id)}" alt=""></button>` : `<span class="sk-cell ${i < total ? '' : 'locked'}" title="${i < total ? 'Slot livre' : 'Sem slot: falta Mana'}"></span>`;
+      }).join('')}</span><b class="sk-count">${equipped.length}/${total} slots</b><small class="sk-basic">O ataque básico e as passivas não usam slot.</small></div>`;
+    const chosen = chosenBranch(this.hero, hp.skills);
+    const branches = BRANCHES[this.hero];
+    const branchBar = branches
+      ? `<div class="sk-branches"><b>Especialização:</b>${branches
+          .map((b) => `<span class="sk-bopt ${chosen === b.id ? 'on' : chosen ? 'off' : ''}" title="${b.desc}">${b.name}${chosen === b.id ? ' ✓' : ''}</span>`)
+          .join('<em>ou</em>')}<small>${chosen ? 'Escolhida. Refazer habilidades (Mestre de Armas) libera a troca.' : 'Aprender a 1ª habilidade de um ramo escolhe a especialização e trava o outro.'}</small></div>`
+      : '';
     const lines = skills
       .flatMap((d) =>
         d.requires.map((req) => {
@@ -120,8 +146,10 @@ export class SkillTree {
         const p = pos(d);
         const lv = lvOf(hp.skills, d.id);
         const st = skillState(hp.skills, d.id);
+        const br = d.branch ? `<i class="sk-br ${chosen && chosen !== d.branch ? 'off' : ''}">${branchName(this.hero, d.branch).replace(/ \(.*\)/, '')}</i>` : '';
+        const tag = !usesSlot(d.id) ? '' : equipped.includes(d.id) ? '<i class="sk-slot on">No slot</i>' : lv > 0 ? '<i class="sk-slot">Fora</i>' : '';
         return `<button class="sk-node ${st} ${this.sel === d.id ? 'sel' : ''}" data-c="node" data-id="${d.id}" style="left:${p.x}px;top:${p.y}px">
-          <img src="${this.icon(d.id)}" alt=""><span class="lv">${lv}/${d.maxLevel}</span>
+          <img src="${this.icon(d.id)}" alt=""><span class="lv">${lv}/${d.maxLevel}</span>${tag}${br}
           <b>${d.name}</b><small>${d.kind === 'active' ? 'Ativa' : 'Passiva'} · Tier ${d.tier}</small></button>`;
       })
       .join('');
@@ -139,7 +167,9 @@ export class SkillTree {
         ${lv > 0 ? `<p><b>Agora:</b> ${d.effect(lv)}</p>` : ''}
         ${max ? '<p><b>Nível máximo.</b></p>' : `<p><b>Próximo nível:</b> ${d.effect(lv + 1)}</p><p class="cost">Custo: 1 ponto de habilidade + <i class="zeni-ico"></i>${cost} Zeni</p>`}
         ${max ? '' : `<button class="primary" data-c="learn"${can ? '' : ' disabled'}>${lv ? 'Subir de nível' : 'Aprender'}</button>`}
-        ${!this.canLearn && !max ? '<p class="note">Aprenda com o Mestre de Armas, numa cidade.</p>' : ''}`;
+        ${!this.canLearn && !max ? '<p class="note">Aprenda com o Mestre de Armas, numa cidade.</p>' : ''}
+        ${usesSlot(d.id) && lv > 0 ? (equipped.includes(d.id) ? '<button data-c="slot" data-id="' + d.id + '">Tirar do slot</button>' : `<button class="primary" data-c="slot" data-id="${d.id}"${equipped.length < total ? '' : ' disabled'}>Equipar no slot</button>${equipped.length < total ? '' : `<p class="note">Slots cheios: tire outra habilidade ou consiga +${manaToNextSlot(this.hero, mana)} de Mana.</p>`}`) : ''}
+        ${usesSlot(d.id) ? '' : `<p class="note">${d.kind === 'passive' ? 'Passiva: sempre ativa, não usa slot.' : 'Ataque básico: sempre usado, não usa slot.'}</p>`}`;
     }
     this.el.innerHTML = `
       <div class="win skilltree">
@@ -147,8 +177,9 @@ export class SkillTree {
         <div class="win-body">
           <div class="tabs-row">${r.party.map((h) => `<button data-c="tab" data-h="${h}" class="${h === this.hero ? 'on' : ''}">${HERO_PT[h]} <small>Nv.${r.profile.heroes[h].level}</small>${r.profile.heroes[h].skillPoints ? ` <span class="badge">${r.profile.heroes[h].skillPoints}</span>` : ''}</button>`).join('')}
             <span class="sk-bank">Pontos: <b>${hp.skillPoints}</b> · <i class="zeni-ico"></i>${r.profile.zeni.toLocaleString('pt-BR')}</span></div>
+          ${slotBar}${branchBar}
           <div class="sk-wrap">
-            <div class="sk-tree"><svg width="${(cols) * NODE_W + (cols - 1) * 40 + 60}" height="${3 * NODE_H + 2 * 34 + 40}">${lines}</svg>${nodes}</div>
+            <div class="sk-tree" style="width:${treeW}px"><svg width="${treeW}" height="${3 * NODE_H + 2 * 34 + 40}">${lines}</svg>${nodes}</div>
             <div class="sk-side">${detail}<div class="sk-msg">${this.msg}</div></div>
           </div>
         </div>

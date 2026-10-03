@@ -16,7 +16,7 @@ import { SoulFX } from './fx/SoulFX';
 import { FloatText } from './fx/FloatText';
 import { FrostBoltFX } from './fx/FrostBoltFX';
 import { LootFX } from './fx/LootFX';
-import { MeteorFX, ShadowBoltFX, StompFX, telegraph, ArrowFX, FocusFX, FuryFX, NovaFX, PierceFX, RainFX, ShockwaveFX, StormFX, TauntFX, combustBurst, focusTick, frostTick, furyTick, healTick, refineAuraTick, refineRing } from './fx/SkillFX';
+import { MeteorFX, ShadowBoltFX, StompFX, telegraph, ArrowFX, FocusFX, FuryFX, NovaFX, PierceFX, RainFX, ShockwaveFX, StormFX, TauntFX, combustBurst, focusTick, frostTick, furyTick, healTick, refineAuraTick, refineRing, holyBurst, sanctuaryDecal, shieldBurst, trapBlast } from './fx/SkillFX';
 import { RARITY_INFO } from '../core/progression/equipment';
 import { GAME_CONFIG } from '../config/gameConfig';
 import type { Stage } from './Stage';
@@ -32,7 +32,10 @@ import { isHeroKind } from '../config/heroes';
 import { VISUAL_CONFIG } from '../config/visualConfig';
 
 /** Armadilha no chão: aro de ferro com dentes (só visual). */
-function trapMesh(): THREE.Group {
+/** Cor da placa de cada armadilha: comum (bronze), mina (vermelha), congelante (azul), claymore (laranja). */
+const TRAP_PLATE: Record<string, number> = { snare: 0x8a6a3a, mine: 0xc0402a, freeze: 0x4aa0ff, claymore: 0xff8a1a };
+
+function trapMesh(kind = 'snare'): THREE.Group {
   const g = new THREE.Group();
   const iron = new THREE.MeshLambertMaterial({ color: 0x6e6a62, flatShading: true });
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.035, 5, 16).rotateX(-Math.PI / 2), iron);
@@ -46,7 +49,7 @@ function trapMesh(): THREE.Group {
     tooth.rotation.x = -Math.sin(a) * 0.5;
     g.add(tooth);
   }
-  const plate = new THREE.Mesh(new THREE.CircleGeometry(0.12, 10).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x8a6a3a }));
+  const plate = new THREE.Mesh(new THREE.CircleGeometry(kind === 'snare' ? 0.12 : 0.17, 10).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: TRAP_PLATE[kind] ?? TRAP_PLATE.snare, emissive: kind === 'snare' ? 0x000000 : TRAP_PLATE[kind], emissiveIntensity: 0.35 }));
   plate.position.y = 0.025;
   g.add(plate);
   g.traverse((o: THREE.Object3D) => (o.castShadow = true));
@@ -469,6 +472,7 @@ export class GameView {
           if (!v) break;
           v.hit();
           this.damageNumber(e.unitId, e.amount, e.source, v.root.position);
+          if (e.crit && e.source !== 'arrow') this.float('CRÍTICO!', v.root.position.clone().setY(1.5), '#ffd84a', 0.3);
           if (e.source === 'burn') v.burning = 0.6;
           const spark = HIT_VFX[e.source];
           if (spark) {
@@ -522,7 +526,7 @@ export class GameView {
         }
         case 'avoid': {
           const v = this.units.get(e.unitId);
-          if (v) this.float(e.how === 'dodge' ? 'Esquiva!' : e.how === 'deflect' ? 'Desviado!' : 'Bloqueio!', v.root.position.clone().setY(1.9), e.how === 'deflect' ? '#f0d49a' : '#bfe6ff', 0.26);
+          if (v) this.float(e.how === 'dodge' ? 'Esquiva!' : e.how === 'deflect' ? 'Desviado!' : e.how === 'shield' ? 'Absorvido!' : 'Bloqueio!', v.root.position.clone().setY(1.9), e.how === 'deflect' ? '#f0d49a' : '#bfe6ff', 0.26);
           break;
         }
         case 'cityHit': {
@@ -557,7 +561,7 @@ export class GameView {
           break;
         }
         case 'trapSet': {
-          const g = trapMesh();
+          const g = trapMesh(e.trap.kind);
           g.position.copy(tileToWorld(e.trap.x, e.trap.y, undefined, 0.02));
           this.world.add(g);
           this.trapMeshes.set(e.trap.id, g);
@@ -576,8 +580,46 @@ export class GameView {
           }
           const p = tileToWorld(e.x, e.y, undefined, 0.4);
           this.particles.glow.emit({ pos: p, posJitter: 0.2, vel: new THREE.Vector3(0, 2.0, 0), velJitter: 1.6, life: 0.4, size: 0.12, sizeEnd: 0.03, color: new THREE.Color(1.6, 1.4, 0.8), colorEnd: new THREE.Color(0.4, 0.3, 0.1), count: 10 });
-          this.float('Armadilha!', p.clone().setY(1.7), '#ffd08a', 0.28);
-          this.stage.addShake(0.05);
+          if (e.kind && e.kind !== 'snare') {
+            trapBlast(this.kit, p, e.kind, e.radius ?? 1);
+            this.float(e.kind === 'freeze' ? 'Congelados!' : e.kind === 'claymore' ? 'CLAYMORE!' : 'BOOM!', p.clone().setY(1.7), e.kind === 'freeze' ? '#9ad8ff' : '#ffb04a', 0.3);
+          } else {
+            this.float('Armadilha!', p.clone().setY(1.7), '#ffd08a', 0.28);
+            this.stage.addShake(0.05);
+          }
+          break;
+        }
+        case 'divineHeal': {
+          this.units.get(e.unitId)?.cast();
+          const t = this.units.get(e.targetId);
+          if (t) holyBurst(this.kit, t.root.position);
+          break;
+        }
+        case 'holyShield': {
+          this.units.get(e.unitId)?.cast();
+          const t = this.units.get(e.targetId);
+          if (t) {
+            shieldBurst(this.kit, t.root.position);
+            this.float('Escudo Sagrado', t.root.position.clone().setY(1.9), '#9ac8ff', 0.26);
+          }
+          break;
+        }
+        case 'blessing': {
+          this.units.get(e.unitId)?.cast();
+          this.spectre(e.unitId, 0.7);
+          for (const id of e.targets) {
+            const t = this.units.get(id);
+            if (t) holyBurst(this.kit, t.root.position, 18);
+          }
+          const c = this.units.get(e.unitId);
+          if (c) this.float('Bênção!', c.root.position.clone().setY(2), '#ffe08a', 0.32);
+          break;
+        }
+        case 'sanctuary': {
+          this.units.get(e.unitId)?.cast();
+          const p = tileToWorld(e.x, e.y);
+          sanctuaryDecal(this.kit, p, e.radius, e.ticks / 10);
+          this.float('Santuário', p.clone().setY(1.6), '#ffe08a', 0.3);
           break;
         }
         case 'curse': {

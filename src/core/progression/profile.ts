@@ -1,7 +1,8 @@
 import { GAME_CONFIG } from '../../config/gameConfig';
 import { ATTRIBUTES_CONFIG, ATTR_KEYS, computeStats, type AttrKey, type Attrs, type HeroStats } from './attributes';
 import { KIND_SLOT, SLOTS, canUse, gearBonus, itemKind, weaponPower, type Item, type Slot } from './equipment';
-import { startingSkills, type HeroKind, type SkillLevels } from './skills';
+import { lvOf, startingSkills, type HeroKind, type SkillId, type SkillLevels } from './skills';
+import { equippedSkills, lockedSkillKeys, manaToNextSlot, slotCount, usesSlot } from './skillSlots';
 import { HERO_ORDER, familyOf } from '../../config/heroes';
 
 /**
@@ -21,9 +22,11 @@ export interface HeroProgress {
   /** Pontos de habilidade livres (1 por nível). */
   skillPoints: number;
   equipment: Partial<Record<Slot, Item>>;
-  /** Vida e mana máximas extras compradas com poções (opcionais: saves antigos não têm). */
+  /** Vida máxima e Mana extras compradas com poções (opcionais: saves antigos não têm). */
   bonusHp?: number;
   bonusMana?: number;
+  /** Habilidades nos slots, em ordem (undefined = escolha automática). Ver skillSlots.ts. */
+  equippedSkills?: SkillId[];
 }
 
 export interface Profile {
@@ -117,6 +120,37 @@ export function autoEquip(p: Profile, party: string[], candidates: Item[]): { he
 export function heroStats(profile: Profile, kind: string): HeroStats {
   const h = profile.heroes[kind];
   return computeStats(kind, h.attrs, gearBonus(SLOTS.map((s) => h.equipment[s])), h.skills, { hp: h.bonusHp, mana: h.bonusMana });
+}
+
+/** Habilidades ativas nos slots do herói (limitadas pela Mana). */
+export function heroEquipped(profile: Profile, kind: string): SkillId[] {
+  const h = profile.heroes[kind];
+  return equippedSkills(kind as HeroKind, h.skills, heroStats(profile, kind).mana, h.equippedSkills);
+}
+
+/** Chaves de recarga bloqueadas na luta (habilidades fora dos slots). */
+export function heroLockedKeys(profile: Profile, kind: string): string[] {
+  const h = profile.heroes[kind];
+  return lockedSkillKeys(kind as HeroKind, h.skills, heroStats(profile, kind).mana, h.equippedSkills);
+}
+
+/**
+ * Equipa/remove uma habilidade dos slots. Devolve o erro em texto (ou undefined se deu certo).
+ * A primeira troca do jogador congela a escolha automática atual como ponto de partida.
+ */
+export function toggleSkillSlot(profile: Profile, kind: string, id: SkillId): string | undefined {
+  const h = profile.heroes[kind];
+  if (!usesSlot(id)) return 'Esta habilidade não usa slot.';
+  const cur = heroEquipped(profile, kind);
+  if (cur.includes(id)) {
+    h.equippedSkills = cur.filter((x) => x !== id);
+    return undefined;
+  }
+  if (lvOf(h.skills, id) <= 0) return 'Aprenda a habilidade primeiro.';
+  const st = heroStats(profile, kind);
+  if (cur.length >= slotCount(kind, st.mana)) return `Sem slot livre: precisa de +${manaToNextSlot(kind, st.mana)} de Mana (ou tire outra habilidade).`;
+  h.equippedSkills = [...cur, id];
+  return undefined;
 }
 
 /** Pontos já distribuídos acima da base (podem ser redistribuídos livremente). */

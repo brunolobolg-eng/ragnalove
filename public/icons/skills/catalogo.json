@@ -1,0 +1,740 @@
+{
+ "guerreiro": [
+  {
+   "name": "Golpe Forte",
+   "file": "icons/skills/guerreiro/golpe-forte.webp"
+  },
+  {
+   "name": "Investida",
+   "file": "icons/skills/guerreiro/investida.webp"
+  },
+  {
+   "name": "Corte Duplo",
+   "file": "icons/skills/guerreiro/corte-duplo.webp"
+  },
+  {
+   "name": "Fúria",
+   "file": "icons/skills/guerreiro/furia.webp"
+  },
+  {
+   "name": "Provocação",
+   "file": "icons/skills/guerreiro/provocacao.webp"
+  },
+  {
+   "name": "Escudo de Ferro",
+   "file": "icons/skills/guerreiro/escudo-de-ferro.webp"
+  },
+  {
+   "name": "Contra-Ataque",
+   "file": "icons/skills/guerreiro/contra-ataque.webp"
+  },
+  {
+   "name": "Bloqueio",
+   "file": "icons/skills/guerreiro/bloqueio.webp"
+  },
+  {
+   "name": "Tiro Destruidor",
+   "file": "icons/skills/guerreiro/tiro-destruidor.webp"
+  },
+  {
+   "name": "Rompimento",
+   "file": "icons/skills/guerreiro/rompimento.webp"
+  },
+  {
+   "name": "Arremesso",
+   "file": "icons/skills/guerreiro/arremesso.webp"
+  },
+  {
+   "name": "Grito de Guerra",
+   "file": "icons/skills/guerreiro/grito-de-guerra.webp"
+  },
+  {
+   "name": "Resistência",
+   "file": "icons/skills/guerreiro/resistencia.webp"
+  },
+  {
+   "name": "Berserker",
+   "file": "icons/skills/guerreiro/berserker.webp"
+  },
+  {
+   "name": "Golpe Mortal",
+   "file": "icons/skills/guerreiro/golpe-mortal.webp"
+  },
+  {
+   "name": "Vontade de Ferro",
+   "file": "icons/skills/guerreiro/vontade-de-ferro.webp"
+  },
+  {
+   "name": "Ataque Pesado",
+   "file": "icons/skills/guerreiro/ataque-pesado.webp"
+  },
+  {
+   "name": "Pele de Pedra",
+   "file": "icons/skills/guerreiro/pele-de-pedra.webp"
+  },
+  {
+   "name": "Guarda Perfeita",
+   "file": "icons/skills/guerreiro/guarda-perfeita.webp"
+  },
+  {
+   "name": "Redemoinho",
+   "file": "icons/skills/guerreiro/redemoinho.webp"
+  }
+ ],
+ "arqueiro": [
+  {
+   "name": "Tiro Preciso",
+   "file": "icons/skills/arqueiro/tiro-preciso.webp"
+  },
+  {
+   "name": "Disparo Rápido",
+   "file": "icons/skills/arqueiro/disparo-rapido.webp"
+  },
+  {
+   "name": "Tiro Triplo",
+   "file": "icons/skills/arqueiro/tiro-triplo.webp"
+  },
+  {
+   "name": "Flecha de Fogo",
+   "file": "icons/skills/arqueiro/flecha-de-fogo.webp"
+  },
+  {
+   "name": "Flecha Congelante",
+   "file": "icons/skills/arqueiro/flecha-congelante.webp"
+  },
+  {
+   "name": "Flecha Elétrica",
+   "file": "icons/skills/arqueiro/flecha-eletrica.webp"
+  },
+  {
+   "name": "Armadilha",
+   "file": "icons/skills/arqueiro/armadilha.webp"
+  },
+  {
+   "name": "Flecha de Veneno",
+   "file": "icons/skills/arqueiro/flecha-de-veneno.webp"
+  },
+  {
+   "name": "Furtividade",
+   "file": "icons/skills/arqueiro/furtividade.webp"
+  },
+  {
+   "name": "Detecção",
+   "file": "icons/skills/arqueiro/deteccao.webp"
+  },
+  {
+   "name": "Flecha de Luz",
+   "file": "icons/skills/arqueiro/flecha-de-luz.webp"
+  },
+  {
+   "name": "Tiro Poderoso",
+   "file": "icons/skills/arqueiro/tiro-poderoso.webp"
+  },
+  {
+   "name": "Evasão",
+   "file": "icons/skills/arqueiro/evasao.webp"
+  },
+  {
+   "name": "Salto Aéreo",
+   "file": "icons/skills/arqueiro/salto-aereo.webp"
+  },
+  {
+   "name": "Tempestade de Flechas",
+   "file": "icons/skills/arqueiro/tempestade-de-flechas.webp"
+  },
+  {
+   "name": "Explosão de Flechas",
+   "file": "icons/skills/arqueiro/explosao-de-flechas.webp"
+  },
+  {
+   "name": "Vingança",
+   "file": "icons/skills/arqueiro/vinganca.webp"
+  },
+  {
+   "name": "Caçador",
+   "file": "icons/skills/arqueiro/cacador.webp"
+  },
+  {
+   "name": "Rastreamento",
+   "file": "icons/skills/arqueiro/rastreamento.webp"
+  },
+  {
+   "name": "Precisão Mortal",
+   "file": "icons/skills/arqueiro/precisao-mortal.webp"
+  }
+ ],
+ "mago": [
+  {
+   "name": "Bola de Fogo",
+   "file": "icons/skills/mago/bola-de-fogo.webp"
+  },
+  {
+   "name": "Rajada de Gelo",
+   "file": "icons/skills/mago/rajada-de-gelo.webp"
+  },
+  {
+   "name": "Raio Arcano",
+   "file": "icons/skills/mago/raio-arcano.webp"
+  },
+  {
+   "name": "Explosão de Magia",
+   "file": "icons/skills/mago/explosao-de-magia.webp"
+  },
+  {
+   "name": "Teleporte",
+   "file": "icons/skills/mago/teleporte.webp"
+  },
+  {
+   "name": "Barreira Mágica",
+   "file": "icons/skills/mago/barreira-magica.webp"
+  },
+  {
+   "name": "Curar",
+   "file": "icons/skills/mago/curar.webp"
+  },
+  {
+   "name": "Amplificar",
+   "file": "icons/skills/mago/amplificar.webp"
+  },
+  {
+   "name": "Chuva de Meteoros",
+   "file": "icons/skills/mago/chuva-de-meteoros.webp"
+  },
+  {
+   "name": "Nova de Gelo",
+   "file": "icons/skills/mago/nova-de-gelo.webp"
+  },
+  {
+   "name": "Campo de Força",
+   "file": "icons/skills/mago/campo-de-forca.webp"
+  },
+  {
+   "name": "Mana Sanguínea",
+   "file": "icons/skills/mago/mana-sanguinea.webp"
+  },
+  {
+   "name": "Controle Mental",
+   "file": "icons/skills/mago/controle-mental.webp"
+  },
+  {
+   "name": "Ilusão",
+   "file": "icons/skills/mago/ilusao.webp"
+  },
+  {
+   "name": "Prisão de Gelo",
+   "file": "icons/skills/mago/prisao-de-gelo.webp"
+  },
+  {
+   "name": "Desintegração",
+   "file": "icons/skills/mago/desintegracao.webp"
+  },
+  {
+   "name": "Cometa Arcano",
+   "file": "icons/skills/mago/cometa-arcano.webp"
+  },
+  {
+   "name": "Tempestade Arcana",
+   "file": "icons/skills/mago/tempestade-arcana.webp"
+  },
+  {
+   "name": "Tornado",
+   "file": "icons/skills/mago/tornado.webp"
+  },
+  {
+   "name": "Ressurreição",
+   "file": "icons/skills/mago/ressurreicao.webp"
+  }
+ ],
+ "ladrao": [
+  {
+   "name": "Ataque Furtivo",
+   "file": "icons/skills/ladrao/ataque-furtivo.webp"
+  },
+  {
+   "name": "Golpe Ligeiro",
+   "file": "icons/skills/ladrao/golpe-ligeiro.webp"
+  },
+  {
+   "name": "Veneno",
+   "file": "icons/skills/ladrao/veneno.webp"
+  },
+  {
+   "name": "Arremesso de Adaga",
+   "file": "icons/skills/ladrao/arremesso-de-adaga.webp"
+  },
+  {
+   "name": "Esconderijo",
+   "file": "icons/skills/ladrao/esconderijo.webp"
+  },
+  {
+   "name": "Furtividade",
+   "file": "icons/skills/ladrao/furtividade.webp"
+  },
+  {
+   "name": "Pulo nas Sombras",
+   "file": "icons/skills/ladrao/pulo-nas-sombras.webp"
+  },
+  {
+   "name": "Desarme",
+   "file": "icons/skills/ladrao/desarme.webp"
+  },
+  {
+   "name": "Evasão",
+   "file": "icons/skills/ladrao/evasao.webp"
+  },
+  {
+   "name": "Ladrão",
+   "file": "icons/skills/ladrao/ladrao.webp"
+  },
+  {
+   "name": "Roubo",
+   "file": "icons/skills/ladrao/roubo.webp"
+  },
+  {
+   "name": "Reflexo",
+   "file": "icons/skills/ladrao/reflexo.webp"
+  },
+  {
+   "name": "Golpe Fantasma",
+   "file": "icons/skills/ladrao/golpe-fantasma.webp"
+  },
+  {
+   "name": "Cortina de Fumaça",
+   "file": "icons/skills/ladrao/cortina-de-fumaca.webp"
+  },
+  {
+   "name": "Explosão de Veneno",
+   "file": "icons/skills/ladrao/explosao-de-veneno.webp"
+  },
+  {
+   "name": "Truque",
+   "file": "icons/skills/ladrao/truque.webp"
+  },
+  {
+   "name": "Chuva de Adagas",
+   "file": "icons/skills/ladrao/chuva-de-adagas.webp"
+  },
+  {
+   "name": "Sombra Mortal",
+   "file": "icons/skills/ladrao/sombra-mortal.webp"
+  },
+  {
+   "name": "Passo Sombrio",
+   "file": "icons/skills/ladrao/passo-sombrio.webp"
+  },
+  {
+   "name": "Mestre das Sombras",
+   "file": "icons/skills/ladrao/mestre-das-sombras.webp"
+  }
+ ],
+ "clerigo": [
+  {
+   "name": "Cura",
+   "file": "icons/skills/clerigo/cura.webp"
+  },
+  {
+   "name": "Explosão Divina",
+   "file": "icons/skills/clerigo/explosao-divina.webp"
+  },
+  {
+   "name": "Bênção",
+   "file": "icons/skills/clerigo/bencao.webp"
+  },
+  {
+   "name": "Aumentar Agilidade",
+   "file": "icons/skills/clerigo/aumentar-agilidade.webp"
+  },
+  {
+   "name": "Bola de Fogo",
+   "file": "icons/skills/clerigo/bola-de-fogo.webp"
+  },
+  {
+   "name": "Escudo Sagrado",
+   "file": "icons/skills/clerigo/escudo-sagrado.webp"
+  },
+  {
+   "name": "Proteção Divina",
+   "file": "icons/skills/clerigo/protecao-divina.webp"
+  },
+  {
+   "name": "Curar Fatal",
+   "file": "icons/skills/clerigo/curar-fatal.webp"
+  },
+  {
+   "name": "Voto de Fé",
+   "file": "icons/skills/clerigo/voto-de-fe.webp"
+  },
+  {
+   "name": "Recuperação",
+   "file": "icons/skills/clerigo/recuperacao.webp"
+  },
+  {
+   "name": "Despertar",
+   "file": "icons/skills/clerigo/despertar.webp"
+  },
+  {
+   "name": "Imunidade",
+   "file": "icons/skills/clerigo/imunidade.webp"
+  },
+  {
+   "name": "Cura em Área",
+   "file": "icons/skills/clerigo/cura-em-area.webp"
+  },
+  {
+   "name": "Luz Divina",
+   "file": "icons/skills/clerigo/luz-divina.webp"
+  },
+  {
+   "name": "Redenção",
+   "file": "icons/skills/clerigo/redencao.webp"
+  },
+  {
+   "name": "Flagelo",
+   "file": "icons/skills/clerigo/flagelo.webp"
+  },
+  {
+   "name": "Santuário",
+   "file": "icons/skills/clerigo/santuario.webp"
+  },
+  {
+   "name": "Clareza",
+   "file": "icons/skills/clerigo/clareza.webp"
+  },
+  {
+   "name": "Meditação",
+   "file": "icons/skills/clerigo/meditacao.webp"
+  },
+  {
+   "name": "Dom da Cura",
+   "file": "icons/skills/clerigo/dom-da-cura.webp"
+  }
+ ],
+ "monge": [
+  {
+   "name": "Punho em Movimento",
+   "file": "icons/skills/monge/punho-em-movimento.webp"
+  },
+  {
+   "name": "Chute Veloz",
+   "file": "icons/skills/monge/chute-veloz.webp"
+  },
+  {
+   "name": "Impacto Explosivo",
+   "file": "icons/skills/monge/impacto-explosivo.webp"
+  },
+  {
+   "name": "Foco",
+   "file": "icons/skills/monge/foco.webp"
+  },
+  {
+   "name": "Sopro do Dragão",
+   "file": "icons/skills/monge/sopro-do-dragao.webp"
+  },
+  {
+   "name": "Ascensão",
+   "file": "icons/skills/monge/ascensao.webp"
+  },
+  {
+   "name": "Contra-Ataque",
+   "file": "icons/skills/monge/contra-ataque.webp"
+  },
+  {
+   "name": "Arremesso",
+   "file": "icons/skills/monge/arremesso.webp"
+  },
+  {
+   "name": "Rajada de Socos",
+   "file": "icons/skills/monge/rajada-de-socos.webp"
+  },
+  {
+   "name": "Velocidade",
+   "file": "icons/skills/monge/velocidade.webp"
+  },
+  {
+   "name": "Recuperação",
+   "file": "icons/skills/monge/recuperacao.webp"
+  },
+  {
+   "name": "Golpe Mortal",
+   "file": "icons/skills/monge/golpe-mortal.webp"
+  },
+  {
+   "name": "Aura de Combate",
+   "file": "icons/skills/monge/aura-de-combate.webp"
+  },
+  {
+   "name": "Resistência",
+   "file": "icons/skills/monge/resistencia.webp"
+  },
+  {
+   "name": "Reflexo",
+   "file": "icons/skills/monge/reflexo.webp"
+  },
+  {
+   "name": "Concentração",
+   "file": "icons/skills/monge/concentracao.webp"
+  },
+  {
+   "name": "Turbilhão",
+   "file": "icons/skills/monge/turbilhao.webp"
+  },
+  {
+   "name": "Explosão Interior",
+   "file": "icons/skills/monge/explosao-interior.webp"
+  },
+  {
+   "name": "Espírito Marcial",
+   "file": "icons/skills/monge/espirito-marcial.webp"
+  },
+  {
+   "name": "Domínio",
+   "file": "icons/skills/monge/dominio.webp"
+  }
+ ],
+ "cruzado": [
+  {
+   "name": "Corte Cruzado",
+   "file": "icons/skills/cruzado/corte-cruzado.webp"
+  },
+  {
+   "name": "Impacto Devoto",
+   "file": "icons/skills/cruzado/impacto-devoto.webp"
+  },
+  {
+   "name": "Revidar",
+   "file": "icons/skills/cruzado/revidar.webp"
+  },
+  {
+   "name": "Perfuração",
+   "file": "icons/skills/cruzado/perfuracao.webp"
+  },
+  {
+   "name": "Fúria Sagrada",
+   "file": "icons/skills/cruzado/furia-sagrada.webp"
+  },
+  {
+   "name": "Determinação",
+   "file": "icons/skills/cruzado/determinacao.webp"
+  },
+  {
+   "name": "Aura de Proteção",
+   "file": "icons/skills/cruzado/aura-de-protecao.webp"
+  },
+  {
+   "name": "Investida",
+   "file": "icons/skills/cruzado/investida.webp"
+  },
+  {
+   "name": "Escudo de Fé",
+   "file": "icons/skills/cruzado/escudo-de-fe.webp"
+  },
+  {
+   "name": "Onda de Choque",
+   "file": "icons/skills/cruzado/onda-de-choque.webp"
+  },
+  {
+   "name": "Sopro de Luz",
+   "file": "icons/skills/cruzado/sopro-de-luz.webp"
+  },
+  {
+   "name": "Grito de Guerra",
+   "file": "icons/skills/cruzado/grito-de-guerra.webp"
+  },
+  {
+   "name": "Força Divina",
+   "file": "icons/skills/cruzado/forca-divina.webp"
+  },
+  {
+   "name": "Imunidade",
+   "file": "icons/skills/cruzado/imunidade.webp"
+  },
+  {
+   "name": "Restauração",
+   "file": "icons/skills/cruzado/restauracao.webp"
+  },
+  {
+   "name": "Cruz da Justiça",
+   "file": "icons/skills/cruzado/cruz-da-justica.webp"
+  },
+  {
+   "name": "Lança Sagrada",
+   "file": "icons/skills/cruzado/lanca-sagrada.webp"
+  },
+  {
+   "name": "Martelo de Deus",
+   "file": "icons/skills/cruzado/martelo-de-deus.webp"
+  },
+  {
+   "name": "Círculo de Proteção",
+   "file": "icons/skills/cruzado/circulo-de-protecao.webp"
+  },
+  {
+   "name": "Redenção",
+   "file": "icons/skills/cruzado/redencao.webp"
+  }
+ ],
+ "professor": [
+  {
+   "name": "Ataque Mágico",
+   "file": "icons/skills/professor/ataque-magico.webp"
+  },
+  {
+   "name": "Bola de Fogo",
+   "file": "icons/skills/professor/bola-de-fogo.webp"
+  },
+  {
+   "name": "Raio",
+   "file": "icons/skills/professor/raio.webp"
+  },
+  {
+   "name": "Meteoro",
+   "file": "icons/skills/professor/meteoro.webp"
+  },
+  {
+   "name": "Escudo Mágico",
+   "file": "icons/skills/professor/escudo-magico.webp"
+  },
+  {
+   "name": "Teleportar",
+   "file": "icons/skills/professor/teleportar.webp"
+  },
+  {
+   "name": "Amplificar Magia",
+   "file": "icons/skills/professor/amplificar-magia.webp"
+  },
+  {
+   "name": "Sopro Elemental",
+   "file": "icons/skills/professor/sopro-elemental.webp"
+  },
+  {
+   "name": "Gelo",
+   "file": "icons/skills/professor/gelo.webp"
+  },
+  {
+   "name": "Terremoto",
+   "file": "icons/skills/professor/terremoto.webp"
+  },
+  {
+   "name": "Veneno",
+   "file": "icons/skills/professor/veneno.webp"
+  },
+  {
+   "name": "Controle Mental",
+   "file": "icons/skills/professor/controle-mental.webp"
+  },
+  {
+   "name": "Dreno de Mana",
+   "file": "icons/skills/professor/dreno-de-mana.webp"
+  },
+  {
+   "name": "Campo de Força",
+   "file": "icons/skills/professor/campo-de-forca.webp"
+  },
+  {
+   "name": "Instalar Armadilha",
+   "file": "icons/skills/professor/instalar-armadilha.webp"
+  },
+  {
+   "name": "Explosão Arcana",
+   "file": "icons/skills/professor/explosao-arcana.webp"
+  },
+  {
+   "name": "Ciclo Arcano",
+   "file": "icons/skills/professor/ciclo-arcano.webp"
+  },
+  {
+   "name": "Barreira",
+   "file": "icons/skills/professor/barreira.webp"
+  },
+  {
+   "name": "Conjuração Rápida",
+   "file": "icons/skills/professor/conjuracao-rapida.webp"
+  },
+  {
+   "name": "Mestre da Magia",
+   "file": "icons/skills/professor/mestre-da-magia.webp"
+  }
+ ],
+ "clerigo-cartas": [
+  {
+   "name": "Cetro da Cura",
+   "file": "icons/skills/clerigo-cartas/cetro-da-cura.webp"
+  },
+  {
+   "name": "Auréola",
+   "file": "icons/skills/clerigo-cartas/aureola.webp"
+  },
+  {
+   "name": "Exorcismo",
+   "file": "icons/skills/clerigo-cartas/exorcismo.webp"
+  },
+  {
+   "name": "Escudo da Fé",
+   "file": "icons/skills/clerigo-cartas/escudo-da-fe.webp"
+  },
+  {
+   "name": "Coração Sagrado",
+   "file": "icons/skills/clerigo-cartas/coracao-sagrado.webp"
+  },
+  {
+   "name": "Santuário de Luz",
+   "file": "icons/skills/clerigo-cartas/santuario-de-luz.webp"
+  },
+  {
+   "name": "Banimento",
+   "file": "icons/skills/clerigo-cartas/banimento.webp"
+  },
+  {
+   "name": "Libertação",
+   "file": "icons/skills/clerigo-cartas/libertacao.webp"
+  },
+  {
+   "name": "Anjo Guardião",
+   "file": "icons/skills/clerigo-cartas/anjo-guardiao.webp"
+  },
+  {
+   "name": "Elo de Vida",
+   "file": "icons/skills/clerigo-cartas/elo-de-vida.webp"
+  },
+  {
+   "name": "Julgamento",
+   "file": "icons/skills/clerigo-cartas/julgamento.webp"
+  },
+  {
+   "name": "Chama Sagrada",
+   "file": "icons/skills/clerigo-cartas/chama-sagrada.webp"
+  },
+  {
+   "name": "Espírito Restaurado",
+   "file": "icons/skills/clerigo-cartas/espirito-restaurado.webp"
+  },
+  {
+   "name": "Manto Sagrado",
+   "file": "icons/skills/clerigo-cartas/manto-sagrado.webp"
+  },
+  {
+   "name": "Égide Sagrada",
+   "file": "icons/skills/clerigo-cartas/egide-sagrada.webp"
+  },
+  {
+   "name": "Martelo de Luz",
+   "file": "icons/skills/clerigo-cartas/martelo-de-luz.webp"
+  },
+  {
+   "name": "Raízes de Luz",
+   "file": "icons/skills/clerigo-cartas/raizes-de-luz.webp"
+  },
+  {
+   "name": "Fonte Sagrada",
+   "file": "icons/skills/clerigo-cartas/fonte-sagrada.webp"
+  },
+  {
+   "name": "Círculo de Bênçãos",
+   "file": "icons/skills/clerigo-cartas/circulo-de-bencaos.webp"
+  },
+  {
+   "name": "Paraíso",
+   "file": "icons/skills/clerigo-cartas/paraiso.webp"
+  }
+ ]
+}

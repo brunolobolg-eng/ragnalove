@@ -17,10 +17,16 @@ description: Sistema de combate do ROguard — simulação em tempo real determi
 ## Status do herói
 `heroStats(profile, kind)` = `computeStats(atributos + gearBonus(equipamento), skills)` → `HeroStats`
 (maxHp, regen, recarga, esquiva, bloqueio, sorte, crítico, dano das habilidades, classPower...).
-- **Mana (MP)**: `maxMana`/`manaRegenPerSec` em `HeroStats` (base por classe + INT + Poção de Mana; regen + rolagem
-  "Regeneração de mana" dos itens). Custos em `GAME_CONFIG.mana.costs` (chave = id da recarga; ausente = grátis, ex. ataques
-  básicos físicos). `Simulation.actWithMana` segura habilidades sem mana naquele tick e cobra as usadas — o archetype não sabe de mana.
-  Poção de Vida/Mana da loja somam `bonusHp`/`bonusMana` no `HeroProgress` (`buyConsumable`).
+- **REGRAS FIXAS DO DONO (não mudar sem pesar o balanceamento):**
+  - **Mana NÃO é MP**: não gasta, não regenera. Mana = capacidade de **slots de habilidade** (`core/progression/skillSlots.ts`).
+    Slots = Mana ÷ `GAME_CONFIG.mana.slotCost[classe]` (Mago/Feiticeira/Bruxa 10, Arqueira/Assassino 15 = 1,5×, Guerreiro 20 = 2×).
+    Mana inicial 20; só sobe com Poção de Mana (cara) e rolagem "Mana" de itens Épicos+. Mana é escassa de propósito.
+    Ataque básico (`HERO_INFO.basic`) e passivas não usam slot. Escolha do jogador em `HeroProgress.equippedSkills`
+    (undefined = automático). A luta recebe `HeroLoadout.locked` e `Simulation.actWithSlots` segura essas recargas — o archetype não sabe de slots.
+  - **Skill Haste** é o ÚNICO atributo de recuperação: `HeroStats.skillHaste`, recarga = base × (1 − Skill Haste) (`cooldownMult`).
+    Vem de Destreza, rolagem "Skill Haste" e Meditação/Fluxo Arcano. Não criar "recarga" separada.
+  - **Chance de crítico** (`crit`: 5% base + Sorte + itens + passivas) e **Dano crítico** (`critDamage`, 150% base + itens) são
+    independentes. `Simulation.damage` rola o crítico de todo golpe da party (dano contínuo nunca critica; Arqueira/Assassino rolam o seu e passam `crit`).
 - Não existe DEF/MDEF separado: defesa = esquiva, bloqueio, `damageTakenMult` (passivas) e HP.
 - Arma dá `atk` (físico) ou `matk` (cajado/livro); `weaponMult` converte em multiplicador de dano.
 Se o dono pedir SP, DEF/MDEF, elementos ou precisão: é **expansão** — proponha onde entra (HeroStats + fórmulas

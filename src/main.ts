@@ -22,6 +22,8 @@ import {
   reviveCost,
   survivalRewards,
   makeItem,
+  starterGift,
+  bossMythicReward,
   totalPhases,
   recordNight,
   objectActions,
@@ -40,7 +42,7 @@ import { CityScreen } from './ui/CityScreen';
 import { SkillTree } from './ui/SkillTree';
 import { Modal, paintEventArt } from './ui/RunScreens';
 import { SKILL_ICONS } from './ui/icons';
-import { maxRefine, itemName, RARITIES, type Item } from './core/progression/equipment';
+import { maxRefine, itemName, type Item } from './core/progression/equipment';
 import { Roulette } from './ui/Roulette';
 import { conePattern, linePattern } from './core/grid/patterns';
 import { ORIENTATIONS, type Orientation, type Vec2 } from './core/grid/types';
@@ -64,6 +66,8 @@ import {
   equip,
   expToNext,
   heroStats,
+  heroEquipped,
+  heroLockedKeys,
   unequip,
   addExperience,
   setLevel,
@@ -86,6 +90,7 @@ import { DEV_MODE } from './dev/devConfig';
 import { neutralMods } from './core/sim/RangeSystem';
 import { REFINE, WEAPON_USERS } from './core/progression/equipment';
 import type { HeroLoadout } from './core/sim/Simulation';
+import { slotCount } from './core/progression/skillSlots';
 import { MainMenu, type MenuState } from './ui/menu/MainMenu';
 import { legendsFrom } from './ui/menu/HallOfLegends';
 import { emptyRecords, updateRecords, type Records } from './core/run/records';
@@ -229,7 +234,7 @@ function loadout(): Record<string, HeroLoadout> {
   const out: Record<string, HeroLoadout> = {};
   for (const k of Object.keys(profile.heroes)) {
     const h = profile.heroes[k];
-    out[k] = { stats: heroStats(profile, k), level: h.level, exp: h.exp };
+    out[k] = { stats: heroStats(profile, k), level: h.level, exp: h.exp, locked: heroLockedKeys(profile, k) };
   }
   return out;
 }
@@ -426,6 +431,7 @@ const skillTree = new SkillTree({
     saveProfile();
     hud.setCharacter(characterVM());
     city.refresh();
+    if (learned && mode === 'battle' && sim.phase === 'setup') resetSim(false); // slots/níveis novos já valem nesta onda
   },
   onUi: ui,
 });
@@ -533,7 +539,8 @@ function heroCardVM(kind: HeroKind): HeroCardVM {
     dead,
     hp: dead ? 0 : st.maxHp,
     maxHp: st.maxHp,
-    maxMana: st.maxMana,
+    mana: st.mana,
+    slots: `${heroEquipped(profile, kind).length}/${slotCount(kind, st.mana)}`,
     atk: magic ? gear.matk : gear.atk,
     magic,
     dodge: st.dodge,
@@ -616,6 +623,9 @@ function startHorde(): void {
   if (sim.phase !== 'setup') return;
   if (mode === 'battle' && run.choice) {
     run.battle = { act: run.act, node: run.node, choice: run.choice, setup: structuredClone(sim.setup), loadout: loadout() };
+    // a formação fica salva para as próximas hordas (a última e a desta zona)
+    run.lastLayout = structuredClone(setup);
+    run.layouts = { ...run.layouts, [ZONE_STATE.current.id]: structuredClone(setup) };
     SaveStore.set(RUN_KEY, JSON.stringify(run));
   }
   sim.start();
@@ -665,14 +675,39 @@ function loadZone(zone: ZoneDef, wave: WaveOptions): void {
   audio.setAmbience(zone.theme);
   if (themeChanged || !view.boardView) view.rebuildBoard();
   run.usedObjects ??= [];
-  setup = withPartyMembers(structuredClone(zone.defaultSetup), zone);
+  const base = withPartyMembers(structuredClone(zone.defaultSetup), zone);
   if (run.party.length === 1 && run.party[0] === 'mage') {
-    const m = setup.members.find((mm) => mm.archetype === 'mage')!;
-    setup.barriers = barriersShield(m.x, m.y);
+    const m = base.members.find((mm) => mm.archetype === 'mage')!;
+    base.barriers = barriersShield(m.x, m.y);
   }
-  setup.wall = defaultWall(setup);
+  base.wall = defaultWall(base);
+  // a formação do jogador vale entre as hordas: a última usada (se couber neste mapa) ou a desta zona
+  setup = savedLayout(zone, base) ?? base;
   tool = run.party[0];
   resetSim(false);
+}
+
+/**
+ * Formação salva do jogador adaptada à zona: heróis e barreiras só em chão livre deste mapa
+ * (o que não couber volta ao lugar padrão). Undefined = nada salvo que sirva.
+ */
+function savedLayout(zone: ZoneDef, base: PartySetup): PartySetup | undefined {
+  const pz = parseZone(zone);
+  const floor = new Set(pz.floor.map((f) => `${f.x},${f.y}`));
+  const fits = (l: PartySetup) => l.members.filter((m) => run.party.includes(m.archetype as HeroKind)).every((m) => floor.has(`${m.x},${m.y}`));
+  const pick = [run.lastLayout, run.layouts?.[zone.id]].find((l) => l && fits(l));
+  if (!pick) return undefined;
+  const out = structuredClone(pick);
+  out.members = out.members.filter((m) => run.party.includes(m.archetype as HeroKind));
+  for (const m of base.members) if (!out.members.some((o) => o.archetype === m.archetype)) out.members.push({ ...m });
+  out.barriers = base.barriers.map((b, i) => {
+    const s = out.barriers[i];
+    return s && floor.has(`${s.x},${s.y}`) ? s : b;
+  });
+  if (!out.wall || !floor.has(`${out.wall.x},${out.wall.y}`)) out.wall = base.wall;
+  // dois heróis no mesmo tile (o padrão de quem entrou caiu em cima de alguém): usa o padrão
+  const tiles = out.members.map((m) => `${m.x},${m.y}`);
+  return new Set(tiles).size === tiles.length ? out : undefined;
 }
 
 /** Muralha padrão: duas casas à frente do Guerreiro. */
@@ -793,7 +828,7 @@ function openSkills(hero: HeroKind = 'warrior'): void {
 const CD_KEY: Partial<Record<SkillId, string>> = { doubleBarrier: 'fireBarrier2' };
 function extraSkills(): { id: string; hero: string; name: string; icon: string }[] {
   const base = new Set<string>(HERO_ORDER.flatMap((k) => [HERO_INFO[k].area, HERO_INFO[k].basic]));
-  return SKILLS.filter((d) => d.kind === 'active' && run.party.includes(d.hero) && !base.has(d.id) && lvOf(profile.heroes[d.hero].skills, d.id) > 0).map((d) => ({
+  return SKILLS.filter((d) => d.kind === 'active' && run.party.includes(d.hero) && !base.has(d.id) && heroEquipped(profile, d.hero).includes(d.id)).map((d) => ({
     id: d.id,
     hero: d.hero,
     name: `${d.name} (${NAME_PT[d.hero]})`,
@@ -857,13 +892,14 @@ function characterVM(): CharacterVM {
       const gear = gearBonus(SLOTS.map((s) => h.equipment[s]));
       const wm = weaponMult(kind, gear);
       const common: [string, string][] = [
-        [HERO_INFO[kind].family === 'mage' ? 'Ataque mágico (cajado)' : 'Ataque da arma', `${HERO_INFO[kind].family === 'mage' ? gear.matk : gear.atk} → dano ×${wm.toFixed(2)}`],
-        ['HP máximo', String(st.maxHp)],
-        ['Recarga das habilidades', `−${fmtPct(1 - st.cooldownMult)}`],
+        ['HP', String(st.maxHp)],
+        [HERO_INFO[kind].family === 'mage' ? 'Ataque mágico' : 'Ataque', `${HERO_INFO[kind].family === 'mage' ? gear.matk : gear.atk} → dano ×${wm.toFixed(2)}`],
+        ['Mana (slots de habilidade)', `${st.mana} → ${heroEquipped(profile, kind).length}/${slotCount(kind, st.mana)} slots`],
+        ['Skill Haste', fmtPct(st.skillHaste)],
+        ['Chance de crítico', fmtPct(st.crit)],
+        ['Dano crítico', fmtPct(st.critDamage)],
         ['Esquiva / Bloqueio', `${fmtPct(st.dodge)} / ${fmtPct(st.block)}`],
         ['Regeneração de vida', `${st.hpRegenPerSec}/s`],
-        ['Mana máxima', String(st.maxMana)],
-        ['Regeneração de mana', `${st.manaRegenPerSec}/s`],
         ['Sorte (drop e raridade)', `${st.luck}`],
       ];
       const cdS = (t: number) => `${(t / GAME_CONFIG.sim.tickRate).toFixed(1)} s`;
@@ -871,7 +907,6 @@ function characterVM(): CharacterVM {
         kind === 'sorcerer' || kind === 'warlock' || kind === 'assassin'
           ? [
               ['Poder da classe (dano ×)', st.classPower.toFixed(2)],
-              ['Crítico', fmtPct(st.crit)],
               [`${SKILL_BY_ID[HERO_INFO[kind].area].name}: recarga`, cdS(SKILL_CD(kind))],
               [`${SKILL_BY_ID[HERO_INFO[kind].basic].name}: recarga`, cdS(BASIC_CD(kind))],
             ]
@@ -881,7 +916,6 @@ function characterVM(): CharacterVM {
               ['Flecha: recarga', cdS(st.arrowCooldownTicks)],
               ['Chuva de Flechas: dano / área', `${st.rainDamage.toFixed(1)} / ${st.rainRadius * 2 + 1}×${st.rainRadius * 2 + 1}`],
               ['Chuva: recarga', cdS(st.rainCooldownTicks)],
-              ['Crítico', fmtPct(st.crit)],
             ]
           : kind === 'warrior'
           ? [
@@ -1001,15 +1035,15 @@ function finishWave(): void {
     }, 1400);
     return;
   }
-  // 1ª fase do jogo: pelo menos 1 equipamento, sendo uma arma Rara (entregue pela roleta)
-  let firstPrize: Item | undefined;
-  if (firstPhase && !r.drops.some((d) => d.slot === 'weapon' && RARITIES.indexOf(d.rarity) >= 2)) {
-    firstPrize = makeItem('rare', 'weapon', run.party);
-    profile.inventory.push(firstPrize);
-  }
+  // 1ª vitória: presente de raridade SORTEADA (1 ou 2 itens) — cada jornada começa diferente.
+  // 1º chefe vencido: 1 recompensa Mítica garantida (uma vez por jornada).
+  const gifts = firstPhase ? starterGift(run) : [];
+  const mythic = bossMythicReward(run, run.choice, r.drops);
+  for (const it of [...gifts, ...(mythic ? [mythic] : [])]) profile.inventory.push(it);
   saveProfile();
   window.setTimeout(async () => {
-    if (firstPrize) await roulette.spin('Recompensa da primeira vitória', 'Um presente dos refugiados de Valdrec...', firstPrize);
+    for (const it of gifts) await roulette.spin('Recompensa da primeira vitória', 'Um presente dos refugiados de Valdrec... o que veio desta vez?', it, () => it.slot);
+    if (mythic) await roulette.spin('Garantia Mítica', 'O chefe caiu! Uma relíquia lendária de Aurenthal se revela...', mythic, () => mythic.slot);
     const buttons: { label: string; primary?: boolean; disabled?: boolean; onClick: () => void }[] = [];
     for (const h of run.dead) {
       const c = reviveCost(run);
@@ -1029,7 +1063,7 @@ function finishWave(): void {
     buttons.push({ label: run.dead.length ? 'Seguir sem reviver' : 'Continuar ➜', primary: !run.dead.length, onClick: () => (resultModal.hide(), completeNode(`${node}:vitória`)) });
     const deadTxt = run.dead.length ? `<p class="warn">${run.dead.map((h) => NAME_PT[h]).join(' e ')} caiu. Reviver custa 50% do Zeni (ou faça isso depois, no templo de uma cidade).</p>` : '';
     const head = node === 'boss' ? 'Chefe derrotado! — ' : node === 'elite' ? 'Elite derrotada! — ' : '';
-    resultModal.show(nightVM(report, `${head}Relatório da Noite ${report.night}`, firstPrize ? [...r.drops, firstPrize] : r.drops, before, { zeniBonus: bonus, extraHtml: unlockHtml + summary + deadTxt }), buttons);
+    resultModal.show(nightVM(report, `${head}Relatório da Noite ${report.night}`, [...r.drops, ...gifts, ...(mythic ? [mythic] : [])], before, { zeniBonus: bonus, extraHtml: unlockHtml + summary + deadTxt }), buttons);
   }, 1300);
 }
 
@@ -1793,8 +1827,6 @@ function updateStatus(): void {
         kind: k,
         hp: u?.hp ?? 0,
         maxHp: u?.maxHp ?? heroStats(profile, k).maxHp,
-        mana: u ? (u.mana ?? 0) : heroStats(profile, k).maxMana,
-        maxMana: u?.maxMana ?? heroStats(profile, k).maxMana,
         alive: !!u,
         cooldown: u && sim.phase === 'running' ? Math.min(1, Math.max(0, ready - sim.tick) / SKILL_CD(k)) : 0,
         basicCooldown: u && sim.phase === 'running' ? Math.min(1, Math.max(0, (u.cooldowns[BASIC_KEY[k]] ?? 0) - sim.tick) / BASIC_CD(k)) : 0,

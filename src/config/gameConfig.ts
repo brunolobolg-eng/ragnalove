@@ -10,35 +10,22 @@ export const GAME_CONFIG = {
     tickRate: 10, // ticks por segundo (simulação determinística de passo fixo)
   },
   /**
-   * Mana: capacidade de soltar várias habilidades em sequência. Cada habilidade custa mana
-   * proporcional ao poder; sem mana suficiente ela espera (mesmo pronta). A barra começa cheia
-   * em toda onda e regenera em combate. Ataques básicos físicos (custo 0) nunca dependem de mana.
+   * MANA = capacidade de SLOTS DE HABILIDADE (não é MP: não gasta ao usar e não regenera).
+   * Cada habilidade ativa equipada ocupa 1 slot; o ataque básico da classe não ocupa slot.
+   * Slots = Mana ÷ custo do slot da classe. Mana é escassa: só sobe com Poção de Mana e itens Épicos+.
    */
   mana: {
-    /** Mana máxima base por classe (antes de Inteligência e poções). */
-    base: { warrior: 60, mage: 110, archer: 80, sorcerer: 120, warlock: 110, assassin: 70 } as Record<string, number>,
-    /** + mana máxima por ponto de Inteligência acima da base. */
-    perInt: 3,
-    /** Regeneração base por segundo e + por ponto de Inteligência acima da base. */
-    regenPerSec: 6,
-    regenPerInt: 0.2,
-    /** Rolagem "Regeneração de mana" dos itens: cada ponto vale isto em mana/s. */
-    rollRegen: 0.5,
-    /** Custo de cada habilidade (id da habilidade ou chave de recarga). Ausente = 0. */
-    costs: {
-      // Mago
-      frostBolt: 6, fireBarrier: 22, fireBarrier2: 22, fireBarrier3: 22, frostNova: 28, thunderstorm: 40,
-      // Guerreiro (golpes físicos básicos não gastam)
-      taunt: 12, shockwave: 26, fury: 30, shieldWall: 26,
-      // Arqueira (flecha precisa é o ataque básico)
-      arrowRain: 22, piercing: 16, snareTrap: 16, hunterFocus: 26,
-      // Feiticeira
-      arcaneOrb: 8, meteorStrike: 34, chainLightning: 28,
-      // Bruxa
-      lifeDrain: 8, curse: 18, shadowSwarm: 38,
-      // Assassino
-      bladeFan: 18, execute: 26,
-    } as Record<string, number>,
+    /** Mana inicial de todo herói. */
+    base: 20,
+    /** Mana por slot. Mago (e Feiticeira/Bruxa) 1×, Arqueira e Assassino 1,5×, Guerreiro 2×. */
+    slotCost: { mage: 10, sorcerer: 10, warlock: 10, archer: 15, assassin: 15, warrior: 20 } as Record<string, number>,
+  },
+  /** Crítico: chance e dano (dano crítico base 150%). */
+  crit: { baseChance: 0.05, baseDamage: 1.5, maxChance: 0.6 },
+  /** Loot fora da simulação (recompensas da jornada). */
+  loot: {
+    /** 1ª vitória da jornada: 1 item (às vezes 2) de raridade sorteada — nada é garantido. */
+    starterGift: { secondChance: 0.35, weights: { common: 50, uncommon: 30, rare: 15, epic: 5 } as Record<string, number> },
   },
   /** Grade da zona ativa: paredes bloqueiam andar e visão; vazio (água) só bloqueia andar. O tamanho vem do MAP_CONFIG da zona. */
   board: {
@@ -127,7 +114,7 @@ export const GAME_CONFIG = {
      */
     consumables: [
       { id: 'life', name: 'Poção de Vida', text: 'Aumenta a vida máxima do herói.', price: 320, hp: 15, color: '#e8384a' },
-      { id: 'mana', name: 'Poção de Mana', text: 'Aumenta a mana máxima do herói.', price: 120, mana: 10, color: '#3a7aff' },
+      { id: 'mana', name: 'Poção de Mana', text: 'Mais Mana = mais slots de habilidade. Rara e cara.', price: 800, mana: 5, color: '#3a7aff' },
       { id: 'resist', name: 'Poção de Resistência', text: 'Aumenta a defesa por um tempo.', price: 50, soon: true, color: '#3ac44a' },
       { id: 'luck', name: 'Elixir de Sorte', text: 'Mais chance de itens raros por um tempo.', price: 120, soon: true, color: '#9a4ae8' },
     ] as { id: string; name: string; text: string; price: number; hp?: number; mana?: number; soon?: boolean; color: string }[],

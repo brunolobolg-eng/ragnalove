@@ -17,6 +17,9 @@ public/fx/kenney/     texturas de TODOS os efeitos (Kenney Particle Pack, CC0) �
                       scripts/build_kenney_fx.py; código em render/fx/kit/vfxTextures.ts (fxTexture)
 public/tela-entrada.jpg  arte do menu principal
 public/icon.png, emblem.png   favicon e emblema
+public/icons/skills/   ícones de habilidade do dono (128 px WebP), por classe: guerreiro, arqueiro, mago, ladrao,
+                      clerigo, monge, cruzado, professor (+ clerigo-cartas, artes grandes). catalogo.json lista
+                      todos; os usados hoje estão em SKILL_ART (src/ui/icons.ts) — o resto é reserva para skills futuras.
 electron/icon.ico (16–256), icon.png, splash_logo.png   ícone do .exe/janela e splash
 ```
 

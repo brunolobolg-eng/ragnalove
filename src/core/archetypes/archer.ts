@@ -1,7 +1,7 @@
 import { GAME_CONFIG } from '../../config/gameConfig';
 import { chebyshev, DIRS8, type Vec2 } from '../grid/types';
 import { SKILL_NUM, lvOf } from '../progression/skills';
-import type { Unit } from '../sim/types';
+import type { TrapKind, Unit } from '../sim/types';
 import type { Simulation } from '../sim/Simulation';
 import type { Archetype, ArchetypeSkill } from './Archetype';
 
@@ -33,26 +33,71 @@ function hunterFocus(unit: Unit, sim: Simulation, force: boolean): boolean {
   return true;
 }
 
-/** Armadilha: arma no caminho do inimigo mais adiantado (o mais perto do portão) ao alcance. */
-function snareTrap(unit: Unit, sim: Simulation, force: boolean): boolean {
-  const lv = lvl(unit, 'snareTrap', force);
+/** Mestre Armadilheiro (passiva): dano, recarga e armadilhas extras. */
+const master = (unit: Unit) => {
+  const lv = lvOf(unit.stats?.skills, 'trapMaster');
+  return lv ? SKILL_NUM.trapMaster(lv) : { dmgMult: 1, cdMult: 1, extraTraps: 0 };
+};
+
+/**
+ * Arma uma armadilha no caminho do inimigo mais adiantado (o mais perto do portão) ao alcance.
+ * Serve para todas as armadilhas: cada tipo tem seu limite de armadas e sua recarga.
+ */
+function layTrap(
+  unit: Unit,
+  sim: Simulation,
+  force: boolean,
+  key: 'snareTrap' | 'landMine' | 'freezingTrap' | 'claymore',
+  t: { damage: number; maxTraps: number; cooldown: number; slowTicks?: number; slowMult?: number; kind?: TrapKind; radius?: number; stunTicks?: number; freezeTicks?: number },
+): boolean {
   const list = inRange(unit, sim);
-  if (!lv || !(force || ready(unit, sim, 'snareTrap')) || !list.length) return false;
-  const n = SKILL_NUM.snareTrap(lv);
-  const mine = sim.traps.filter((t) => t.ownerId === unit.id).length;
-  if (mine >= n.maxTraps) return false;
+  if (!(force || ready(unit, sim, key)) || !list.length) return false;
+  const M = master(unit);
+  const kind = t.kind ?? 'snare';
+  const mine = sim.traps.filter((x) => x.ownerId === unit.id && (x.kind ?? 'snare') === kind).length;
+  if (mine >= t.maxTraps + M.extraTraps) return false;
   const lead = [...list].sort((a, b) => sim.flowCost(a.x, a.y) - sim.flowCost(b.x, b.y) || a.id - b.id);
   for (const e of lead) {
     const at = sim.pathAhead(e, CFG.trap.ahead);
     if (!at || Math.hypot(at.x - unit.x, at.y - unit.y) > CFG.trap.range) continue;
-    if (sim.placeTrap(unit.id, at, n.damage * dm(unit), n.slowTicks, n.slowMult)) {
+    const extra = kind === 'snare' ? {} : { kind, radius: t.radius, stunTicks: t.stunTicks, freezeTicks: t.freezeTicks };
+    if (sim.placeTrap(unit.id, at, t.damage * dm(unit) * M.dmgMult, t.slowTicks ?? 0, t.slowMult ?? 1, extra)) {
       unit.facing = { x: Math.sign(at.x - unit.x), y: Math.sign(at.y - unit.y) };
       sim.emit({ type: 'cast', unitId: unit.id, ability: 'snareTrap' });
-      unit.cooldowns.snareTrap = sim.tick + Math.max(1, Math.round(n.cooldown * cdm(unit)));
+      unit.cooldowns[key] = sim.tick + Math.max(1, Math.round(t.cooldown * cdm(unit) * M.cdMult));
       return true;
     }
   }
   return false;
+}
+
+/** Armadilha: o primeiro inimigo que pisar leva dano alto e fica lento. */
+function snareTrap(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'snareTrap', force);
+  return !!lv && layTrap(unit, sim, force, 'snareTrap', SKILL_NUM.snareTrap(lv));
+}
+
+/** Mina Terrestre: explode ao ser pisada (área) e atordoa quem pisou. */
+function landMine(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'landMine', force);
+  if (!lv) return false;
+  const n = SKILL_NUM.landMine(lv);
+  return layTrap(unit, sim, force, 'landMine', { ...n, kind: 'mine', stunTicks: n.stun });
+}
+
+/** Armadilha Congelante: congela todos em volta de quem pisou. */
+function freezingTrap(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'freezingTrap', force);
+  if (!lv) return false;
+  const n = SKILL_NUM.freezingTrap(lv);
+  return layTrap(unit, sim, force, 'freezingTrap', { ...n, kind: 'freeze', freezeTicks: n.freeze });
+}
+
+/** Armadilha Claymore: grande explosão de fogo em área. */
+function claymore(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'claymore', force);
+  if (!lv) return false;
+  return layTrap(unit, sim, force, 'claymore', { ...SKILL_NUM.claymore(lv), kind: 'claymore' });
 }
 
 /** Flecha Perfurante: direção com mais inimigos em linha. */
@@ -121,7 +166,7 @@ function preciseShot(unit: Unit, sim: Simulation, force: boolean): boolean {
   const shoot = (t: Unit) => {
     const crit = sim.chance(s?.crit ?? 0);
     sim.emit({ type: 'arrow', unitId: unit.id, targetId: t.id, from: { x: unit.x, y: unit.y }, to: { x: t.x, y: t.y }, crit });
-    sim.damage(t, (s?.arrowDamage ?? CFG.arrow.damage) * (crit ? 2 : 1), 'arrow', unit.id);
+    sim.damage(t, (s?.arrowDamage ?? CFG.arrow.damage) * (crit ? s?.critDamage ?? 1.5 : 1), 'arrow', unit.id, crit);
   };
   const t0 = targets[0];
   unit.facing = { x: Math.sign(t0.x - unit.x), y: Math.sign(t0.y - unit.y) };
@@ -134,6 +179,9 @@ function preciseShot(unit: Unit, sim: Simulation, force: boolean): boolean {
 
 const SKILLS: ArchetypeSkill[] = [
   { id: 'hunterFocus', cast: hunterFocus },
+  { id: 'claymore', cast: claymore },
+  { id: 'freezingTrap', cast: freezingTrap },
+  { id: 'landMine', cast: landMine },
   { id: 'snareTrap', cast: snareTrap },
   { id: 'piercing', cast: piercing },
   { id: 'arrowRain', cast: arrowRain },
@@ -142,7 +190,7 @@ const SKILLS: ArchetypeSkill[] = [
 
 /**
  * Arqueira: dano à distância.
- * Prioridade: Foco do Caçador (pressão) → Armadilha → Flecha Perfurante (2+ em linha) →
+ * Prioridade: Foco do Caçador (pressão) → Claymore → Congelante → Mina → Armadilha → Flecha Perfurante (2+ em linha) →
  * Chuva de Flechas (grupo denso) → Flecha Precisa (mais próximo com linha de visão).
  */
 export const archer: Archetype = {
@@ -151,6 +199,9 @@ export const archer: Archetype = {
   skills: SKILLS,
   update(unit, sim) {
     hunterFocus(unit, sim, false);
+    if (claymore(unit, sim, false)) return;
+    if (freezingTrap(unit, sim, false)) return;
+    if (landMine(unit, sim, false)) return;
     if (snareTrap(unit, sim, false)) return;
     if (piercing(unit, sim, false)) return;
     if (arrowRain(unit, sim, false)) return;
