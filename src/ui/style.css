@@ -1541,3 +1541,7 @@ body.sand-warn #app::after { opacity: 0.12; }
 .hc-mp { margin-top: 4px; }
 .hc-mp svg { color: #6aaaff; fill: #6aaaff; }
 .hc-mp i { background: linear-gradient(180deg, #3a7aff, #1a3a9a); }
+/* Personagem: botões +1 e +5 nos atributos */
+.cw-attr { grid-template-columns: 1fr 26px 26px 22px 28px; }
+#hud .charwin.rog .cw-attr button.p5 { width: 26px; font-size: 11px; background: linear-gradient(180deg, #e8c86e, #b58a2e); color: #2a1405; border-color: #6a4a10; }
+.cw-attr[data-tip] { cursor: help; }

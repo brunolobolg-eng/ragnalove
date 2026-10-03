@@ -20,6 +20,27 @@ export const ATTR_LABEL: Record<AttrKey, string> = {
  * dos atributos base, então um herói "zerado" joga exatamente como o balanceamento
  * original do GAME_CONFIG.
  */
+/**
+ * O que cada atributo dá, em linguagem simples (dica do botão na janela de Personagem).
+ * Os números vêm da configuração abaixo, então a dica acompanha o balanceamento.
+ */
+export function attrHint(k: AttrKey): string[] {
+  const A = ATTRIBUTES_CONFIG;
+  const pct = (v: number) => `${String(Math.round(v * 1000) / 10).replace('.', ',')}%`;
+  switch (k) {
+    case 'str':
+      return ['Mais dano dos golpes físicos', 'Golpe em área mais largo e com mais alcance'];
+    case 'int':
+      return ['Mais dano das magias', 'Barreira de Fogo maior e mais duradoura', `+${GAME_CONFIG.mana.perInt} de mana máxima e mais regeneração de mana`];
+    case 'vit':
+      return [`+${A.vit.hpPerPoint} de vida máxima`, 'O herói aguenta mais tempo na linha de frente'];
+    case 'dex':
+      return [`Habilidades recarregam mais rápido (−${pct(A.dex.cooldownReductionPerPoint)})`, 'Mais dano para Arqueira e Assassino'];
+    case 'luk':
+      return [`+${pct(A.luk.dodgePerPoint)} de esquiva`, 'Mais itens caem dos inimigos', 'Itens mais raros e mais acertos críticos'];
+  }
+}
+
 export const ATTRIBUTES_CONFIG = {
   base: {
     warrior: { str: 5, int: 1, vit: 5, dex: 3, luk: 1 },
