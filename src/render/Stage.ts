@@ -5,6 +5,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import type { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { MAX_HEAT, createVfxPass } from './fx/kit/VfxPostPass';
+import { PostFX, createFinishPass } from './fx/kit/PostFX';
 import { VFX } from './fx/kit/vfxSettings';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { VISUAL_CONFIG, VISUAL_THEMES } from '../config/visualConfig';
@@ -19,6 +20,10 @@ export interface GraphicsOptions {
   shadowMapSize: number;
   shakeScale: number; // 0 = sem tremor
   maxLights: number;
+  /** Aurenthal PostFX (visual cinematográfico), grão de filme e nitidez. */
+  cinematic?: boolean;
+  grain?: boolean;
+  sharpen?: boolean;
 }
 
 /** Renderer, câmera 2.5D, luzes, pós-processamento e pool de luzes dinâmicas. */
@@ -30,6 +35,8 @@ export class Stage {
   private readonly bloom: UnrealBloomPass;
   private bloomBase = 0;
   private readonly vfxPass: ShaderPass;
+  /** Aurenthal PostFX: color grading, gradiente da região, vinheta, grão e nitidez por preset. */
+  readonly postfx: PostFX;
   private kickT = 0;
   private aberr = 0;
   private time = 0;
@@ -127,7 +134,10 @@ export class Stage {
     this.bloomBase = V.bloom.strength;
     this.bloom = new UnrealBloomPass(size, V.bloom.strength, V.bloom.radius, V.bloom.threshold);
     this.composer.addPass(this.bloom);
+    const finish = createFinishPass();
+    this.composer.addPass(finish);
     this.composer.addPass(new OutputPass());
+    this.postfx = new PostFX(this.vfxPass, finish);
 
     window.addEventListener('resize', () => this.resize());
     this.resize();
@@ -153,6 +163,7 @@ export class Stage {
     this.sunDir.set(...((V as { sun?: [number, number, number] }).sun ?? VISUAL_CONFIG.sun));
     this.bloomBase = V.bloom.strength;
     this.bloom.strength = this.bloomBase * this.gfx.bloomStrength;
+    this.postfx.setTheme(theme);
     this.bloom.radius = V.bloom.radius;
     this.bloom.threshold = V.bloom.threshold;
   }
@@ -278,6 +289,7 @@ export class Stage {
     }
     this.bloom.enabled = o.bloom;
     this.bloom.strength = this.bloomBase * o.bloomStrength;
+    this.postfx.setOptions(o.cinematic ?? true, o.grain ?? true, o.sharpen ?? true);
     // Sombras: o material não precisa recompilar se só o tamanho do mapa mudar.
     if (o.shadows !== prev.shadows) {
       this.moon.castShadow = o.shadows;
@@ -380,6 +392,8 @@ export class Stage {
     }
     U.uHeatN.value = n;
     this.heat.length = 0;
+    const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    this.bloom.strength = this.bloomBase * this.gfx.bloomStrength * this.postfx.update(dt, this.time, size.x, size.y);
     this.composer.render(dt);
   }
 }

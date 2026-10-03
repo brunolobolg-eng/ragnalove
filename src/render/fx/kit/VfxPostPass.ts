@@ -7,7 +7,9 @@ export const MAX_HEAT = 8;
  * Passe de pós-processamento dos efeitos (antes do bloom):
  *  - distorção de calor em volta das fontes de fogo (posições vindas dos efeitos, em tela)
  *  - aberração cromática breve (pulso nos impactos fortes)
- *  - correção de cor (saturação/contraste/tons) + vinheta leve
+ *  - COLOR GRADING (saturação, contraste, brilho, temperatura, sombras frias/luzes douradas)
+ *  - GRADIENT OVERLAY da região (topo → meio → base), vindo do Aurenthal PostFX (PostFX.ts)
+ * Os valores são escritos pelo PostFX a cada quadro; a vinheta foi para o passe final.
  */
 export function createVfxPass(): ShaderPass {
   const heat: THREE.Vector4[] = [];
@@ -25,11 +27,18 @@ export function createVfxPass(): ShaderPass {
       uContrast: { value: 1.07 },
       uShadowTint: { value: new THREE.Color(0.95, 0.98, 1.1) },
       uHighTint: { value: new THREE.Color(1.06, 1.02, 0.94) },
+      uBright: { value: 1 },
+      uWarmth: { value: 0 },
+      uGrad: { value: 0 },
+      uGradTop: { value: new THREE.Vector3(1, 1, 1) },
+      uGradMid: { value: new THREE.Vector3(1, 1, 1) },
+      uGradBot: { value: new THREE.Vector3(1, 1, 1) },
     },
     vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
     fragmentShader: /* glsl */ `
       uniform sampler2D tDiffuse;
-      uniform float uTime, uAspect, uAberr, uVignette, uSat, uContrast;
+      uniform float uTime, uAspect, uAberr, uVignette, uSat, uContrast, uBright, uWarmth, uGrad;
+      uniform vec3 uGradTop, uGradMid, uGradBot;
       uniform vec4 uHeat[${MAX_HEAT}];
       uniform int uHeatN;
       uniform vec3 uShadowTint, uHighTint;
@@ -58,6 +67,11 @@ export function createVfxPass(): ShaderPass {
         col = mix(vec3(l), col, uSat);
         col = (col - 0.18) * uContrast + 0.18;
         col *= mix(uShadowTint, uHighTint, smoothstep(0.05, 0.8, l));
+        col *= uBright;
+        col *= vec3(1.0 + uWarmth * 0.5, 1.0 + uWarmth * 0.08, 1.0 - uWarmth * 0.5);
+        // gradiente da região: tinge a cena de cima para baixo (cor 0.5 = neutra)
+        vec3 gc = vUv.y > 0.5 ? mix(uGradMid, uGradTop, (vUv.y - 0.5) * 2.0) : mix(uGradBot, uGradMid, vUv.y * 2.0);
+        col *= mix(vec3(1.0), gc * 2.0, uGrad);
         // vinheta
         float v = smoothstep(0.45, 1.0, length((vUv - 0.5) * vec2(1.0, 0.85)) * 1.35);
         col *= 1.0 - v * uVignette;

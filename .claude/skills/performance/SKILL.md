@@ -13,6 +13,11 @@ description: Desempenho do ROguard — FPS, presets de qualidade, orçamento de 
   (pools pré-alocados). Efeitos seguem 5 fases e respeitam o preset.
 - Campo de fluxo único para a horda inteira (barato com muitos inimigos).
 - Benchmark de pior caso no debug (F9): 100 zumbis + magias em cada preset.
+- **Aurenthal PostFX** (`render/fx/kit/PostFX.ts` + `VfxPostPass.ts`): cena → cor (calor, aberração, color grading,
+  gradiente da região) → bloom (só cores > limiar = camada emissiva) → passe final (nitidez, vinheta com pulso de chefe,
+  grão) → tone mapping. Presets `day/sunset/night/battle/boss` em `POSTFX` (visualConfig); o tema da zona escolhe o
+  clima e o gradiente, o main troca para `battle`/`boss` (`postFxSituation`). Opções do jogador: "Visual
+  cinematográfico" e "Granulado" (Vídeo); preset Baixo desliga a nitidez. Custo: 1 passe extra de tela cheia.
 
 ## Regras
 - Efeito novo: usar o kit (`render/fx/kit/`) e os pools; nada de criar geometria/material por frame.
