@@ -121,7 +121,7 @@ function preciseShot(unit: Unit, sim: Simulation, force: boolean): boolean {
   const shoot = (t: Unit) => {
     const crit = sim.chance(s?.crit ?? 0);
     sim.emit({ type: 'arrow', unitId: unit.id, targetId: t.id, from: { x: unit.x, y: unit.y }, to: { x: t.x, y: t.y }, crit });
-    sim.damage(t, (s?.arrowDamage ?? CFG.arrow.damage) * (crit ? 2 : 1), 'arrow', unit.id);
+    sim.damage(t, (s?.arrowDamage ?? CFG.arrow.damage) * (crit ? s?.critDamage ?? 1.5 : 1), 'arrow', unit.id, crit);
   };
   const t0 = targets[0];
   unit.facing = { x: Math.sign(t0.x - unit.x), y: Math.sign(t0.y - unit.y) };

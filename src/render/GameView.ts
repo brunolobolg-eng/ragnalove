@@ -469,6 +469,7 @@ export class GameView {
           if (!v) break;
           v.hit();
           this.damageNumber(e.unitId, e.amount, e.source, v.root.position);
+          if (e.crit && e.source !== 'arrow') this.float('CRÍTICO!', v.root.position.clone().setY(1.5), '#ffd84a', 0.3);
           if (e.source === 'burn') v.burning = 0.6;
           const spark = HIT_VFX[e.source];
           if (spark) {

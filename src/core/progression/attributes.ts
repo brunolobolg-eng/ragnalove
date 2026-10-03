@@ -31,13 +31,13 @@ export function attrHint(k: AttrKey): string[] {
     case 'str':
       return ['Mais dano dos golpes físicos', 'Golpe em área mais largo e com mais alcance'];
     case 'int':
-      return ['Mais dano das magias', 'Barreira de Fogo maior e mais duradoura', `+${GAME_CONFIG.mana.perInt} de mana máxima e mais regeneração de mana`];
+      return ['Mais dano das magias', 'Barreira de Fogo maior e mais duradoura'];
     case 'vit':
       return [`+${A.vit.hpPerPoint} de vida máxima`, 'O herói aguenta mais tempo na linha de frente'];
     case 'dex':
-      return [`Habilidades recarregam mais rápido (−${pct(A.dex.cooldownReductionPerPoint)})`, 'Mais dano para Arqueira e Assassino'];
+      return [`+${pct(A.dex.skillHastePerPoint)} de Skill Haste (habilidades voltam mais rápido)`, 'Mais dano para Arqueira e Assassino'];
     case 'luk':
-      return [`+${pct(A.luk.dodgePerPoint)} de esquiva`, 'Mais itens caem dos inimigos', 'Itens mais raros e mais acertos críticos'];
+      return [`+${pct(A.luk.critPerPoint)} de chance de crítico`, `+${pct(A.luk.dodgePerPoint)} de esquiva`, 'Mais itens caem e saem mais raros'];
   }
 }
 
@@ -65,16 +65,19 @@ export const ATTRIBUTES_CONFIG = {
     barrierDurationPerPoint: 3, // ticks
     boltDamagePerPoint: 0.8,
   },
-  dex: { cooldownReductionPerPoint: 0.015, cooldownReductionMax: 0.5 },
+  /** Destreza → Skill Haste (o único atributo que acelera a recuperação das habilidades). */
+  dex: { skillHastePerPoint: 0.015 },
   luk: {
     dodgePerPoint: 0.004,
     dropChancePerPoint: 0.0015,
     /** Quanto cada ponto de Sorte desloca os pesos de raridade (ver equipment.ts). */
     rarityShiftPerPoint: 0.05,
+    /** Sorte → Chance de crítico (todas as classes). */
+    critPerPoint: 0.005,
   },
   /** Arqueira: Destreza é o atributo de dano (além de reduzir recargas). */
-  archer: { arrowDamagePerDex: 0.9, rainDamagePerDex: 0.6, critPerLuk: 0.005 },
-  caps: { dodge: 0.5, block: 0.5 },
+  archer: { arrowDamagePerDex: 0.9, rainDamagePerDex: 0.6 },
+  caps: { dodge: 0.5, block: 0.5, skillHaste: 0.6 },
   /** Classes avançadas: quanto cada ponto do atributo principal acima da base soma ao dano. */
   classPowerPerPoint: 0.05,
   /**
@@ -94,10 +97,13 @@ export function weaponMult(kind: string, gear: GearBonus): number {
 export interface GearBonus {
   attrs: Attrs;
   hpRegen: number; // HP por segundo
-  cooldownReduction: number; // 0..1 (velocidade de ataque)
-  /** Mana por segundo (rolagem "Regeneração de mana"). */
-  manaRegen: number;
-  attackSpeed: number; // 0..1
+  /** Skill Haste: 0..1 (recarga efetiva = base × (1 − Skill Haste)). */
+  skillHaste: number;
+  /** Chance de crítico (0..1) e dano crítico extra (0,2 = +20%). */
+  crit: number;
+  critDamage: number;
+  /** Mana (capacidade de slots de habilidade). */
+  mana: number;
   block: number; // 0..1
   dodge: number; // 0..1
   /** Refino da arma: multiplica o dano das habilidades. */
@@ -110,17 +116,18 @@ export interface GearBonus {
 }
 
 export const emptyAttrs = (): Attrs => ({ str: 0, int: 0, vit: 0, dex: 0, luk: 0 });
-export const emptyGear = (): GearBonus => ({ attrs: emptyAttrs(), hpRegen: 0, cooldownReduction: 0, manaRegen: 0, attackSpeed: 0, block: 0, dodge: 0, damageMult: 1, hpMult: 1, atk: 0, matk: 0 });
+export const emptyGear = (): GearBonus => ({ attrs: emptyAttrs(), hpRegen: 0, skillHaste: 0, crit: 0, critDamage: 0, mana: 0, block: 0, dodge: 0, damageMult: 1, hpMult: 1, atk: 0, matk: 0 });
 
 /** Status finais usados pela simulação. */
 export interface HeroStats {
   attrs: Attrs; // atributos efetivos (distribuídos + equipamento)
   maxHp: number;
   hpRegenPerSec: number;
-  /** Mana máxima e regeneração por segundo (GAME_CONFIG.mana). */
-  maxMana: number;
-  manaRegenPerSec: number;
-  cooldownMult: number; // multiplica todas as recargas
+  /** Mana = capacidade de slots de habilidade (não gasta, não regenera). */
+  mana: number;
+  /** Skill Haste (0..1): acelera a recuperação de todas as habilidades. */
+  skillHaste: number;
+  cooldownMult: number; // = 1 − Skill Haste (multiplica todas as recargas)
   dodge: number;
   block: number;
   luck: number;
@@ -146,8 +153,9 @@ export interface HeroStats {
   rainDamage: number;
   rainRadius: number;
   rainCooldownTicks: number;
-  /** Chance de acerto crítico (dano ×2) — Olho de Águia e Sorte. */
+  /** Chance de crítico (Sorte, equipamento, passivas) e multiplicador do dano crítico. */
   crit: number;
+  critDamage: number;
   /** Multiplica o dano recebido (Pele de Ferro / Escudo Arcano). */
   damageTakenMult: number;
   /** Multiplicador de dano das habilidades novas (refino da arma). */
@@ -172,11 +180,8 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
   const baseHp = (GAME_CONFIG.archetypes as Record<string, { hp: number }>)[kind]?.hp ?? wCfg.hp;
   const lv = (id: Parameters<typeof lvOf>[1]) => lvOf(skills, id);
   const med = (lv('meditation') ? SKILL_NUM.meditation(lv('meditation')).cdr : 0) + (lv('arcaneFlow') ? SKILL_NUM.arcaneFlow(lv('arcaneFlow')).cdr : 0);
-  const cdr = Math.min(
-    A.dex.cooldownReductionMax + 0.1,
-    d('dex') * A.dex.cooldownReductionPerPoint + gear.cooldownReduction + gear.attackSpeed + (fam === 'mage' ? med : 0),
-  );
-  const cooldownMult = 1 - cdr;
+  const skillHaste = Math.min(A.caps.skillHaste, d('dex') * A.dex.skillHastePerPoint + gear.skillHaste + (fam === 'mage' ? med : 0));
+  const cooldownMult = 1 - skillHaste;
   const cd = (ticks: number) => Math.max(1, Math.round(ticks * cooldownMult));
 
   const amp = lv('doubleBarrier') ? SKILL_NUM.doubleBarrier(lv('doubleBarrier')) : { extraLen: 0, extraTicks: 0 };
@@ -195,8 +200,8 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
     attrs,
     maxHp: Math.round((baseHp + d('vit') * A.vit.hpPerPoint + (bonus.hp ?? 0)) * gear.hpMult * (1 + iron.hp)),
     hpRegenPerSec: gear.hpRegen,
-    maxMana: Math.round((GAME_CONFIG.mana.base[kind] ?? 80) + d('int') * GAME_CONFIG.mana.perInt + (bonus.mana ?? 0)),
-    manaRegenPerSec: Math.round((GAME_CONFIG.mana.regenPerSec + d('int') * GAME_CONFIG.mana.regenPerInt + gear.manaRegen) * 10) / 10,
+    mana: GAME_CONFIG.mana.base + gear.mana + (bonus.mana ?? 0),
+    skillHaste,
     cooldownMult,
     dodge: Math.min(A.caps.dodge, d('luk') * A.luk.dodgePerPoint + gear.dodge + step.dodge),
     block: Math.min(A.caps.block, gear.block + shield.block),
@@ -225,6 +230,7 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
     rainDamage: (aCfg.rain.damage + d('dex') * A.archer.rainDamagePerDex) * SKILL_NUM.arrowRain(Math.max(1, lv('arrowRain'))).dmgMult * dm * (lv('volley') ? SKILL_NUM.volley(lv('volley')).dmgMult : 1),
     rainRadius: aCfg.rain.radius + (lv('volley') ? SKILL_NUM.volley(lv('volley')).radius : 0),
     rainCooldownTicks: cd(aCfg.rain.cooldownTicks),
-    crit: Math.min(0.6, (fam === 'archer' ? d('luk') * A.archer.critPerLuk : 0) + (lv('eagleEye') ? SKILL_NUM.eagleEye(lv('eagleEye')).crit : 0) + step.crit),
+    crit: Math.min(GAME_CONFIG.crit.maxChance, GAME_CONFIG.crit.baseChance + attrs.luk * A.luk.critPerPoint + gear.crit + (lv('eagleEye') ? SKILL_NUM.eagleEye(lv('eagleEye')).crit : 0) + step.crit),
+    critDamage: GAME_CONFIG.crit.baseDamage + gear.critDamage,
   };
 }

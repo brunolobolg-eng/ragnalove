@@ -12,7 +12,9 @@ export interface HeroCardVM {
   dead: boolean;
   hp: number;
   maxHp: number;
-  maxMana: number;
+  /** Mana (capacidade de slots) e slots usados/total ("2/2"). */
+  mana: number;
+  slots: string;
   /** Ataque da arma (físico ou mágico). */
   atk: number;
   magic: boolean;
@@ -144,7 +146,7 @@ export class HeroCard {
               <img src="${h.art}" alt="">
               <div class="hc-bars">
                 <span class="hc-hp">${SVG.heart}<b>${h.dead ? 'Caído' : `${h.hp}/${h.maxHp}`}</b><i style="--p:${hpPct}"></i></span>
-                <span class="hc-hp hc-mp" title="Mana máxima (habilidades gastam mana)">${SVG.drop}<b>${h.dead ? '—' : `${h.maxMana}/${h.maxMana}`}</b><i style="--p:${h.dead ? 0 : 1}"></i></span>
+                <span class="hc-hp hc-mp" title="Mana = capacidade de slots de habilidade (não gasta em combate)">${SVG.drop}<b>Mana ${h.mana} · ${h.slots} slots</b><i style="--p:1"></i></span>
               </div>
             </div>
             <div class="hc-col">${RIGHT.map(slot).join('')}</div>

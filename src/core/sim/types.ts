@@ -23,9 +23,8 @@ export interface Unit {
   facing: Vec2;
   nextActTick: number;
   cooldowns: Record<string, number>; // habilidade -> tick em que fica pronta
-  /** Só party: mana atual/máxima (habilidades gastam GAME_CONFIG.mana.costs). */
-  mana?: number;
-  maxMana?: number;
+  /** Só party: chaves de recarga de habilidades fora dos slots (Mana) — nunca são usadas. */
+  locked?: string[];
   /** Almas roubadas por esta unidade (só party). */
   souls: number;
   /** Só party: status derivados de atributos + equipamento, nível e EXP. */
@@ -126,7 +125,7 @@ export type SimPhase = 'setup' | 'running' | 'victory' | 'defeat';
 export type SimEvent =
   | { type: 'spawn'; unitId: number }
   | { type: 'move'; unitId: number }
-  | { type: 'damage'; unitId: number; amount: number; source: DamageSource; sourceId?: number }
+  | { type: 'damage'; unitId: number; amount: number; source: DamageSource; sourceId?: number; crit?: boolean }
   | { type: 'death'; unitId: number }
   | { type: 'soul'; fromId: number; toId: number; amount: number; x: number; y: number }
   | { type: 'effectStart'; effect: AreaEffect }

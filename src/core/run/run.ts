@@ -3,9 +3,10 @@ import type { HeroLoadout } from '../sim/Simulation';
 import { ZONES, type ZoneDef } from '../../config/zones';
 import { ACTS, EVENTS, REGION_BY_ID, type EventDef, type EventEffect, type NodeType, type Region } from '../../config/world';
 import { REFINE, RARITIES, RARITY_INFO, rollItem, type Item, type Rarity, type Slot } from '../progression/equipment';
-import { addExperience, addZeni, createProfile, expToNext, migrateProfile, resetAttributes, type Profile } from '../progression/profile';
+import { addExperience, addZeni, createProfile, expToNext, heroEquipped, heroStats, migrateProfile, resetAttributes, type Profile } from '../progression/profile';
 import { SKILL_BY_ID, SKILL_ZENI, heroSkills, investedSkillPoints, lvOf, missingRequirements, skillZeniCost, type HeroKind, type SkillId } from '../progression/skills';
 import { Rng } from '../sim/rng';
+import { slotCount, usesSlot } from '../progression/skillSlots';
 import { HERO_INFO, HERO_ORDER, HERO_NAME as HERO_NAMES } from '../../config/heroes';
 import { OBJECT_RULES } from '../sim/objects';
 import type { WaveReport } from '../sim/types';
@@ -52,6 +53,8 @@ export interface RunState {
    * com este selo e sem poder mexer — como a onda é determinística, o resultado é o mesmo.
    */
   battle?: BattleSeal;
+  /** A recompensa Mítica garantida (depois do 1º chefe da jornada) já foi entregue. */
+  mythicGranted?: boolean;
 }
 
 export interface BattleSeal {
@@ -220,13 +223,40 @@ export function survivalRewards(kills: number, seconds: number): { score: number
     [25, 'uncommon', 'rare'],
     [50, 'rare', 'epic'],
     [85, 'epic', 'legendary'],
-    [130, 'legendary', 'mythic'],
+    [130, 'epic', 'legendary'], // Mítico não sai da Sobrevivência: só raríssimo ou pela garantia do chefe
   ];
   const t = [...tiers].reverse().find(([min]) => score >= min)!;
   const n = Math.min(3, 1 + Math.floor(score / 60));
   const rarities = Array.from({ length: n }, (_, i) => (i === 0 ? t[2] : Math.random() < 0.5 ? t[2] : t[1]));
   // o melhor prêmio sai por último (clímax da roleta)
   return { score, rarities: rarities.sort((a, b) => RARITIES.indexOf(a) - RARITIES.indexOf(b)) };
+}
+
+/**
+ * Presente da 1ª vitória da jornada: 1 item (às vezes 2) com raridade SORTEADA
+ * (Comum, Incomum, Raro ou Épico). Nada é garantido: cada jornada começa diferente.
+ */
+export function starterGift(r: RunState): Item[] {
+  const G = GAME_CONFIG.loot.starterGift;
+  const entries = Object.entries(G.weights) as [Rarity, number][];
+  const pick = (): Rarity => {
+    let x = uiRng.next() * entries.reduce((s, [, w]) => s + w, 0);
+    for (const [k, w] of entries) if ((x -= w) < 0) return k;
+    return entries[0][0];
+  };
+  const n = uiRng.next() < G.secondChance ? 2 : 1;
+  return Array.from({ length: n }, () => makeItem(pick(), undefined, r.party));
+}
+
+/**
+ * GARANTIA MÍTICA: ao vencer o primeiro chefe da jornada, 1 recompensa Mítica (uma vez só).
+ * Se o chefe já deixou um Mítico, a garantia foi cumprida e nada extra é dado.
+ */
+export function bossMythicReward(r: RunState, nodeType: NodeType | undefined, drops: Item[]): Item | undefined {
+  if (nodeType !== 'boss' || r.mythicGranted) return undefined;
+  r.mythicGranted = true;
+  if (drops.some((d) => d.rarity === 'mythic')) return undefined;
+  return makeItem('mythic', undefined, r.party);
 }
 
 export function makeItem(rarity: Rarity, slot?: Slot, users: string[] = []): Item {
@@ -490,6 +520,11 @@ export function learnSkill(r: RunState, hero: HeroKind, id: SkillId): string | u
   if (!spend(r, cost)) return 'Zeni insuficiente.';
   h.skillPoints--;
   h.skills[id] = lv + 1;
+  // habilidade ativa nova entra sozinha num slot livre (se o jogador já escolheu os slots)
+  if (lv === 0 && h.equippedSkills && usesSlot(id)) {
+    const cur = heroEquipped(r.profile, hero);
+    if (cur.length < slotCount(hero, heroStats(r.profile, hero).mana)) h.equippedSkills = [...cur, id];
+  }
   return undefined;
 }
 

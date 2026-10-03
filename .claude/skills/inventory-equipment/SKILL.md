@@ -14,6 +14,12 @@ Layout padrão na UI: esquerda cabeça, armadura, capa, arma, botas; direita bri
 ## Item
 `{ id, slot, rarity, rolls[], kind?, atk?, matk?, refine?, awakened? }`
 - Raridades: Comum, Incomum, Raro, Épico, Lendário, Mítico (`RARITY_INFO`: cor e nº de rolagens).
+- **Loot (regras do dono):** nada de item garantido no começo — a 1ª vitória dá um presente de raridade SORTEADA
+  (`starterGift`, `GAME_CONFIG.loot.starterGift`). **Mítico é excepcional** (peso 0,02 ≈ 0,2% dos drops; não sai da
+  Sobrevivência nem da regra dos chefes) e há **1 recompensa Mítica garantida** ao vencer o 1º chefe da jornada
+  (`bossMythicReward`, `RunState.mythicGranted`).
+- Rolagens: vida/s, Skill Haste, chance de crítico, dano crítico, Mana (só Épico+), bloqueio, esquiva, atributos.
+  `manaRegen`/`attackSpeed` são de saves antigos e contam como Skill Haste.
 - Rolagens (`ATTRIBUTE_ROLL_POOL`): regen de vida, recarga, vel. de ataque, bloqueio, esquiva, +atributo, +todos.
 - Armas: `atk` físico ou `matk` (cajado/livro); `WEAPON_USERS` define quem usa cada arma (`canUse`).
 - Refino até +10 (chance cai a partir de +5, aura cosmética ≥ +5); despertar Lendário/Mítico com almas (×1,5).

@@ -1,6 +1,4 @@
 import type { Rng } from '../sim/rng';
-import { GAME_CONFIG } from '../../config/gameConfig';
-const GAME_CONFIG_MANA = GAME_CONFIG.mana;
 import { ATTRIBUTES_CONFIG, ATTR_KEYS, ATTR_LABEL, emptyGear, type AttrKey, type GearBonus } from './attributes';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic';
@@ -41,21 +39,31 @@ export const LOOT_CONFIG = {
   /** Chefes sempre deixam um item: `top` com chance `topChance`, senão `base`. `default` vale para os chefes não listados. */
   bossRarity: {
     elite: { top: 'epic', topChance: 0.3, base: 'rare' },
-    orcboss: { top: 'mythic', topChance: 0.35, base: 'legendary' },
+    orcboss: { top: 'legendary', topChance: 0.5, base: 'epic' },
     default: { top: 'legendary', topChance: 0.3, base: 'epic' },
   } as Record<string, { top: Rarity; topChance: number; base: Rarity }>,
 };
 
-/** Pesos de raridade dos drops comuns (Mítico só cai de chefes e da Sobrevivência). */
-export const RARITY_WEIGHTS: Record<Rarity, number> = { common: 10, uncommon: 5, rare: 3, epic: 0.5, legendary: 1, mythic: 0 };
+/**
+ * Pesos de raridade dos drops comuns. Mítico é EXCEPCIONAL (~0,1% dos drops); a recompensa
+ * Mítica garantida vem só depois do primeiro chefe da jornada (run.ts → bossMythicReward).
+ */
+export const RARITY_WEIGHTS: Record<Rarity, number> = { common: 10, uncommon: 5, rare: 3, epic: 0.5, legendary: 1, mythic: 0.02 };
 
-export type RollKind = 'hpRegen' | 'manaRegen' | 'attackSpeed' | 'block' | 'dodge' | 'oneAttr' | 'allAttr';
+/**
+ * Rolagens de item. Cada uma tem UMA função: Skill Haste (recuperação das habilidades),
+ * crítico (chance), dano crítico, Mana (slots — só em Épico ou melhor), defesa e atributos.
+ * 'manaRegen' e 'attackSpeed' são de saves antigos e valem como Skill Haste.
+ */
+export type RollKind = 'hpRegen' | 'skillHaste' | 'crit' | 'critDamage' | 'mana' | 'manaRegen' | 'attackSpeed' | 'block' | 'dodge' | 'oneAttr' | 'allAttr';
 
 /** Pool de rolagens de atributo de equipamento (valor sorteado entre min e max). */
-export const ATTRIBUTE_ROLL_POOL: { kind: RollKind; weight: number; min: number; max: number }[] = [
+export const ATTRIBUTE_ROLL_POOL: { kind: RollKind; weight: number; min: number; max: number; minRarity?: Rarity }[] = [
   { kind: 'hpRegen', weight: 20, min: 1, max: 3 }, // HP/s
-  { kind: 'manaRegen', weight: 15, min: 3, max: 8 }, // % de recarga (o jogo não tem mana: acelera habilidades)
-  { kind: 'attackSpeed', weight: 18, min: 4, max: 10 }, // %
+  { kind: 'skillHaste', weight: 26, min: 3, max: 8 }, // %
+  { kind: 'crit', weight: 12, min: 2, max: 5 }, // % de chance
+  { kind: 'critDamage', weight: 6, min: 10, max: 25 }, // % de dano crítico
+  { kind: 'mana', weight: 3, min: 5, max: 5, minRarity: 'epic' }, // Mana (slots): raríssima
   { kind: 'block', weight: 15, min: 3, max: 8 }, // %
   { kind: 'dodge', weight: 15, min: 3, max: 8 }, // %
   { kind: 'oneAttr', weight: 14, min: 2, max: 2 }, // +2 em um atributo sorteado
@@ -226,11 +234,12 @@ export function rollItem(rng: Rng, luck: number, id: string, force: { rarity?: R
     : kind === 'bow' ? [['dex', 5], ['luk', 2], ['str', 2], ['vit', 1]]
     : kind === 'dagger' ? [['dex', 3], ['luk', 3], ['str', 3], ['vit', 1]]
     : [['str', 5], ['vit', 3], ['dex', 2]];
-  const rollPool = ATTRIBUTE_ROLL_POOL.map((e) => {
+  const rollPool = ATTRIBUTE_ROLL_POOL.filter((e) => !e.minRarity || RARITIES.indexOf(rarity) >= RARITIES.indexOf(e.minRarity)).map((e) => {
     let w = e.weight;
     if (slot === 'weapon' && e.kind === 'oneAttr') w *= 2.2; // armas puxam mais para atributos
-    if (magic && e.kind === 'manaRegen') w *= 1.8;
-    if (magic && (e.kind === 'block' || e.kind === 'attackSpeed')) w *= 0.4;
+    if (magic && e.kind === 'skillHaste') w *= 1.8;
+    if (magic && e.kind === 'block') w *= 0.4;
+    if (slot === 'weapon' && !magic && e.kind === 'crit') w *= 1.5;
     return [e, w] as [typeof e, number];
   });
   const rolls: ItemRoll[] = [];
@@ -265,10 +274,16 @@ export function describeRoll(r: ItemRoll, it?: Item): string {
   switch (r.kind) {
     case 'hpRegen':
       return `Regeneração de vida +${v}/s`;
+    case 'skillHaste':
     case 'manaRegen':
-      return `Regeneração de mana +${v * GAME_CONFIG_MANA.rollRegen}/s`;
     case 'attackSpeed':
-      return `Velocidade de ataque +${v}%`;
+      return `Skill Haste +${v}%`;
+    case 'crit':
+      return `Chance de crítico +${v}%`;
+    case 'critDamage':
+      return `Dano crítico +${v}%`;
+    case 'mana':
+      return `Mana +${r.value} (slots de habilidade)`;
     case 'block':
       return `Chance de bloqueio +${v}%`;
     case 'dodge':
@@ -290,8 +305,10 @@ export function gearBonus(items: (Item | undefined)[]): GearBonus {
     for (const r of it.rolls) {
       const v = rollValue(it, r);
       if (r.kind === 'hpRegen') g.hpRegen += v;
-      else if (r.kind === 'manaRegen') g.manaRegen += v * GAME_CONFIG_MANA.rollRegen;
-      else if (r.kind === 'attackSpeed') g.attackSpeed += v / 100;
+      else if (r.kind === 'skillHaste' || r.kind === 'manaRegen' || r.kind === 'attackSpeed') g.skillHaste += v / 100;
+      else if (r.kind === 'crit') g.crit += v / 100;
+      else if (r.kind === 'critDamage') g.critDamage += v / 100;
+      else if (r.kind === 'mana') g.mana += r.value; // Mana não cresce com refino/despertar
       else if (r.kind === 'block') g.block += v / 100;
       else if (r.kind === 'dodge') g.dodge += v / 100;
       else if (r.kind === 'oneAttr' && r.attr) g.attrs[r.attr] += v;

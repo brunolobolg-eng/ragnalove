@@ -12,7 +12,8 @@ import { expToNext, starterWeapon, type WaveResult } from '../progression/profil
 const defaultGear = (kind: string) => gearBonus([starterWeapon(kind)]);
 import { Rng } from './rng';
 import type { AreaEffect, CombatMoveStats, DamageSource, MapObject, SimEvent, SimPhase, Trap, Unit, WaveReport } from './types';
-import { SKILL_NUM, lvOf } from '../progression/skills';
+import { SKILL_NUM, lvOf, startingSkills, type HeroKind } from '../progression/skills';
+import { lockedSkillKeys } from '../progression/skillSlots';
 import { neutralMods, testRangeMult, type SimMods } from './RangeSystem';
 import { updateCombatMovement } from './CombatMovement';
 
@@ -61,8 +62,13 @@ const SKILL_EVENTS = new Set<SimEvent['type']>(['cast', 'cleave', 'bash', 'bolt'
 const PROJECTILES = new Set<DamageSource>(['bolt', 'arrow', 'pierce', 'spell']);
 
 /** O que cada herói traz da progressão para a onda. */
+/** Dano contínuo/ambiental: nunca é crítico. */
+const NO_CRIT = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'debug', 'curse', 'combust']);
+
 export interface HeroLoadout {
   stats: HeroStats;
+  /** Habilidades fora dos slots de Mana (ausente = escolha automática pelos slots). */
+  locked?: string[];
   level: number;
   exp: number;
 }
@@ -180,7 +186,7 @@ export class Simulation {
       const lo = loadout[a.id] ?? { stats: computeStats(a.id, ATTRIBUTES_CONFIG.base[a.id], defaultGear(a.id)), level: 1, exp: 0 };
       const u = this.createUnit('party', a.id, m.x, m.y, lo.stats.maxHp);
       u.stats = lo.stats;
-      if (lo.stats.maxMana !== undefined) u.mana = u.maxMana = lo.stats.maxMana;
+      u.locked = lo.locked ?? lockedSkillKeys(a.id as HeroKind, { ...startingSkills(a.id as HeroKind), ...lo.stats.skills }, lo.stats.mana ?? GAME_CONFIG.mana.base);
       u.level = lo.level;
       u.exp = lo.exp;
       this.heroFinal.set(u.kind, { level: u.level, exp: u.exp });
@@ -445,7 +451,12 @@ export class Simulation {
   }
 
   /** @param sourceId unidade que causou o dano (quem mata rouba a alma). */
-  damage(u: Unit, amount: number, source: DamageSource, sourceId?: number): void {
+  /**
+   * Aplica dano. Golpes da party podem ser CRÍTICOS (Chance de crítico × Dano crítico do herói);
+   * dano contínuo (queimadura, veneno...) nunca é crítico. `crit`: o arquétipo já sorteou
+   * (e já multiplicou o dano) — a simulação não sorteia de novo.
+   */
+  damage(u: Unit, amount: number, source: DamageSource, sourceId?: number, crit?: boolean): void {
     if (!u.alive) return;
     if (u.team === 'party' && this.cheats.invincible) return;
     if (u.team === 'party' && u.stats) amount = Math.max(1, Math.round(amount * u.stats.damageTakenMult * 10) / 10);
@@ -473,6 +484,13 @@ export class Simulation {
     }
     // Maldição (Bruxa): o amaldiçoado sofre mais dano de toda a party
     if (u.team === 'enemy' && (u.cursedUntil ?? 0) > this.tick) amount *= 1 + (u.curseAmp ?? 0);
+    if (crit === undefined && u.team === 'enemy' && sourceId !== undefined && !NO_CRIT.has(source)) {
+      const a = this.units.get(sourceId);
+      if (a?.team === 'party' && a.stats && a.stats.crit > 0 && this.combatRng.next() < a.stats.crit) {
+        amount *= a.stats.critDamage ?? GAME_CONFIG.crit.baseDamage;
+        crit = true;
+      }
+    }
     // Dano infinito (Dev Lab): qualquer golpe da party mata
     if (this.cheats.oneHit && u.team === 'enemy' && sourceId !== undefined && this.units.get(sourceId)?.team === 'party') amount = u.hp;
     const applied = Math.min(u.hp, amount);
@@ -483,7 +501,7 @@ export class Simulation {
       const src = this.units.get(sourceId);
       if (src?.team === 'party') this.dealt[src.kind] = (this.dealt[src.kind] ?? 0) + applied;
     }
-    this.emit({ type: 'damage', unitId: u.id, amount, source, sourceId });
+    this.emit(crit ? { type: 'damage', unitId: u.id, amount, source, sourceId, crit } : { type: 'damage', unitId: u.id, amount, source, sourceId });
     if (u.hp <= 0) {
       u.alive = false;
       this.occ[this.board.idx(u.x, u.y)] = 0;
@@ -897,7 +915,7 @@ export class Simulation {
       // velocidade de ataque de teste: encurta as recargas que o arquétipo acabou de marcar
       const speed = this.mods.heroes[u.kind]?.attackSpeed ?? 1;
       const before = speed !== 1 ? { ...u.cooldowns } : undefined;
-      this.actWithMana(u);
+      this.actWithSlots(u);
       if (before) for (const [k, v] of Object.entries(u.cooldowns)) if (v !== before[k] && v > this.tick) u.cooldowns[k] = this.tick + Math.max(1, Math.round((v - this.tick) / speed));
     }
 
@@ -913,40 +931,27 @@ export class Simulation {
   // ---------- Internos ----------
 
   /**
-   * Turno do arquétipo com custo de mana: habilidades sem mana suficiente ficam "em recarga"
-   * só durante este tick (a IA pula para a próxima) e quem foi usada paga o custo.
-   * Uma habilidade conta como usada quando estava pronta e o arquétipo marcou nova recarga.
+   * Turno do arquétipo respeitando os SLOTS (Mana): habilidades fora dos slots ficam "em recarga"
+   * durante o turno (a IA pula para a próxima). O arquétipo não precisa saber de slots.
    */
-  private actWithMana(u: Unit): void {
-    const costs = GAME_CONFIG.mana.costs;
-    if (u.maxMana === undefined || this.cheats.noCooldowns) return void ARCHETYPES[u.kind].update(u, this);
-    const mana = u.mana ?? 0;
+  private actWithSlots(u: Unit): void {
+    if (!u.locked?.length) return void ARCHETYPES[u.kind].update(u, this);
     const held: Record<string, number | undefined> = {};
-    for (const [k, c] of Object.entries(costs)) {
-      if (c > mana && this.tick >= (u.cooldowns[k] ?? 0)) {
+    for (const k of u.locked) {
+      if (this.tick >= (u.cooldowns[k] ?? 0)) {
         held[k] = u.cooldowns[k];
         u.cooldowns[k] = this.tick + 1;
       }
     }
-    const before = { ...u.cooldowns };
     ARCHETYPES[u.kind].update(u, this);
     for (const [k, v] of Object.entries(held)) {
       if (u.cooldowns[k] !== this.tick + 1) continue; // o arquétipo mexeu nela (ex.: recarga compartilhada)
       if (v === undefined) delete u.cooldowns[k];
       else u.cooldowns[k] = v;
     }
-    let spent = 0;
-    for (const [k, v] of Object.entries(u.cooldowns)) {
-      const c = costs[k] ?? 0;
-      if (c > 0 && !(k in held) && v !== before[k] && v > this.tick && this.tick >= (before[k] ?? 0)) spent += c;
-    }
-    if (spent) u.mana = Math.max(0, mana - spent);
   }
 
   private regen(u: Unit): void {
-    if (u.maxMana !== undefined && (u.mana ?? 0) < u.maxMana) {
-      u.mana = Math.min(u.maxMana, (u.mana ?? 0) + (u.stats?.manaRegenPerSec ?? 0) / GAME_CONFIG.sim.tickRate);
-    }
     const r = (u.stats?.hpRegenPerSec ?? 0) + this.blessRegen;
     const tps = GAME_CONFIG.sim.tickRate;
     if (r > 0 && this.tick % tps === 0 && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + r);

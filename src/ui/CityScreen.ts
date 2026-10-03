@@ -32,6 +32,7 @@ import {
 } from '../core/run/run';
 import { investedSkillPoints, type HeroKind } from '../core/progression/skills';
 import { itemIconUrl } from './itemArt';
+import { slotCount } from '../core/progression/skillSlots';
 import { PORTRAITS } from './WorldMap';
 
 /**
@@ -202,7 +203,7 @@ export class CityScreen {
         const cn = GAME_CONFIG.city.consumables.find((x) => x.id === b.dataset.id);
         if (!cn || !buyConsumable(r, cn.id, h)) this.say('Sem Zeni suficiente', false);
         else {
-          this.say(`${HERO_PT[h]}: ${cn.hp ? `+${cn.hp} de vida máxima` : `+${cn.mana} de mana máxima`}!`);
+          this.say(`${HERO_PT[h]}: ${cn.hp ? `+${cn.hp} de vida máxima` : `+${cn.mana} de Mana (slots de habilidade)`}!`);
           sound = 'coin';
         }
         break;
@@ -375,7 +376,7 @@ export class CityScreen {
         const cons = GAME_CONFIG.city.consumables
           .map((cn, i) => {
             const c = consumablePrice(r, cn.id);
-            const eff = cn.hp ? `+${cn.hp} vida máx. <small>(${st.maxHp} → ${st.maxHp + cn.hp})</small>` : cn.mana ? `+${cn.mana} mana máx. <small>(${st.maxMana} → ${st.maxMana + cn.mana})</small>` : '';
+            const eff = cn.hp ? `+${cn.hp} vida máx. <small>(${st.maxHp} → ${st.maxHp + cn.hp})</small>` : cn.mana ? `+${cn.mana} Mana <small>(${st.mana} → ${st.mana + cn.mana} · slots ${slotCount(this.hero, st.mana)} → ${slotCount(this.hero, st.mana + cn.mana)})</small>` : '';
             const btn = cn.soon
               ? '<span class="soon">Em breve</span>'
               : `<button class="price" data-c="cons" data-id="${cn.id}"${dis(z >= c)}><i class="zeni-ico"></i>${c}</button>`;
@@ -404,7 +405,7 @@ export class CityScreen {
                 <div class="sh-need">Faltam <b>${need - hp.exp} EXP</b> para o nível ${hp.level + 1}: ${best}</div>
               </div>
               <div class="sh-mp" title="Vida e mana máximas">
-                <span class="hp">♥ ${st.maxHp}</span><span class="mp">◆ ${st.maxMana} <small>+${st.manaRegenPerSec}/s</small></span>
+                <span class="hp">♥ ${st.maxHp}</span><span class="mp" title="Mana = slots de habilidade">◆ Mana ${st.mana} <small>${slotCount(this.hero, st.mana)} slots</small></span>
               </div>
             </div>
             <div class="pots">${pots}</div>

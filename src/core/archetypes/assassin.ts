@@ -57,7 +57,8 @@ function bladeFan(unit: Unit, sim: Simulation, force: boolean): boolean {
     const e = sim.unitAt(t.x, t.y);
     if (!e || e.team !== 'enemy') continue;
     hitTiles.push(t);
-    sim.damage(e, dmg * (sim.chance(crit) ? 2 : 1), 'blade', unit.id);
+    const c = sim.chance(crit);
+    sim.damage(e, dmg * (c ? unit.stats?.critDamage ?? 1.5 : 1), 'blade', unit.id, c);
     poison(unit, sim, e);
   }
   sim.emit({ type: 'cleave', unitId: unit.id, facing: best.d, tiles: best.tiles, hitTiles, hits: best.hits });
@@ -77,7 +78,7 @@ function backstab(unit: Unit, sim: Simulation, force: boolean): boolean {
   unit.facing = { x: Math.sign(target.x - unit.x), y: Math.sign(target.y - unit.y) };
   const isCrit = sim.chance(critOf(unit));
   sim.emit({ type: 'bash', unitId: unit.id, targetId: target.id, x: target.x, y: target.y });
-  sim.damage(target, CFG.backstab.damage * SKILL_NUM.backstab(Math.max(1, lvOf(unit.stats?.skills, 'backstab'))).dmgMult * pw(unit) * (isCrit ? 2 : 1), 'blade', unit.id);
+  sim.damage(target, CFG.backstab.damage * SKILL_NUM.backstab(Math.max(1, lvOf(unit.stats?.skills, 'backstab'))).dmgMult * pw(unit) * (isCrit ? unit.stats?.critDamage ?? 1.5 : 1), 'blade', unit.id, isCrit);
   poison(unit, sim, target);
   unit.cooldowns.backstab = sim.tick + cd(unit, CFG.backstab.cooldownTicks);
   return true;
