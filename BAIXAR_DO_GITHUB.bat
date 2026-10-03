@@ -4,7 +4,7 @@ title Baixar do GitHub - ragnalove
 cd /d "%~dp0"
 
 set "BRANCH=main"
-set "CLAUDE_BRANCH=claude/quirky-fermi-4j377w"
+rem A branch do Claude muda a cada conversa: o script traz sozinho a mais recente (claude/...)
 
 echo ==================================================
 echo   Baixando as novidades do GitHub (ragnalove)
@@ -57,16 +57,17 @@ if errorlevel 1 (
   echo [ERRO] Nao consegui falar com o GitHub. Verifique a internet.
   goto :fim_erro
 )
-git fetch --progress origin %CLAUDE_BRANCH% >nul 2>nul
+git fetch --prune origin "+refs/heads/claude/*:refs/remotes/origin/claude/*" >nul 2>nul
+set "CLAUDE_REF="
+for /f "delims=" %%b in ('git for-each-ref --sort=-committerdate --count=1 --format^=%%^(refname:short^) refs/remotes/origin/claude/') do set "CLAUDE_REF=%%b"
 
 git merge -q --no-edit origin/%BRANCH%
 if errorlevel 1 goto :conflito
 
 rem --- Tambem traz o trabalho do Claude, se houver ---
-git rev-parse -q --verify "refs/remotes/origin/%CLAUDE_BRANCH%" >nul 2>nul
-if not errorlevel 1 (
-  echo       Trazendo tambem as alteracoes do Claude...
-  git merge -q --no-edit "origin/%CLAUDE_BRANCH%"
+if defined CLAUDE_REF (
+  echo       Trazendo tambem as alteracoes do Claude: %CLAUDE_REF%
+  git merge -q --no-edit "%CLAUDE_REF%"
   if errorlevel 1 goto :conflito
 )
 

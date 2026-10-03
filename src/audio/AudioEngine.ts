@@ -153,8 +153,9 @@ export class AudioEngine {
     if (tr.anim) return; // o laço já está rodando: só muda o alvo
     let last = performance.now();
     const step = (now: number) => {
-      const dt = now - last;
-      last = now;
+      // o carimbo do rAF pode vir antes do performance.now() de quando o fade começou
+      const dt = Math.max(0, now - last);
+      last = Math.max(last, now);
       const target = tr.wanted ? 1 : 0;
       const d = Math.min(Math.abs(target - tr.fade), dt * tr.rate);
       tr.fade += Math.sign(target - tr.fade) * d;
