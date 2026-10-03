@@ -54,6 +54,9 @@ export interface HudMember {
   kind: HeroKind;
   hp: number;
   maxHp: number;
+  /** Mana atual/máxima (habilidades gastam mana). */
+  mana: number;
+  maxMana: number;
   alive: boolean;
   /** 0 = pronta, 1 = recém-usada */
   cooldown: number;
@@ -116,7 +119,7 @@ export class Hud {
   private readonly phaseEl: HTMLElement;
   private readonly memberEls = new Map<
     string,
-    { hp: HTMLElement; hpTxt: HTMLElement; souls: HTMLElement; win: HTMLElement; exp: HTMLElement; expTxt: HTMLElement; lv: HTMLElement; level: number }
+    { hp: HTMLElement; mp: HTMLElement; hpTxt: HTMLElement; souls: HTMLElement; win: HTMLElement; exp: HTMLElement; expTxt: HTMLElement; lv: HTMLElement; level: number }
   >();
   private readonly charWin: HTMLElement;
   private readonly charBadge: HTMLElement;
@@ -259,6 +262,7 @@ export class Hud {
           <div class="stats stats-live">
             <div class="line"><b>${NAME[k]}</b><span class="lv">Nv. 1</span></div>
             <div class="bar-row"><span class="lbl">HP</span><div class="bar"><div class="fill hp"></div></div></div>
+            <div class="bar-row mp-row" title="Mana: cada habilidade gasta mana conforme seu poder"><span class="lbl">MP</span><div class="bar mp"><div class="fill mp"></div></div></div>
             <div class="bar-row exp-row"><span class="lbl">EXP</span><div class="bar exp"><div class="fill exp"></div><i class="burst"></i></div></div>
             <div class="bar-txt"><span class="m-souls" title="Almas roubadas"><i class="soul-ico"></i><b>0</b></span><span class="exp-txt"></span><span class="hp-txt"></span></div>
           </div>
@@ -409,6 +413,7 @@ export class Hud {
       this.memberEls.set(w.dataset.member!, {
         win: w,
         hp: w.querySelector('.fill.hp')!,
+        mp: w.querySelector('.fill.mp')!,
         hpTxt: w.querySelector('.hp-txt')!,
         exp: w.querySelector('.fill.exp')!,
         expTxt: w.querySelector('.exp-txt')!,
@@ -546,6 +551,8 @@ export class Hud {
         el.hp.style.width = `${Math.max(0, frac) * 100}%`;
         el.hp.classList.toggle('low', frac < 0.25);
         el.hpTxt.textContent = `${Math.max(0, Math.ceil(m.hp))} / ${m.maxHp}`;
+        el.mp.style.width = `${m.maxMana ? Math.max(0, Math.min(1, m.mana / m.maxMana)) * 100 : 0}%`;
+        el.mp.parentElement!.parentElement!.title = `Mana ${Math.floor(m.mana)} / ${m.maxMana} — cada habilidade gasta mana conforme seu poder`;
         el.win.classList.toggle('dead', !m.alive);
         el.souls.textContent = String(m.souls);
         // Barra de EXP: preenchimento animado (transição CSS) + estouro ao subir de nível.

@@ -1,4 +1,6 @@
 import type { Rng } from '../sim/rng';
+import { GAME_CONFIG } from '../../config/gameConfig';
+const GAME_CONFIG_MANA = GAME_CONFIG.mana;
 import { ATTRIBUTES_CONFIG, ATTR_KEYS, ATTR_LABEL, emptyGear, type AttrKey, type GearBonus } from './attributes';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic';
@@ -264,7 +266,7 @@ export function describeRoll(r: ItemRoll, it?: Item): string {
     case 'hpRegen':
       return `Regeneração de vida +${v}/s`;
     case 'manaRegen':
-      return `Regeneração de mana: recarga −${v}%`;
+      return `Regeneração de mana +${v * GAME_CONFIG_MANA.rollRegen}/s`;
     case 'attackSpeed':
       return `Velocidade de ataque +${v}%`;
     case 'block':
@@ -288,7 +290,7 @@ export function gearBonus(items: (Item | undefined)[]): GearBonus {
     for (const r of it.rolls) {
       const v = rollValue(it, r);
       if (r.kind === 'hpRegen') g.hpRegen += v;
-      else if (r.kind === 'manaRegen') g.cooldownReduction += v / 100;
+      else if (r.kind === 'manaRegen') g.manaRegen += v * GAME_CONFIG_MANA.rollRegen;
       else if (r.kind === 'attackSpeed') g.attackSpeed += v / 100;
       else if (r.kind === 'block') g.block += v / 100;
       else if (r.kind === 'dodge') g.dodge += v / 100;

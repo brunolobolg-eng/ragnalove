@@ -23,6 +23,9 @@ export interface Unit {
   facing: Vec2;
   nextActTick: number;
   cooldowns: Record<string, number>; // habilidade -> tick em que fica pronta
+  /** Só party: mana atual/máxima (habilidades gastam GAME_CONFIG.mana.costs). */
+  mana?: number;
+  maxMana?: number;
   /** Almas roubadas por esta unidade (só party). */
   souls: number;
   /** Só party: status derivados de atributos + equipamento, nível e EXP. */

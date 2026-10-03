@@ -17,7 +17,10 @@ description: Sistema de combate do ROguard — simulação em tempo real determi
 ## Status do herói
 `heroStats(profile, kind)` = `computeStats(atributos + gearBonus(equipamento), skills)` → `HeroStats`
 (maxHp, regen, recarga, esquiva, bloqueio, sorte, crítico, dano das habilidades, classPower...).
-- Não existe **SP/mana**: "regeneração de mana" dos itens reduz recarga (`cooldownMult`).
+- **Mana (MP)**: `maxMana`/`manaRegenPerSec` em `HeroStats` (base por classe + INT + Poção de Mana; regen + rolagem
+  "Regeneração de mana" dos itens). Custos em `GAME_CONFIG.mana.costs` (chave = id da recarga; ausente = grátis, ex. ataques
+  básicos físicos). `Simulation.actWithMana` segura habilidades sem mana naquele tick e cobra as usadas — o archetype não sabe de mana.
+  Poção de Vida/Mana da loja somam `bonusHp`/`bonusMana` no `HeroProgress` (`buyConsumable`).
 - Não existe DEF/MDEF separado: defesa = esquiva, bloqueio, `damageTakenMult` (passivas) e HP.
 - Arma dá `atk` (físico) ou `matk` (cajado/livro); `weaponMult` converte em multiplicador de dano.
 Se o dono pedir SP, DEF/MDEF, elementos ou precisão: é **expansão** — proponha onde entra (HeroStats + fórmulas
