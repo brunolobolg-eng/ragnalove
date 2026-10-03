@@ -29,3 +29,7 @@ audio_video/            menu.mp3 (versao da raiz) e roguard_menu_loop.mp4
 
 Para usar de novo: extraia, copie o arquivo para a pasta do projeto e peca ao Claude
 para integrar.
+
+kenney_particle_pack.zip  Kenney Particle Pack original (CC0, www.kenney.nl): PNGs com fundo
+                          transparente e preto + amostras Unity. O jogo usa as texturas geradas em
+                          public/fx/kenney/ por: python scripts/build_kenney_fx.py "<pasta PNG (Transparent)>"
