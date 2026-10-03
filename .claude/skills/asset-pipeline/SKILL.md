@@ -17,6 +17,8 @@ public/fx/kenney/     texturas de TODOS os efeitos (Kenney Particle Pack, CC0) �
                       scripts/build_kenney_fx.py; código em render/fx/kit/vfxTextures.ts (fxTexture)
 public/tela-entrada.jpg  arte do menu principal
 public/icon.png, emblem.png   favicon e emblema
+public/models/props/   peças de cenário GLB da Kenney (CC0): town, castle, survival, nature (+ Textures/colormap.png
+                      de cada pacote). Use `placeProp(parent, 'pacote/nome', x, z, {scale, rot, tint})` (render/scenery/props.ts).
 public/maps/           mapas pintados de batalha (WebP ~1 MB, 2× a arte original; sem interface pintada)
 public/icons/skills/   ícones de habilidade do dono (128 px WebP), por classe: guerreiro, arqueiro, mago, ladrao,
                       clerigo, monge, cruzado, professor (+ clerigo-cartas, artes grandes). catalogo.json lista

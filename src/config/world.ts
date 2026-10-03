@@ -35,9 +35,9 @@ export const REGIONS: Region[] = [
   { id: 'frostPass', name: 'Passo da Geada', biome: 'mountain', gx: 2, gy: 0, zone: 'frostPass', act: 2, cities: [{ name: 'Kaldrun', access: 'open' }], enemies: 'Mortos congelados, brutamontes' },
   { id: 'rustGorge', name: 'Garganta de Ferrugem', biome: 'mountain', gx: 3, gy: 0, zone: 'rustGorge', act: 2, enemies: 'Brutamontes e corredores' },
   { id: 'whisperWood', name: 'Floresta dos Sussurros', biome: 'forest', gx: 0, gy: 1, zone: 'whisperWood', act: 0, cities: [{ name: 'Ardenfall', access: 'open' }], enemies: 'Corredores entre as árvores' },
-  { id: 'crookedWood', name: 'Bosque Torto', biome: 'forest', gx: 1, gy: 1, zone: 'serene', act: 0, enemies: 'Zumbis comuns e brutamontes' },
+  { id: 'crookedWood', name: 'Bosque Torto', biome: 'forest', gx: 1, gy: 1, zone: 'crookedWood', act: 0, enemies: 'Zumbis comuns e brutamontes' },
   {
-    id: 'valdrec', name: 'Ponte e Portões de Valdrec', biome: 'plains', gx: 2, gy: 1, zone: 'serene', act: 0,
+    id: 'valdrec', name: 'Ponte e Portões de Valdrec', biome: 'plains', gx: 2, gy: 1, zone: 'bridge', act: 0,
     cities: [
       { name: 'Valdrec', access: 'locked', reason: 'Portões fechados pelo cerco dos mortos-vivos' },
       { name: 'Acampamento dos Refugiados', access: 'open' },
@@ -48,7 +48,7 @@ export const REGIONS: Region[] = [
   { id: 'saltCove', name: 'Enseada Salgada', biome: 'coast', gx: 4, gy: 1, future: true },
   { id: 'saltreach', name: 'Porto de Saltreach', biome: 'coast', gx: 5, gy: 1, future: true, cities: [{ name: 'Saltreach', access: 'locked', reason: 'Porto abandonado' }] },
   { id: 'ravenIsle', name: 'Ilha dos Corvos', biome: 'island', gx: 6, gy: 1, future: true },
-  { id: 'ravenGlade', name: 'Clareira do Corvo Ancião', biome: 'forest', gx: 0, gy: 2, zone: 'serene', act: 0, bossOfAct: 0, enemies: 'O Colosso da floresta' },
+  { id: 'ravenGlade', name: 'Clareira do Corvo Ancião', biome: 'forest', gx: 0, gy: 2, zone: 'ravenGlade', act: 0, bossOfAct: 0, enemies: 'O Colosso da floresta' },
   { id: 'rootVale', name: 'Vale das Raízes', biome: 'forest', gx: 1, gy: 2, zone: 'rootVale', act: 1, enemies: 'Mortos atravessando o rio' },
   { id: 'dryCrossing', name: 'Encruzilhada Seca', biome: 'plains', gx: 2, gy: 2, zone: 'dryCrossing', act: 1, enemies: 'Corredores do deserto' },
   { id: 'redDunes', name: 'Dunas Vermelhas', biome: 'desert', gx: 3, gy: 2, zone: 'redDunes', act: 1, enemies: 'Brutamontes das areias' },
