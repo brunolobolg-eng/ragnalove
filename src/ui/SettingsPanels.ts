@@ -120,6 +120,8 @@ export class SettingsPanels {
        <label class="set-row"><span>Partículas</span><input type="range" min="10" max="100" step="5" data-video="particles"><b data-val="particles"></b></label>
        <label class="set-row"><span>Tremor de tela</span><input type="range" min="0" max="100" step="5" data-video="shake"><b data-val="shake"></b></label>
        <label class="set-row check"><input type="checkbox" data-video="bloom"><span>Brilho (bloom)</span></label>
+       <label class="set-row check"><input type="checkbox" data-video="cinematic"><span>Visual cinematográfico (Aurenthal PostFX)</span></label>
+       <label class="set-row check"><input type="checkbox" data-video="grain"><span>Granulado de filme (bem leve)</span></label>
        <label class="set-row check"><input type="checkbox" data-video="reduceFlashes"><span>Reduzir flashes (acessibilidade)</span></label>
        <div class="set-row"><span>Limite de FPS</span><div class="segs">
          <button class="seg" data-fps="30">30</button><button class="seg" data-fps="60">60</button><button class="seg" data-fps="0">Sem limite</button></div></div>
@@ -134,7 +136,7 @@ export class SettingsPanels {
       if (!k) return;
       this.store.update((s) => {
         if (k === 'particles' || k === 'shake') s.video[k] = Number(el.value) / 100;
-        else if (k === 'bloom' || k === 'reduceFlashes' || k === 'vsync' || k === 'showFps') s.video[k] = el.checked;
+        else if (k === 'bloom' || k === 'reduceFlashes' || k === 'vsync' || k === 'showFps' || k === 'cinematic' || k === 'grain') s.video[k] = el.checked;
       });
     });
     w.addEventListener('click', (e) => {
@@ -167,7 +169,7 @@ export class SettingsPanels {
       v.querySelector<HTMLInputElement>(`[data-video="${k}"]`)!.value = String(Math.round(s.video[k] * 100));
       v.querySelector(`[data-val="${k}"]`)!.textContent = `${Math.round(s.video[k] * 100)}%`;
     }
-    for (const k of ['bloom', 'reduceFlashes', 'vsync', 'showFps'] as const) v.querySelector<HTMLInputElement>(`[data-video="${k}"]`)!.checked = s.video[k];
+    for (const k of ['bloom', 'reduceFlashes', 'vsync', 'showFps', 'cinematic', 'grain'] as const) v.querySelector<HTMLInputElement>(`[data-video="${k}"]`)!.checked = s.video[k];
     v.querySelectorAll<HTMLElement>('[data-preset]').forEach((b) => b.classList.toggle('on', b.dataset.preset === s.video.preset));
     v.querySelectorAll<HTMLElement>('[data-chars]').forEach((b) => b.classList.toggle('on', b.dataset.chars === s.video.characters));
     v.querySelectorAll<HTMLElement>('[data-fps]').forEach((b) => b.classList.toggle('on', Number(b.dataset.fps) === s.video.fpsCap));

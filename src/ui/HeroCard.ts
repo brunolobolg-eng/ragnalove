@@ -124,7 +124,7 @@ export class HeroCard {
       if (!it) return `<div class="hc-slot empty" title="${SLOT_LABEL[s]} — vazio"><img src="${ghostIcon(s)}" alt=""></div>`;
       const r = RARITY_INFO[it.rarity];
       const tip = esc([itemName(it), ...itemLines(it)].join('\n'));
-      return `<div class="hc-slot" style="--rc:${r.color}" title="${tip}"><img src="${itemIconUrl(it)}" alt="">${it.refine ? `<em>+${it.refine}</em>` : ''}</div>`;
+      return `<div class="hc-slot r-${it.rarity}" style="--rc:${r.color}" title="${tip}"><img src="${itemIconUrl(it)}" alt="">${it.refine ? `<em>+${it.refine}</em>` : ''}</div>`;
     };
     const hpPct = h.maxHp ? Math.max(0, Math.min(1, h.hp / h.maxHp)) : 0;
     const emblem = SKILL_ICONS[info.area]?.() ?? '';
@@ -138,7 +138,7 @@ export class HeroCard {
           </header>
           <div class="hc-doll">
             <div class="hc-col">${LEFT.map(slot).join('')}</div>
-            <div class="hc-figure">
+            <div class="hc-figure" style="--aura:#${info.color.toString(16).padStart(6, '0')}">
               <img src="${h.art}" alt="">
               <div class="hc-bars">
                 <span class="hc-hp">${SVG.heart}<b>${h.dead ? 'Caído' : `${h.hp}/${h.maxHp}`}</b><i style="--p:${hpPct}"></i></span>

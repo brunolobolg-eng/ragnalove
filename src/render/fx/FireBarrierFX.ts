@@ -3,6 +3,7 @@ import type { Vec2 } from '../../core/grid/types';
 import { tileToWorld } from '../coords';
 import { Flash, FlickerLight, Timeline, type FxKit } from './kit/FxKit';
 import { VFX } from './kit/vfxSettings';
+import { flameStripTexture, glowTexture, noiseTexture } from './kit/vfxTextures';
 
 /**
  * Barreira de Fogo — efeito em 5 fases:
@@ -41,6 +42,8 @@ const FLAME_VERT = /* glsl */ `
 `;
 
 const FLAME_FRAG = /* glsl */ `
+  uniform sampler2D uFlame; // 4 labaredas do Kenney lado a lado
+  uniform sampler2D uNoise; // fumaça do Kenney (repetível)
   uniform float uTime;
   uniform float uFade;
   uniform float uIntensity;
@@ -65,12 +68,13 @@ const FLAME_FRAG = /* glsl */ `
     float warp = noise(q * 1.3 + vec2(0.0, -t * 0.7));
     float n = fbm(q + vec2(warp * 0.9, 0.0));
     // contorno orgânico: bordas empurradas pelo ruído e ponta arredondada (nada de "triângulo")
-    float wob = (noise(vec2(uv.y * 3.0 - t * 2.2, vSeed * 5.0)) - 0.5) * 0.55 * uv.y;
-    float xc = abs(uv.x - 0.5 + wob) * 2.0;
-    float width = mix(0.95, 0.35, pow(uv.y, 0.8));
-    float body = 1.0 - smoothstep(width * 0.55, width, xc);
-    body *= 1.0 - smoothstep(0.55, 1.0, uv.y + (n - 0.5) * 0.35);
-    float fl = n * (1.35 - uv.y) * body * 2.2 - uv.y * 0.35;
+    float wob = (noise(vec2(uv.y * 3.0 - t * 2.2, vSeed * 5.0)) - 0.5) * 0.35 * uv.y;
+    // labareda do Kenney: troca de quadro ~8×/s (cada tile com sua fase), alargada para a parede ficar contínua
+    float frame = floor(mod(t * 8.0 + vSeed * 37.0, 4.0));
+    vec2 fuv = vec2((clamp(0.5 + (uv.x - 0.5 + wob) * 0.58, 0.02, 0.98) + frame) / 4.0, clamp(uv.y * 0.92 + 0.04, 0.0, 1.0));
+    float shape = texture2D(uFlame, fuv).a;
+    float smoke = texture2D(uNoise, vec2(uv.x * 0.8 + vSeed, uv.y * 0.6 - t * 0.9)).a;
+    float fl = shape * (0.75 + n * 0.55 + smoke * 0.35) * (1.25 - uv.y * 0.45);
     // dissolve: ao apagar, o ruído come a chama de cima para baixo
     fl -= uFade * (0.9 + (1.0 - n) * 0.8) * (0.4 + uv.y);
     fl = clamp(fl, 0.0, 1.3);
@@ -162,7 +166,7 @@ export class FireBarrierFX {
     this.mat = new THREE.ShaderMaterial({
       vertexShader: FLAME_VERT,
       fragmentShader: FLAME_FRAG,
-      uniforms: { uTime: { value: 0 }, uFade: { value: 0 }, uIntensity: { value: 1 } },
+      uniforms: { uFlame: { value: flameStripTexture() }, uNoise: { value: noiseTexture() }, uTime: { value: 0 }, uFade: { value: 0 }, uIntensity: { value: 1 } },
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -304,18 +308,3 @@ function mergeFlat(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
   return out;
 }
 
-let _gt: THREE.Texture | undefined;
-function glowTexture(): THREE.Texture {
-  if (_gt) return _gt;
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const g = c.getContext('2d')!;
-  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grd.addColorStop(0, 'rgba(255,255,255,0.9)');
-  grd.addColorStop(0.5, 'rgba(255,255,255,0.35)');
-  grd.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = grd;
-  g.fillRect(0, 0, 64, 64);
-  _gt = new THREE.CanvasTexture(c);
-  return _gt;
-}

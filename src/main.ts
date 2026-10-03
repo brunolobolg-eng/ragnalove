@@ -30,7 +30,8 @@ import {
 } from './core/run/run';
 import { OBJECT_RULES } from './core/sim/objects';
 import { waveReportHtml } from './ui/WaveReport';
-import { CHARSELECT_ART, VISUAL_CONFIG } from './config/visualConfig';
+import { CHARSELECT_ART, POSTFX, VISUAL_CONFIG } from './config/visualConfig';
+import type { PostFxSituation } from './render/fx/kit/PostFX';
 import type { WaveReport } from './core/sim/types';
 import { SKILL_BY_ID, SKILL_NUM, SKILLS, lvOf, type HeroKind, type SkillId } from './core/progression/skills';
 import { WorldMap, PORTRAITS } from './ui/WorldMap';
@@ -1636,6 +1637,14 @@ function bossCinematic(heroesWon: boolean): Promise<void> {
   });
 }
 
+/** Momento da cena para o Aurenthal PostFX: planejamento, combate ou chefe em campo. */
+const POSTFX_BOSSES = new Set(POSTFX.bossKinds);
+function postFxSituation(): PostFxSituation {
+  if (sim.phase !== 'running') return 'calm';
+  for (const u of sim.units.values()) if (u.alive && u.team === 'enemy' && POSTFX_BOSSES.has(u.kind)) return 'boss';
+  return 'battle';
+}
+
 function frame(now: number): void {
   // Limite de FPS: pula o frame se ainda não deu o intervalo (margem de 1 ms para não perder vsync).
   const cap = settings.value.video.fpsCap;
@@ -1701,6 +1710,7 @@ function frame(now: number): void {
     return;
   }
   updateCamera(dt);
+  stage.postfx.setSituation(postFxSituation());
   view.update(gdt, sim.tick + acc / tickDt);
   drawOverlay();
   updateStatus();

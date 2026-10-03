@@ -1108,3 +1108,35 @@ body.sand-warn #app::after { opacity: 0.12; }
 .hc-actions button i { position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; border-radius: 10px; font-style: normal; font-size: 11px; line-height: 20px;
   background: #e2a52a; color: #2a1c05; font-family: Tahoma, sans-serif; }
 @media (max-height: 760px) { .hc-figure { height: 280px; } .hc-slot { width: 52px; height: 52px; } .hc-doll { grid-template-columns: 52px 200px 52px; } .hc-big { height: 96px; } }
+
+/* ---------- Aurenthal UI FX: brilho que passa (light sweep) e aura viva ---------- */
+@keyframes fxShine { 0% { transform: translateX(-160%) skewX(-22deg); } 24%, 100% { transform: translateX(320%) skewX(-22deg); } }
+.worldmap .wm-node, .hc-slot { position: relative; overflow: hidden; }
+.worldmap .wm-node::before,
+.hc-slot.r-epic::before, .hc-slot.r-legendary::before, .hc-slot.r-mythic::before,
+#hud .charwin.rog .cw-slot.r-legendary::before, #hud .charwin.rog .cw-slot.r-mythic::before,
+#hud .charwin.rog .cw-cell.r-legendary::before, #hud .charwin.rog .cw-cell.r-mythic::before,
+.charselect .cs-card.on::before {
+  content: ''; position: absolute; top: -10%; bottom: -10%; left: 0; width: 42%; z-index: 3; pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 246, 214, 0), rgba(255, 246, 214, 0.42) 50%, rgba(255, 246, 214, 0));
+  mix-blend-mode: screen; animation: fxShine 4.2s ease-in-out infinite;
+}
+#hud .charwin.rog .cw-slot, #hud .charwin.rog .cw-cell { overflow: hidden; }
+/* cada carta/slot passa a luz num momento diferente */
+.worldmap .wm-node:nth-child(2)::before, .hc-col .hc-slot:nth-child(2)::before { animation-delay: 0.7s; }
+.worldmap .wm-node:nth-child(3)::before, .hc-col .hc-slot:nth-child(3)::before { animation-delay: 1.4s; }
+.hc-col .hc-slot:nth-child(4)::before { animation-delay: 2.1s; }
+.hc-col .hc-slot:nth-child(5)::before { animation-delay: 2.8s; }
+.worldmap .wm-node.boss::before, .worldmap .wm-node.elite::before { background: linear-gradient(90deg, rgba(255, 220, 160, 0), rgba(255, 220, 160, 0.55) 50%, rgba(255, 220, 160, 0)); animation-duration: 3.2s; }
+
+/* aura viva atrás do herói: gradiente radial que respira (escala 0.95 ↔ 1.05, opacidade 0.35 ↔ 0.55) */
+@keyframes fxAura { 0%, 100% { transform: scale(0.95); opacity: 0.35; } 50% { transform: scale(1.05); opacity: 0.55; } }
+.hc-figure::before { content: ''; position: absolute; left: 50%; top: 46%; width: 300px; height: 300px; margin: -150px 0 0 -150px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, var(--aura, #ffd36a) 0%, color-mix(in srgb, var(--aura, #ffd36a) 35%, transparent) 38%, transparent 70%);
+  filter: blur(6px); animation: fxAura 3.6s ease-in-out infinite; }
+.hc-figure > img, .hc-bars { position: relative; z-index: 1; }
+.hc.dead .hc-figure::before { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .worldmap .wm-node::before, .hc-slot::before, #hud .charwin.rog .cw-slot::before, #hud .charwin.rog .cw-cell::before, .charselect .cs-card.on::before, .hc-figure::before { animation: none; display: none; }
+}

@@ -21,6 +21,10 @@ export interface Settings {
     showFps: boolean;
     /** Personagens em modelo 3D (padrão) ou nos sprites 2D antigos (mais leve). */
     characters: '3d' | 'sprites';
+    /** Aurenthal PostFX: color grading, gradiente da região, vinheta e nitidez. */
+    cinematic: boolean;
+    /** Grão de filme bem leve (parte do visual cinematográfico). */
+    grain: boolean;
   };
 }
 
@@ -54,7 +58,7 @@ export function defaultSettings(): Settings {
   return {
     version: 1,
     audio: { master: 0.8, music: 0.5, sfx: 0.8, ambient: 0.6, muted: false },
-    video: { preset: 'high', particles: 1, bloom: true, shake: 1, reduceFlashes: false, fpsCap: 60, vsync: true, showFps: false, characters: '3d' },
+    video: { preset: 'high', particles: 1, bloom: true, shake: 1, reduceFlashes: false, fpsCap: 60, vsync: true, showFps: false, characters: '3d', cinematic: true, grain: true },
   };
 }
 
@@ -114,5 +118,8 @@ export function graphicsFrom(s: Settings): GraphicsOptions & { particleDensity: 
     maxLights: q.maxLights,
     particleDensity: q.particleDensity * s.video.particles,
     preset: q,
+    cinematic: s.video.cinematic,
+    grain: s.video.cinematic && s.video.grain,
+    sharpen: s.video.preset !== 'low',
   };
 }

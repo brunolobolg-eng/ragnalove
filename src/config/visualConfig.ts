@@ -340,3 +340,66 @@ export const NODE_ICONS: Record<string, string> = {
   boss: 'sprites/nodes/boss.png',
   survival: 'sprites/nodes/survival.png',
 };
+
+/**
+ * AURENTHAL POST FX — acabamento cinematográfico da cena 3D (só visual).
+ * Ordem: Color Grading → Gradient Overlay → Bloom (camada emissiva: cores > 1) → Vinheta → Grão → Nitidez.
+ * Regra de ouro: sutil. Números pequenos; o objetivo é "arte finalizada", não um filtro chamativo.
+ */
+export interface PostFxLook {
+  /** Saturação e contraste (1 = neutro). */
+  saturation: number;
+  contrast: number;
+  /** Brilho geral (1 = neutro). */
+  brightness: number;
+  /** Temperatura: + quente (dourado), − frio (azulado). */
+  warmth: number;
+  /** Sombras levemente azuladas/arroxeadas e luzes levemente douradas (multiplicadores RGB). */
+  shadowTint: [number, number, number];
+  highlightTint: [number, number, number];
+  /** Força do gradiente da região (0 = desligado). */
+  gradient: number;
+  /** Multiplica o bloom do tema da zona. */
+  bloom: number;
+  vignette: number;
+  /** Grão de filme (0.015 = quase imperceptível). */
+  noise: number;
+  /** Nitidez (unsharp mask). */
+  sharpen: number;
+  /** Pulso de tela (chefe): 0 = desligado. */
+  pulse: number;
+}
+
+export type PostFxPreset = 'day' | 'sunset' | 'night' | 'battle' | 'boss';
+
+export const POSTFX: {
+  presets: Record<PostFxPreset, PostFxLook>;
+  /** Clima de cada tema de zona (planejamento); em combate entra o preset `battle`, com chefe o `boss`. */
+  mood: Record<string, PostFxPreset>;
+  /** Gradiente vertical por tema: topo → meio → base (cores em hex). Dá identidade a cada região. */
+  gradients: Record<string, [string, string, string]>;
+  /** Segundos para mudar de um preset para outro (transição suave). */
+  blendSeconds: number;
+  /** Inimigos que ligam o preset `boss` enquanto estiverem vivos em campo. */
+  bossKinds: string[];
+} = {
+  presets: {
+    day: { saturation: 1.08, contrast: 1.03, brightness: 1.02, warmth: 0.05, shadowTint: [0.96, 0.97, 1.08], highlightTint: [1.05, 1.02, 0.95], gradient: 0.16, bloom: 1, vignette: 0.04, noise: 0.012, sharpen: 0.18, pulse: 0 },
+    sunset: { saturation: 1.1, contrast: 1.04, brightness: 1.0, warmth: 0.15, shadowTint: [0.97, 0.94, 1.1], highlightTint: [1.08, 1.0, 0.9], gradient: 0.24, bloom: 1.15, vignette: 0.08, noise: 0.014, sharpen: 0.18, pulse: 0 },
+    night: { saturation: 0.95, contrast: 1.08, brightness: 0.98, warmth: -0.06, shadowTint: [0.93, 0.95, 1.14], highlightTint: [1.04, 1.02, 0.97], gradient: 0.22, bloom: 1.1, vignette: 0.15, noise: 0.016, sharpen: 0.16, pulse: 0 },
+    battle: { saturation: 1.1, contrast: 1.08, brightness: 1.0, warmth: 0.04, shadowTint: [0.95, 0.96, 1.1], highlightTint: [1.06, 1.02, 0.94], gradient: 0.2, bloom: 1, vignette: 0.12, noise: 0.014, sharpen: 0.2, pulse: 0 },
+    boss: { saturation: 1.15, contrast: 1.12, brightness: 0.99, warmth: 0.06, shadowTint: [0.97, 0.92, 1.1], highlightTint: [1.08, 1.0, 0.92], gradient: 0.26, bloom: 1.25, vignette: 0.2, noise: 0.016, sharpen: 0.2, pulse: 1 },
+  },
+  mood: { bridge: 'night', town: 'sunset', forest: 'day', plains: 'sunset', desert: 'day', mountain: 'night', ash: 'night' },
+  gradients: {
+    bridge: ['#FFD98A', '#E88A3A', '#17233D'], // Valdrec: ouro → laranja → azul escuro
+    town: ['#FFD98A', '#E88A3A', '#17233D'],
+    forest: ['#C8F0A0', '#2F7A3A', '#152A4A'], // verde claro → verde profundo → azul
+    plains: ['#FFE2A0', '#C8803A', '#2A2440'],
+    desert: ['#FFE07A', '#F08A30', '#4A1418'], // amarelo → laranja → vermelho escuro
+    mountain: ['#E8F2FF', '#4A7AD0', '#2A1A4A'], // branco azulado → azul → roxo
+    ash: ['#FFB070', '#7A3A2A', '#1A1024'], // brasa → cinza-vermelho → roxo escuro
+  },
+  blendSeconds: 1.2,
+  bossKinds: ['boss', 'boss2', 'orcboss'],
+};

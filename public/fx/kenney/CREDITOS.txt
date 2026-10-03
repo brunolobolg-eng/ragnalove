@@ -1,0 +1,4 @@
+Texturas de efeito derivadas do "Particle Pack" de Kenney (www.kenney.nl).
+Licença do pacote: Creative Commons Zero (CC0) — uso livre, inclusive comercial; crédito opcional.
+Preparadas por scripts/build_kenney_fx.py (pasta "PNG (Transparent)" do pacote).
+O pacote original fica zipado na branch "fontes" (kenney_particle_pack.zip).

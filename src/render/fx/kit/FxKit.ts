@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { flashTexture } from './vfxTextures';
 import type { Stage } from '../../Stage';
 import type { ParticleLayer } from '../Particles';
 import type { DecalLayer } from './Decals';
@@ -97,22 +98,8 @@ export class Flash {
   }
 }
 
-let _glow: THREE.Texture | undefined;
-function glowTex(): THREE.Texture {
-  if (_glow) return _glow;
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const g = c.getContext('2d')!;
-  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grd.addColorStop(0, 'rgba(255,255,255,1)');
-  grd.addColorStop(0.25, 'rgba(255,255,255,0.55)');
-  grd.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = grd;
-  g.fillRect(0, 0, 64, 64);
-  _glow = new THREE.CanvasTexture(c);
-  return _glow;
-}
-export { glowTex };
+/** Clarão do Kenney (mantém o nome antigo para quem importa). */
+export const glowTex = flashTexture;
 
 /** Linha do tempo simples: agenda callbacks em segundos a partir do início do efeito. */
 export class Timeline {

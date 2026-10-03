@@ -1,31 +1,10 @@
 import * as THREE from 'three';
 import { RARITY_INFO, type Item } from '../../core/progression/equipment';
 import { itemArtCanvas, itemKind } from '../../ui/itemArt';
-import { softCircle } from '../textures';
+import { glowTexture, traceTexture } from './kit/vfxTextures';
 import type { ParticleLayer } from './Particles';
 
-let beamTex: THREE.Texture | undefined;
-function beamTexture(): THREE.Texture {
-  if (beamTex) return beamTex;
-  const c = document.createElement('canvas');
-  c.width = 32;
-  c.height = 128;
-  const g = c.getContext('2d')!;
-  const v = g.createLinearGradient(0, 128, 0, 0);
-  v.addColorStop(0, 'rgba(255,255,255,1)');
-  v.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = v;
-  g.fillRect(0, 0, 32, 128);
-  const h = g.createLinearGradient(0, 0, 32, 0);
-  h.addColorStop(0, 'rgba(0,0,0,1)');
-  h.addColorStop(0.5, 'rgba(0,0,0,0)');
-  h.addColorStop(1, 'rgba(0,0,0,1)');
-  g.globalCompositeOperation = 'destination-out';
-  g.fillStyle = h;
-  g.fillRect(0, 0, 32, 128);
-  beamTex = new THREE.CanvasTexture(c);
-  return beamTex;
-}
+const beamTexture = traceTexture;
 
 /**
  * Equipamento no chão onde o monstro morreu: ícone flutuando, feixe e brilho na cor da
@@ -63,7 +42,7 @@ export class LootFX {
     this.beam.renderOrder = 7;
     this.ring = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ map: softCircle(), color: glowColor, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ map: glowTexture(), color: glowColor, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
     );
     this.ring.position.y = 0.02;
     this.group.add(this.beam, this.ring, this.icon);

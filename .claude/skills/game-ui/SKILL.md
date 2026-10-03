@@ -12,6 +12,11 @@ description: Interface do ROguard — padrão visual (chibi, fantasia medieval, 
   destaque dourado `#ffd36a`, vida vermelha, raridade pela cor de `RARITY_INFO`.
 - O HUD de batalha usa a pele clássica clara (`.win`, azul-acinzentado) — não misture sem pedir.
 - Ícones grandes e legíveis, cantos arredondados, brilho sutil, animações curtas (≤ 200 ms), hover dourado.
+- **Aurenthal UI FX** (fim do `style.css`): brilho que passa (`fxShine`, ~4 s) nas cartas de caminho, itens Épico+
+  e herói selecionado; aura viva (`fxAura`, gradiente radial 0.95↔1.05) atrás do herói no HeroCard. Sempre com
+  `prefers-reduced-motion` desligando. Use esses mesmos efeitos em telas novas em vez de inventar outros.
+- **Aurenthal PostFX** (cena 3D): ver skill `performance` / `render/fx/kit/PostFX.ts`. Presets e gradientes por região
+  ficam em `POSTFX` (`config/visualConfig.ts`). Regra: sutil, nunca exagerar.
 
 ## Componentes existentes (reaproveite)
 | Componente | Onde |
