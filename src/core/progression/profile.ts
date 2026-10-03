@@ -148,7 +148,10 @@ export function toggleSkillSlot(profile: Profile, kind: string, id: SkillId): st
   }
   if (lvOf(h.skills, id) <= 0) return 'Aprenda a habilidade primeiro.';
   const st = heroStats(profile, kind);
-  if (cur.length >= slotCount(kind, st.mana)) return `Sem slot livre: precisa de +${manaToNextSlot(kind, st.mana)} de Mana (ou tire outra habilidade).`;
+  if (cur.length >= slotCount(kind, st.mana)) {
+    const need = manaToNextSlot(kind, st.mana);
+    return need ? `Sem slot livre: precisa de +${need} de Mana (Inteligência) ou tire outra habilidade.` : 'Os 5 slots estão cheios: tire outra habilidade.';
+  }
   h.equippedSkills = [...cur, id];
   return undefined;
 }

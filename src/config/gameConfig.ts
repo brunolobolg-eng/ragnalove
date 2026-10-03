@@ -12,11 +12,16 @@ export const GAME_CONFIG = {
   /**
    * MANA = capacidade de SLOTS DE HABILIDADE (não é MP: não gasta ao usar e não regenera).
    * Cada habilidade ativa equipada ocupa 1 slot; o ataque básico da classe não ocupa slot.
-   * Slots = Mana ÷ custo do slot da classe. Mana é escassa: só sobe com Poção de Mana e itens Épicos+.
+   * Slots = Mana ÷ custo do slot da classe, no MÁXIMO 5. A Mana vem da INTELIGÊNCIA (cada ponto dá
+   * `perInt`), da Poção de Mana e de itens Épicos+ — investir em Inteligência é uma decisão de build.
    */
   mana: {
-    /** Mana inicial de todo herói. */
-    base: 20,
+    /** Mana de todo herói antes da Inteligência. */
+    base: 18,
+    /** + Mana por ponto de Inteligência (o total, com equipamento). */
+    perInt: 2,
+    /** Teto de slots de habilidade por herói. */
+    maxSlots: 5,
     /** Mana por slot. Mago (e Feiticeira/Bruxa) 1×, Arqueira e Assassino 1,5×, Guerreiro 2×. */
     slotCost: { mage: 10, sorcerer: 10, warlock: 10, archer: 15, assassin: 15, warrior: 20 } as Record<string, number>,
   },

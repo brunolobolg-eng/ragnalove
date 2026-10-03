@@ -1,6 +1,7 @@
 import { BRANCHES, SKILL_BY_ID, branchName, chosenBranch, heroSkills, lvOf, missingRequirements, skillState, skillZeniCost, type HeroKind, type SkillDef, type SkillId } from '../core/progression/skills';
 import { learnSkill, type RunState } from '../core/run/run';
 import { heroEquipped, heroStats, toggleSkillSlot } from '../core/progression/profile';
+import { GAME_CONFIG } from '../config/gameConfig';
 import { manaToNextSlot, slotCost, slotCount, usesSlot } from '../core/progression/skillSlots';
 import { SKILL_ICONS } from './icons';
 import { HERO_NAME } from '../config/heroes';
@@ -115,10 +116,11 @@ export class SkillTree {
     const equipped = heroEquipped(r.profile, this.hero);
     const total = slotCount(this.hero, mana);
     const slotBar = `<div class="sk-slots" title="Mana não é gasta em combate: ela só define quantas habilidades ativas o herói leva para a luta.">
-      <span class="sk-mana">◆ Mana <b>${mana}</b> <small>· ${slotCost(this.hero)} por slot · próximo slot: +${manaToNextSlot(this.hero, mana)}</small></span>
-      <span class="sk-cells">${Array.from({ length: Math.max(total, 1) }, (_, i) => {
+      <span class="sk-mana">◆ Mana <b>${mana}</b> <small>· ${slotCost(this.hero)} por slot · ${manaToNextSlot(this.hero, mana) ? `próximo slot: +${manaToNextSlot(this.hero, mana)} (Inteligência)` : 'máximo de slots'}</small></span>
+      <span class="sk-cells">${Array.from({ length: GAME_CONFIG.mana.maxSlots }, (_, i) => {
         const id = equipped[i];
-        return id ? `<button class="sk-cell on" data-c="node" data-id="${id}" title="${SKILL_BY_ID[id].name}"><img src="${this.icon(id)}" alt=""></button>` : `<span class="sk-cell ${i < total ? '' : 'locked'}" title="${i < total ? 'Slot livre' : 'Sem slot: falta Mana'}"></span>`;
+        if (id) return `<button class="sk-cell on" data-c="node" data-id="${id}" title="${SKILL_BY_ID[id].name}"><img src="${this.icon(id)}" alt=""></button>`;
+        return i < total ? '<span class="sk-cell" title="Slot livre: equipe uma habilidade"></span>' : '<span class="sk-cell locked" title="Bloqueado: falta Mana (suba Inteligência)">🔒</span>';
       }).join('')}</span><b class="sk-count">${equipped.length}/${total} slots</b><small class="sk-basic">O ataque básico e as passivas não usam slot.</small></div>`;
     const chosen = chosenBranch(this.hero, hp.skills);
     const branches = BRANCHES[this.hero];
@@ -168,7 +170,7 @@ export class SkillTree {
         ${max ? '<p><b>Nível máximo.</b></p>' : `<p><b>Próximo nível:</b> ${d.effect(lv + 1)}</p><p class="cost">Custo: 1 ponto de habilidade + <i class="zeni-ico"></i>${cost} Zeni</p>`}
         ${max ? '' : `<button class="primary" data-c="learn"${can ? '' : ' disabled'}>${lv ? 'Subir de nível' : 'Aprender'}</button>`}
         ${!this.canLearn && !max ? '<p class="note">Aprenda com o Mestre de Armas, numa cidade.</p>' : ''}
-        ${usesSlot(d.id) && lv > 0 ? (equipped.includes(d.id) ? '<button data-c="slot" data-id="' + d.id + '">Tirar do slot</button>' : `<button class="primary" data-c="slot" data-id="${d.id}"${equipped.length < total ? '' : ' disabled'}>Equipar no slot</button>${equipped.length < total ? '' : `<p class="note">Slots cheios: tire outra habilidade ou consiga +${manaToNextSlot(this.hero, mana)} de Mana.</p>`}`) : ''}
+        ${usesSlot(d.id) && lv > 0 ? (equipped.includes(d.id) ? '<button data-c="slot" data-id="' + d.id + '">Tirar do slot</button>' : `<button class="primary" data-c="slot" data-id="${d.id}"${equipped.length < total ? '' : ' disabled'}>Equipar no slot</button>${equipped.length < total ? '' : `<p class="note">Slots cheios: tire outra habilidade${manaToNextSlot(this.hero, mana) ? ` ou consiga +${manaToNextSlot(this.hero, mana)} de Mana (Inteligência)` : ''}.</p>`}`) : ''}
         ${usesSlot(d.id) ? '' : `<p class="note">${d.kind === 'passive' ? 'Passiva: sempre ativa, não usa slot.' : 'Ataque básico: sempre usado, não usa slot.'}</p>`}`;
     }
     this.el.innerHTML = `

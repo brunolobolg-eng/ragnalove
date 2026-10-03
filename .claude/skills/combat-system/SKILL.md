@@ -20,7 +20,8 @@ description: Sistema de combate do ROguard — simulação em tempo real determi
 - **REGRAS FIXAS DO DONO (não mudar sem pesar o balanceamento):**
   - **Mana NÃO é MP**: não gasta, não regenera. Mana = capacidade de **slots de habilidade** (`core/progression/skillSlots.ts`).
     Slots = Mana ÷ `GAME_CONFIG.mana.slotCost[classe]` (Mago/Feiticeira/Bruxa 10, Arqueira/Assassino 15 = 1,5×, Guerreiro 20 = 2×).
-    Mana inicial 20; só sobe com Poção de Mana (cara) e rolagem "Mana" de itens Épicos+. Mana é escassa de propósito.
+    Mana = 18 + Inteligência × 2 (GAME_CONFIG.mana) + Poção de Mana + rolagem "Mana" de itens Épicos+. Teto de 5 slots (`maxSlots`).
+    No começo: Mago/Bruxa 2 slots, Feiticeira 3, Guerreiro/Arqueira/Assassino 1. A barra de baixo do HUD mostra os 5 (bloqueados em preto).
     Ataque básico (`HERO_INFO.basic`) e passivas não usam slot. Escolha do jogador em `HeroProgress.equippedSkills`
     (undefined = automático). A luta recebe `HeroLoadout.locked` e `Simulation.actWithSlots` segura essas recargas — o archetype não sabe de slots.
   - **Skill Haste** é o ÚNICO atributo de recuperação: `HeroStats.skillHaste`, recarga = base × (1 − Skill Haste) (`cooldownMult`).
