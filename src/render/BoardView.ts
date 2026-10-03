@@ -9,6 +9,8 @@ import { GAME_CONFIG, ZONE_STATE } from '../config/gameConfig';
 import { buildBiomeScenery } from './scenery/BiomeScenery';
 import type { ParticleLayer } from './fx/Particles';
 import { softCircle, tileOutline } from './textures';
+import { PathArrows } from './PathArrows';
+import { buildActDressing } from './scenery/ActDressing';
 
 /** Textura do portal de spawn (círculo rúnico). */
 let portalTex: THREE.Texture | undefined;
@@ -57,6 +59,7 @@ export class BoardView {
   private readonly ray = new THREE.Raycaster();
   private readonly plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private readonly scenery: SceneryHandle;
+  private readonly arrows?: PathArrows;
   /** Luzes reais do cenário (braseiros); desligadas no preset Baixo. */
   static sceneryLights = true;
 
@@ -88,6 +91,7 @@ export class BoardView {
   /** Anima o cenário (fogo, água, corvos, fumaça). */
   update(dt: number, particles: ParticleLayer): void {
     this.scenery.update(dt, particles);
+    this.arrows?.update(dt);
     this.t += dt;
     this.pAcc += dt;
     const emit = this.pAcc > 0.12;
@@ -122,6 +126,10 @@ export class BoardView {
           : buildBiomeScenery(parseZone(zone), zone.theme);
     this.scenery.setLights(BoardView.sceneryLights);
     this.group.add(this.scenery.group);
+    // Cenário temático dos monstros do ato + setas discretas do caminho da horda
+    this.group.add(buildActDressing(board));
+    this.arrows = new PathArrows(board);
+    if (this.arrows.mesh) this.group.add(this.arrows.mesh);
 
     // Portais dos spawns (fixos por mapa): anel rúnico violeta + brilho
     const ringTex = portalTexture();

@@ -142,6 +142,35 @@ export function sparkTexture(): THREE.Texture {
   });
 }
 
+/**
+ * Estrela de impacto estilo anime: estouro de 8 pontas irregulares, recorte seco (sem degradê),
+ * miolo branco e borda externa um pouco mais escura — a cor vem do efeito.
+ */
+export function impactTexture(): THREE.Texture {
+  return once('impact', () => {
+    const S = 128;
+    const c = document.createElement('canvas');
+    c.width = c.height = S;
+    const g = c.getContext('2d')!;
+    const r = rng(77);
+    const star = (outer: number, inner: number, n: number, rot: number) => {
+      g.beginPath();
+      for (let i = 0; i < n * 2; i++) {
+        const a = rot + (i / (n * 2)) * Math.PI * 2;
+        const rad = i % 2 ? inner : outer * (0.72 + r() * 0.28);
+        g[i ? 'lineTo' : 'moveTo'](S / 2 + Math.cos(a) * rad, S / 2 + Math.sin(a) * rad);
+      }
+      g.closePath();
+      g.fill();
+    };
+    g.fillStyle = 'rgb(150,150,150)';
+    star(62, 22, 8, 0.2);
+    g.fillStyle = 'rgb(255,255,255)';
+    star(46, 16, 8, 0.2);
+    return tex(c, false);
+  });
+}
+
 export type DecalKind = 'scorch' | 'frost' | 'crack' | 'runesFire' | 'runesFrost' | 'ring' | 'glow' | 'aoe' | 'disc';
 
 /** Decalques de chão (alfa na textura, cor/intensidade no material). */

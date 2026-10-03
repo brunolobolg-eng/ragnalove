@@ -32,7 +32,17 @@ export const SLOT_LABEL: Record<Slot, string> = {
  * Chance base de um monstro dropar equipamento (Sorte soma em cima). Calibrada para ~1,9 item
  * por fase: em 10 fases, na média, 10 Comuns, 5 Incomuns, 3 Raros e 1 Lendário.
  */
-export const EQUIPMENT_DROP_CHANCE = 0.045;
+export const LOOT_CONFIG = {
+  dropChance: 0.045,
+  /** Teto da chance de drop (com Sorte). */
+  maxDropChance: 0.3,
+  /** Chefes sempre deixam um item: `top` com chance `topChance`, senão `base`. `default` vale para os chefes não listados. */
+  bossRarity: {
+    elite: { top: 'epic', topChance: 0.3, base: 'rare' },
+    orcboss: { top: 'mythic', topChance: 0.35, base: 'legendary' },
+    default: { top: 'legendary', topChance: 0.3, base: 'epic' },
+  } as Record<string, { top: Rarity; topChance: number; base: Rarity }>,
+};
 
 /** Pesos de raridade dos drops comuns (Mítico só cai de chefes e da Sobrevivência). */
 export const RARITY_WEIGHTS: Record<Rarity, number> = { common: 10, uncommon: 5, rare: 3, epic: 0.5, legendary: 1, mythic: 0 };
@@ -93,15 +103,17 @@ function strHash(s: string): number {
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
 }
-export const WEAPON_KINDS = ['sword', 'axe', 'staff', 'bow', 'mace', 'dagger'] as const;
+export const WEAPON_KINDS = ['sword', 'axe', 'staff', 'bow', 'spear', 'dagger'] as const;
+/** Todas as armas que podem cair (WEAPON_KINDS fica fixo para não mudar itens antigos sem tipo gravado). */
+export const WEAPON_POOL: readonly string[] = [...WEAPON_KINDS, 'book'];
 /** Listas antigas (3 slots) — só para reconhecer itens de saves anteriores. */
 export const ARMOR_KINDS = ['plate', 'robe', 'vest', 'helm', 'shield'] as const;
 export const ACC_KINDS = ['ring', 'amulet', 'bracelet', 'earring', 'belt', 'orb'] as const;
 /** Tipos de item por slot. */
 export const SLOT_KINDS: Record<Slot, readonly string[]> = {
-  weapon: WEAPON_KINDS,
+  weapon: WEAPON_POOL,
   offhand: ['shield', 'orb'],
-  head: ['helm', 'hat'],
+  head: ['helm'],
   armor: ['plate', 'robe', 'vest'],
   cloak: ['cloak'],
   boots: ['boots'],
@@ -115,27 +127,33 @@ export const KIND_SLOT: Record<string, Slot> = Object.fromEntries(
   (Object.entries(SLOT_KINDS) as [Slot, readonly string[]][]).flatMap(([slot, ks]) => ks.map((k) => [k, slot])),
 ) as Record<string, Slot>;
 export const ITEM_KIND_LABEL: Record<string, string> = {
-  sword: 'Espada', axe: 'Machado', staff: 'Cajado', bow: 'Arco', mace: 'Maça', dagger: 'Adaga',
-  plate: 'Peitoral', robe: 'Túnica', vest: 'Colete', helm: 'Elmo', hat: 'Chapéu', shield: 'Escudo',
+  sword: 'Espada', axe: 'Machado', staff: 'Cajado', bow: 'Arco', spear: 'Lança', dagger: 'Adaga', book: 'Livro',
+  plate: 'Peitoral', robe: 'Túnica', vest: 'Colete', helm: 'Elmo', shield: 'Escudo',
   cloak: 'Capa', boots: 'Botas',
   ring: 'Anel', amulet: 'Colar', bracelet: 'Bracelete', earring: 'Brincos', belt: 'Cinto', orb: 'Talismã',
 };
 /** Armas mágicas (conjuradores) × físicas (dependem do Ataque). */
-export const MAGIC_WEAPONS = ['staff'];
+export const MAGIC_WEAPONS = ['staff', 'book'];
 export const isMagicWeapon = (kind: string) => MAGIC_WEAPONS.includes(kind);
 /** Quais armas cada classe empunha. Armaduras e acessórios servem em todos. */
 export const WEAPON_USERS: Record<string, string[]> = {
-  warrior: ['sword', 'axe', 'mace', 'dagger'],
-  archer: ['bow', 'dagger'],
-  mage: ['staff'],
+  warrior: ['sword', 'axe', 'spear', 'dagger'],
+  archer: ['bow'],
+  mage: ['staff', 'book', 'dagger'],
+  sorcerer: ['staff', 'book', 'dagger'],
+  warlock: ['staff', 'book', 'dagger'],
+  assassin: ['dagger', 'sword', 'axe', 'spear', 'staff', 'book'],
 };
 /** Ataque base por raridade (±12% no sorteio) e peso de cada tipo de arma. */
 export const WEAPON_ATK: Record<Rarity, number> = { common: 12, uncommon: 18, rare: 26, epic: 36, legendary: 50, mythic: 68 };
-const KIND_ATK: Record<string, number> = { sword: 1, axe: 1.14, mace: 1.08, dagger: 0.84, bow: 1, staff: 0.9 };
+const KIND_ATK: Record<string, number> = { sword: 1, axe: 1.14, spear: 1.08, dagger: 0.84, bow: 1, staff: 0.9, book: 0.8 };
+
+/** Tipos removidos do jogo → substituto (itens de saves antigos). */
+const RETIRED_KINDS: Record<string, string> = { mace: 'spear', hat: 'helm' };
 
 /** Variante do item: tipo gravado nele ou, em itens antigos, sorteado de forma estável pelo id. */
 export function itemKind(it: Pick<Item, 'id' | 'slot'> & { kind?: string }): string {
-  if (it.kind) return it.kind;
+  if (it.kind) return RETIRED_KINDS[it.kind] ?? it.kind;
   const slot = it.slot as string;
   const list = slot === 'weapon' ? WEAPON_KINDS : slot === 'armor' ? ARMOR_KINDS : slot === 'accessory' ? ACC_KINDS : SLOT_KINDS[it.slot] ?? ACC_KINDS;
   return list[strHash(it.id) % list.length];
@@ -178,7 +196,7 @@ export function rarityWeights(luck: number): [Rarity, number][] {
 }
 
 export function dropChance(luck: number): number {
-  return Math.min(0.3, EQUIPMENT_DROP_CHANCE + luck * ATTRIBUTES_CONFIG.luk.dropChancePerPoint);
+  return Math.min(LOOT_CONFIG.maxDropChance, LOOT_CONFIG.dropChance + luck * ATTRIBUTES_CONFIG.luk.dropChancePerPoint);
 }
 
 /**
@@ -191,7 +209,7 @@ export function rollItem(rng: Rng, luck: number, id: string, force: { rarity?: R
   let kind = force.kind;
   if (!kind) {
     if (slot === 'weapon') {
-      const pool = users.length && rng.next() < 0.75 ? WEAPON_USERS[users[rng.int(users.length)]] ?? [...WEAPON_KINDS] : [...WEAPON_KINDS];
+      const pool = users.length && rng.next() < 0.75 ? WEAPON_USERS[users[rng.int(users.length)]] ?? [...WEAPON_POOL] : [...WEAPON_POOL];
       kind = pool[rng.int(pool.length)];
     } else {
       const list = SLOT_KINDS[slot];

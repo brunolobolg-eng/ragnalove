@@ -1,8 +1,9 @@
+import { HERO_NAME } from '../config/heroes';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { RARITY_INFO, type Rarity } from '../core/progression/equipment';
 import type { WaveReport } from '../core/sim/types';
 
-const NAME: Record<string, string> = { warrior: 'Guerreiro', mage: 'Mago', archer: 'Arqueira' };
+const NAME: Record<string, string> = HERO_NAME;
 const ENEMY: Record<string, string> = { grunt: 'comuns', runner: 'rápidos', brute: 'pesados', necro: 'necromantes', elite: 'elite', boss: 'chefe', boss2: 'chefe', orcboss: 'chefe' };
 
 /**

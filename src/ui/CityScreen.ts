@@ -1,4 +1,6 @@
 import { GAME_CONFIG } from '../config/gameConfig';
+import { CITY_ART } from '../config/visualConfig';
+import { HERO_NAME } from '../config/heroes';
 import { REFINE, RARITY_INFO, SLOTS, itemLines, itemName, type Item } from '../core/progression/equipment';
 import { attrPointCost, buyPointWithZeni, respecCost, respecWithZeni, spentPoints, absorbSouls, PROGRESSION } from '../core/progression/profile';
 import {
@@ -48,7 +50,7 @@ const NPCS: { id: NpcId; name: string; tag: string; icon: string; color: string;
   { id: 'oracle', name: 'Ysolde', tag: 'Almas', icon: '✦', color: '#3a2a5a', accent: '#6affe0' },
   { id: 'priestess', name: 'Irmã Maela', tag: 'Templo e Muralha', icon: '✚', color: '#6a6a7a', accent: '#fff2c0' },
 ];
-const HERO_PT: Record<HeroKind, string> = { warrior: 'Guerreiro', mage: 'Mago', archer: 'Arqueira' };
+const HERO_PT: Record<HeroKind, string> = HERO_NAME;
 const POTION_ICON = ['🧪', '⚗', '🍶'];
 
 export class CityScreen {
@@ -66,10 +68,24 @@ export class CityScreen {
     this.el = document.createElement('div');
     this.el.className = 'city-screen';
     this.el.hidden = true;
-    this.el.innerHTML = `<canvas class="city-bg"></canvas><div class="city-ui"></div>`;
+    this.el.innerHTML = `<canvas class="city-bg"></canvas>
+      <div class="city-stage" style="--ar:${CITY_ART.width / CITY_ART.height}"><img class="city-art" src="${CITY_ART.file}" alt=""><div class="city-spots"></div></div>
+      <div class="city-ui"></div>`;
     document.body.appendChild(this.el);
     this.bg = this.el.querySelector('.city-bg')!;
     this.el.addEventListener('click', (e) => this.onClick(e));
+    // Espaço: seguir viagem (fecha o serviço aberto antes, se houver)
+    window.addEventListener('keydown', (e) => {
+      if (!this.visible || e.code !== 'Space' || e.target instanceof HTMLInputElement) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      if (this.npc) {
+        this.npc = undefined;
+        this.render();
+        return;
+      }
+      this.cb.onLeave();
+    });
   }
 
   get visible(): boolean {
@@ -102,6 +118,13 @@ export class CityScreen {
   }
 
   private onClick(e: MouseEvent): void {
+    // clique fora da janela do serviço (no véu escuro): fecha
+    if ((e.target as HTMLElement).classList.contains('svc-veil')) {
+      this.npc = undefined;
+      this.cb.onChange('ui');
+      this.render();
+      return;
+    }
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-c]');
     if (!b || b.hasAttribute('disabled') || !this.run) return;
     const r = this.run;
@@ -251,10 +274,14 @@ export class CityScreen {
   private render(): void {
     const r = this.run!;
     const p = r.profile;
-    const stalls = NPCS.map(
-      (n) => `<button class="stall" data-c="npc" data-id="${n.id}" style="--npc:${n.color};--acc:${n.accent}">
-        <canvas width="112" height="112" data-portrait="${n.id}"></canvas><b>${n.tag}</b><small>${n.name}</small><i>${n.icon}</i></button>`,
-    ).join('');
+    // serviços: áreas clicáveis sobre as placas da arte da cidade
+    const pct = (v: number, of: number) => `${(v / of) * 100}%`;
+    this.el.querySelector('.city-spots')!.innerHTML = NPCS.map((n) => {
+      const s = CITY_ART.spots[n.id];
+      if (!s) return '';
+      const st = `left:${pct(s.x - s.w / 2, CITY_ART.width)};top:${pct(s.y - s.h / 2, CITY_ART.height)};width:${pct(s.w, CITY_ART.width)};height:${pct(s.h, CITY_ART.height)};--acc:${n.accent}`;
+      return `<button class="city-spot ${this.npc === n.id ? 'on' : ''}" data-c="npc" data-id="${n.id}" style="${st}"><span>${n.name}</span></button>`;
+    }).join('');
     const party = r.party
       .map((h) => `<span class="pchip ${r.dead.includes(h) ? 'dead' : ''}"><img src="${PORTRAITS[h]}" alt="">Nv.${p.heroes[h].level}${r.dead.includes(h) ? ' ✝' : ''}</span>`)
       .join('');
@@ -269,11 +296,10 @@ export class CityScreen {
       <header class="city-head">
         <h1>${this.cityName}</h1>
         <div class="city-bank"><span><i class="zeni-ico"></i>${p.zeni.toLocaleString('pt-BR')}</span><span><i class="soul-ico"></i>${p.souls}</span><span class="city-hp ${r.cityHp / r.cityMaxHp < 0.4 ? 'low' : ''}" title="Vida da muralha (repare no Templo)">🏰 ${r.cityHp}/${r.cityMaxHp}</span>${party}</div>
-        <div class="city-actions"><button data-c="char">Personagem (C)</button><button class="primary" data-c="leave">Partir ➜</button></div>
+        <div class="city-actions"><button data-c="char">Personagem (C)</button></div>
       </header>
-      <nav class="stalls">${stalls}</nav>
+      <button class="city-go" data-c="leave"><span>Seguir viagem</span><b>➜</b><kbd>Espaço</kbd></button>
       ${panel}`;
-    this.el.querySelectorAll<HTMLCanvasElement>('[data-portrait]').forEach((c) => drawPortrait(c, NPCS.find((x) => x.id === c.dataset.portrait)!));
   }
 
   private service(): string {
@@ -367,69 +393,6 @@ export class CityScreen {
     }
   }
 }
-
-/** Retratos originais dos NPCs (busto estilizado). */
-function drawPortrait(c: HTMLCanvasElement, n: (typeof NPCS)[number]): void {
-  const g = c.getContext('2d')!;
-  g.scale(c.width / 72, c.height / 72);
-  const bg = g.createRadialGradient(36, 30, 4, 36, 36, 48);
-  bg.addColorStop(0, n.accent);
-  bg.addColorStop(1, '#10121c');
-  g.fillStyle = bg;
-  g.fillRect(0, 0, 72, 72);
-  g.fillStyle = n.color;
-  g.beginPath();
-  g.moveTo(8, 72);
-  g.quadraticCurveTo(12, 46, 36, 44);
-  g.quadraticCurveTo(60, 46, 64, 72);
-  g.fill();
-  g.fillStyle = '#e8c4a0';
-  g.beginPath();
-  g.ellipse(36, 32, 11, 13, 0, 0, Math.PI * 2);
-  g.fill();
-  g.fillStyle = { merchant: '#5a3a1a', smith: '#c8502a', master: '#9a9aa8', oracle: '#2a1a4a', priestess: '#f2f0e8' }[n.id];
-  if (n.id === 'oracle' || n.id === 'priestess') {
-    g.beginPath();
-    g.moveTo(20, 50);
-    g.quadraticCurveTo(18, 14, 36, 14);
-    g.quadraticCurveTo(54, 14, 52, 50);
-    g.lineTo(46, 50);
-    g.quadraticCurveTo(48, 24, 36, 22);
-    g.quadraticCurveTo(24, 24, 26, 50);
-    g.fill();
-  } else {
-    g.beginPath();
-    g.ellipse(36, 22, 13, 8, 0, Math.PI, 0);
-    g.fill();
-    if (n.id === 'master') g.fillRect(29, 40, 14, 6);
-    if (n.id === 'smith') {
-      g.fillRect(22, 22, 5, 16);
-      g.fillRect(45, 22, 5, 16);
-    }
-  }
-  g.fillStyle = n.id === 'oracle' ? '#6affe0' : '#2a1a14';
-  g.fillRect(31, 31, 3, 3);
-  g.fillRect(38, 31, 3, 3);
-  g.fillStyle = n.accent;
-  if (n.id === 'smith') {
-    g.fillRect(54, 44, 4, 20);
-    g.fillRect(49, 40, 14, 7);
-  } else if (n.id === 'merchant') {
-    g.beginPath();
-    g.arc(56, 58, 7, 0, Math.PI * 2);
-    g.fill();
-  } else if (n.id === 'priestess') {
-    g.fillRect(34, 50, 4, 14);
-    g.fillRect(30, 54, 12, 4);
-  } else if (n.id === 'oracle') {
-    g.beginPath();
-    g.arc(56, 56, 6, 0, Math.PI * 2);
-    g.fill();
-  } else {
-    g.fillRect(56, 38, 3, 30);
-  }
-}
-
 /** Fundo da cidade: céu, silhuetas de telhados e janelas acesas (original, por bioma). */
 function paintCity(c: HTMLCanvasElement, biome: string, name: string): void {
   c.width = 1600;

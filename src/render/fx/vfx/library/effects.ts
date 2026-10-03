@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ApplyForce, ColorOverLife, ConeEmitter, PointEmitter, RenderMode, SizeOverLife, SpeedOverLife } from 'three.quarks';
 import type { VfxDefinition } from '../VFXManager';
-import { GRAVITY, additive, fade, burst, col, curve, cv, iv, v4 } from './common';
+import { GRAVITY, additive, fade, burst, col, curve, cv, impact, iv, v4 } from './common';
 
 /**
  * Faíscas de impacto: riscos esticados na direção do voo (o sistema de partículas antigo só
@@ -31,22 +31,24 @@ function hitSpark(hot: [number, number, number], tail: [number, number, number],
       streaks.addBehavior(new ApplyForce(GRAVITY, cv(9)));
       streaks.addBehavior(new SpeedOverLife(curve(1, 0.55, 0.3, 0.15)));
       streaks.addBehavior(new ColorOverLife(fade(v4(hot[0], hot[1], hot[2], 1), v4(tail[0], tail[1], tail[2], 0))));
+      // estrela de impacto anime: cor chapada (o tom do golpe, sem estourar), surge grande e some seca
+      const m = Math.max(hot[0], hot[1], hot[2]);
       const flash = k.system({
         duration: 0.1,
         looping: false,
         worldSpace: true,
-        startLife: cv(0.09),
+        startLife: cv(0.12),
         startSpeed: cv(0),
-        startSize: iv(0.55, 0.8),
+        startSize: iv(0.6, 0.85),
         startRotation: iv(0, Math.PI * 2),
-        startColor: col(hot[0] * 0.7, hot[1] * 0.7, hot[2] * 0.7, 1),
+        startColor: col(hot[0] / m, hot[1] / m, hot[2] / m, 1),
         emissionOverTime: cv(0),
         emissionBursts: [burst(1)],
         shape: new PointEmitter(),
-        material: additive(k, 'spark'),
-        renderOrder: 8,
+        material: impact(k),
+        renderOrder: 9,
       });
-      flash.addBehavior(new SizeOverLife(curve(0.6, 1, 1, 0.2)));
+      flash.addBehavior(new SizeOverLife(curve(0.7, 1.1, 1, 0.1)));
       g.add(streaks.emitter, flash.emitter);
       return g;
     },

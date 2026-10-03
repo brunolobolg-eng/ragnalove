@@ -14,7 +14,7 @@ import { RARITIES, RARITY_INFO, SLOTS, SLOT_LABEL, type Rarity, type Slot } from
 export type FxName = 'fireBarrier' | 'cleave' | 'frostBolt' | 'bash' | 'soul' | 'levelup' | 'drop';
 
 export interface DevApi {
-  heroes: readonly ('warrior' | 'mage' | 'archer')[];
+  heroes: readonly string[];
   heroLine(kind: string): string;
   souls(): number;
   zeni(): number;

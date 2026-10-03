@@ -18,6 +18,17 @@ const MATS: Record<Rarity, Mat> = {
 
 const cache = new Map<string, string>();
 
+/** Ícones desenhados (public/sprites/item_icons.png): uma linha por tipo, uma coluna por raridade (células de 96px). */
+const ATLAS_KINDS = ['sword', 'dagger', 'staff', 'bow', 'axe', 'shield', 'helm', 'plate', 'ring', 'amulet', 'robe', 'vest', 'bracelet', 'earring', 'belt', 'orb', 'cloak', 'boots', 'spear', 'book'];
+const ATLAS_CELL = 96;
+const atlas = new Image();
+let atlasReady = false;
+atlas.onload = () => {
+  atlasReady = true;
+  cache.clear();
+};
+atlas.src = 'sprites/item_icons.png';
+
 /** URL (data:) do ícone do item, com cache por variante + raridade. */
 export function itemIconUrl(it: Pick<Item, 'id' | 'slot' | 'rarity'>, size = 96): string {
   const kind = itemKind(it);
@@ -25,7 +36,7 @@ export function itemIconUrl(it: Pick<Item, 'id' | 'slot' | 'rarity'>, size = 96)
   let url = cache.get(key);
   if (!url) {
     url = itemArtCanvas(kind, it.rarity, size).toDataURL();
-    cache.set(key, url);
+    if (atlasReady || !ATLAS_KINDS.includes(kind)) cache.set(key, url);
   }
   return url;
 }
@@ -55,7 +66,9 @@ export function itemArtCanvas(kind: string, rarity: Rarity, size = 96): HTMLCanv
   g.save();
   g.shadowColor = m.glow > 0 ? withAlpha(rc, 0.9) : 'rgba(0,0,0,0.6)';
   g.shadowBlur = 3 + m.glow * 6;
-  DRAW[kind]?.(g, m, tier);
+  const row = ATLAS_KINDS.indexOf(kind);
+  if (atlasReady && row >= 0) g.drawImage(atlas, tier * ATLAS_CELL, row * ATLAS_CELL, ATLAS_CELL, ATLAS_CELL, 5, 5, 54, 54);
+  else DRAW[kind]?.(g, m, tier);
   g.restore();
   // brilhos (raridades altas)
   if (tier >= 3) {

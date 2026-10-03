@@ -48,7 +48,7 @@ export type PropKind =
   | 'palm';
 
 /** Tipos de objeto interativo (dados em GAME_CONFIG.objects, regras em core/sim/objects.ts). */
-export type MapObjectType = 'cart' | 'oilBarrel' | 'torch' | 'roots' | 'altar' | 'sandColumn' | 'unstableRuin' | 'dryOasis' | 'campfire';
+export type MapObjectType = 'cart' | 'oilBarrel' | 'torch' | 'roots' | 'altar' | 'sandColumn' | 'unstableRuin' | 'dryOasis' | 'campfire' | 'shieldWall';
 
 export interface MapObjectDef {
   type: MapObjectType;

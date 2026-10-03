@@ -85,6 +85,10 @@ export class ObjectView {
 
   handle(events: SimEvent[], particles: ParticleLayer): void {
     for (const e of events) {
+      if (e.type === 'objectSpawn') {
+        if (!this.pieces.has(e.object.id)) this.build(e.object, true);
+        continue;
+      }
       if (e.type === 'objectHit') {
         const p = this.pieces.get(e.objectId);
         if (!p) continue;
@@ -170,7 +174,7 @@ export class ObjectView {
 
   // ---------------- Construção por tipo ----------------
 
-  private build(o: MapObject): void {
+  private build(o: MapObject, rise = false): void {
     const g = new THREE.Group();
     g.position.copy(this.center(o));
     this.group.add(g);
@@ -186,6 +190,16 @@ export class ObjectView {
       p.hpBar = bar;
     }
     this.pieces.set(o.id, p);
+    if (rise) {
+      // sobe do chão
+      g.scale.y = 0.05;
+      const t0 = this.t;
+      const prev = p.tick;
+      p.tick = (dt, particles) => {
+        prev?.(dt, particles);
+        if (g.scale.y < 1) g.scale.y = Math.min(1, 0.05 + (this.t - t0) * 4);
+      };
+    }
     if (o.state !== 'idle') {
       p.state = 'idle';
       this.syncState(p, true);
@@ -209,6 +223,28 @@ function flame(g: THREE.Group, y: number, size: number): { glow: THREE.Sprite; l
 }
 
 const BUILDERS: Record<MapObject['type'], Builder> = {
+  shieldWall(p) {
+    // bloco de pedra com escudo cravado (Muralha do Guerreiro)
+    const g = p.group;
+    const stone = lambert(0x8a8478);
+    const dark = lambert(0x5e5a52);
+    const steel = lambert(0xb8c0cc, { emissive: 0x101820 });
+    const block = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.95, 0.5), stone);
+    block.position.y = 0.475;
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.14, 0.58), dark);
+    cap.position.y = 1.0;
+    const shield = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.06, 6).rotateX(Math.PI / 2), steel);
+    shield.position.set(0, 0.55, 0.28);
+    const body = new THREE.Group();
+    body.add(block, cap, shield);
+    g.add(shadow(body));
+    p.apply = (s) => {
+      if (s !== 'broken') return;
+      body.scale.set(1, 0.25, 1);
+      shield.visible = false;
+      body.rotation.z = 0.12;
+    };
+  },
   cart(p) {
     const g = p.group;
     const wood = lambert(0x7a5634);

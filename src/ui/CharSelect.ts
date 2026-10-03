@@ -5,36 +5,25 @@ import { ModelUnitView } from '../render/units/model/ModelUnitView';
 import { gearBonus } from '../core/progression/equipment';
 import { starterWeapon } from '../core/progression/profile';
 import { SKILL_ICONS } from './icons';
+import { HERO_INFO, HERO_ORDER, emptyMeta, type MetaStats } from '../config/heroes';
+import { SKILL_BY_ID, heroSkills } from '../core/progression/skills';
+import { CHARSELECT_ART } from '../config/visualConfig';
 
 /**
- * Seleção de personagem no estilo das telas clássicas de MMO: os heróis em pedestais
- * (modelos 3D animados), janela de informações com atributos e as duas habilidades
- * iniciais. Começa-se com 1 herói; os outros são liberados pelos chefes dos atos.
+ * Seleção de personagem: fileira de cartas ilustradas (brilho, faíscas e som ao passar o
+ * mouse) e, embaixo, o painel do herói escolhido (frase, atributos, habilidades e chibi).
+ * Os modelos 3D continuam carregados aqui (fora da tela) para gerar retratos e quadros
+ * de caminhada usados no mapa e na HUD.
  */
-const INFO: Record<HeroKind, { name: string; role: string; line: string; skills: [string, string][]; color: number }> = {
-  warrior: {
-    name: 'Guerreiro',
-    role: 'Linha de frente',
-    line: 'Segura o funil com escudo e espada. Muita vida, golpes em área curtos.',
-    skills: [['cleave', 'Golpe em Área'], ['bash', 'Investida']],
-    color: 0xff6a4a,
-  },
-  mage: {
-    name: 'Mago',
-    role: 'Controle de área',
-    line: 'Três barreiras de fogo desviam a horda; raios gélidos à distância.',
-    skills: [['fireBarrier', 'Barreiras de Fogo'], ['frostBolt', 'Raio Gélido']],
-    color: 0x6aa8ff,
-  },
-  archer: {
-    name: 'Arqueira',
-    role: 'Dano à distância',
-    line: 'Flechas de longo alcance e chuva de flechas sobre os grupos.',
-    skills: [['arrowRain', 'Chuva de Flechas'], ['preciseShot', 'Flecha Precisa']],
-    color: 0x7aff6a,
-  },
-};
-const ORDER: HeroKind[] = ['warrior', 'mage', 'archer'];
+const INFO = Object.fromEntries(
+  HERO_ORDER.map((k) => {
+    const h = HERO_INFO[k];
+    return [k, { name: h.name, role: h.role, line: h.line, color: h.color, skills: [[h.area, SKILL_BY_ID[h.area].name], [h.basic, SKILL_BY_ID[h.basic].name]] as [string, string][] }];
+  }),
+) as Record<HeroKind, { name: string; role: string; line: string; skills: [string, string][]; color: number }>;
+const ORDER: HeroKind[] = HERO_ORDER;
+/** Distância entre os pedestais. */
+const SPACING = 1.7;
 
 export class CharSelect {
   readonly el: HTMLElement;
@@ -48,18 +37,34 @@ export class CharSelect {
   private raf = 0;
   private last = 0;
   private t = 0;
-  private locked: HeroKind[] = ['archer'];
+  private locked: HeroKind[] = [];
+  private meta: MetaStats = emptyMeta();
   private onPick: (h: HeroKind) => void = () => {};
   private icons: Record<string, string> = {};
+  /** faíscas da camada de efeitos (sobre as cartas) */
+  private readonly fx: HTMLCanvasElement;
+  private sparks: { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string }[] = [];
+  private hover?: HTMLElement;
+  private sparkAcc = 0;
 
-  constructor(private readonly onBack: () => void, private readonly onUi: () => void) {
+  constructor(
+    private readonly onBack: () => void,
+    private readonly onUi: () => void,
+    private readonly onHover: () => void = () => {},
+  ) {
     this.el = document.createElement('div');
     this.el.className = 'charselect';
     this.el.hidden = true;
     this.el.innerHTML = `<canvas class="cs-3d"></canvas>
-      <header class="cs-title"><h1>Escolha seu herói</h1><p>Você começa com um. Os outros se juntam ao derrotar os chefes dos atos.</p></header>
-      <div class="cs-slots"></div>
-      <section class="win cs-info"><div class="win-title"><span>Informações</span><i class="dots"></i></div><div class="win-body"></div></section>
+      <div class="cs-bg" style="background-image:url('${CHARSELECT_ART.background}')"></div>
+      <header class="cs-top">
+        <div class="cs-brand"><i class="cs-star">✦</i><b>ROGUARD</b><span>Conheça os guardiões</span></div>
+        <p class="cs-motto">O destino de um reino<small>é construído por aqueles que o defendem.</small></p>
+      </header>
+      <div class="cs-cards"></div>
+      <div class="cs-divider"><span>Escolha seu campeão</span></div>
+      <section class="cs-detail"></section>
+      <canvas class="cs-fx"></canvas>
       <div class="cs-actions"><button data-a="back">Voltar</button><button class="primary" data-a="go">Começar jornada ➜</button></div>`;
     document.body.appendChild(this.el);
     const canvas = this.el.querySelector<HTMLCanvasElement>('.cs-3d')!;
@@ -76,14 +81,13 @@ export class CharSelect {
       else if (b.dataset.a === 'go') this.onPick(this.sel);
       else if (b.dataset.a === 'back') this.onBack();
     });
-    canvas.addEventListener('click', (e) => {
-      const r = canvas.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width;
-      const h = ORDER[Math.min(2, Math.max(0, Math.floor(x * 3)))];
-      if (!this.locked.includes(h)) {
-        this.onUi();
-        this.select(h);
-      }
+    this.fx = this.el.querySelector<HTMLCanvasElement>('.cs-fx')!;
+    // passar o mouse: som + brilho (só ao entrar numa carta nova)
+    this.el.addEventListener('mouseover', (e) => {
+      const card = (e.target as HTMLElement).closest<HTMLElement>('.cs-card');
+      if (card === this.hover) return;
+      this.hover = card ?? undefined;
+      if (card) this.onHover();
     });
     window.addEventListener('resize', () => this.resize());
   }
@@ -92,9 +96,24 @@ export class CharSelect {
     return !this.el.hidden;
   }
 
-  open(onPick: (h: HeroKind) => void, locked: HeroKind[] = ['archer']): void {
+  /** O modelo 3D do herói mudou (GLB carregou): recria o boneco no pedestal. */
+  refreshHero(k: HeroKind): void {
+    const old = this.views.get(k);
+    if (!old) return;
+    const v = new ModelUnitView(k, 'party');
+    v.hideHp();
+    v.root.position.copy(old.root.position);
+    v.setFacing(0, 1, true);
+    v.dark = old.dark;
+    old.dispose();
+    this.scene.add(v.root);
+    this.views.set(k, v);
+  }
+
+  open(onPick: (h: HeroKind) => void, locked: HeroKind[] = [], meta: MetaStats = emptyMeta()): void {
     this.onPick = onPick;
     this.locked = locked;
+    this.meta = meta;
     for (const [k, v] of this.views) v.dark = locked.includes(k);
     this.el.hidden = false;
     this.resize();
@@ -122,7 +141,7 @@ export class CharSelect {
    */
   walkFrames(k: HeroKind, n = 8, size = 160, face: [number, number] = [1, 0.35]): string[] {
     const v = this.views.get(k)!;
-    const cycle = { warrior: 1.0, mage: 1.1, archer: 0.95 / 1.05 }[k];
+    const cycle = ({ warrior: 1.0, mage: 1.1, archer: 0.95 / 1.05 } as Partial<Record<HeroKind, number>>)[k] ?? 1.0;
     const oldSize = this.renderer.getSize(new THREE.Vector2());
     const wasDark = v.dark;
     v.dark = false;
@@ -245,7 +264,7 @@ export class CharSelect {
     floor.receiveShadow = true;
     S.add(floor);
     ORDER.forEach((k, i) => {
-      const x = (i - 1) * 2.3;
+      const x = (i - (ORDER.length - 1) / 2) * SPACING;
       const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.84, 0.3, 24), new THREE.MeshLambertMaterial({ color: 0x3a3e52 }));
       ped.position.set(x, 0.15, 0);
       ped.receiveShadow = true;
@@ -270,7 +289,7 @@ export class CharSelect {
       S.add(spot, spot.target);
       this.spots.set(k, spot);
     });
-    this.camera.position.set(0, 4.6, 7.2);
+    this.camera.position.set(0, 5.4, 12.6);
     this.camera.lookAt(0, 1.0, 0);
   }
 
@@ -281,22 +300,34 @@ export class CharSelect {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.fx.width = window.innerWidth;
+    this.fx.height = window.innerHeight;
   }
 
   private select(h: HeroKind): void {
     if (this.locked.includes(h)) return;
+    const changed = h !== this.sel;
     this.sel = h;
-    const v = this.views.get(h);
-    v?.cast();
     this.renderSlots();
     this.renderInfo();
+    if (changed || this.sparks.length === 0) {
+      const card = this.el.querySelector<HTMLElement>(`.cs-card[data-h="${h}"]`);
+      if (card) this.burst(card, CHARSELECT_ART.selectBurst);
+    }
   }
 
   private renderSlots(): void {
-    this.el.querySelector('.cs-slots')!.innerHTML = ORDER.map((k) => {
+    this.el.querySelector('.cs-cards')!.innerHTML = ORDER.map((k, i) => {
       const lock = this.locked.includes(k);
-      return `<button class="cs-slot ${k === this.sel ? 'on' : ''} ${lock ? 'locked' : ''}" data-h="${k}" ${lock ? 'disabled' : ''}>
-        <b>${lock ? '???' : INFO[k].name}</b><small>${lock ? '🔒 Chefe do Ato II' : INFO[k].role}</small></button>`;
+      const u = HERO_INFO[k].unlock;
+      const [a, b] = u ? u.progress(this.meta) : [0, 0];
+      return `<button class="cs-card ${k === this.sel ? 'on' : ''} ${lock ? 'locked' : ''}" data-h="${k}" ${lock ? 'disabled' : ''}
+          style="--c:${hex(INFO[k].color)};--i:${i}" title="${lock && u ? u.text : INFO[k].role}">
+        <span class="cs-art" style="background-image:url('${CHARSELECT_ART.cards[k]}')"></span>
+        <i class="cs-shine"></i><i class="cs-frame"></i>
+        <span class="cs-plate"><b>${lock ? '???' : INFO[k].name}</b><small>${lock ? 'Bloqueado' : INFO[k].role}</small></span>
+        ${lock && u ? `<span class="cs-lock">🔒<small>${u.text}</small><em><i style="width:${b ? (a / b) * 100 : 0}%"></i></em><small>${a}/${b}</small></span>` : ''}
+      </button>`;
     }).join('');
   }
 
@@ -309,26 +340,93 @@ export class CharSelect {
     const base = ATTRIBUTES_CONFIG.base[k];
     const st = computeStats(k, base, gearBonus([starterWeapon(k)]));
     const bars = ATTR_KEYS.map((a) => `<div class="cs-attr"><span>${ATTR_LABEL[a]}</span><i><em style="width:${(base[a] / 7) * 100}%"></em></i><b>${base[a]}</b></div>`).join('');
-    this.el.querySelector('.cs-info .win-body')!.innerHTML = `
-      <div class="cs-head"><h2>${INFO[k].name}</h2><span>${INFO[k].role}</span></div>
-      <p>${INFO[k].line}</p>
-      <div class="cs-grid"><div>${bars}<div class="cs-attr hp"><span>HP</span><b>${st.maxHp}</b></div></div>
-      <div class="cs-skills">${INFO[k].skills.map(([id, n]) => `<div><img src="${this.icon(id)}" alt=""><span>${n}</span></div>`).join('')}</div></div>`;
+    // habilidades iniciais primeiro, depois as da árvore (até 4)
+    const skills = heroSkills(k)
+      .slice()
+      .sort((x, y) => (y.start > 0 ? 1 : 0) - (x.start > 0 ? 1 : 0) || x.tier - y.tier)
+      .slice(0, 4)
+      .map((sk) => {
+        const ic = SKILL_ICONS[sk.id] ? `<img src="${this.icon(sk.id)}" alt="">` : '<img alt="">';
+        return `<div class="cs-skill">${ic}<span><b>${sk.name}</b><em>${sk.kind === 'passive' ? 'Passiva' : 'Ativa'}${sk.start > 0 ? ' · inicial' : ''}</em><small>${sk.desc}</small></span></div>`;
+      })
+      .join('');
+    const chibi = CHARSELECT_ART.chibis[k];
+    const det = this.el.querySelector<HTMLElement>('.cs-detail')!;
+    det.style.setProperty('--c', hex(INFO[k].color));
+    det.innerHTML = `
+      <div class="cs-big" style="background-image:url('${CHARSELECT_ART.cards[k]}')"><span><b>${INFO[k].name}</b><small>${INFO[k].role}</small></span></div>
+      <div class="cs-text">
+        <q>${CHARSELECT_ART.quotes[k] ?? ''}</q>
+        <p>${INFO[k].line}</p>
+        <div class="cs-attrs">${bars}<div class="cs-attr hp"><span>HP</span><b>${st.maxHp}</b></div></div>
+      </div>
+      <div class="cs-skills"><h3>Habilidades</h3>${skills}</div>
+      <div class="cs-chibi"><i class="cs-circle"></i>${chibi ? `<img src="${chibi}" alt="">` : `<span class="cs-chibi-card" style="background-image:url('${CHARSELECT_ART.cards[k]}')"></span>`}</div>`;
+    // reinicia a animação de entrada
+    det.classList.remove('in');
+    void det.offsetWidth;
+    det.classList.add('in');
+  }
+
+  /** Explosão de faíscas a partir de uma carta. */
+  private burst(card: HTMLElement, n: number): void {
+    const r = card.getBoundingClientRect();
+    const color = getComputedStyle(card).getPropertyValue('--c').trim() || '#ffd67a';
+    for (let i = 0; i < n; i++) this.spawn(r.left + Math.random() * r.width, r.top + r.height * (0.3 + Math.random() * 0.7), color, true);
+  }
+
+  private spawn(x: number, y: number, color: string, fast = false): void {
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * (fast ? 2.4 : 0.9);
+    const sp = fast ? 60 + Math.random() * 160 : 18 + Math.random() * 40;
+    const max = 0.7 + Math.random() * 0.9;
+    this.sparks.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: max, max, size: 1 + Math.random() * 2.2, color: Math.random() < 0.35 ? '#fff4d0' : color });
+  }
+
+  private drawFx(dt: number): void {
+    // faíscas contínuas sobre a carta com o mouse em cima
+    if (this.hover && !this.hover.classList.contains('locked')) {
+      this.sparkAcc += dt * CHARSELECT_ART.sparksPerSecond;
+      const r = this.hover.getBoundingClientRect();
+      const color = getComputedStyle(this.hover).getPropertyValue('--c').trim();
+      while (this.sparkAcc >= 1) {
+        this.sparkAcc -= 1;
+        const edge = Math.random();
+        const x = edge < 0.5 ? r.left + Math.random() * r.width : Math.random() < 0.5 ? r.left : r.right;
+        const y = edge < 0.5 ? r.bottom - Math.random() * 12 : r.top + Math.random() * r.height;
+        this.spawn(x, y, color);
+      }
+    }
+    const g = this.fx.getContext('2d')!;
+    g.clearRect(0, 0, this.fx.width, this.fx.height);
+    if (!this.sparks.length) return;
+    g.globalCompositeOperation = 'lighter';
+    this.sparks = this.sparks.filter((p) => (p.life -= dt) > 0);
+    for (const p of this.sparks) {
+      p.vy -= 30 * dt;
+      p.vx *= 1 - dt * 1.5;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      const k = p.life / p.max;
+      g.globalAlpha = Math.min(1, k * 1.6);
+      g.fillStyle = p.color;
+      g.shadowColor = p.color;
+      g.shadowBlur = 8;
+      g.beginPath();
+      g.arc(p.x, p.y, p.size * (0.5 + k * 0.5), 0, Math.PI * 2);
+      g.fill();
+    }
+    g.globalAlpha = 1;
+    g.shadowBlur = 0;
+    g.globalCompositeOperation = 'source-over';
   }
 
   private frame(dt: number): void {
     this.t += dt;
-    for (const [k, v] of this.views) {
-      const on = k === this.sel;
-      v.update(dt, 1, 1, this.camera.quaternion);
-      const spot = this.spots.get(k)!;
-      spot.intensity += ((on ? 0.7 : this.locked.includes(k) ? 0 : 0.1) - spot.intensity) * Math.min(1, dt * 6);
-      const ring = this.rings.get(k)!;
-      (ring.material as THREE.MeshBasicMaterial).opacity = on ? 0.55 + Math.sin(this.t * 3) * 0.2 : 0;
-      ring.rotation.y += dt * 0.6;
-      // o selecionado vira levemente para a câmera
-      v.setFacing(on ? Math.sin(this.t * 0.6) * 0.25 : 0, 1);
-    }
-    this.renderer.render(this.scene, this.camera);
+    // os modelos 3D só são desenhados nas capturas (retrato, caminhada); aqui só seguem animando
+    for (const [, v] of this.views) v.update(dt, 1, 1, this.camera.quaternion);
+    this.drawFx(dt);
   }
 }
+
+/** Cor 0xRRGGBB → '#rrggbb'. */
+const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;

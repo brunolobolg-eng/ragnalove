@@ -83,7 +83,8 @@ export function createSpectreMaterial(color: THREE.Color): THREE.MeshBasicMateri
   const time = { value: 0 };
   const col = { value: color.clone() };
   // Faces de trás do casco inflado: o corpo tampa o miolo e sobra só a aura em volta da silhueta.
-  const m = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.BackSide });
+  // Estilo anime: faixa sólida em volta da silhueta (mistura normal), não um brilho que estoura no bloom.
+  const m = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.BackSide });
   m.userData = { grow, intensity, time };
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, { uGrow: grow, uIntensity: intensity, uTime: time, uGhost: col });
@@ -104,9 +105,14 @@ export function createSpectreMaterial(color: THREE.Color): THREE.MeshBasicMateri
       .replace(
         'vec4 diffuseColor = vec4( diffuse, opacity );',
         `float f = 1.0 - abs(dot(normalize(vN), normalize(vV)));
-         float band = 0.7 + 0.3 * sin(vH * 22.0 - uTime * 7.0);
-         float a = (0.55 + f * 0.6) * band * uIntensity;
-         vec4 diffuseColor = vec4(uGhost * a, 1.0);`,
+         // cor sem estourar (o tom do herói, no máximo 1) e dois tons: miolo cheio + borda externa clara
+         vec3 base = uGhost / max(1.0, max(uGhost.r, max(uGhost.g, uGhost.b)));
+         vec3 col = mix(base * 0.85, mix(base, vec3(1.0), 0.6), step(0.72, f));
+         // labaredas subindo recortadas a seco (traço de anime, sem degradê)
+         float tongue = step(0.22, fract(vH * 7.0 - uTime * 1.6 + sin(vH * 31.0) * 0.15));
+         // só a faixa da silhueta: as costas do casco por trás de braços/cabelo (de frente pra câmera) não pintam o corpo
+         float a = clamp(uIntensity * 1.5, 0.0, 0.9) * mix(0.55, 1.0, tongue) * step(0.6, f);
+         vec4 diffuseColor = vec4(col, a);`,
       );
   };
   m.customProgramCacheKey = () => 'vg-toon-spectre';
