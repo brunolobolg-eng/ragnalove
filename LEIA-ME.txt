@@ -1,0 +1,31 @@
+ARQUIVOS-FONTE DO ROGUARD (ragnalove)
+=====================================
+Estes arquivos NAO sao necessarios para o jogo rodar. Sao os originais em alta
+qualidade, guardados para editar no futuro. O jogo usa as versoes otimizadas que
+ficam em public/.
+
+modelos_3d/originais/   Modelos originais (V2Fun e outros), antes do rig/otimizacao.
+                        liria_v2fun.glb   -> public/models/liria.glb (arqueira)
+                        assassino.glb     -> public/models/assassin_dk.glb
+                        eliana_sam.glb    -> public/models/eliana.glb (guerreira)
+                        cleria_sam.glb    -> public/models/cleria.glb (maga)
+                        zumbiH.glb        -> public/models/zombie.glb
+                        orcattack.glb     -> public/models/orc.glb
+                        goblin1/goblin2, rato/ratochefe, Sorcerer, Warlock, Assasino
+modelos_3d/rigs/        Versoes ja riggadas (esqueleto do jogo) desses modelos.
+modelos_3d/nao_usados_no_jogo/
+                        assassin.glb (substituido pelo assassin_dk) e orcboss.glb
+                        (o Senhor Orc hoje usa o orc.glb).
+
+imagens/folhas_de_sprites/  Folhas com fundo verde. Recorte com:
+                        python scripts/process_sprites.py <folha.png> <prefixo> <poses...>
+imagens/arte/           icone.png      -> gere os icones com: python scripts/make-icon.py icone.png
+                        tela entrada.png (original sem perda; o jogo usa public/tela-entrada.jpg)
+                        equips.png, logo_transparente.png, *_frente.png (artes de referencia)
+imagens/nao_usadas_no_jogo/  Imagens que estavam em public/ mas o codigo nao usa.
+
+audio_video/            menu.mp3 (versao da raiz) e roguard_menu_loop.mp4
+                        (video do menu, hoje nao usado pelo codigo).
+
+Para usar de novo: extraia, copie o arquivo para a pasta do projeto e peca ao Claude
+para integrar.
