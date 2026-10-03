@@ -49,7 +49,9 @@ import { GameView } from './render/GameView';
 import { Stage } from './render/Stage';
 import { Hud, type CharacterVM, type Tool } from './ui/Hud';
 import { ATTRIBUTES_CONFIG, weaponMult } from './core/progression/attributes';
-import { RARITY_INFO, SLOTS, SLOT_LABEL, gearBonus } from './core/progression/equipment';
+import { RARITY_INFO, SLOTS, SLOT_LABEL, gearBonus, isMagicWeapon, itemKind } from './core/progression/equipment';
+import { itemIconUrl } from './ui/itemArt';
+import type { HeroCardVM } from './ui/HeroCard';
 import {
   PROGRESSION,
   addPoint,
@@ -382,8 +384,12 @@ let mode: Mode = 'menu';
 const ui = () => audio.sfx('ui');
 const worldMap = new WorldMap({
   onChoose: (t) => chooseNode(t),
-  onCharacter: () => hud.toggleCharacter(),
-  onSkills: () => openSkills(),
+  onCharacter: (k) => {
+    if (k) hud.selectCharacter(k);
+    hud.toggleCharacter(true);
+  },
+  onSkills: (k) => openSkills(k),
+  heroCard: (k) => heroCardVM(k),
   onAbandon: () =>
     confirmBox.ask('Abandonar jornada', 'A jornada atual será encerrada e todo o progresso dos heróis nela será perdido.', 'Abandonar', () => {
       run.ended = 'defeat';
@@ -429,6 +435,8 @@ const charSelect = new CharSelect(
     audio.playSample(a.hoverSounds[Math.floor(Math.random() * a.hoverSounds.length)], a.hoverVolume, 1 + (Math.random() * 2 - 1) * a.hoverPitch);
   },
 );
+/** Arte de corpo inteiro de cada herói (renderizada do modelo 3D em refreshHeroArt). */
+const FULL_BODY: Partial<Record<HeroKind, string>> = {};
 // Retrato da Arqueira: renderizado do próprio modelo 3D
 // Marcador da party no mapa: heróis andando, renderizados dos modelos 3D
 for (const k of HERO_ORDER) refreshHeroArt(k);
@@ -439,7 +447,8 @@ function refreshHeroArt(k: HeroKind): void {
     hud.setPortrait(k, PORTRAITS[k]);
   }
   worldMap.setWalkFrames(k, charSelect.walkFrames(k));
-  hud.setFullBody(k, charSelect.fullBody(k));
+  FULL_BODY[k] = charSelect.fullBody(k);
+  hud.setFullBody(k, FULL_BODY[k]!);
 }
 hud.setParty(run.party, run.dead);
 const resultModal = new Modal('result');
@@ -480,7 +489,20 @@ function mapState() {
     totalPhases: totalPhases(),
     zeni: profile.zeni,
     souls: profile.souls,
-    heroes: run.party.map((h) => ({ kind: h, level: profile.heroes[h].level, dead: run.dead.includes(h), points: profile.heroes[h].points, skillPoints: profile.heroes[h].skillPoints })),
+    heroes: run.party.map((h) => {
+      const p = profile.heroes[h];
+      const wpn = p.equipment.weapon;
+      return {
+        kind: h,
+        level: p.level,
+        dead: run.dead.includes(h),
+        points: p.points,
+        skillPoints: p.skillPoints,
+        maxHp: heroStats(profile, h).maxHp,
+        weaponIcon: wpn ? itemIconUrl(wpn) : undefined,
+        weaponColor: wpn ? RARITY_INFO[wpn.rarity].color : undefined,
+      };
+    }),
     cityHp: run.cityHp,
     cityMaxHp: run.cityMaxHp,
     visited: visited.filter((id, i) => i === 0 || visited[i - 1] !== id),
@@ -492,11 +514,38 @@ function mapState() {
   };
 }
 
+/** Janelinha do herói no mapa: equipamento, vida e status principais. */
+function heroCardVM(kind: HeroKind): HeroCardVM {
+  const h = profile.heroes[kind];
+  const st = heroStats(profile, kind);
+  const gear = gearBonus(SLOTS.map((s) => h.equipment[s]));
+  const wpn = h.equipment.weapon;
+  const magic = wpn ? isMagicWeapon(itemKind(wpn)) : HERO_INFO[kind].family === 'mage';
+  const dead = run.dead.includes(kind);
+  return {
+    kind,
+    level: h.level,
+    dead,
+    hp: dead ? 0 : st.maxHp,
+    maxHp: st.maxHp,
+    atk: magic ? gear.matk : gear.atk,
+    magic,
+    dodge: st.dodge,
+    block: st.block,
+    points: h.points,
+    skillPoints: h.skillPoints,
+    art: FULL_BODY[kind] ?? PORTRAITS[kind] ?? '',
+    equipment: h.equipment,
+  };
+}
+
 function openMap(): void {
+  const hero = mode === 'map' ? worldMap.heroOpen : undefined; // redesenho do mapa (ex.: equipou um item) mantém a janelinha
   closeOverlays();
   setMode('map');
-  hud.toggleCharacter(false);
+  if (!hero) hud.toggleCharacter(false);
   worldMap.show(mapState());
+  if (hero) worldMap.openHero(hero);
 }
 
 function startNewRun(): void {
