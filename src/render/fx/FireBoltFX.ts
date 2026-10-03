@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { softCircle } from '../textures';
+import { orbTexture } from './kit/vfxTextures';
 import type { ParticleLayer } from './Particles';
 
 const C_CORE = new THREE.Color(3, 1.6, 0.5);
@@ -22,7 +22,7 @@ export class FireBoltFX {
   ) {
     this.dur = Math.max(0.12, from.distanceTo(to) * 0.045);
     this.orb = new THREE.Sprite(
-      new THREE.SpriteMaterial({ map: softCircle(), color: C_CORE, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
+      new THREE.SpriteMaterial({ map: orbTexture(), color: C_CORE, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
     );
     this.orb.scale.setScalar(0.45);
     this.orb.renderOrder = 7;

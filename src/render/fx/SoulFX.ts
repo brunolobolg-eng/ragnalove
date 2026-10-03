@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { softCircle } from '../textures';
+import { soulTexture } from './kit/vfxTextures';
 import { Flash, type FxKit } from './kit/FxKit';
 import type { Ribbon } from './kit/Ribbons';
 
@@ -43,7 +43,7 @@ export class SoulFX {
     this.dur = 0.45 + Math.random() * 0.15;
     this.side = Math.random() < 0.5 ? -1 : 1;
     const mk = (c: THREE.Color, s: number) => {
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: softCircle(), color: c, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: soulTexture(), color: c, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
       sp.scale.setScalar(s);
       sp.renderOrder = 8;
       this.group.add(sp);

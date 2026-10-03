@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Flash, FlickerLight, type FxKit } from './kit/FxKit';
 import type { Ribbon } from './kit/Ribbons';
 import { VFX } from './kit/vfxSettings';
+import { haloTexture } from './kit/vfxTextures';
 
 const C_CORE = new THREE.Color(1.8, 2.8, 3.4);
 const C_SHARD = new THREE.Color(1.1, 2.2, 3.2);
@@ -131,29 +132,4 @@ export class FrostBoltFX {
   }
 }
 
-let _halo: THREE.Texture | undefined;
-function haloTex(): THREE.Texture {
-  if (_halo) return _halo;
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const g = c.getContext('2d')!;
-  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grd.addColorStop(0, 'rgba(255,255,255,1)');
-  grd.addColorStop(0.3, 'rgba(255,255,255,0.45)');
-  grd.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = grd;
-  g.fillRect(0, 0, 64, 64);
-  // seis pontas de cristal
-  g.translate(32, 32);
-  g.fillStyle = 'rgba(255,255,255,0.6)';
-  for (let i = 0; i < 6; i++) {
-    g.rotate(Math.PI / 3);
-    g.beginPath();
-    g.moveTo(-2, 0);
-    g.lineTo(0, -30);
-    g.lineTo(2, 0);
-    g.fill();
-  }
-  _halo = new THREE.CanvasTexture(c);
-  return _halo;
-}
+const haloTex = haloTexture;

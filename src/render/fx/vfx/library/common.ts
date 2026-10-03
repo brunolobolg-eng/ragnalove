@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { Bezier, ConstantColor, ConstantValue, Gradient, IntervalValue, PiecewiseBezier, Vector3 as QV3, Vector4 as QV4, type BurstParameters } from 'three.quarks';
-import { softCircle } from '../../../textures';
-import { decalTexture, impactTexture, ribbonTexture, smokeAtlas, sparkTexture } from '../../kit/vfxTextures';
+import { decalTexture, glowTexture, impactTexture, ribbonTexture, smokeAtlas, sparkTexture } from '../../kit/vfxTextures';
 import type { VfxBuildKit } from '../VFXManager';
 
 /** Atalhos para montar efeitos do Quarks de forma legível (só visual). */
@@ -29,7 +28,7 @@ export function upright<T extends THREE.Object3D>(o: T): T {
 /** Materiais compartilhados entre todos os efeitos (mesmo material = mesmo lote de desenho). */
 export function additive(k: VfxBuildKit, tex: 'spark' | 'soft' | 'ribbon' | 'ring' | 'glow'): THREE.MeshBasicMaterial {
   return k.material('add-' + tex, () => {
-    const map = tex === 'spark' ? sparkTexture() : tex === 'soft' ? softCircle() : tex === 'ribbon' ? ribbonTexture() : decalTexture(tex);
+    const map = tex === 'spark' ? sparkTexture() : tex === 'soft' ? glowTexture() : tex === 'ribbon' ? ribbonTexture() : decalTexture(tex);
     return new THREE.MeshBasicMaterial({ map, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   });
 }

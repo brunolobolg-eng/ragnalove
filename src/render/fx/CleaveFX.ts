@@ -5,6 +5,7 @@ import { tileToWorld } from '../coords';
 import { Flash, FlickerLight, Timeline, type FxKit } from './kit/FxKit';
 import type { Ribbon } from './kit/Ribbons';
 import { VFX } from './kit/vfxSettings';
+import { noiseTexture, ribbonTexture } from './kit/vfxTextures';
 
 /** Momento do golpe dentro da animação (o GameView adia a reação dos alvos até aqui). */
 export const CLEAVE_IMPACT = 0.26;
@@ -19,6 +20,8 @@ const C_DUST = new THREE.Color(0.42, 0.38, 0.33);
 
 const SLASH_VERT = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`;
 const SLASH_FRAG = /* glsl */ `
+  uniform sampler2D uBand;  // perfil do rastro (Kenney trace), atravessa a largura
+  uniform sampler2D uNoise; // fumaça do Kenney (repetível) para o fio da lâmina e o dissolve
   uniform float uProg; uniform float uFade; uniform vec3 uCore; uniform vec3 uEdge; uniform float uTime;
   varying vec2 vUv;
   float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
@@ -26,9 +29,9 @@ const SLASH_FRAG = /* glsl */ `
   void main(){
     float head = smoothstep(uProg - 0.45, uProg, vUv.x) * step(vUv.x, uProg + 0.02);
     float taper = sin(3.14159 * vUv.x);
-    float band = pow(sin(3.14159 * vUv.y), 1.5) * taper;
-    float edge = smoothstep(0.55, 1.0, vUv.y) * taper; // borda externa mais afiada
-    float noise = n(vec2(vUv.x * 18.0 - uTime * 4.0, vUv.y * 4.0));
+    float band = texture2D(uBand, vec2(0.5, vUv.y)).a * taper;
+    float edge = texture2D(uBand, vec2(0.5, clamp(vUv.y * 0.55 + 0.45, 0.0, 1.0))).a * smoothstep(0.55, 1.0, vUv.y) * taper; // borda externa mais afiada
+    float noise = texture2D(uNoise, vec2(vUv.x * 2.2 - uTime * 0.9, vUv.y * 0.6)).a;
     float a = (band * 0.9 + edge * 1.1) * head * (1.0 - uFade) * (0.7 + noise * 0.5);
     a *= smoothstep(uFade * 1.1, uFade * 1.1 + 0.2, noise + 0.1); // dissolve
     if (a < 0.003) discard;
@@ -85,7 +88,7 @@ export class CleaveFX {
     this.mat = new THREE.ShaderMaterial({
       vertexShader: SLASH_VERT,
       fragmentShader: SLASH_FRAG,
-      uniforms: { uProg: { value: 0 }, uFade: { value: 0 }, uCore: { value: C_SLASH.clone().multiplyScalar(VFX.flash) }, uEdge: { value: C_EDGE }, uTime: { value: 0 } },
+      uniforms: { uBand: { value: ribbonTexture() }, uNoise: { value: noiseTexture() }, uProg: { value: 0 }, uFade: { value: 0 }, uCore: { value: C_SLASH.clone().multiplyScalar(VFX.flash) }, uEdge: { value: C_EDGE }, uTime: { value: 0 } },
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,

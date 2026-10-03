@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { GAME_CONFIG } from '../../config/gameConfig';
-import { softCircle } from '../textures';
-import { flameAtlas, smokeAtlas, sparkTexture } from './kit/vfxTextures';
+import { flameAtlas, glowTexture, smokeAtlas, sparkTexture } from './kit/vfxTextures';
 
 export interface EmitOptions {
   pos: THREE.Vector3;
@@ -139,7 +138,7 @@ export class ParticleSystem {
       vertexShader: VERT,
       fragmentShader: FRAG,
       uniforms: {
-        uTex: { value: opts.texture ?? softCircle() },
+        uTex: { value: opts.texture ?? glowTexture() },
         uScale: { value: 600 },
         uFrames: { value: opts.frames ?? 1 },
         uGroundFade: { value: opts.groundFade ? 1 : 0 },
