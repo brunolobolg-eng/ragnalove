@@ -9,10 +9,13 @@ import { SKILL_BY_ID, heroSkills, lvOf, type HeroKind, type SkillDef, type Skill
  */
 export const slotCost = (kind: string): number => GAME_CONFIG.mana.slotCost[kind] ?? 10;
 
-export const slotCount = (kind: string, mana: number): number => Math.floor(Math.max(0, mana) / slotCost(kind));
+export const slotCount = (kind: string, mana: number): number => Math.min(GAME_CONFIG.mana.maxSlots, Math.floor(Math.max(0, mana) / slotCost(kind)));
 
-/** Mana que falta para o próximo slot. */
-export const manaToNextSlot = (kind: string, mana: number): number => (slotCount(kind, mana) + 1) * slotCost(kind) - mana;
+/** Já tem o máximo de slots (5)? */
+export const slotsMaxed = (kind: string, mana: number): boolean => slotCount(kind, mana) >= GAME_CONFIG.mana.maxSlots;
+
+/** Mana que falta para o próximo slot (0 = já está no máximo). */
+export const manaToNextSlot = (kind: string, mana: number): number => (slotsMaxed(kind, mana) ? 0 : (slotCount(kind, mana) + 1) * slotCost(kind) - mana);
 
 /** Habilidades que ocupam slot: as ativas da classe, menos o ataque básico. */
 export const slotSkills = (kind: HeroKind): SkillDef[] =>

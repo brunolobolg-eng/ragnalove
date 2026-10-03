@@ -280,8 +280,8 @@ export function battleFor(r: RunState, type: NodeType): { zone: ZoneDef; wave: W
   const step = 1 + 0.1 * r.node;
   // party menor = horda menor e mais fraca; a 1ª fase do jogo é mais fácil
   const size = Math.max(1, r.party.filter((h) => !r.dead.includes(h)).length);
-  const sizeCount = [0.6, 0.85, 1][size - 1];
-  const sizeHp = [0.8, 0.92, 1][size - 1];
+  const sizeCount = [0.6, 0.85, 1][Math.min(size, 3) - 1];
+  const sizeHp = [0.8, 0.92, 1][Math.min(size, 3) - 1];
   const first = r.act === 0 && r.node === 0;
   const base = Math.round(zone.wave.count * sizeCount * (first ? 0.75 : 1));
   const wave: WaveOptions = {

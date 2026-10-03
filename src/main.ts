@@ -47,10 +47,10 @@ import { Roulette } from './ui/Roulette';
 import { conePattern, linePattern } from './core/grid/patterns';
 import { ORIENTATIONS, type Orientation, type Vec2 } from './core/grid/types';
 import { Simulation } from './core/sim/Simulation';
-import type { SimEvent } from './core/sim/types';
+import type { SimEvent, Unit } from './core/sim/types';
 import { GameView } from './render/GameView';
 import { Stage } from './render/Stage';
-import { Hud, type CharacterVM, type Tool } from './ui/Hud';
+import { Hud, type CharacterVM, type HudMember, type Tool } from './ui/Hud';
 import { ATTRIBUTES_CONFIG, weaponMult } from './core/progression/attributes';
 import { RARITY_INFO, SLOTS, SLOT_LABEL, gearBonus, isMagicWeapon, itemKind } from './core/progression/equipment';
 import { itemIconUrl } from './ui/itemArt';
@@ -824,16 +824,28 @@ function openSkills(hero: HeroKind = 'warrior'): void {
   skillTree.open(run, hero, mode === 'city');
 }
 
-/** Habilidades ativas da árvore aprendidas (vão para a barra de atalhos). */
 const CD_KEY: Partial<Record<SkillId, string>> = { doubleBarrier: 'fireBarrier2' };
-function extraSkills(): { id: string; hero: string; name: string; icon: string }[] {
-  const base = new Set<string>(HERO_ORDER.flatMap((k) => [HERO_INFO[k].area, HERO_INFO[k].basic]));
-  return SKILLS.filter((d) => d.kind === 'active' && run.party.includes(d.hero) && !base.has(d.id) && heroEquipped(profile, d.hero).includes(d.id)).map((d) => ({
-    id: d.id,
-    hero: d.hero,
-    name: `${d.name} (${NAME_PT[d.hero]})`,
-    icon: (iconCache[d.id] ??= SKILL_ICONS[d.id]()),
-  }));
+const skillIcon = (id: string) => (iconCache[id] ??= SKILL_ICONS[id]?.() ?? '');
+/**
+ * Barra de baixo: ataque básico + os 5 slots de habilidade do herói (Mana).
+ * Slot além do que a Mana libera = bloqueado; liberado sem habilidade = livre.
+ */
+function slotsVM(k: HeroKind, u: Unit | undefined): Pick<HudMember, 'basic' | 'slots'> {
+  const eq = heroEquipped(profile, k);
+  const total = slotCount(k, heroStats(profile, k).mana);
+  const running = !!u && sim.phase === 'running';
+  const frac = (key: string, len: number) => (running ? Math.min(1, Math.max(0, (u!.cooldowns[key] ?? 0) - sim.tick) / Math.max(1, len)) : 0);
+  const basicId = HERO_INFO[k].basic;
+  return {
+    basic: { icon: skillIcon(basicId), name: SKILL_BY_ID[basicId].name, cd: frac(BASIC_KEY[k], BASIC_CD(k)) },
+    slots: Array.from({ length: GAME_CONFIG.mana.maxSlots }, (_, i) => {
+      if (i >= total) return { cd: 0, locked: true };
+      const id = eq[i];
+      if (!id) return { cd: 0, locked: false };
+      const len = id === HERO_INFO[k].area ? SKILL_CD(k) : extraCd(k, id);
+      return { id, name: SKILL_BY_ID[id].name, icon: skillIcon(id), cd: frac(CD_KEY[id] ?? id, len), locked: false };
+    }),
+  };
 }
 const iconCache: Record<string, string> = {};
 function extraCd(k: HeroKind, id: SkillId): number {
@@ -1100,7 +1112,6 @@ function resetSim(clearLog = true, seal?: BattleSeal): void {
   sim = new Simulation(seal?.setup ?? liveSetup(), undefined, seal?.loadout ?? loadout(), simOpts());
   view.setHeroAuras(Object.fromEntries(run.party.map((h) => [h, maxRefine(SLOTS.map((s) => profile.heroes[h].equipment[s]))])));
   hud.setParty(run.party, run.dead);
-  hud.setExtraSkills(extraSkills());
   hud.setSurvival(GAME_CONFIG.wave.endless);
   Object.assign(sim.cheats, cheats);
   sim.mods = simMods;
@@ -1794,7 +1805,6 @@ function SKILL_CD(k: HeroKind): number {
   if (k === 'assassin') return c(ADV.assassin.fan.cooldownTicks);
   return k === 'mage' ? st.barrierCooldownTicks : k === 'archer' ? st.rainCooldownTicks : st.cleaveCooldownTicks;
 }
-const SKILL_KEY = Object.fromEntries(HERO_ORDER.map((k) => [k, HERO_INFO[k].area])) as Record<HeroKind, string>;
 /** Ataque básico de alvo único de cada classe. */
 const BASIC_KEY = Object.fromEntries(HERO_ORDER.map((k) => [k, HERO_INFO[k].basic])) as Record<HeroKind, string>;
 function BASIC_CD(k: HeroKind): number {
@@ -1822,19 +1832,12 @@ function updateStatus(): void {
     survival: GAME_CONFIG.wave.endless ? { stage: sim.stage + 1, seconds: Math.floor(sim.tick / GAME_CONFIG.sim.tickRate) } : undefined,
     members: run.party.map((k) => {
       const u = party.find((p) => p.kind === k);
-      const ready = u?.cooldowns[SKILL_KEY[k]] ?? 0;
       return {
         kind: k,
         hp: u?.hp ?? 0,
         maxHp: u?.maxHp ?? heroStats(profile, k).maxHp,
         alive: !!u,
-        cooldown: u && sim.phase === 'running' ? Math.min(1, Math.max(0, ready - sim.tick) / SKILL_CD(k)) : 0,
-        basicCooldown: u && sim.phase === 'running' ? Math.min(1, Math.max(0, (u.cooldowns[BASIC_KEY[k]] ?? 0) - sim.tick) / BASIC_CD(k)) : 0,
-        extra: Object.fromEntries(
-          extraSkills()
-            .filter((s) => s.hero === k)
-            .map((s) => [s.id, u && sim.phase === 'running' ? Math.min(1, Math.max(0, (u.cooldowns[CD_KEY[s.id as SkillId] ?? s.id] ?? 0) - sim.tick) / extraCd(k, s.id as SkillId)) : 0]),
-        ),
+        ...slotsVM(k, u),
         souls: u?.souls ?? lastSouls[k],
         level: u?.level ?? profile.heroes[k].level,
         exp: u?.exp ?? profile.heroes[k].exp,

@@ -31,7 +31,7 @@ export function attrHint(k: AttrKey): string[] {
     case 'str':
       return ['Mais dano dos golpes físicos', 'Golpe em área mais largo e com mais alcance'];
     case 'int':
-      return ['Mais dano das magias', 'Barreira de Fogo maior e mais duradoura'];
+      return [`+${GAME_CONFIG.mana.perInt} de Mana (mais slots de habilidade)`, 'Mais dano das magias', 'Barreira de Fogo maior e mais duradoura'];
     case 'vit':
       return [`+${A.vit.hpPerPoint} de vida máxima`, 'O herói aguenta mais tempo na linha de frente'];
     case 'dex':
@@ -200,7 +200,7 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
     attrs,
     maxHp: Math.round((baseHp + d('vit') * A.vit.hpPerPoint + (bonus.hp ?? 0)) * gear.hpMult * (1 + iron.hp)),
     hpRegenPerSec: gear.hpRegen,
-    mana: GAME_CONFIG.mana.base + gear.mana + (bonus.mana ?? 0),
+    mana: GAME_CONFIG.mana.base + attrs.int * GAME_CONFIG.mana.perInt + gear.mana + (bonus.mana ?? 0),
     skillHaste,
     cooldownMult,
     dodge: Math.min(A.caps.dodge, d('luk') * A.luk.dodgePerPoint + gear.dodge + step.dodge),

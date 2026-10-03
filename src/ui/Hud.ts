@@ -3,10 +3,10 @@ import type { Item, Slot } from '../core/progression/equipment';
 import { ITEM_KIND_LABEL, RARITY_INFO, SLOT_GROUP, SLOT_KINDS, SLOT_LABEL, canUse, itemKind, itemLines, itemName } from '../core/progression/equipment';
 import { itemArtCanvas } from './itemArt';
 import { ATTR_KEYS, ATTR_LABEL, attrHint, type AttrKey } from '../core/progression/attributes';
-import { ICONS, SKILL_ICONS } from './icons';
+import { SKILL_ICONS } from './icons';
 import { itemIconUrl } from './itemArt';
 import { HERO_INFO, HERO_NAME, HERO_ORDER } from '../config/heroes';
-import { SKILL_BY_ID, type HeroKind } from '../core/progression/skills';
+import { type HeroKind } from '../core/progression/skills';
 
 export type { HeroKind };
 const ALL_HEROES: HeroKind[] = HERO_ORDER;
@@ -56,17 +56,26 @@ export interface HudMember {
   hp: number;
   maxHp: number;
   alive: boolean;
-  /** 0 = pronta, 1 = recém-usada */
-  cooldown: number;
-  /** Recarga do ataque básico de alvo único (Raio Gélido / Investida). */
-  basicCooldown: number;
-  /** Recargas das habilidades ativas da árvore (id → 0..1). */
-  extra: Record<string, number>;
+  /** Ataque básico (sempre usado, não ocupa slot): ícone, nome e recarga 0..1. */
+  basic: { icon: string; name: string; cd: number };
+  /**
+   * Os 5 slots de habilidade (Mana): habilidade equipada com recarga 0..1, slot livre
+   * (liberado mas vazio) ou bloqueado (falta Mana/Inteligência).
+   */
+  slots: HudSlot[];
   /** Almas roubadas por este herói. */
   souls: number;
   level: number;
   exp: number;
   expNext: number;
+}
+
+export interface HudSlot {
+  id?: string;
+  name?: string;
+  icon?: string;
+  cd: number;
+  locked: boolean;
 }
 
 export interface HudState {
@@ -83,25 +92,10 @@ export interface HudState {
 }
 
 const NAME: Record<HeroKind, string> = HERO_NAME;
-/** Barra de atalhos: por herói, 1 habilidade de área/controle + 1 ataque básico de alvo único. */
-const SKILL: Record<string, { name: string; icon: () => string }> = Object.fromEntries(
-  HERO_ORDER.flatMap((k) => {
-    const i = HERO_INFO[k];
-    return [
-      [k, { name: `${SKILL_BY_ID[i.area].name} — área/controle (${i.name})`, icon: () => SKILL_ICONS[i.area]() }],
-      [`${k}_basic`, { name: `${SKILL_BY_ID[i.basic].name} — alvo único (${i.name})`, icon: () => SKILL_ICONS[i.basic]() }],
-    ];
-  }),
-);
-SKILL.mage.icon = ICONS.fireBarrier;
-SKILL.warrior.icon = ICONS.cleave;
-SKILL.mage_basic.icon = ICONS.frostBolt;
-SKILL.warrior_basic.icon = ICONS.bash;
 const PORTRAIT: Record<string, string> = {
   warrior: 'sprites/portrait_warrior.png', mage: 'sprites/portrait_mage.png', archer: 'sprites/portrait_archer.png',
   sorcerer: 'sprites/portrait_sorcerer.png', warlock: 'sprites/portrait_warlock.png', assassin: 'sprites/portrait_assassin.png',
 };
-const UNLOCK_HINT = 'Chefe de um ato';
 
 /**
  * HUD no estilo das janelas clássicas de MMO isométrico: janelas azul-acinzentadas
@@ -117,7 +111,7 @@ export class Hud {
   private readonly phaseEl: HTMLElement;
   private readonly memberEls = new Map<
     string,
-    { hp: HTMLElement; hpTxt: HTMLElement; souls: HTMLElement; win: HTMLElement; exp: HTMLElement; expTxt: HTMLElement; lv: HTMLElement; level: number }
+    { hp: HTMLElement; hpTxt: HTMLElement; souls: HTMLElement; win: HTMLElement; exp: HTMLElement; expTxt: HTMLElement; lv: HTMLElement; level: number; slots: HTMLElement; basic: HTMLElement; slotKey: string }
   >();
   private readonly charWin: HTMLElement;
   private readonly charBadge: HTMLElement;
@@ -125,17 +119,14 @@ export class Hud {
   private bagFilter: 'all' | 'weapon' | 'armor' | 'accessory' = 'all';
   private readonly fullBody: Partial<Record<HeroKind, string>> = {};
   private party: HeroKind[] = ['warrior', 'mage'];
-  private baseEl!: HTMLElement;
-  private iconCache: Record<string, string> = {};
+  private barEl!: HTMLElement;
   private charVM: CharacterVM | undefined;
   private readonly soulTotal: HTMLElement;
   private lastSouls = 0;
   private readonly zeniTotal: HTMLElement;
   private lastZeni = -1;
-  private readonly slotEls = new Map<string, { cd: HTMLElement; slot: HTMLElement }>();
   private stageEl!: HTMLElement;
-  private extraEl!: HTMLElement;
-  private extraKey = '';
+  private zoneEl!: HTMLElement;
   private cityHp = -1;
   private objHandlers: (() => void)[] = [];
 
@@ -186,6 +177,7 @@ export class Hud {
   setStage(title: string, sub: string): void {
     this.el.querySelector('.wave')!.textContent = title;
     this.stageEl.textContent = sub;
+    this.zoneEl.textContent = sub.split(' — ')[0];
   }
 
   /** Retrato de um herói (a Arqueira usa um retrato renderizado do modelo 3D). */
@@ -196,39 +188,67 @@ export class Hud {
 
   setPortrait(k: HeroKind, url: string): void {
     PORTRAIT[k] = url;
-    const img = this.el.querySelector<HTMLImageElement>(`[data-member="${k}"] .portrait img`);
+    const img = this.el.querySelector<HTMLImageElement>(`[data-member="${k}"] .pc-port > img`);
     if (img) img.src = url;
   }
 
-  /** Heróis liberados: janelas de status, ferramentas de posicionamento e barra de atalhos. */
+  /** Heróis da party: cartões na barra de baixo e ferramentas de posicionamento. */
   setParty(party: HeroKind[], dead: HeroKind[] = []): void {
     this.party = party;
     if (!party.includes(this.charKind)) this.charKind = party[0];
-    // janelas: os heróis da party + lugares vagos (até 3) como "???"
-    const vacant = ALL_HEROES.filter((k) => !party.includes(k)).slice(0, Math.max(0, 3 - party.length));
-    for (const k of ALL_HEROES) {
-      const w = this.el.querySelector<HTMLElement>(`[data-member="${k}"]`)!;
-      const on = party.includes(k);
-      w.hidden = !on && !vacant.includes(k);
-      w.classList.toggle('locked', !on);
-      w.querySelector<HTMLElement>('.stats-live')!.hidden = !on;
-      w.querySelector<HTMLElement>('.stats-locked')!.hidden = on;
-      w.querySelector<HTMLElement>('.lock-ico')!.hidden = on;
-      const img = w.querySelector<HTMLImageElement>('.portrait img')!;
-      img.style.filter = on ? '' : 'brightness(0) opacity(0.55)';
-    }
+    this.memberEls.clear();
+    this.barEl.className = `party-bar n${party.length}`;
+    this.barEl.innerHTML = party
+      .map((k) => {
+        const info = HERO_INFO[k];
+        const emblem = SKILL_ICONS[info.area]?.() ?? '';
+        return `<div class="pc" data-member="${k}" style="--hc:#${info.color.toString(16).padStart(6, '0')}">
+          <div class="pc-port"><img src="${PORTRAIT[k] || 'data:,'}" alt=""><i class="pc-lv" title="Nível">1</i><span class="pc-basic"></span></div>
+          <div class="pc-main">
+            <div class="pc-head"><img class="pc-emb" src="${emblem}" alt=""><b>${NAME[k]}</b><span class="pc-souls" title="Almas roubadas"><i class="soul-ico"></i><b>0</b></span></div>
+            <div class="pc-bars"><div class="pc-hp"><i></i><span></span></div><div class="pc-exp" title="Experiência"><i></i><span></span></div></div>
+            <div class="pc-slots"></div>
+          </div>
+        </div>`;
+      })
+      .join('');
+    this.barEl.querySelectorAll<HTMLElement>('[data-member]').forEach((w) => {
+      this.memberEls.set(w.dataset.member!, {
+        win: w,
+        hp: w.querySelector('.pc-hp i')!,
+        hpTxt: w.querySelector('.pc-hp span')!,
+        exp: w.querySelector('.pc-exp i')!,
+        expTxt: w.querySelector('.pc-exp span')!,
+        lv: w.querySelector('.pc-lv')!,
+        level: 1,
+        souls: w.querySelector('.pc-souls b')!,
+        slots: w.querySelector('.pc-slots')!,
+        basic: w.querySelector('.pc-basic')!,
+        slotKey: '',
+      });
+    });
     this.el.querySelectorAll<HTMLElement>('[data-tool]').forEach((b) => {
       const t = b.dataset.tool!;
       const owner = t.startsWith('barrier') ? 'mage' : t === 'wall' ? 'warrior' : (t as HeroKind);
       b.hidden = !party.includes(owner) || dead.includes(owner);
     });
-    const keys = party.flatMap((k) => [k, `${k}_basic`]);
-    for (const k of [...this.slotEls.keys()]) if (!k.startsWith('x:')) this.slotEls.delete(k);
-    this.baseEl.innerHTML = keys
-      .map((k, i) => `<div class="slot" data-skill="${k}" title="${SKILL[k].name}"><img src="${(this.iconCache[k] ??= SKILL[k].icon())}" alt=""><div class="cd"></div><span class="key">F${i + 1}</span></div>`)
+  }
+
+  /** Redesenha os 5 slots de um herói quando o que está equipado muda. */
+  private renderSlots(el: { slots: HTMLElement; basic: HTMLElement; slotKey: string }, m: HudMember): void {
+    const key = m.basic.icon + '|' + m.slots.map((x) => (x.locked ? '#' : x.id ?? '_')).join(',');
+    if (key === el.slotKey) return;
+    el.slotKey = key;
+    el.basic.innerHTML = `<img src="${m.basic.icon}" alt="" title="Ataque básico: ${m.basic.name} (sempre usado, não ocupa slot)"><div class="cd"></div>`;
+    el.slots.innerHTML = m.slots
+      .map((x, i) =>
+        x.locked
+          ? `<div class="pc-slot locked" title="Slot bloqueado: falta Mana (suba Inteligência)"><span>🔒</span><em>${i + 1}</em></div>`
+          : x.id
+            ? `<div class="pc-slot" title="${x.name}"><img src="${x.icon}" alt=""><div class="cd"></div><em>${i + 1}</em></div>`
+            : `<div class="pc-slot empty" title="Slot livre: equipe uma habilidade na árvore (K)"><em>${i + 1}</em></div>`,
+      )
       .join('');
-    this.baseEl.querySelectorAll<HTMLElement>('[data-skill]').forEach((s) => this.slotEls.set(s.dataset.skill!, { slot: s, cd: s.querySelector('.cd')! }));
-    this.extraKey = '';
   }
 
   /** Marca a orientação ativa (quando troca a barreira selecionada). */
@@ -236,38 +256,10 @@ export class Hud {
     this.el.querySelectorAll<HTMLElement>('[data-orient]').forEach((b) => b.classList.toggle('on', b.dataset.orient === o));
   }
 
-  /** Slots extras da barra de atalhos: habilidades ativas aprendidas na árvore. */
-  setExtraSkills(list: { id: string; hero: string; name: string; icon: string }[]): void {
-    const key = list.map((s) => s.id).join(',');
-    if (key === this.extraKey) return;
-    this.extraKey = key;
-    for (const k of [...this.slotEls.keys()]) if (k.startsWith('x:')) this.slotEls.delete(k);
-    const cells = list.map(
-      (s) => `<div class="slot" data-xskill="x:${s.id}" title="${s.name}"><img src="${s.icon}" alt=""><div class="cd"></div></div>`,
-    );
-    while (cells.length < 9 - this.party.length * 2) cells.push('<div class="slot empty"></div>');
-    this.extraEl.innerHTML = cells.join('');
-    this.extraEl.querySelectorAll<HTMLElement>('[data-xskill]').forEach((s) => this.slotEls.set(s.dataset.xskill!, { slot: s, cd: s.querySelector('.cd')! }));
-  }
-
   constructor(root: HTMLElement, cb: HudCallbacks) {
-    const statusWin = (k: HeroKind) => `
-      <div class="win status" data-member="${k}">
-        <div class="win-title"><span>${NAME[k]}</span><i class="lock-ico" hidden></i></div>
-        <div class="win-body status-body">
-          <div class="portrait"><img src="${PORTRAIT[k] || 'data:,'}" alt=""></div>
-          <div class="stats stats-locked" hidden><div class="line"><b>???</b></div><div class="soon" title="Um herói novo se junta ao derrotar o ${UNLOCK_HINT}">🔒 ${UNLOCK_HINT}</div></div>
-          <div class="stats stats-live">
-            <div class="line"><b>${NAME[k]}</b><span class="lv">Nv. 1</span></div>
-            <div class="bar-row"><span class="lbl">HP</span><div class="bar"><div class="fill hp"></div></div></div>
-            <div class="bar-row exp-row"><span class="lbl">EXP</span><div class="bar exp"><div class="fill exp"></div><i class="burst"></i></div></div>
-            <div class="bar-txt"><span class="m-souls" title="Almas roubadas"><i class="soul-ico"></i><b>0</b></span><span class="exp-txt"></span><span class="hp-txt"></span></div>
-          </div>
-        </div>
-      </div>`;
-
     root.innerHTML = `
-      <div class="party">${ALL_HEROES.map(statusWin).join('')}</div>
+      <div class="region-title"><img class="rt-emb" src="emblem.png" alt=""><div><b>Aurenthal</b><span class="rt-zone"></span></div></div>
+      <div class="party-bar"></div>
       <div class="win charwin rog" hidden>
         <div class="win-title"><span>Ficha do Herói</span><button class="x" data-act="char-close">×</button></div>
         <div class="win-body char-body"></div>
@@ -275,7 +267,8 @@ export class Hud {
       </div>
 
       <div class="win tactics">
-        <div class="win-title"><span>Tática</span><i class="dots"></i></div>
+        <div class="win-title"><span>Objetivo</span><i class="dots"></i></div>
+        <div class="obj-line">◆ Defenda a cidade: derrote a horda antes que ela alcance o portão.</div>
         <div class="win-body">
           <div class="wave-line"><span class="wave">Fase 1</span><span class="kills"></span></div>
           <div class="stage-line"></div>
@@ -336,7 +329,7 @@ export class Hud {
       <div class="plan-hint" hidden></div>
       <div class="speed-toast" hidden></div>
 
-      <div class="hotbar"><span class="base-slots"></span><span class="extra-slots"></span></div>
+
 
       <div class="chat">
         <div class="tabs"><span class="tab on">Batalha</span><span class="tab">Geral</span></div>
@@ -358,8 +351,8 @@ export class Hud {
     root.querySelector('[data-act="char"]')!.addEventListener('click', () => this.toggleCharacter());
     root.querySelector('[data-act="skills"]')!.addEventListener('click', () => cb.onSkills());
     this.stageEl = root.querySelector('.stage-line')!;
-    this.extraEl = root.querySelector('.extra-slots')!;
-    this.baseEl = root.querySelector('.base-slots')!;
+    this.barEl = root.querySelector('.party-bar')!;
+    this.zoneEl = root.querySelector('.rt-zone')!;
     root.querySelector('[data-act="char-close"]')!.addEventListener('click', () => this.toggleCharacter(false));
     // Cliques da janela de personagem (delegados; o conteúdo é redesenhado a cada mudança).
     this.charWin.addEventListener('click', (ev) => {
@@ -406,22 +399,6 @@ export class Hud {
       tip.style.top = `${y}px`;
     });
     this.charWin.addEventListener('mouseleave', () => (tip.hidden = true));
-    root.querySelectorAll<HTMLElement>('[data-member]').forEach((w) => {
-      this.memberEls.set(w.dataset.member!, {
-        win: w,
-        hp: w.querySelector('.fill.hp')!,
-        hpTxt: w.querySelector('.hp-txt')!,
-        exp: w.querySelector('.fill.exp')!,
-        expTxt: w.querySelector('.exp-txt')!,
-        lv: w.querySelector('.lv')!,
-        level: 1,
-        souls: w.querySelector('.m-souls b')!,
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-skill]').forEach((s) => {
-      this.slotEls.set(s.dataset.skill!, { slot: s, cd: s.querySelector('.cd')! });
-    });
-
     root.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) =>
       b.addEventListener('click', () => {
         this.select('tool', b);
@@ -562,16 +539,18 @@ export class Hud {
         }
         el.level = m.level;
         el.exp.style.width = `${ef * 100}%`;
-        el.lv.textContent = `Nv. ${m.level}`;
+        el.lv.textContent = String(m.level);
         el.expTxt.textContent = `${Math.floor(ef * 100)}%`;
-      }
-      for (const [key, cdv] of [[m.kind, m.cooldown], [`${m.kind}_basic`, m.basicCooldown], ...Object.entries(m.extra).map(([id, v]) => [`x:${id}`, v] as const)] as const) {
-        const sl = this.slotEls.get(key);
-        if (!sl) continue;
-        const deg = Math.round(cdv * 360);
-        sl.cd.style.background = deg > 0 ? `conic-gradient(rgba(10,14,30,0.72) ${deg}deg, transparent ${deg}deg)` : 'none';
-        sl.slot.classList.toggle('ready', cdv <= 0 && m.alive && s.phase === 'running');
-        sl.slot.classList.toggle('dead', !m.alive);
+        // slots de habilidade (recarga em leque escuro, brilho quando pronta)
+        this.renderSlots(el, m);
+        const cells = [{ cd: m.basic.cd, node: el.basic }, ...m.slots.map((x, i) => ({ cd: x.cd, node: el.slots.children[i] as HTMLElement, skip: x.locked || !x.id }))];
+        for (const c of cells) {
+          if (!c.node || ('skip' in c && c.skip)) continue;
+          const cdEl = c.node.querySelector<HTMLElement>('.cd');
+          const deg = Math.round(c.cd * 360);
+          if (cdEl) cdEl.style.background = deg > 0 ? `conic-gradient(rgba(6,9,22,0.75) ${deg}deg, transparent ${deg}deg)` : 'none';
+          c.node.classList.toggle('ready', c.cd <= 0 && m.alive && s.phase === 'running');
+        }
       }
     }
   }
