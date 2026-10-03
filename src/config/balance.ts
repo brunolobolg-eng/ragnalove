@@ -7,5 +7,8 @@
  * Entra no build: o jogo final usa estes valores.
  */
 export const BALANCE_OVERRIDES: Record<string, unknown> = {
+  "game/combatAI/heroes/assassin/maxCombatMoveDistance": 3.5,
+  "game/combatAI/heroes/mage/maxCombatMoveDistance": 2.5,
+  "game/combatAI/heroes/mage/moveTicks": 5,
   "game/combatAI/heroes/warrior/maxCombatMoveDistance": 3.5
 };
