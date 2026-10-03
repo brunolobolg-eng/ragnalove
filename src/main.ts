@@ -366,6 +366,7 @@ const menu = new MainMenu({
   onStart: () => {
     audio.stopMenuMusic(); // a música do menu é só da tela inicial
     audio.unlock(); // o navegador só libera som após um gesto do jogador
+    audio.preloadMusic([MUSIC.city, MUSIC.battle]);
     hudRoot.classList.remove('menu-options');
     panels.closeAll();
     hudRoot.style.visibility = '';

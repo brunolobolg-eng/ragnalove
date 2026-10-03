@@ -60,9 +60,11 @@ interface MusicTrack {
   fade: number;
   /** true = deve estar tocando (entrando ou cheia). */
   wanted: boolean;
-  /** Velocidade do fade (fração por ms). */
-  rate: number;
-  anim?: number;
+  /** Fade em andamento: volume de partida, início (performance.now) e duração em ms. */
+  from: number;
+  start: number;
+  dur: number;
+  timer?: number;
 }
 
 export class AudioEngine {
@@ -96,18 +98,30 @@ export class AudioEngine {
   playMusic(url: string, fadeMs = 1500): void {
     if (this.currentTrack === url && this.tracks.get(url)?.wanted) return;
     this.currentTrack = url;
-    for (const [u, tr] of this.tracks) if (u !== url) this.fadeTrack(tr, false, fadeMs);
+    for (const [u, tr] of this.tracks) {
+      if (u === url) continue;
+      if (tr.wanted || tr.fade > 0) this.fadeTrack(tr, false, fadeMs);
+      else tr.el?.pause();
+    }
     let tr = this.tracks.get(url);
-    if (!tr) this.tracks.set(url, (tr = { url, fade: 0, wanted: false, rate: 0 }));
-    if (fadeMs <= 0) tr.fade = 1;
+    if (!tr) this.tracks.set(url, (tr = { url, fade: 0, wanted: false, from: 0, start: 0, dur: 0 }));
     this.fadeTrack(tr, true, fadeMs);
     void this.trackReady(tr).then(() => this.tryPlayMusic());
+  }
+
+  /** Lê as faixas para a memória antes de precisar delas (a troca de tela não espera o arquivo). */
+  preloadMusic(urls: string[]): void {
+    for (const url of urls) {
+      let tr = this.tracks.get(url);
+      if (!tr) this.tracks.set(url, (tr = { url, fade: 0, wanted: false, from: 0, start: 0, dur: 0 }));
+      void this.trackReady(tr);
+    }
   }
 
   /** Para toda a música (fade). */
   stopMusic(fadeMs = 1400): void {
     this.currentTrack = undefined;
-    for (const tr of this.tracks.values()) this.fadeTrack(tr, false, fadeMs);
+    for (const tr of this.tracks.values()) if (tr.wanted || tr.fade > 0) this.fadeTrack(tr, false, fadeMs);
   }
 
   /**
@@ -132,6 +146,8 @@ export class AudioEngine {
   private tryPlayMusic = (): void => {
     const plays: Promise<void>[] = [];
     for (const tr of this.tracks.values()) if (tr.wanted && tr.el && tr.el.paused) plays.push(tr.el.play());
+    // segurança: o que não é a faixa atual e já terminou o fade fica parado
+    for (const tr of this.tracks.values()) if (!tr.wanted && !tr.timer && tr.el && !tr.el.paused) tr.el.pause();
     if (!plays.length) return;
     Promise.all(plays).then(
       () => {
@@ -146,33 +162,37 @@ export class AudioEngine {
     );
   };
 
-  /** Leva o volume da faixa até 1 (entrando) ou 0 (saindo; ao chegar em 0 ela pausa e guarda a posição). */
+  /**
+   * Leva o volume da faixa até 1 (entrando) ou 0 (saindo; ao chegar em 0 ela pausa e guarda a posição).
+   * O volume é calculado pelo relógio (início + duração), não somando quadros: um quadro lento ou
+   * travado nunca deixa a faixa "presa" no meio do fade tocando junto com a outra.
+   */
   private fadeTrack(tr: MusicTrack, on: boolean, fadeMs: number): void {
     tr.wanted = on;
-    tr.rate = fadeMs > 0 ? 1 / fadeMs : Infinity;
-    if (tr.anim) return; // o laço já está rodando: só muda o alvo
-    let last = performance.now();
-    const step = (now: number) => {
-      // o carimbo do rAF pode vir antes do performance.now() de quando o fade começou
-      const dt = Math.max(0, now - last);
-      last = Math.max(last, now);
+    tr.from = Number.isFinite(tr.fade) ? tr.fade : on ? 0 : 1;
+    tr.start = performance.now();
+    tr.dur = Math.max(0, fadeMs);
+    if (tr.timer) clearInterval(tr.timer);
+    const step = () => {
       const target = tr.wanted ? 1 : 0;
-      const d = Math.min(Math.abs(target - tr.fade), dt * tr.rate);
-      tr.fade += Math.sign(target - tr.fade) * d;
+      const k = tr.dur > 0 ? Math.min(1, Math.max(0, (performance.now() - tr.start) / tr.dur)) : 1;
+      tr.fade = tr.from + (target - tr.from) * k;
       this.applyMusic();
-      if (tr.fade !== target) {
-        tr.anim = requestAnimationFrame(step);
-        return;
-      }
-      tr.anim = undefined;
+      if (k < 1) return;
+      clearInterval(tr.timer);
+      tr.timer = undefined;
       if (!tr.wanted) tr.el?.pause();
     };
-    tr.anim = requestAnimationFrame(step);
+    tr.timer = window.setInterval(step, 30);
+    step();
   }
 
   private applyMusic(): void {
     const v = this.vol.muted ? 0 : this.vol.master * this.vol.music;
-    for (const tr of this.tracks.values()) if (tr.el) tr.el.volume = Math.min(1, Math.max(0, v * 0.9 * tr.fade));
+    for (const tr of this.tracks.values()) {
+      const f = Number.isFinite(tr.fade) ? tr.fade : 0;
+      if (tr.el) tr.el.volume = Math.min(1, Math.max(0, v * 0.9 * f));
+    }
   }
 
   /** Precisa de um gesto do jogador (clique/tecla) — chamado ao sair da tela de login. */

@@ -343,7 +343,7 @@ export const MUSIC = {
   /** mapas de horda (horda, elite, chefe, sobrevivência) */
   battle: 'audio/batalha.mp3',
   /** duração do crossfade ao trocar de faixa (ms) */
-  fadeMs: 1500,
+  fadeMs: 1000,
 };
 
 export const NODE_ICONS: Record<string, string> = {
