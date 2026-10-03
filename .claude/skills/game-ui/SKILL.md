@@ -40,6 +40,7 @@ Definido no fim de `src/ui/style.css` (bloco "AURENTHAL UI KIT", variáveis `--a
 | Ícones de item / slot vazio | `itemIconUrl`, `itemArtCanvas` (`ui/itemArt.ts`) |
 | Ícones de habilidade | `SKILL_ICONS` (`ui/icons.ts`) |
 | Confirmação | `ui/ConfirmDialog.ts` · Modais de resultado/evento: `ui/RunScreens.ts` |
+| Roleta de prêmio (fita de cartas, borda/brilho por raridade `--rg`, moldura central, raios no prêmio) | `ui/Roulette.ts` |
 | Relatório da Noite (fim de horda: party, desempenho, cidade, recompensas, fase) | `ui/WaveReport.ts` (`NightReport`, VM montado em `nightVM` no main) |
 | Configurações (áudio/vídeo) | `ui/SettingsPanels.ts` |
 

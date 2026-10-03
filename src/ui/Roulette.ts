@@ -1,4 +1,4 @@
-import { RARITIES, RARITY_INFO, SLOTS, itemLines, itemName, type Item, type Rarity } from '../core/progression/equipment';
+import { ITEM_KIND_LABEL, RARITIES, RARITY_INFO, SLOTS, SLOT_LABEL, itemKind, itemLines, type Item, type Rarity } from '../core/progression/equipment';
 import { itemIconUrl } from './itemArt';
 
 /**
@@ -6,7 +6,7 @@ import { itemIconUrl } from './itemArt';
  * até parar no prêmio sob o marcador central. O prêmio já vem decidido (a roleta é só
  * apresentação); os itens de enchimento seguem a proporção das raridades.
  */
-const CARD = 124; // largura de cada carta + espaço
+const CARD = 162; // largura de cada carta + espaço (150 + 12)
 const WIN_INDEX = 46;
 const FILLER_WEIGHTS: Record<Rarity, number> = { common: 40, uncommon: 26, rare: 16, epic: 9, legendary: 6, mythic: 3 };
 
@@ -33,21 +33,24 @@ export class Roulette {
         else cards.push({ id: `f${i}`, slot: i % 3 === 0 ? fillerSlot() : SLOTS[Math.floor(Math.random() * SLOTS.length)], rarity: pickFiller(), rolls: [] });
       }
       this.el.innerHTML = `
-        <div class="win roulette">
-          <div class="win-title"><span>${title}</span><i class="dots"></i></div>
-          <div class="win-body">
-            <p class="rl-sub">${subtitle}</p>
+        <div class="roulette">
+          <i class="rl-emblem" aria-hidden="true"></i>
+          <h2 class="rl-title"><span class="rl-flour">❧</span>${title}<span class="rl-flour r">❧</span></h2>
+          <p class="rl-sub"><i>◆</i>${subtitle}<i>◆</i></p>
+          <div class="rl-rail">
+            <i class="rl-arrow l">‹</i>
             <div class="rl-window"><div class="rl-strip">${cards.map((c) => this.card(c)).join('')}</div><i class="rl-marker"></i></div>
-            <div class="rl-result" hidden></div>
-            <div class="run-btns"><button class="primary" data-k="take" disabled>Girando...</button></div>
+            <i class="rl-arrow r">›</i>
           </div>
+          <div class="rl-result" hidden></div>
+          <div class="rl-btns"><button class="primary rl-take" data-k="take" disabled>Girando...</button></div>
         </div>`;
       this.el.hidden = false;
       const strip = this.el.querySelector<HTMLElement>('.rl-strip')!;
       const win = this.el.querySelector<HTMLElement>('.rl-window')!;
       const btn = this.el.querySelector<HTMLButtonElement>('[data-k="take"]')!;
       const center = win.clientWidth / 2;
-      const jitter = (Math.random() - 0.5) * (CARD * 0.6);
+      const jitter = (Math.random() - 0.5) * (CARD * 0.16); // para dentro da moldura central
       const target = WIN_INDEX * CARD + CARD / 2 - center + jitter;
       const dur = 5200;
       const t0 = performance.now();
@@ -70,9 +73,14 @@ export class Roulette {
         this.sound(good ? 'jackpot' : 'coin');
         strip.children[WIN_INDEX].classList.add('won');
         const res = this.el.querySelector<HTMLElement>('.rl-result')!;
+        const info = RARITY_INFO[prize.rarity];
         const lines = itemLines(prize);
-        res.innerHTML = `<b style="color:${RARITY_INFO[prize.rarity].color}">${itemName(prize)}</b><small>${lines.join(' · ')}</small>`;
+        res.style.setProperty('--rc', info.color);
+        res.innerHTML = `<div class="rl-prize r-${prize.rarity}"><img src="${itemIconUrl(prize)}" alt="">
+            <div><b>${kindName(prize)}${prize.refine ? ` +${prize.refine}` : ''}</b><em>${info.label}</em><small>${SLOT_LABEL[prize.slot]}</small></div></div>
+          <div class="rl-attrs"><h4>Atributos</h4><ul>${lines.map((l) => `<li>${l}</li>`).join('') || '<li>—</li>'}</ul></div>`;
         res.hidden = false;
+        this.el.querySelector('.roulette')!.classList.add('done', `r-${prize.rarity}`);
         btn.disabled = false;
         btn.textContent = 'Pegar ➜';
       };
@@ -87,7 +95,7 @@ export class Roulette {
   private card(it: Item): string {
     const info = RARITY_INFO[it.rarity];
     const url = itemIconUrl(it);
-    return `<div class="rl-card" style="--rc:${info.color}"><img src="${url}" alt=""><span>${info.label}</span></div>`;
+    return `<div class="rl-card r-${it.rarity}" style="--rc:${info.color}"><div class="rl-art"><img src="${url}" alt=""></div><span>${info.label}</span><small>${kindName(it)}</small></div>`;
   }
 }
 
@@ -99,4 +107,9 @@ function pickFiller(): Rarity {
     if (r < 0) return k;
   }
   return 'common';
+}
+
+/** Nome curto do item (tipo: Espada, Capa, Anel...). */
+function kindName(it: Item): string {
+  return ITEM_KIND_LABEL[itemKind(it)] ?? SLOT_LABEL[it.slot];
 }
