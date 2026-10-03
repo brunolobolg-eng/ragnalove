@@ -154,6 +154,18 @@ button:disabled { opacity: 0.45; cursor: default; }
   font: bold 54px Georgia, 'Times New Roman', serif; letter-spacing: 6px;
   -webkit-text-stroke: 2px #1d2540; transition: opacity 0.4s, transform 0.4s;
 }
+/* contagem regressiva até a horda começar sozinha */
+.horde-count { position: fixed; top: 92px; left: 50%; transform: translateX(-50%); z-index: 6; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 26px 6px; border-radius: 10px;
+  background: linear-gradient(180deg, rgba(16, 22, 44, 0.88), rgba(10, 14, 28, 0.88)); border: 1px solid #b8a060;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.45), 0 8px 22px rgba(0,0,0,0.5); text-shadow: 0 2px 2px #000; }
+.horde-count[hidden], #hud.running .horde-count { display: none; }
+.horde-count span { font: 600 13px Cinzel, Georgia, serif; letter-spacing: 0.08em; color: #d8e0f2; }
+.horde-count b { font: 700 38px Cinzel, Georgia, serif; line-height: 1; color: #ffe08a; -webkit-text-stroke: 1px #3a2608; }
+.horde-count b.tick { animation: countTick 0.9s ease-out; }
+.horde-count.urgent { border-color: #ff7a55; }
+.horde-count.urgent b { color: #ff8a5a; }
+@keyframes countTick { 0% { transform: scale(1.45); opacity: 0.4; } 30% { transform: scale(1); opacity: 1; } }
 .banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 .banner.victory { color: #ffe08a; text-shadow: 0 3px 0 #7a4a10, 0 0 24px rgba(255, 190, 60, 0.6); }
 .banner.defeat { color: #ff6a55; text-shadow: 0 3px 0 #5a1208, 0 0 24px rgba(200, 30, 20, 0.6); }

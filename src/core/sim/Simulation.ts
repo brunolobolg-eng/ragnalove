@@ -859,10 +859,24 @@ export class Simulation {
     return undefined;
   }
 
-  /** Tile livre no spawn `i` (ou o mais próximo dele, até GAME_CONFIG.wave.spawnSpread). */
-  spawnTile(i: number): Vec2 | undefined {
+  /**
+   * Tile livre no spawn `i` (ou o mais próximo dele, até GAME_CONFIG.wave.spawnSpread).
+   * Com `scatter`, sorteia (seed da horda) um tile livre até essa distância do portal.
+   */
+  spawnTile(i: number, scatter = 0): Vec2 | undefined {
     const p = GAME_CONFIG.wave.spawnPoints[i];
     if (!p) return undefined;
+    if (scatter > 0) {
+      const free: Vec2[] = [];
+      for (let dy = -scatter; dy <= scatter; dy++)
+        for (let dx = -scatter; dx <= scatter; dx++) {
+          const x = p.x + dx;
+          const y = p.y + dy;
+          // só tiles com caminho até a cidade (não nasce preso atrás de parede)
+          if (this.board.isWalkable(x, y) && !this.unitAt(x, y) && !this.board.isCity(x, y) && this.flow.at(x, y) < FlowField.INF) free.push({ x, y });
+        }
+      if (free.length) return free[this.rng.int(free.length)];
+    }
     const R = GAME_CONFIG.wave.spawnSpread;
     for (let r = 0; r <= R; r++)
       for (let dy = -r; dy <= r; dy++)
@@ -1087,6 +1101,11 @@ export class Simulation {
     this.emit({ type: 'phase', phase: 'victory' });
   }
 
+  /** Leva atual da horda orgânica: quantos ainda saem e por qual portal. */
+  private packLeft = 0;
+  private packSize = 0;
+  private packPortal = 0;
+
   private spawnEnemies(): void {
     const w = GAME_CONFIG.wave;
     if (w.endless) return this.spawnEndless();
@@ -1102,33 +1121,56 @@ export class Simulation {
       this.bossSpawned = true;
       return;
     }
-    // A horda se divide entre os 2 spawns (WAVE_CONFIG.spawnSplit)
-    const first = this.rng.next() < w.spawnSplit ? 0 : 1;
-    let i = first;
-    let t = this.spawnTile(i);
-    if (!t) t = this.spawnTile((i = 1 - first));
-    if (!t) return; // os dois lotados: tenta de novo no próximo tick
-    this.createEnemy(this.rollKind(), t.x, t.y, i);
+    const at = this.packSpawnTile();
+    if (!at) return; // os dois lotados: tenta de novo no próximo tick
+    this.createEnemy(this.rollKind(), at.t.x, at.t.y, at.i);
     this.spawned++;
-    this.nextSpawnTick = this.tick + (this.spawned >= w.count ? w.bossDelayTicks : w.spawnIntervalTicks);
+    this.nextSpawnTick = this.tick + (this.spawned >= w.count ? w.bossDelayTicks : this.packDelay(w.spawnIntervalTicks));
   }
 
   private spawnEndless(): void {
     if (this.tick < this.nextSpawnTick) return;
     const w = GAME_CONFIG.wave;
     const S = GAME_CONFIG.survival;
-    const first = this.rng.next() < w.spawnSplit ? 0 : 1;
-    let i = first;
-    let t = this.spawnTile(i);
-    if (!t) t = this.spawnTile((i = 1 - first));
-    if (!t) return;
+    const at = this.packSpawnTile();
+    if (!at) return;
     const st = this.stage;
     // a cada N estágios entra um mini-chefe
     const kind = st > 0 && st % S.eliteEvery === 0 && st !== this.lastEliteStage ? 'elite' : this.rollKind();
     if (kind === 'elite') this.lastEliteStage = st;
-    this.createEnemy(kind, t.x, t.y, i);
+    this.createEnemy(kind, at.t.x, at.t.y, at.i);
     this.spawned++;
-    this.nextSpawnTick = this.tick + Math.max(S.intervalMin, w.spawnIntervalTicks - Math.floor(st / 2));
+    this.nextSpawnTick = this.tick + this.packDelay(Math.max(S.intervalMin, w.spawnIntervalTicks - Math.floor(st / 2)));
+  }
+
+  /**
+   * Onde nasce o próximo monstro: começa uma leva nova quando a anterior acabou (tamanho e portal
+   * sorteados pela seed) e escolhe um tile livre espalhado em volta do portal.
+   */
+  private packSpawnTile(): { t: Vec2; i: number } | undefined {
+    const O = GAME_CONFIG.wave.organic;
+    if (this.packLeft <= 0) {
+      this.packSize = this.packLeft = O.packMin + this.rng.int(O.packMax - O.packMin + 1);
+      // A horda se divide entre os 2 spawns (WAVE_CONFIG.spawnSplit), leva por leva
+      this.packPortal = this.rng.next() < GAME_CONFIG.wave.spawnSplit ? 0 : 1;
+    }
+    let i = this.packPortal;
+    let t = this.spawnTile(i, O.spawnScatter);
+    if (!t) t = this.spawnTile((i = 1 - this.packPortal), O.spawnScatter);
+    if (!t) return undefined;
+    this.packLeft--;
+    return { t, i };
+  }
+
+  /** Espera até o próximo monstro: curta dentro da leva; no fim dela, uma pausa sorteada (ritmo médio = `interval`). */
+  private packDelay(interval: number): number {
+    const O = GAME_CONFIG.wave.organic;
+    const gap = () => O.packGapMin + this.rng.int(O.packGapMax - O.packGapMin + 1);
+    if (this.packLeft > 0) return gap();
+    // a leva inteira "deve" size × interval; desconta o que já passou entre os monstros dela
+    const avgGap = (O.packGapMin + O.packGapMax) / 2;
+    const f = O.pauseMin + this.rng.next() * (O.pauseMax - O.pauseMin);
+    return Math.max(1, Math.round(this.packSize * interval * f - (this.packSize - 1) * avgGap));
   }
 
   /** Sorteio determinístico do tipo de zumbi pela composição da zona. */
@@ -1276,7 +1318,9 @@ export class Simulation {
         }
         flow = this.partyFlow;
       }
-      const plan = this.planStep(u, flow, breaker);
+      // monstros comuns rumo à cidade "derivam" para os lados: a horda se espalha pelo caminho
+      const drift = breaker || flow !== this.flow ? undefined : this.driftOf(u);
+      const plan = this.planStep(u, flow, breaker, drift);
       // pesado/chefe: obstáculo destrutível no melhor caminho → quebra
       if (plan.breakTarget) {
         const o = plan.breakTarget;
@@ -1301,7 +1345,22 @@ export class Simulation {
   }
 
   /** Escolhe o passo: melhor vizinho livre descendo o campo, o passo ideal e o que está no caminho. */
-  private planStep(u: Unit, f: FlowField, breaker: boolean): { best?: Vec2; heroInWay?: Unit; breakTarget?: MapObject } {
+  /** Deriva atual do monstro (sorteada pela seed da horda e trocada de tempos em tempos). */
+  private driftOf(u: Unit): Vec2 {
+    const O = GAME_CONFIG.wave.organic;
+    if (!u.drift || this.tick >= (u.driftUntil ?? 0)) {
+      if (this.rng.next() < O.straightChance) u.drift = { x: 0, y: 0 };
+      else {
+        const a = this.rng.next() * Math.PI * 2;
+        const k = 0.5 + this.rng.next() * 0.5;
+        u.drift = { x: Math.cos(a) * k, y: Math.sin(a) * k };
+      }
+      u.driftUntil = this.tick + O.driftMin + this.rng.int(O.driftMax - O.driftMin + 1);
+    }
+    return u.drift;
+  }
+
+  private planStep(u: Unit, f: FlowField, breaker: boolean, drift?: Vec2): { best?: Vec2; heroInWay?: Unit; breakTarget?: MapObject } {
     const P = GAME_CONFIG.pathing;
     const here = f.at(u.x, u.y);
     let best: Vec2 | undefined;
@@ -1309,6 +1368,7 @@ export class Simulation {
     let idealCost = Infinity; // melhor passo ignorando ocupação
     let idealOcc: Unit | undefined;
     let breakTarget: MapObject | undefined;
+    const free: { d: Vec2; total: number }[] = [];
     for (const d of DIRS8) {
       const nx = u.x + d.x;
       const ny = u.y + d.y;
@@ -1337,6 +1397,7 @@ export class Simulation {
         breakTarget = undefined;
       }
       if (occ) continue;
+      free.push({ d, total });
       if (total < bestCost) {
         bestCost = total;
         best = d;
@@ -1348,6 +1409,20 @@ export class Simulation {
     if (breakTarget && best && bestCost - idealCost < P.breakCost) breakTarget = undefined;
     // herói "no caminho": ocupa o passo ideal e contornar custaria mais que um passo inteiro
     const heroInWay = idealOcc && idealOcc.team === 'party' && (!best || bestCost - idealCost > P.stepCost) ? idealOcc : undefined;
+    // horda orgânica: entre os passos quase tão bons quanto o melhor (sempre rumo à cidade), segue a deriva
+    if (drift && best && !breakTarget && (drift.x || drift.y) && free.length > 1) {
+      const O = GAME_CONFIG.wave.organic;
+      let score = -Infinity;
+      for (const c of free) {
+        const extra = c.total - bestCost;
+        if (extra > O.wanderSlack) continue;
+        const sc = (c.d.x * drift.x + c.d.y * drift.y) * O.wanderWeight - extra;
+        if (sc > score) {
+          score = sc;
+          best = c.d;
+        }
+      }
+    }
     return { best, heroInWay, breakTarget };
   }
 

@@ -32,7 +32,7 @@ import {
 } from './core/run/run';
 import { OBJECT_RULES } from './core/sim/objects';
 import { NightReport, type NightReportVM } from './ui/WaveReport';
-import { CHARSELECT_ART, POSTFX, VISUAL_CONFIG } from './config/visualConfig';
+import { CHARSELECT_ART, MUSIC, POSTFX, VISUAL_CONFIG } from './config/visualConfig';
 import type { PostFxSituation } from './render/fx/kit/PostFX';
 import type { WaveReport } from './core/sim/types';
 import { SKILL_BY_ID, SKILL_NUM, SKILLS, lvOf, type HeroKind, type SkillId } from './core/progression/skills';
@@ -124,7 +124,7 @@ const audio = new AudioEngine();
 const hudRoot = document.getElementById('hud')!;
 hudRoot.style.visibility = 'hidden';
 audio.setVolumes(settings.value.audio);
-audio.playMenuMusic();
+audio.playMenuMusic(MUSIC.menu);
 
 // ---------- Run (jornada de 3 atos) salva localmente ----------
 const RUN_KEY: SaveKey = 'run';
@@ -471,6 +471,9 @@ const endModal = new Modal('end');
 function setMode(m: Mode): void {
   mode = m;
   document.body.dataset.mode = m;
+  // música da tela: batalha nos mapas de horda; cidade no resto da partida (o menu tem a dele)
+  if (m === 'battle') audio.playMusic(MUSIC.battle, MUSIC.fadeMs);
+  else if (m !== 'menu') audio.playMusic(MUSIC.city, MUSIC.fadeMs);
 }
 
 function closeOverlays(): void {
@@ -607,12 +610,31 @@ function enterBattle(t: NodeType): void {
   hud.setStage(`Fase ${phaseNumber(run)}/${totalPhases()} · ${NODE_LABEL[t]}`, `${reg.name} — ${currentAct(run).name.split(' — ')[0]}`);
   hud.clearLog();
   hud.log(`${reg.name}: ${t === 'boss' ? `${currentAct(run).bossName} aguarda no fim da horda.` : t === 'elite' ? 'um mini-chefe lidera esta horda.' : 'a horda se aproxima.'}`, 'warn');
-  hud.log('Planejamento: posicione a party e a Barreira de Fogo (Espaço inicia).', 'info');
-  hud.log('A horda vem pelos 2 portais roxos e vai direto para o portão da cidade (dourado). Cada inimigo que entrar desconta a vida da cidade.', 'info');
+  hud.log(`Planejamento: posicione a party e a Barreira de Fogo. A horda vem sozinha em ${GAME_CONFIG.wave.autoStartSeconds} s (Espaço inicia antes).`, 'info');
+  hud.log('A horda vem em levas pelos 2 portais roxos, se espalha pelo caminho e vai para o portão da cidade (dourado). Cada inimigo que entrar desconta a vida da cidade.', 'info');
   if (sim.objects.size) hud.log('Objetos brilhando no mapa podem ser usados antes da horda (clique neles).', 'info');
   if (run.dead.length) hud.log(`${run.dead.map((h) => NAME_PT[h]).join(' e ')} está caído e não luta nesta fase.`, 'warn');
   // a câmera começa na party (o jogador pode inspecionar o mapa antes de iniciar)
   focusParty(true);
+  // a horda começa sozinha após a contagem (o jogador pode iniciar antes)
+  autoStartLeft = GAME_CONFIG.wave.autoStartSeconds;
+}
+
+/** Segundos que faltam para a horda começar sozinha (0 = sem contagem). */
+let autoStartLeft = 0;
+let lastCountShown = 0;
+/** Contagem regressiva do planejamento: corre em tempo real (pausa com janelas abertas) e inicia a horda no zero. */
+function tickAutoStart(dt: number, paused: boolean): void {
+  if (mode !== 'battle' || sim.phase !== 'setup') autoStartLeft = 0;
+  if (autoStartLeft > 0 && !paused && !menu.active) {
+    autoStartLeft = Math.max(0, autoStartLeft - dt);
+    if (autoStartLeft === 0) startHorde();
+  }
+  const n = autoStartLeft > 0 ? Math.ceil(autoStartLeft) : 0;
+  if (n === lastCountShown) return;
+  if (n > 0 && n <= 3) audio.sfx('ui'); // tique nos últimos segundos
+  lastCountShown = n;
+  hud.setCountdown(n);
 }
 
 /**
@@ -621,6 +643,7 @@ function enterBattle(t: NodeType): void {
  */
 function startHorde(): void {
   if (sim.phase !== 'setup') return;
+  autoStartLeft = 0;
   if (mode === 'battle' && run.choice) {
     run.battle = { act: run.act, node: run.node, choice: run.choice, setup: structuredClone(sim.setup), loadout: loadout() };
     // a formação fica salva para as próximas hordas (a última e a desta zona)
@@ -875,7 +898,7 @@ function returnToMenu(): void {
   saveProfile();
   hudRoot.style.visibility = 'hidden';
   audio.stopGameMusic();
-  audio.playMenuMusic();
+  audio.playMenuMusic(MUSIC.menu, MUSIC.fadeMs);
   menu.open();
 }
 
@@ -1748,6 +1771,7 @@ function frame(now: number): void {
   if (!menu.active && !run.ended && mode !== 'menu' && mode !== 'select' && mode !== 'end') run.playMs = (run.playMs ?? 0) + dt * 1000;
   const paused = confirmBox.isOpen || skillTree.visible || mode !== 'battle';
   const gdt = paused ? 0 : dt * speed; // pausa com confirmação/árvore abertas ou fora da batalha
+  tickAutoStart(dt, paused);
 
   if (sim.phase === 'running' && !cinePause) {
     acc += gdt;

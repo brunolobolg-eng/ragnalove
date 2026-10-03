@@ -12,7 +12,7 @@ public/models/*.jpg   skins alternativas (ex.: zombie_*.jpg)
 public/sprites/       retratos (portrait_*), cartas/chibis da seleção (cs/), ícones de nó (nodes/),
                       item_icons.png (atlas), cidade/mapa (city_valnor_chibi.jpg, world_aurenthal.jpg),
                       sprites 2D antigos (estilo alternativo leve) + meta.json
-public/audio/         música e sons
+public/audio/         música (menu.mp3, cidade.mp3, batalha.mp3 — escolhidas em MUSIC, visualConfig.ts) e sons
 public/fx/kenney/     texturas de TODOS os efeitos (Kenney Particle Pack, CC0) — geradas por
                       scripts/build_kenney_fx.py; código em render/fx/kit/vfxTextures.ts (fxTexture)
 public/tela-entrada.jpg  arte do menu principal

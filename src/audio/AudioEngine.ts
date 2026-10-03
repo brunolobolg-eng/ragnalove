@@ -1,10 +1,10 @@
 /**
  * Áudio em canais: Mestre → { Música, Efeitos (SFX), Ambiente }.
  *
- * Ainda não há arquivos de som: tudo é sintetizado com Web Audio (placeholders
- * originais). Quando os áudios definitivos chegarem, basta trocar o corpo de
- * `sfx()` / `startMusic()` / `startAmbient()` por buffers carregados — os canais,
- * volumes e o painel de Configurações continuam iguais.
+ * Música: arquivos reais (menu.mp3 na tela inicial, cidade.mp3 no mapa/cidade/eventos,
+ * batalha.mp3 nas hordas), trocados com crossfade por `playMusic`.
+ * Efeitos e ambiente ainda são sintetizados com Web Audio (placeholders originais);
+ * efeitos gravados entram por `playSample`.
  */
 export type SfxName =
   | 'growlWin'
@@ -52,6 +52,19 @@ export interface Volumes {
 /** Evita que 40 zumbis morrendo no mesmo tick virem uma parede de ruído. */
 const MIN_GAP: Partial<Record<SfxName, number>> = { hit: 0.06, enemyDeath: 0.08, soul: 0.05, frostBolt: 0.05, frostHit: 0.05, cityHit: 0.35, sandstorm: 2 };
 
+interface MusicTrack {
+  url: string;
+  el?: HTMLAudioElement;
+  load?: Promise<void>;
+  /** 0..1: volume relativo durante o crossfade. */
+  fade: number;
+  /** true = deve estar tocando (entrando ou cheia). */
+  wanted: boolean;
+  /** Velocidade do fade (fração por ms). */
+  rate: number;
+  anim?: number;
+}
+
 export class AudioEngine {
   private ctx?: AudioContext;
   private master!: GainNode;
@@ -61,81 +74,104 @@ export class AudioEngine {
   private noise!: AudioBuffer;
   private vol: Volumes = { master: 0.8, music: 0.5, sfx: 0.8, ambient: 0.6, muted: false };
   private readonly lastPlay = new Map<SfxName, number>();
-  /** Música da tela inicial (arquivo real); só toca no menu. */
-  private menuTrack?: HTMLAudioElement;
-  private menuFade = 1;
-  private menuWanted = false;
+  /** Faixas de música (arquivos reais), por URL. Só uma fica "desejada" por vez; as outras somem em fade. */
+  private readonly tracks = new Map<string, MusicTrack>();
+  private currentTrack?: string;
+
+  /** Música da tela inicial (por padrão entra na hora, sem fade). */
+  playMenuMusic(url = 'audio/menu.mp3', fadeMs = 0): void {
+    this.playMusic(url, fadeMs);
+  }
+
+  /** Sai do menu: a música some suavemente. */
+  stopMenuMusic(fadeMs = 1400): void {
+    this.stopMusic(fadeMs);
+  }
 
   /**
-   * Começa a música do menu. Na versão desktop toca na hora; no navegador, se o autoplay
-   * for bloqueado, começa no primeiro clique/tecla do jogador ainda na tela inicial.
+   * Troca a música de fundo com crossfade: a faixa atual some e `url` entra.
+   * Chamar de novo com a mesma faixa não reinicia nada. Na versão desktop toca na hora; no
+   * navegador, se o autoplay for bloqueado, começa no primeiro clique/tecla do jogador.
    */
-  playMenuMusic(url = 'audio/menu.mp3'): void {
-    this.menuWanted = true;
-    this.menuFade = 1;
-    this.applyMenu();
-    void this.menuReady(url).then(() => this.tryPlayMenu());
+  playMusic(url: string, fadeMs = 1500): void {
+    if (this.currentTrack === url && this.tracks.get(url)?.wanted) return;
+    this.currentTrack = url;
+    for (const [u, tr] of this.tracks) if (u !== url) this.fadeTrack(tr, false, fadeMs);
+    let tr = this.tracks.get(url);
+    if (!tr) this.tracks.set(url, (tr = { url, fade: 0, wanted: false, rate: 0 }));
+    if (fadeMs <= 0) tr.fade = 1;
+    this.fadeTrack(tr, true, fadeMs);
+    void this.trackReady(tr).then(() => this.tryPlayMusic());
+  }
+
+  /** Para toda a música (fade). */
+  stopMusic(fadeMs = 1400): void {
+    this.currentTrack = undefined;
+    for (const tr of this.tracks.values()) this.fadeTrack(tr, false, fadeMs);
   }
 
   /**
    * O arquivo é lido inteiro para a memória (blob) antes de tocar: o protocolo interno do
    * executável (app://) não faz streaming de mídia, então tocar direto pela URL ficava mudo.
    */
-  private menuLoad?: Promise<void>;
-  private menuReady(url: string): Promise<void> {
-    this.menuLoad ??= fetch(new URL(url, document.baseURI).href)
+  private trackReady(tr: MusicTrack): Promise<void> {
+    tr.load ??= fetch(new URL(tr.url, document.baseURI).href)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.blob();
       })
       .then((b) => {
-        const a = (this.menuTrack = new Audio(URL.createObjectURL(b)));
+        const a = (tr.el = new Audio(URL.createObjectURL(b)));
         a.loop = true;
-        this.applyMenu();
+        this.applyMusic();
       })
-      .catch((err) => console.warn('Música do menu indisponível.', err));
-    return this.menuLoad;
+      .catch((err) => console.warn(`Música ${tr.url} indisponível.`, err));
+    return tr.load;
   }
 
-  private tryPlayMenu = (): void => {
-    const a = this.menuTrack;
-    if (!this.menuWanted || !a) return;
-    a.play().then(
+  private tryPlayMusic = (): void => {
+    const plays: Promise<void>[] = [];
+    for (const tr of this.tracks.values()) if (tr.wanted && tr.el && tr.el.paused) plays.push(tr.el.play());
+    if (!plays.length) return;
+    Promise.all(plays).then(
       () => {
-        window.removeEventListener('pointerdown', this.tryPlayMenu, true);
-        window.removeEventListener('keydown', this.tryPlayMenu, true);
+        window.removeEventListener('pointerdown', this.tryPlayMusic, true);
+        window.removeEventListener('keydown', this.tryPlayMusic, true);
       },
       () => {
         // sem permissão de autoplay: tenta de novo no primeiro gesto do jogador
-        window.addEventListener('pointerdown', this.tryPlayMenu, true);
-        window.addEventListener('keydown', this.tryPlayMenu, true);
+        window.addEventListener('pointerdown', this.tryPlayMusic, true);
+        window.addEventListener('keydown', this.tryPlayMusic, true);
       },
     );
   };
 
-  /** Sai do menu: a música some suavemente e para (não toca durante a partida). */
-  stopMenuMusic(fadeMs = 1400): void {
-    this.menuWanted = false;
-    const a = this.menuTrack;
-    if (!a) return;
-    const t0 = performance.now();
-    const step = () => {
-      if (this.menuWanted) return; // voltou ao menu durante o fade
-      this.menuFade = Math.max(0, 1 - (performance.now() - t0) / fadeMs);
-      this.applyMenu();
-      if (this.menuFade > 0) requestAnimationFrame(step);
-      else {
-        a.pause();
-        a.currentTime = 0;
+  /** Leva o volume da faixa até 1 (entrando) ou 0 (saindo; ao chegar em 0 ela pausa e guarda a posição). */
+  private fadeTrack(tr: MusicTrack, on: boolean, fadeMs: number): void {
+    tr.wanted = on;
+    tr.rate = fadeMs > 0 ? 1 / fadeMs : Infinity;
+    if (tr.anim) return; // o laço já está rodando: só muda o alvo
+    let last = performance.now();
+    const step = (now: number) => {
+      const dt = now - last;
+      last = now;
+      const target = tr.wanted ? 1 : 0;
+      const d = Math.min(Math.abs(target - tr.fade), dt * tr.rate);
+      tr.fade += Math.sign(target - tr.fade) * d;
+      this.applyMusic();
+      if (tr.fade !== target) {
+        tr.anim = requestAnimationFrame(step);
+        return;
       }
+      tr.anim = undefined;
+      if (!tr.wanted) tr.el?.pause();
     };
-    requestAnimationFrame(step);
+    tr.anim = requestAnimationFrame(step);
   }
 
-  private applyMenu(): void {
-    if (!this.menuTrack) return;
+  private applyMusic(): void {
     const v = this.vol.muted ? 0 : this.vol.master * this.vol.music;
-    this.menuTrack.volume = Math.min(1, Math.max(0, v * 0.9 * this.menuFade));
+    for (const tr of this.tracks.values()) if (tr.el) tr.el.volume = Math.min(1, Math.max(0, v * 0.9 * tr.fade));
   }
 
   /** Precisa de um gesto do jogador (clique/tecla) — chamado ao sair da tela de login. */
@@ -161,39 +197,27 @@ export class AudioEngine {
     const d = this.noise.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     this.apply();
-    this.gameMusic = ctx.createGain();
-    this.gameMusic.connect(this.music);
     this.startAmbient();
     this.startGameMusic();
   }
 
-  private gameMusic!: GainNode;
+  /** Partida aberta (fora do menu): libera os sons de ambiente do bioma. */
   private gameMusicOn = false;
-  private gameLoopRunning = false;
 
-  /** Trilha da partida (entra suave ao sair do menu). */
+  /** Entrou na partida: a ambiência do bioma volta a tocar (a música é escolhida por tela, em `playMusic`). */
   startGameMusic(): void {
-    if (!this.ctx) return;
     this.gameMusicOn = true;
-    const t = this.ctx.currentTime;
-    this.gameMusic.gain.cancelScheduledValues(t);
-    this.gameMusic.gain.setTargetAtTime(1, t, 0.6);
-    if (!this.gameLoopRunning) this.startMusic();
   }
 
-  /** Voltando ao menu: a trilha da partida some (o menu tem a própria música). */
+  /** Voltando ao menu: a ambiência da partida para (o menu tem a própria música). */
   stopGameMusic(): void {
-    if (!this.ctx) return;
     this.gameMusicOn = false;
-    const t = this.ctx.currentTime;
-    this.gameMusic.gain.cancelScheduledValues(t);
-    this.gameMusic.gain.setTargetAtTime(0, t, 0.25);
   }
 
   setVolumes(v: Volumes): void {
     this.vol = { ...v };
     this.apply();
-    this.applyMenu();
+    this.applyMusic();
   }
 
   get started(): boolean {
@@ -485,52 +509,6 @@ export class AudioEngine {
     lfo.start();
     this.wind = { gain: g, filter: f };
     if (this.biome) this.setAmbience(this.biome);
-  }
-
-  /** Trilha gerada: acordes menores lentos, pad escuro (placeholder original). */
-  private startMusic(): void {
-    const c = this.ctx!;
-    const chords = [
-      [110, 130.8, 164.8], // Lá menor
-      [87.3, 110, 130.8], // Fá
-      [98, 123.5, 146.8], // Sol
-      [82.4, 98, 123.5], // Mi menor
-    ];
-    const len = 6; // s por acorde
-    const lp = c.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 900;
-    lp.connect(this.gameMusic);
-    let i = 0;
-    this.gameLoopRunning = true;
-    const schedule = () => {
-      if (!this.ctx || !this.gameMusicOn) {
-        this.gameLoopRunning = false;
-        lp.disconnect();
-        return;
-      }
-      const t = c.currentTime + 0.1;
-      for (const f of chords[i % chords.length]) {
-        for (const det of [-6, 6]) {
-          const o = c.createOscillator();
-          o.type = 'sawtooth';
-          o.frequency.value = f;
-          o.detune.value = det;
-          const g = c.createGain();
-          g.gain.setValueAtTime(0.0001, t);
-          g.gain.linearRampToValueAtTime(0.05, t + 2);
-          g.gain.linearRampToValueAtTime(0.0001, t + len + 1.5);
-          o.connect(g).connect(lp);
-          o.start(t);
-          o.stop(t + len + 1.6);
-        }
-      }
-      // nota aguda esparsa por cima
-      if (i % 2 === 0) this.tone(t + 2.5, { type: 'sine', freq: chords[i % chords.length][2] * 4, peak: 0.04, a: 0.4, dec: 2.5, out: lp });
-      i++;
-      window.setTimeout(schedule, len * 1000);
-    };
-    schedule();
   }
 
   /** Efeitos gravados (arquivos): lidos inteiros para a memória — o app:// não faz streaming. */

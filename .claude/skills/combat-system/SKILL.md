@@ -11,6 +11,11 @@ description: Sistema de combate do ROguard — simulação em tempo real determi
 - Grade estilo SQM, 8 direções (ortogonal 10, diagonal 14), diagonal não corta quina.
 - Horda usa **campo de fluxo** único (Dijkstra reverso) rumo à **cidade**; fogo/perigo é custo, não bloqueio.
   Aggro por tipo (`tauntable`, `bypass`, `heavy`, `city`, `hunter`).
+- **Horda orgânica** (`GAME_CONFIG.wave.organic`): monstros saem em **levas** de tamanho/ritmo sorteados
+  (ritmo médio = `spawnIntervalTicks`), nascem espalhados em volta do portal e cada comum tem uma **deriva**
+  (`Unit.drift`) que o faz escolher passos laterais quase tão bons (sempre rumo à cidade). Pesados/chefes/caçadores não derivam.
+  A quantidade de monstros da fase varia ±`countJitter` (`battleFor` em run.ts). Tudo pela seed → determinístico.
+- Planejamento: a horda começa sozinha após `GAME_CONFIG.wave.autoStartSeconds` (contagem na HUD, `tickAutoStart` em main.ts).
 - Heróis: cada classe é um `Archetype` (`update` por tick + `skills` em ordem de prioridade da IA).
 - Tudo que acontece vira `SimEvent` (`damage`, `death`, `soul`, `drop`, `levelup`, `cityHit`, `avoid`...).
 

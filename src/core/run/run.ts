@@ -290,19 +290,22 @@ export function battleFor(r: RunState, type: NodeType): { zone: ZoneDef; wave: W
     dmgMult: act.dmgMult * (1 + 0.06 * r.node) * (first ? 0.8 : 1),
     threatMult: GAME_CONFIG.cityDefense.threatActMult[Math.min(r.act, 2)],
   };
+  // cada fase tem uma quantidade um pouco diferente de monstros (sorteio pela seed da jornada)
+  const J = GAME_CONFIG.wave.organic.countJitter;
+  const jitter = (n: number) => Math.max(1, Math.round(n * (1 + J * (new Rng((wave.seed! ^ 0x5bd1e995) >>> 0).next() * 2 - 1))));
   if (type === 'survival') {
     wave.count = 99999;
     wave.boss = null;
     wave.endless = true;
     wave.hpMult = (wave.hpMult ?? 1) * 0.85;
   } else if (type === 'horde') {
-    wave.count = base;
+    wave.count = jitter(base);
     wave.boss = null;
   } else if (type === 'elite') {
-    wave.count = Math.round(base * 0.65);
+    wave.count = jitter(base * 0.65);
     wave.boss = 'elite';
   } else {
-    wave.count = Math.round(base * 0.7);
+    wave.count = jitter(base * 0.7);
     wave.boss = act.boss;
   }
   return { zone, wave };

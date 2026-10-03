@@ -50,6 +50,9 @@ export interface Unit {
   tauntUntil?: number;
   /** Nasceu em qual spawn (0 ou 1) — só apresentação/estatística. */
   spawnIndex?: number;
+  /** Horda orgânica: lado para onde o monstro tende a andar (vetor; 0 = reto) e até quando. */
+  drift?: Vec2;
+  driftUntil?: number;
   /** Lento (armadilha) até este tick: passos custam `slowMult` vezes mais. */
   slowUntil?: number;
   slowMult?: number;

@@ -337,6 +337,7 @@ export class Hud {
       </div>
 
       <div class="banner"></div>
+      <div class="horde-count" hidden><span>A horda se aproxima em</span><b></b></div>
     `;
     this.el = root;
     this.banner = root.querySelector('.banner')!;
@@ -566,6 +567,20 @@ export class Hud {
 
   clearLog(): void {
     this.logEl.innerHTML = '';
+  }
+
+  /** Contagem regressiva do planejamento (0 esconde). */
+  setCountdown(seconds: number): void {
+    const el = this.el.querySelector<HTMLElement>('.horde-count')!;
+    el.hidden = seconds <= 0;
+    if (seconds <= 0) return;
+    const b = el.querySelector('b')!;
+    b.textContent = String(seconds);
+    el.classList.toggle('urgent', seconds <= 3);
+    // reinicia a animação de "batida" a cada segundo
+    b.classList.remove('tick');
+    void b.offsetWidth;
+    b.classList.add('tick');
   }
 
   showBanner(text: string, kind: 'victory' | 'defeat' | ''): void {

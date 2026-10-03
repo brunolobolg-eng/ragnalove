@@ -334,6 +334,18 @@ export const CHARSELECT_ART = {
 };
 
 /** Ícones dos tipos de fase (escolha do caminho no mapa). Vazio = desenho em canvas. */
+/** Música de fundo de cada tela (arquivos em public/audio). */
+export const MUSIC = {
+  /** tela inicial (login/menu) */
+  menu: 'audio/menu.mp3',
+  /** mapa-múndi, cidade, eventos, escolha de herói e fim de jornada */
+  city: 'audio/cidade.mp3',
+  /** mapas de horda (horda, elite, chefe, sobrevivência) */
+  battle: 'audio/batalha.mp3',
+  /** duração do crossfade ao trocar de faixa (ms) */
+  fadeMs: 1500,
+};
+
 export const NODE_ICONS: Record<string, string> = {
   horde: 'sprites/nodes/horde.png',
   elite: 'sprites/nodes/elite.png',

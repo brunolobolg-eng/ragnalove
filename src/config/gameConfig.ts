@@ -182,6 +182,37 @@ export const GAME_CONFIG = {
     /** Multiplicador da ameaça à cidade (por ato). */
     threatMult: 1,
     endless: false,
+    /** Planejamento: a horda começa sozinha depois destes segundos (contagem na tela). */
+    autoStartSeconds: 10,
+    /**
+     * Horda orgânica: os monstros chegam em LEVAS de tamanho e ritmo sorteados (pela seed da fase),
+     * nascem espalhados em volta do portal e cada um "deriva" para um lado do caminho.
+     * O ritmo MÉDIO continua o de `spawnIntervalTicks` (o balanceamento da zona não muda).
+     */
+    organic: {
+      /** monstros por leva (sorteado entre min e max; a leva inteira sai do mesmo portal) */
+      packMin: 1,
+      packMax: 5,
+      /** ticks entre monstros da mesma leva */
+      packGapMin: 2,
+      packGapMax: 6,
+      /** pausa até a próxima leva = tamanho × intervalo da zona × fator sorteado entre min e max */
+      pauseMin: 0.45,
+      pauseMax: 1.55,
+      /** nascem num tile livre sorteado até esta distância do portal */
+      spawnScatter: 2,
+      /** quanto um passo pode ser "pior" (custo) que o melhor para seguir a deriva do monstro */
+      wanderSlack: 8,
+      /** força da deriva na escolha do passo */
+      wanderWeight: 6,
+      /** chance de um monstro ir reto (sem deriva) a cada sorteio */
+      straightChance: 0.25,
+      /** ticks até o monstro sortear uma nova deriva */
+      driftMin: 15,
+      driftMax: 60,
+      /** variação na quantidade de monstros da fase (±20%) */
+      countJitter: 0.2,
+    },
   },
   /**
    * Vida da cidade (CITY_HP / CITY_THREAT_CONFIG). Funciona como zona de ameaça: cada inimigo que
