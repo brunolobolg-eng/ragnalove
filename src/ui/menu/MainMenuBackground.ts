@@ -4,7 +4,7 @@ export type MenuPiece = keyof typeof M.pieces;
 const PIECES = Object.keys(M.pieces) as MenuPiece[];
 
 /**
- * Fundo do menu principal: a arte `tela-entrada.png` enche a tela toda (sem bordas vazias;
+ * Fundo do menu principal: a arte `tela-entrada.jpg` enche a tela toda (sem bordas vazias;
  * corta um pouco da arte quando a tela não é 16:9). Por cima, peças recortadas da mesma arte —
  * botões (esquerda), Ranking (direita) e slogan — que ficam sempre inteiras na tela: se o corte
  * as pegaria, são empurradas para dentro. As áreas clicáveis e os valores vivos moram dentro

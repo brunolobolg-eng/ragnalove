@@ -5,7 +5,7 @@ import { MainMenuNavigation } from './MainMenuNavigation';
 
 /**
  * Menu principal (jogo 100% offline: sem login, sem contas, sem salvar/carregar manual).
- * A tela é a arte `tela-entrada.png`: COMEÇAR JORNADA, OPÇÕES, INFO e DONATE ♥ já estão
+ * A tela é a arte `tela-entrada.jpg`: COMEÇAR JORNADA, OPÇÕES, INFO e DONATE ♥ já estão
  * desenhados nela — o menu põe por cima as áreas clicáveis (com brilho ao passar/focar),
  * os valores do Ranking e a lista de apoiadores.
  * Só interface: quem decide o que acontece são os ganchos recebidos do main.
