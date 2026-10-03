@@ -51,17 +51,19 @@ if errorlevel 1 (
 
 echo.
 echo [2/3] Baixando do GitHub...
-git fetch -q origin
+rem So baixa a main e a branch do Claude (a branch "fontes" tem zips grandes e fica de fora)
+git fetch --progress origin %BRANCH%
 if errorlevel 1 (
   echo [ERRO] Nao consegui falar com o GitHub. Verifique a internet.
   goto :fim_erro
 )
+git fetch --progress origin %CLAUDE_BRANCH% >nul 2>nul
 
 git merge -q --no-edit origin/%BRANCH%
 if errorlevel 1 goto :conflito
 
 rem --- Tambem traz o trabalho do Claude, se houver ---
-git rev-parse -q --verify "origin/%CLAUDE_BRANCH%" >nul 2>nul
+git rev-parse -q --verify "refs/remotes/origin/%CLAUDE_BRANCH%" >nul 2>nul
 if not errorlevel 1 (
   echo       Trazendo tambem as alteracoes do Claude...
   git merge -q --no-edit "origin/%CLAUDE_BRANCH%"
