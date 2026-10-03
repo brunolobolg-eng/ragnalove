@@ -9,6 +9,37 @@ export const GAME_CONFIG = {
   sim: {
     tickRate: 10, // ticks por segundo (simulação determinística de passo fixo)
   },
+  /**
+   * Mana: capacidade de soltar várias habilidades em sequência. Cada habilidade custa mana
+   * proporcional ao poder; sem mana suficiente ela espera (mesmo pronta). A barra começa cheia
+   * em toda onda e regenera em combate. Ataques básicos físicos (custo 0) nunca dependem de mana.
+   */
+  mana: {
+    /** Mana máxima base por classe (antes de Inteligência e poções). */
+    base: { warrior: 60, mage: 110, archer: 80, sorcerer: 120, warlock: 110, assassin: 70 } as Record<string, number>,
+    /** + mana máxima por ponto de Inteligência acima da base. */
+    perInt: 3,
+    /** Regeneração base por segundo e + por ponto de Inteligência acima da base. */
+    regenPerSec: 6,
+    regenPerInt: 0.2,
+    /** Rolagem "Regeneração de mana" dos itens: cada ponto vale isto em mana/s. */
+    rollRegen: 0.5,
+    /** Custo de cada habilidade (id da habilidade ou chave de recarga). Ausente = 0. */
+    costs: {
+      // Mago
+      frostBolt: 6, fireBarrier: 22, fireBarrier2: 22, fireBarrier3: 22, frostNova: 28, thunderstorm: 40,
+      // Guerreiro (golpes físicos básicos não gastam)
+      taunt: 12, shockwave: 26, fury: 30, shieldWall: 26,
+      // Arqueira (flecha precisa é o ataque básico)
+      arrowRain: 22, piercing: 16, snareTrap: 16, hunterFocus: 26,
+      // Feiticeira
+      arcaneOrb: 8, meteorStrike: 34, chainLightning: 28,
+      // Bruxa
+      lifeDrain: 8, curse: 18, shadowSwarm: 38,
+      // Assassino
+      bladeFan: 18, execute: 26,
+    } as Record<string, number>,
+  },
   /** Grade da zona ativa: paredes bloqueiam andar e visão; vazio (água) só bloqueia andar. O tamanho vem do MAP_CONFIG da zona. */
   board: {
     width: ZONE_MAP.width,
@@ -90,6 +121,16 @@ export const GAME_CONFIG = {
       { id: 'expM', name: 'Poção de EXP média', exp: 150, price: 200 },
       { id: 'expL', name: 'Poção de EXP grande', exp: 500, price: 600 },
     ],
+    /**
+     * Poções permanentes do herói escolhido (a loja tem estoque infinito). `soon` = em breve
+     * (aparece escurecida). `hp`/`mana` somam à vida/mana máxima para sempre nesta jornada.
+     */
+    consumables: [
+      { id: 'life', name: 'Poção de Vida', text: 'Aumenta a vida máxima do herói.', price: 320, hp: 15, color: '#e8384a' },
+      { id: 'mana', name: 'Poção de Mana', text: 'Aumenta a mana máxima do herói.', price: 120, mana: 10, color: '#3a7aff' },
+      { id: 'resist', name: 'Poção de Resistência', text: 'Aumenta a defesa por um tempo.', price: 50, soon: true, color: '#3ac44a' },
+      { id: 'luck', name: 'Elixir de Sorte', text: 'Mais chance de itens raros por um tempo.', price: 120, soon: true, color: '#9a4ae8' },
+    ] as { id: string; name: string; text: string; price: number; hp?: number; mana?: number; soon?: boolean; color: string }[],
     /** Itens básicos à venda (a loja sorteia ao entrar na cidade). */
     shopStock: 4,
     itemPrice: { common: 50, uncommon: 120, rare: 320, epic: 900, legendary: 2500, mythic: 6000 } as Record<string, number>,

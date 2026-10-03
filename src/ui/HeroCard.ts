@@ -12,6 +12,7 @@ export interface HeroCardVM {
   dead: boolean;
   hp: number;
   maxHp: number;
+  maxMana: number;
   /** Ataque da arma (físico ou mágico). */
   atk: number;
   magic: boolean;
@@ -55,6 +56,7 @@ const SVG = {
   atk: '<svg viewBox="0 0 24 24"><path d="M4 20 15 9m-2-4 6-1-1 6M4 4l6 6m4 4 6 6M20 4 9 15m2 4-6 1 1-6"/></svg>',
   dodge: '<svg viewBox="0 0 24 24"><path d="M3 8h11M5 12h12M3 16h9M15 5c4 1 6 4 6 7s-2 6-6 7"/></svg>',
   block: '<svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/></svg>',
+  drop: '<svg viewBox="0 0 24 24"><path d="M12 3s-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11Z"/></svg>',
   heart: '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11Z"/></svg>',
   star: '<svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.8 6.2.9-4.5 4.4 1 6.2L12 17.4 6.5 20.3l1-6.2L3 9.7l6.2-.9Z"/></svg>',
   spark: '<svg viewBox="0 0 24 24"><path d="M12 2v6m0 8v6M2 12h6m8 0h6M5 5l4 4m6 6 4 4M19 5l-4 4m-6 6-4 4"/></svg>',
@@ -142,6 +144,7 @@ export class HeroCard {
               <img src="${h.art}" alt="">
               <div class="hc-bars">
                 <span class="hc-hp">${SVG.heart}<b>${h.dead ? 'Caído' : `${h.hp}/${h.maxHp}`}</b><i style="--p:${hpPct}"></i></span>
+                <span class="hc-hp hc-mp" title="Mana máxima (habilidades gastam mana)">${SVG.drop}<b>${h.dead ? '—' : `${h.maxMana}/${h.maxMana}`}</b><i style="--p:${h.dead ? 0 : 1}"></i></span>
               </div>
             </div>
             <div class="hc-col">${RIGHT.map(slot).join('')}</div>

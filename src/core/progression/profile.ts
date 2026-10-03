@@ -21,6 +21,9 @@ export interface HeroProgress {
   /** Pontos de habilidade livres (1 por nível). */
   skillPoints: number;
   equipment: Partial<Record<Slot, Item>>;
+  /** Vida e mana máximas extras compradas com poções (opcionais: saves antigos não têm). */
+  bonusHp?: number;
+  bonusMana?: number;
 }
 
 export interface Profile {
@@ -113,7 +116,7 @@ export function autoEquip(p: Profile, party: string[], candidates: Item[]): { he
 
 export function heroStats(profile: Profile, kind: string): HeroStats {
   const h = profile.heroes[kind];
-  return computeStats(kind, h.attrs, gearBonus(SLOTS.map((s) => h.equipment[s])), h.skills);
+  return computeStats(kind, h.attrs, gearBonus(SLOTS.map((s) => h.equipment[s])), h.skills, { hp: h.bonusHp, mana: h.bonusMana });
 }
 
 /** Pontos já distribuídos acima da base (podem ser redistribuídos livremente). */

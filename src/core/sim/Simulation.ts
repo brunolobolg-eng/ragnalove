@@ -180,6 +180,7 @@ export class Simulation {
       const lo = loadout[a.id] ?? { stats: computeStats(a.id, ATTRIBUTES_CONFIG.base[a.id], defaultGear(a.id)), level: 1, exp: 0 };
       const u = this.createUnit('party', a.id, m.x, m.y, lo.stats.maxHp);
       u.stats = lo.stats;
+      if (lo.stats.maxMana !== undefined) u.mana = u.maxMana = lo.stats.maxMana;
       u.level = lo.level;
       u.exp = lo.exp;
       this.heroFinal.set(u.kind, { level: u.level, exp: u.exp });
@@ -896,7 +897,7 @@ export class Simulation {
       // velocidade de ataque de teste: encurta as recargas que o arquétipo acabou de marcar
       const speed = this.mods.heroes[u.kind]?.attackSpeed ?? 1;
       const before = speed !== 1 ? { ...u.cooldowns } : undefined;
-      ARCHETYPES[u.kind].update(u, this);
+      this.actWithMana(u);
       if (before) for (const [k, v] of Object.entries(u.cooldowns)) if (v !== before[k] && v > this.tick) u.cooldowns[k] = this.tick + Math.max(1, Math.round((v - this.tick) / speed));
     }
 
@@ -911,7 +912,41 @@ export class Simulation {
 
   // ---------- Internos ----------
 
+  /**
+   * Turno do arquétipo com custo de mana: habilidades sem mana suficiente ficam "em recarga"
+   * só durante este tick (a IA pula para a próxima) e quem foi usada paga o custo.
+   * Uma habilidade conta como usada quando estava pronta e o arquétipo marcou nova recarga.
+   */
+  private actWithMana(u: Unit): void {
+    const costs = GAME_CONFIG.mana.costs;
+    if (u.maxMana === undefined || this.cheats.noCooldowns) return void ARCHETYPES[u.kind].update(u, this);
+    const mana = u.mana ?? 0;
+    const held: Record<string, number | undefined> = {};
+    for (const [k, c] of Object.entries(costs)) {
+      if (c > mana && this.tick >= (u.cooldowns[k] ?? 0)) {
+        held[k] = u.cooldowns[k];
+        u.cooldowns[k] = this.tick + 1;
+      }
+    }
+    const before = { ...u.cooldowns };
+    ARCHETYPES[u.kind].update(u, this);
+    for (const [k, v] of Object.entries(held)) {
+      if (u.cooldowns[k] !== this.tick + 1) continue; // o arquétipo mexeu nela (ex.: recarga compartilhada)
+      if (v === undefined) delete u.cooldowns[k];
+      else u.cooldowns[k] = v;
+    }
+    let spent = 0;
+    for (const [k, v] of Object.entries(u.cooldowns)) {
+      const c = costs[k] ?? 0;
+      if (c > 0 && !(k in held) && v !== before[k] && v > this.tick && this.tick >= (before[k] ?? 0)) spent += c;
+    }
+    if (spent) u.mana = Math.max(0, mana - spent);
+  }
+
   private regen(u: Unit): void {
+    if (u.maxMana !== undefined && (u.mana ?? 0) < u.maxMana) {
+      u.mana = Math.min(u.maxMana, (u.mana ?? 0) + (u.stats?.manaRegenPerSec ?? 0) / GAME_CONFIG.sim.tickRate);
+    }
     const r = (u.stats?.hpRegenPerSec ?? 0) + this.blessRegen;
     const tps = GAME_CONFIG.sim.tickRate;
     if (r > 0 && this.tick % tps === 0 && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + r);

@@ -3,7 +3,7 @@ import type { HeroLoadout } from '../sim/Simulation';
 import { ZONES, type ZoneDef } from '../../config/zones';
 import { ACTS, EVENTS, REGION_BY_ID, type EventDef, type EventEffect, type NodeType, type Region } from '../../config/world';
 import { REFINE, RARITIES, RARITY_INFO, rollItem, type Item, type Rarity, type Slot } from '../progression/equipment';
-import { addExperience, addZeni, createProfile, migrateProfile, resetAttributes, type Profile } from '../progression/profile';
+import { addExperience, addZeni, createProfile, expToNext, migrateProfile, resetAttributes, type Profile } from '../progression/profile';
 import { SKILL_BY_ID, SKILL_ZENI, heroSkills, investedSkillPoints, lvOf, missingRequirements, skillZeniCost, type HeroKind, type SkillId } from '../progression/skills';
 import { Rng } from '../sim/rng';
 import { HERO_INFO, HERO_ORDER, HERO_NAME as HERO_NAMES } from '../../config/heroes';
@@ -400,6 +400,29 @@ export function buyPotion(r: RunState, i: number, hero: HeroKind): number | unde
   const pot = GAME_CONFIG.city.potions[i];
   if (!pot || r.dead.includes(hero) || !spend(r, potionPrice(r, i))) return undefined;
   return addExperience(r.profile, hero, pot.exp);
+}
+
+/** Quantas poções de EXP do tipo `i` faltam para o herói subir ao próximo nível. */
+export function potionsToLevel(r: RunState, i: number, hero: HeroKind): number {
+  const pot = GAME_CONFIG.city.potions[i];
+  const h = r.profile.heroes[hero];
+  if (!pot || !h) return 0;
+  return Math.max(1, Math.ceil((expToNext(h.level) - h.exp) / pot.exp));
+}
+
+export const consumablePrice = (r: RunState, id: string): number => {
+  const c = GAME_CONFIG.city.consumables.find((x) => x.id === id);
+  return c ? Math.round(c.price * priceMult(r)) : 0;
+};
+
+/** Poção permanente (Vida/Mana): soma à vida ou mana máxima do herói. Falso se não comprou. */
+export function buyConsumable(r: RunState, id: string, hero: HeroKind): boolean {
+  const c = GAME_CONFIG.city.consumables.find((x) => x.id === id);
+  const h = r.profile.heroes[hero];
+  if (!c || c.soon || !h || r.dead.includes(hero) || !spend(r, consumablePrice(r, id))) return false;
+  if (c.hp) h.bonusHp = (h.bonusHp ?? 0) + c.hp;
+  if (c.mana) h.bonusMana = (h.bonusMana ?? 0) + c.mana;
+  return true;
 }
 
 /** Minérios originais: Aço Rúnico (armas) e Cristal de Égide (armaduras/acessórios). */

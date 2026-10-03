@@ -73,7 +73,9 @@ export function weaponMult(kind: string, gear: GearBonus): number {
 export interface GearBonus {
   attrs: Attrs;
   hpRegen: number; // HP por segundo
-  cooldownReduction: number; // 0..1 ("regeneração de mana" / velocidade de ataque)
+  cooldownReduction: number; // 0..1 (velocidade de ataque)
+  /** Mana por segundo (rolagem "Regeneração de mana"). */
+  manaRegen: number;
   attackSpeed: number; // 0..1
   block: number; // 0..1
   dodge: number; // 0..1
@@ -87,13 +89,16 @@ export interface GearBonus {
 }
 
 export const emptyAttrs = (): Attrs => ({ str: 0, int: 0, vit: 0, dex: 0, luk: 0 });
-export const emptyGear = (): GearBonus => ({ attrs: emptyAttrs(), hpRegen: 0, cooldownReduction: 0, attackSpeed: 0, block: 0, dodge: 0, damageMult: 1, hpMult: 1, atk: 0, matk: 0 });
+export const emptyGear = (): GearBonus => ({ attrs: emptyAttrs(), hpRegen: 0, cooldownReduction: 0, manaRegen: 0, attackSpeed: 0, block: 0, dodge: 0, damageMult: 1, hpMult: 1, atk: 0, matk: 0 });
 
 /** Status finais usados pela simulação. */
 export interface HeroStats {
   attrs: Attrs; // atributos efetivos (distribuídos + equipamento)
   maxHp: number;
   hpRegenPerSec: number;
+  /** Mana máxima e regeneração por segundo (GAME_CONFIG.mana). */
+  maxMana: number;
+  manaRegenPerSec: number;
   cooldownMult: number; // multiplica todas as recargas
   dodge: number;
   block: number;
@@ -132,7 +137,7 @@ export interface HeroStats {
   skills: SkillLevels;
 }
 
-export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emptyGear(), skills: SkillLevels = {}): HeroStats {
+export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emptyGear(), skills: SkillLevels = {}, bonus: { hp?: number; mana?: number } = {}): HeroStats {
   const fam = familyOf(kind);
   const A = ATTRIBUTES_CONFIG;
   const base = A.base[kind] ?? emptyAttrs();
@@ -167,8 +172,10 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
 
   return {
     attrs,
-    maxHp: Math.round((baseHp + d('vit') * A.vit.hpPerPoint) * gear.hpMult * (1 + iron.hp)),
+    maxHp: Math.round((baseHp + d('vit') * A.vit.hpPerPoint + (bonus.hp ?? 0)) * gear.hpMult * (1 + iron.hp)),
     hpRegenPerSec: gear.hpRegen,
+    maxMana: Math.round((GAME_CONFIG.mana.base[kind] ?? 80) + d('int') * GAME_CONFIG.mana.perInt + (bonus.mana ?? 0)),
+    manaRegenPerSec: Math.round((GAME_CONFIG.mana.regenPerSec + d('int') * GAME_CONFIG.mana.regenPerInt + gear.manaRegen) * 10) / 10,
     cooldownMult,
     dodge: Math.min(A.caps.dodge, d('luk') * A.luk.dodgePerPoint + gear.dodge + step.dodge),
     block: Math.min(A.caps.block, gear.block + shield.block),

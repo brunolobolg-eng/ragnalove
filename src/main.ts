@@ -529,6 +529,7 @@ function heroCardVM(kind: HeroKind): HeroCardVM {
     dead,
     hp: dead ? 0 : st.maxHp,
     maxHp: st.maxHp,
+    maxMana: st.maxMana,
     atk: magic ? gear.matk : gear.atk,
     magic,
     dodge: st.dodge,
@@ -855,6 +856,8 @@ function characterVM(): CharacterVM {
         ['Recarga das habilidades', `−${fmtPct(1 - st.cooldownMult)}`],
         ['Esquiva / Bloqueio', `${fmtPct(st.dodge)} / ${fmtPct(st.block)}`],
         ['Regeneração de vida', `${st.hpRegenPerSec}/s`],
+        ['Mana máxima', String(st.maxMana)],
+        ['Regeneração de mana', `${st.manaRegenPerSec}/s`],
         ['Sorte (drop e raridade)', `${st.luck}`],
       ];
       const cdS = (t: number) => `${(t / GAME_CONFIG.sim.tickRate).toFixed(1)} s`;
@@ -1784,6 +1787,8 @@ function updateStatus(): void {
         kind: k,
         hp: u?.hp ?? 0,
         maxHp: u?.maxHp ?? heroStats(profile, k).maxHp,
+        mana: u ? (u.mana ?? 0) : heroStats(profile, k).maxMana,
+        maxMana: u?.maxMana ?? heroStats(profile, k).maxMana,
         alive: !!u,
         cooldown: u && sim.phase === 'running' ? Math.min(1, Math.max(0, ready - sim.tick) / SKILL_CD(k)) : 0,
         basicCooldown: u && sim.phase === 'running' ? Math.min(1, Math.max(0, (u.cooldowns[BASIC_KEY[k]] ?? 0) - sim.tick) / BASIC_CD(k)) : 0,

@@ -2,16 +2,19 @@ import { GAME_CONFIG } from '../config/gameConfig';
 import { CITY_ART } from '../config/visualConfig';
 import { HERO_NAME } from '../config/heroes';
 import { REFINE, RARITY_INFO, SLOTS, SLOT_GROUP, itemLines, itemName, type Item, type SlotGroup } from '../core/progression/equipment';
-import { attrPointCost, buyPointWithZeni, respecCost, respecWithZeni, spentPoints, absorbSouls, PROGRESSION } from '../core/progression/profile';
+import { attrPointCost, buyPointWithZeni, expToNext, heroStats, respecCost, respecWithZeni, spentPoints, absorbSouls, PROGRESSION } from '../core/progression/profile';
 import {
   ORE_NAME,
   awakenItem,
   buyItem,
+  buyConsumable,
   buyPotion,
+  consumablePrice,
   canAwaken,
   itemPrice,
   orePrice,
   potionPrice,
+  potionsToLevel,
   refineFee,
   refineItem,
   rerollItem,
@@ -51,7 +54,40 @@ const NPCS: { id: NpcId; name: string; tag: string; icon: string; color: string;
   { id: 'priestess', name: 'Irmã Maela', tag: 'Templo e Muralha', icon: '✚', color: '#6a6a7a', accent: '#fff2c0' },
 ];
 const HERO_PT: Record<HeroKind, string> = HERO_NAME;
-const POTION_ICON = ['🧪', '⚗', '🍶'];
+/**
+ * Arte das poções (SVG pintado: vidro, líquido com brilho, rolha). `shape`: 0 frasco pequeno,
+ * 1 frasco redondo, 2 garrafa grande. Mesma arte nas poções de EXP e nas de atributo.
+ */
+function potionArt(color: string, shape: number, id: string): string {
+  const g = `pg-${id}`;
+  const body =
+    shape === 0
+      ? 'M40 34h20v12c10 5 16 14 16 25 0 15-12 23-26 23S24 86 24 71c0-11 6-20 16-25Z'
+      : shape === 1
+        ? 'M42 28h16v14c14 4 24 16 24 30 0 17-14 26-32 26S18 89 18 72c0-14 10-26 24-30Z'
+        : 'M41 22h18v16c9 3 15 9 15 18v32c0 7-5 10-24 10s-24-3-24-10V56c0-9 6-15 15-18Z';
+  const liquidTop = shape === 2 ? 52 : 58;
+  return `<svg class="pot-art" viewBox="0 0 100 104" aria-hidden="true">
+    <defs>
+      <radialGradient id="${g}l" cx="40%" cy="45%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset=".25" stop-color="${color}"/><stop offset="1" stop-color="#05060f"/></radialGradient>
+      <radialGradient id="${g}a" cx="50%" cy="60%" r="50%"><stop offset="0" stop-color="${color}" stop-opacity=".55"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient>
+      <clipPath id="${g}c"><path d="${body}"/></clipPath>
+    </defs>
+    <ellipse cx="50" cy="70" rx="48" ry="34" fill="url(#${g}a)"/>
+    <path d="${body}" fill="rgba(190,215,255,.16)"/>
+    <g clip-path="url(#${g}c)"><rect x="0" y="${liquidTop}" width="100" height="60" fill="url(#${g}l)"/>
+      <ellipse cx="50" cy="${liquidTop}" rx="40" ry="4" fill="#fff" opacity=".35"/>
+      <circle cx="40" cy="${liquidTop + 14}" r="2.4" fill="#fff" opacity=".7"/><circle cx="57" cy="${liquidTop + 22}" r="1.6" fill="#fff" opacity=".6"/><circle cx="48" cy="${liquidTop + 6}" r="1.2" fill="#fff" opacity=".7"/></g>
+    <path d="${body}" fill="none" stroke="rgba(230,240,255,.75)" stroke-width="2.2"/>
+    <path d="M33 ${liquidTop + 4}c-4 6-5 14-3 21" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".55"/>
+    <rect x="${shape === 1 ? 40 : 38}" y="${shape === 2 ? 12 : 20}" width="${shape === 1 ? 20 : 24}" height="${shape === 2 ? 13 : 11}" rx="3" fill="#8a5a2a" stroke="#3a2210" stroke-width="1.5"/>
+    <rect x="${shape === 1 ? 37 : 35}" y="${shape === 2 ? 23 : 29}" width="${shape === 1 ? 26 : 30}" height="5" rx="2.5" fill="#c79d48" stroke="#5a3a10" stroke-width="1.2"/>
+  </svg>`;
+}
+
+/** Cor do líquido de cada poção de EXP (pequena, média, grande). */
+const EXP_POTION_COLOR = ['#ffb43a', '#ffcf3a', '#ff8a1a'];
+
 
 export class CityScreen {
   readonly el: HTMLElement;
@@ -159,6 +195,15 @@ export class CityScreen {
         else {
           this.say(lv ? `${HERO_PT[h]} subiu para o nível ${r.profile.heroes[h].level}!` : `+${GAME_CONFIG.city.potions[Number(b.dataset.i)].exp} EXP`);
           sound = lv ? 'levelup' : 'coin';
+        }
+        break;
+      }
+      case 'cons': {
+        const cn = GAME_CONFIG.city.consumables.find((x) => x.id === b.dataset.id);
+        if (!cn || !buyConsumable(r, cn.id, h)) this.say('Sem Zeni suficiente', false);
+        else {
+          this.say(`${HERO_PT[h]}: ${cn.hp ? `+${cn.hp} de vida máxima` : `+${cn.mana} de mana máxima`}!`);
+          sound = 'coin';
         }
         break;
       }
@@ -292,7 +337,7 @@ export class CityScreen {
     let panel = '';
     if (this.npc) {
       const n = NPCS.find((x) => x.id === this.npc)!;
-      panel = `<div class="svc-veil"><section class="win svc" style="--acc:${n.accent}">
+      panel = `<div class="svc-veil"><section class="win svc svc-${n.id}" style="--acc:${n.accent}">
         <div class="win-title"><i class="au-ico">${n.icon}</i><span>${n.tag} — ${n.name}</span><button class="au-x" data-c="closeNpc" title="Fechar (Espaço)">×</button></div>
         <div class="win-body">${this.service()}<div class="toast ${this.msgKind}">${this.msg}</div></div></section></div>`;
     }
@@ -313,10 +358,29 @@ export class CityScreen {
     const dis = (ok: boolean) => (ok ? '' : ' disabled');
     switch (this.npc!) {
       case 'merchant': {
+        const hp = p.heroes[this.hero];
+        const st = heroStats(p, this.hero);
+        const need = expToNext(hp.level);
+        const counts = GAME_CONFIG.city.potions.map((_, i) => potionsToLevel(r, i, this.hero));
         const pots = GAME_CONFIG.city.potions
           .map((pt, i) => {
             const c = potionPrice(r, i);
-            return `<button class="pot" data-c="potion" data-i="${i}"${dis(z >= c)} title="${pt.name}"><i>${POTION_ICON[i]}</i><b>+${pt.exp} EXP</b><span class="tag"><i class="zeni-ico"></i>${c}</span></button>`;
+            const n = counts[i];
+            return `<div class="pcard exp" style="--pc:${EXP_POTION_COLOR[i]}" title="${pt.name}">
+              ${potionArt(EXP_POTION_COLOR[i], i, `x${i}`)}<b class="pname">${pt.name}</b><strong>+${pt.exp} EXP</strong>
+              <span class="need ${n === 1 ? 'one' : ''}">${n === 1 ? 'Sobe de nível com <b>1</b> poção' : `Nível ${hp.level + 1} com <b>${n}</b> poções`}</span>
+              <button class="price" data-c="potion" data-i="${i}"${dis(z >= c)}><i class="zeni-ico"></i>${c}</button></div>`;
+          })
+          .join('');
+        const cons = GAME_CONFIG.city.consumables
+          .map((cn, i) => {
+            const c = consumablePrice(r, cn.id);
+            const eff = cn.hp ? `+${cn.hp} vida máx. <small>(${st.maxHp} → ${st.maxHp + cn.hp})</small>` : cn.mana ? `+${cn.mana} mana máx. <small>(${st.maxMana} → ${st.maxMana + cn.mana})</small>` : '';
+            const btn = cn.soon
+              ? '<span class="soon">Em breve</span>'
+              : `<button class="price" data-c="cons" data-id="${cn.id}"${dis(z >= c)}><i class="zeni-ico"></i>${c}</button>`;
+            return `<div class="pcard cons ${cn.soon ? 'locked' : ''}" style="--pc:${cn.color}" title="${cn.soon ? 'Em breve, nas próximas atualizações' : cn.name}">
+              ${potionArt(cn.color, i % 3, `c${i}`)}<div class="ptext"><b class="pname">${cn.name}</b><p>${cn.text}</p>${eff ? `<span class="eff">${eff}</span>` : ''}</div>${btn}</div>`;
           })
           .join('');
         const stock = shopStock(r);
@@ -326,8 +390,28 @@ export class CityScreen {
         const sell = p.inventory.length
           ? p.inventory.map((it) => this.itemCard(it, `<button class="price sell" data-c="sell" data-id="${it.id}">+<i class="zeni-ico"></i>${sellPrice(it)}</button>`)).join('')
           : '<div class="empty">Inventário vazio</div>';
-        return `<div class="svc-row"><h4>Poções de EXP para</h4>${this.heroPicker()}</div><div class="pots">${pots}</div>
-          <h4>Comprar</h4><div class="igrid">${buy}</div><h4>Vender</h4><div class="igrid">${sell}</div>`;
+        const best = GAME_CONFIG.city.potions
+          .map((pt, i) => `<b>${counts[i]}×</b> ${pt.name.replace('Poção de EXP ', '')}`)
+          .join(' · ');
+        return `<p class="shop-sub">Itens, equipamentos e tudo o que você precisa para sua jornada.</p>
+          <section class="au-sec shop-exp">
+            <div class="svc-row"><h4>Poções de EXP para</h4>${this.heroPicker()}</div>
+            <div class="shop-hero">
+              <img src="${PORTRAITS[this.hero]}" alt="">
+              <div class="sh-info">
+                <div class="sh-name"><b>${HERO_PT[this.hero]}</b><span>Nv. ${hp.level}</span></div>
+                <div class="sh-bar"><i style="width:${Math.min(100, (hp.exp / need) * 100)}%"></i><span>${hp.exp} / ${need} EXP</span></div>
+                <div class="sh-need">Faltam <b>${need - hp.exp} EXP</b> para o nível ${hp.level + 1}: ${best}</div>
+              </div>
+              <div class="sh-mp" title="Vida e mana máximas">
+                <span class="hp">♥ ${st.maxHp}</span><span class="mp">◆ ${st.maxMana} <small>+${st.manaRegenPerSec}/s</small></span>
+              </div>
+            </div>
+            <div class="pots">${pots}</div>
+          </section>
+          <section class="au-sec"><h4>Comprar</h4><div class="cons-row">${cons}</div>
+            <h4 class="sub">Equipamentos</h4><div class="igrid">${buy}</div></section>
+          <section class="au-sec"><h4>Vender</h4><div class="igrid">${sell}</div></section>`;
       }
       case 'smith': {
         const T = this.forgeTab;
