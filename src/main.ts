@@ -29,7 +29,7 @@ import {
   type RunState,
 } from './core/run/run';
 import { OBJECT_RULES } from './core/sim/objects';
-import { waveReportHtml } from './ui/WaveReport';
+import { NightReport, type NightReportVM } from './ui/WaveReport';
 import { CHARSELECT_ART, POSTFX, VISUAL_CONFIG } from './config/visualConfig';
 import type { PostFxSituation } from './render/fx/kit/PostFX';
 import type { WaveReport } from './core/sim/types';
@@ -452,7 +452,7 @@ function refreshHeroArt(k: HeroKind): void {
   hud.setFullBody(k, FULL_BODY[k]!);
 }
 hud.setParty(run.party, run.dead);
-const resultModal = new Modal('result');
+const resultModal = new NightReport();
 const roulette = new Roulette((n) => audio.sfx(n));
 const eventModal = new Modal('event');
 const endModal = new Modal('end');
@@ -911,6 +911,29 @@ function nightReport(): WaveReport {
   return rep;
 }
 
+/** Dados da tela do Relatório da Noite: party (vida no fim da onda, EXP, quem subiu), itens e fase atual. */
+function nightVM(report: WaveReport, title: string, items: Item[], before: Record<string, number>, extra: { zeniBonus?: number; extraHtml?: string } = {}): NightReportVM {
+  const units = [...sim.units.values()].filter((u) => u.team === 'party');
+  const node = currentNode(run);
+  return {
+    title,
+    report,
+    zeniBonus: extra.zeniBonus,
+    extraHtml: extra.extraHtml,
+    portraits: PORTRAITS,
+    items,
+    heroes: run.party.map((k) => {
+      const h = profile.heroes[k];
+      const u = units.find((x) => x.kind === k);
+      const maxHp = u?.maxHp ?? heroStats(profile, k).maxHp;
+      const dead = run.dead.includes(k) || (u ? !u.alive : false);
+      return { kind: k, level: h.level, leveled: h.level > (before[k] ?? h.level), dead, hp: dead ? 0 : Math.round(u?.hp ?? maxHp), maxHp: Math.round(maxHp), exp: h.exp / expToNext(h.level) };
+    }),
+    phase: { phase: phaseNumber(run), total: totalPhases(), region: REGION_BY_ID[node.region].name, act: currentAct(run).name, node: run.choice ?? 'horde' },
+    bank: { zeni: profile.zeni, souls: profile.souls },
+  };
+}
+
 /** Fim de onda: aplica EXP/níveis/almas/drops no perfil, coleta os itens do chão. */
 function finishWave(): void {
   run.battle = undefined; // a onda terminou: o selo sai junto com o próximo save
@@ -946,11 +969,7 @@ function finishWave(): void {
   const fell = run.party.filter((h) => !run.dead.includes(h) && setup.members.some((m) => m.archetype === h) && !alive.has(h));
   run.dead.push(...fell);
   hud.setCharacter(characterVM());
-  const lvls = run.party.filter((h) => profile.heroes[h].level > before[h]).map((h) => `${NAME_PT[h]} → Nv. ${profile.heroes[h].level}`);
-  const summary =
-    waveReportHtml(report, { zeniBonus: bonus, portraits: PORTRAITS }) +
-    (lvls.length ? `<ul class="run-sum">${lvls.map((l) => `<li>⬆ ${l}</li>`).join('')}</ul>` : '') +
-    newClasses.map((k) => `<div class="unlock"><img src="${PORTRAITS[k] ?? ''}" alt=""><div><b>Nova classe desbloqueada: ${NAME_PT[k]}!</b><small>Disponível ao iniciar uma nova jornada (e como reforço quando um chefe cair).</small></div></div>`).join('');
+  const summary = newClasses.map((k) => `<div class="unlock"><img src="${PORTRAITS[k] ?? ''}" alt=""><div><b>Nova classe desbloqueada: ${NAME_PT[k]}!</b><small>Disponível ao iniciar uma nova jornada (e como reforço quando um chefe cair).</small></div></div>`).join('');
   const node = run.choice ?? 'horde';
   // Chefe de ato derrotado: um novo herói se junta à party
   let unlockHtml = '';
@@ -969,7 +988,7 @@ function finishWave(): void {
     const cityFell = run.cityHp <= 0;
     // mesmo na derrota o relatório da noite aparece antes do fim da jornada
     window.setTimeout(() => {
-      resultModal.show(`Relatório da Noite ${report.night}`, summary, [{ label: 'Continuar ➜', primary: true, onClick: () => (resultModal.hide(), showRunEnd(false, cityFell)) }]);
+      resultModal.show(nightVM(report, `Relatório da Noite ${report.night}`, r.drops, before, { zeniBonus: bonus, extraHtml: summary }), [{ label: 'Continuar ➜', primary: true, onClick: () => (resultModal.hide(), showRunEnd(false, cityFell)) }]);
     }, 1400);
     return;
   }
@@ -1001,7 +1020,7 @@ function finishWave(): void {
     buttons.push({ label: run.dead.length ? 'Seguir sem reviver' : 'Continuar ➜', primary: !run.dead.length, onClick: () => (resultModal.hide(), completeNode(`${node}:vitória`)) });
     const deadTxt = run.dead.length ? `<p class="warn">${run.dead.map((h) => NAME_PT[h]).join(' e ')} caiu. Reviver custa 50% do Zeni (ou faça isso depois, no templo de uma cidade).</p>` : '';
     const head = node === 'boss' ? 'Chefe derrotado! — ' : node === 'elite' ? 'Elite derrotada! — ' : '';
-    resultModal.show(`${head}Relatório da Noite ${report.night}`, unlockHtml + summary + deadTxt, buttons);
+    resultModal.show(nightVM(report, `${head}Relatório da Noite ${report.night}`, firstPrize ? [...r.drops, firstPrize] : r.drops, before, { zeniBonus: bonus, extraHtml: unlockHtml + summary + deadTxt }), buttons);
   }, 1300);
 }
 
@@ -1009,6 +1028,7 @@ function finishWave(): void {
 function finishSurvival(): void {
   const report = nightReport();
   const r = sim.result();
+  const before = Object.fromEntries(run.party.map((h) => [h, profile.heroes[h].level]));
   applyWaveResult(profile, r);
   run.kills += sim.killed;
   run.damage = (run.damage ?? 0) + report.damageDealtByUnit.reduce((s, d) => s + d.amount, 0);
@@ -1023,9 +1043,8 @@ function finishSurvival(): void {
   window.setTimeout(async () => {
     for (let i = 0; i < prizes.length; i++)
       await roulette.spin(`Prêmio da Sobrevivência ${prizes.length > 1 ? `(${i + 1}/${prizes.length})` : ''}`, `Pontuação ${score} · ${sim.killed} abates · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} · estágio ${sim.stage + 1}`, prizes[i]);
-    const summary = `<ul class="run-sum"><li>Pontuação: <b>${score}</b> (abates + tempo)</li><li>Estágio alcançado: ${sim.stage + 1}</li>
-      ${prizes.map((d) => `<li style="color:${RARITY_INFO[d.rarity].color}">◆ ${itemName(d)} <small>(prêmio)</small></li>`).join('')}</ul>${waveReportHtml(report, { portraits: PORTRAITS })}`;
-    resultModal.show(`Sobrevivência — Relatório da Noite ${report.night}`, summary, [{ label: 'Continuar ➜', primary: true, onClick: () => (resultModal.hide(), completeNode(`sobrevivência:${score}`)) }]);
+    const summary = `<ul class="run-sum"><li>Pontuação: <b>${score}</b> (abates + tempo)</li><li>Estágio alcançado: ${sim.stage + 1}</li></ul>`;
+    resultModal.show(nightVM(report, `Sobrevivência — Relatório da Noite ${report.night}`, [...r.drops, ...prizes], before, { extraHtml: summary }), [{ label: 'Continuar ➜', primary: true, onClick: () => (resultModal.hide(), completeNode(`sobrevivência:${score}`)) }]);
   }, 1200);
 }
 

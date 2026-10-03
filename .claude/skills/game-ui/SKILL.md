@@ -28,6 +28,7 @@ description: Interface do ROguard — padrão visual (chibi, fantasia medieval, 
 | Ícones de item / slot vazio | `itemIconUrl`, `itemArtCanvas` (`ui/itemArt.ts`) |
 | Ícones de habilidade | `SKILL_ICONS` (`ui/icons.ts`) |
 | Confirmação | `ui/ConfirmDialog.ts` · Modais de resultado/evento: `ui/RunScreens.ts` |
+| Relatório da Noite (fim de horda: party, desempenho, cidade, recompensas, fase) | `ui/WaveReport.ts` (`NightReport`, VM montado em `nightVM` no main) |
 | Configurações (áudio/vídeo) | `ui/SettingsPanels.ts` |
 
 ## Como fazer uma tela nova
