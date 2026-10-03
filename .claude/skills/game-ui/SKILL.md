@@ -18,6 +18,18 @@ description: Interface do ROguard — padrão visual (chibi, fantasia medieval, 
 - **Aurenthal PostFX** (cena 3D): ver skill `performance` / `render/fx/kit/PostFX.ts`. Presets e gradientes por região
   ficam em `POSTFX` (`config/visualConfig.ts`). Regra: sutil, nunca exagerar.
 
+## AURENTHAL UI KIT — padrão OBRIGATÓRIO (o dono não quer nada fora do padrão)
+Definido no fim de `src/ui/style.css` (bloco "AURENTHAL UI KIT", variáveis `--au-*`). Toda tela de jornada usa SÓ isto:
+- **Botões**: secundário = qualquer `<button>` dentro de `.worldmap/.city-screen/.skilltree-veil/.run-veil/.confirm-win/.nr-veil`
+  (azul-marinho, borda azul clara, hover dourado); `.primary` = dourado com brilho que passa (ação principal: Continuar,
+  Seguir viagem, Refinar, Reviver…); `.danger` = vermelho (Abandonar, ações destrutivas). Nunca criar outro estilo de botão.
+- **Janela**: moldura azul-marinho + borda dourada (`.run-win`, `.confirm-win`, `.svc` já usam); título em Cinzel com
+  `<i class="au-ico">ícone</i>` à esquerda e fechar com `<button class="au-x">×</button>` dourado à direita.
+- **Seções** `.au-sec` + títulos `.au-h` (Cinzel dourado em caixa alta) · **Abas** `.au-tab` (`.on` = dourada) ·
+  **Preço** `.au-price`/`.tag` (pílula escura com borda dourada).
+- Retratos de herói como abas (`.hero-pick .hp`), cartas de item escuras com borda/pílula da raridade (`.icard`).
+- Exceção atual: o HUD de batalha ainda usa a pele clássica clara.
+
 ## Componentes existentes (reaproveite)
 | Componente | Onde |
 |---|---|
