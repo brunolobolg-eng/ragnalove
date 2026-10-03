@@ -16,7 +16,7 @@ export class ConfirmDialog {
         <div class="win-body">
           <p data-text></p>
           <div class="confirm-btns">
-            <button class="confirm-yes" data-yes></button>
+            <button class="confirm-yes danger" data-yes></button>
             <button data-no>Continuar jogando</button>
           </div>
           <small>Enter confirma · Esc cancela</small>

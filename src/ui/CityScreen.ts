@@ -1,7 +1,7 @@
 import { GAME_CONFIG } from '../config/gameConfig';
 import { CITY_ART } from '../config/visualConfig';
 import { HERO_NAME } from '../config/heroes';
-import { REFINE, RARITY_INFO, SLOTS, itemLines, itemName, type Item } from '../core/progression/equipment';
+import { REFINE, RARITY_INFO, SLOTS, SLOT_GROUP, itemLines, itemName, type Item, type SlotGroup } from '../core/progression/equipment';
 import { attrPointCost, buyPointWithZeni, respecCost, respecWithZeni, spentPoints, absorbSouls, PROGRESSION } from '../core/progression/profile';
 import {
   ORE_NAME,
@@ -58,6 +58,7 @@ export class CityScreen {
   private run?: RunState;
   private npc?: NpcId;
   private sel?: string; // item escolhido na forja
+  private forgeTab: SlotGroup | 'all' = 'all';
   private hero: HeroKind = 'warrior';
   private msg = '';
   private msgKind: 'ok' | 'bad' = 'ok';
@@ -170,6 +171,9 @@ export class CityScreen {
       case 'sell':
         this.say(sellItem(r, b.dataset.id!) ? 'Vendido!' : '');
         sound = 'coin';
+        break;
+      case 'ftab':
+        this.forgeTab = b.dataset.t as SlotGroup | 'all';
         break;
       case 'pick':
         this.sel = b.dataset.id;
@@ -289,7 +293,7 @@ export class CityScreen {
     if (this.npc) {
       const n = NPCS.find((x) => x.id === this.npc)!;
       panel = `<div class="svc-veil"><section class="win svc" style="--acc:${n.accent}">
-        <div class="win-title"><span>${n.icon} ${n.tag} — ${n.name}</span><button class="x" data-c="closeNpc" title="Fechar">×</button></div>
+        <div class="win-title"><i class="au-ico">${n.icon}</i><span>${n.tag} — ${n.name}</span><button class="au-x" data-c="closeNpc" title="Fechar (Espaço)">×</button></div>
         <div class="win-body">${this.service()}<div class="toast ${this.msgKind}">${this.msg}</div></div></section></div>`;
     }
     this.el.querySelector('.city-ui')!.innerHTML = `
@@ -326,26 +330,33 @@ export class CityScreen {
           <h4>Comprar</h4><div class="igrid">${buy}</div><h4>Vender</h4><div class="igrid">${sell}</div>`;
       }
       case 'smith': {
-        const list = this.allItems();
+        const T = this.forgeTab;
+        const list = this.allItems().filter(({ it }) => T === 'all' || SLOT_GROUP[it.slot] === T);
+        const tab = (t: SlotGroup | 'all', label: string) => `<button class="au-tab ${T === t ? 'on' : ''}" data-c="ftab" data-t="${t}">${label}</button>`;
         const grid = list.length
           ? list.map(({ it, who }) => `<div data-c="pick" data-id="${it.id}">${this.itemCard(it, '', { who, on: this.sel === it.id })}</div>`).join('')
-          : '<div class="empty">Nenhum equipamento</div>';
+          : '<div class="empty">Nenhum equipamento aqui</div>';
         const it = this.findItem(this.sel);
-        let right = '<div class="empty big">← Escolha um item</div>';
+        let right = '<div class="forge"><h4>Melhorar equipamento</h4><div class="empty big">← Escolha um item</div></div>';
+        let desc = '';
         if (it) {
           const cur = it.refine ?? 0;
           const next = Math.min(REFINE.max, cur + 1);
           const chance = REFINE.chance[next];
           const cost = orePrice(r) + refineFee(it);
-          right = `<div class="forge">
-            <div class="forge-item" style="--rc:${RARITY_INFO[it.rarity].color}"><img src="${this.icon(it)}" alt=""><b>${cur ? `+${cur}` : '+0'}</b></div>
-            ${cur >= REFINE.max ? '<div class="empty">Refino máximo</div>' : `<button class="big-act" data-c="refine"${dis(z >= cost)} title="Gasta 1 ${ORE_NAME(it.slot)} + taxa. A partir de +5 a falha volta 1 nível.">
-              🔨 <b>+${cur} → +${next}</b><span class="chance ${chance < 1 ? 'risk' : ''}">${Math.round(chance * 100)}%</span><span class="tag"><i class="zeni-ico"></i>${cost}</span></button>`}
-            <button class="big-act alt" data-c="reroll"${dis(z >= rerollPrice(r, it))} title="Sorteia os atributos do item de novo">🎲 <b>Roletar atributos</b><span class="tag"><i class="zeni-ico"></i>${rerollPrice(r, it)}</span></button>
+          const info = RARITY_INFO[it.rarity];
+          desc = `<div class="forge-desc" style="--rc:${info.color}"><img class="ic" src="${this.icon(it)}" alt="" width="44" height="44">
+            <div><b>${itemName(it).split(' · ')[0]}</b><em>${info.label}</em><ul>${itemLines(it).map((l) => `<li>${l}</li>`).join('')}</ul></div></div>`;
+          right = `<div class="forge"><h4>Melhorar equipamento</h4>
+            <div class="forge-item" style="--rc:${info.color}"><img src="${this.icon(it)}" alt=""><b>${cur ? `+${cur}` : '+0'}</b></div>
+            ${cur >= REFINE.max ? '<div class="empty">Refino máximo</div>' : `<button class="big-act primary" data-c="refine"${dis(z >= cost)} title="Gasta 1 ${ORE_NAME(it.slot)} + taxa. A partir de +5 a falha volta 1 nível.">
+              <b>Refinar +${cur} → +${next}</b><span class="chance ${chance < 1 ? 'risk' : ''}">${Math.round(chance * 100)}%</span><span class="tag"><i class="zeni-ico"></i>${cost}</span></button>`}
+            <button class="big-act" data-c="reroll"${dis(z >= rerollPrice(r, it))} title="Sorteia os atributos do item de novo">🎲 <b>Roletar atributos</b><span class="tag"><i class="zeni-ico"></i>${rerollPrice(r, it)}</span></button>
             ${next === REFINE.auraFrom && cur < REFINE.auraFrom ? '<div class="hint">+5 acende a aura do herói ✨</div>' : ''}
           </div>`;
         }
-        return `<div class="forge-wrap"><div class="igrid small">${grid}</div>${right}</div>`;
+        return `<div class="au-tabs">${tab('all', 'Todos')}${tab('weapon', '⚔ Armas')}${tab('armor', '🛡 Armaduras')}${tab('accessory', '💍 Acessórios')}</div>
+          <div class="forge-wrap"><div><div class="igrid small">${grid}</div>${desc}</div>${right}</div>`;
       }
       case 'master': {
         const h = this.hero;

@@ -1282,3 +1282,138 @@ body.sand-warn #app::after { opacity: 0.12; }
 .nr-ppic { width: 46px; height: 46px; margin-top: 2px; }
 .nr-pname { min-width: 0; }
 .nr-pname b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* =====================================================================
+ * AURENTHAL UI KIT — padrão ÚNICO de janelas e botões das telas de jornada
+ * (mapa, cidade, árvore de habilidades, eventos, fim de jornada, confirmação,
+ * relatório da noite, janelinha do herói). Telas novas usam estas mesmas classes.
+ *   Botões: secundário (padrão, azul-marinho) · .primary (dourado) · .danger (vermelho)
+ *   Janela: moldura azul-marinho + borda dourada, título em Cinzel, X dourado
+ * ===================================================================== */
+:root {
+  --au-bg1: rgba(22, 34, 72, 0.97); --au-bg2: rgba(9, 14, 34, 0.98); --au-panel: rgba(8, 12, 30, 0.62);
+  --au-gold: #c79d48; --au-gold-hi: #ffd36a; --au-line: #34457e; --au-text: #e9eefc; --au-title: #fff3d6; --au-dim: #a9b4d8;
+}
+/* --- botões (substitui a regra-base clara antiga) --- */
+.worldmap button, .city-screen button, .skilltree-veil button, .run-veil button, .confirm-win button, .nr-veil button {
+  font: inherit; font-size: 12px; padding: 7px 14px; cursor: pointer; color: #f2f5ff; border: 1px solid #6f82c8; border-radius: 8px;
+  background: linear-gradient(180deg, #2a3f86, #182a60); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: border-color .12s, box-shadow .12s, filter .12s, transform .12s; }
+:is(.worldmap, .city-screen, .skilltree-veil, .run-veil, .confirm-win, .nr-veil) button:hover:not(:disabled) { border-color: var(--au-gold-hi); box-shadow: 0 0 10px rgba(255, 196, 80, 0.35); }
+:is(.worldmap, .city-screen, .skilltree-veil, .run-veil, .confirm-win, .nr-veil) button:disabled { opacity: 0.45; filter: grayscale(0.4); cursor: default; }
+.worldmap button.primary, .city-screen button.primary, .skilltree-veil button.primary, .run-veil button.primary, .confirm-win button.primary, .nr-veil .nr-go,
+.city-screen .big-act.primary, .city-screen .city-go {
+  position: relative; overflow: hidden; font-family: Cinzel, serif; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: #2a1405 !important;
+  background: linear-gradient(180deg, #ffe08a, #f0a83a 55%, #c4701e) !important; border: 1.5px solid #ffe6a8 !important;
+  box-shadow: 0 0 0 1.5px #6a3a0a, 0 4px 14px rgba(240, 150, 40, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.6); }
+:is(.worldmap, .city-screen, .skilltree-veil, .run-veil, .confirm-win) button.primary::before, .city-screen .big-act.primary::before {
+  content: ''; position: absolute; top: -10%; bottom: -10%; left: 0; width: 30%; pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0)); animation: fxShine 3.6s ease-in-out infinite; }
+:is(.worldmap, .city-screen, .skilltree-veil, .run-veil, .confirm-win, .nr-veil) button.danger, .hc-actions button.danger {
+  color: #fff3ec !important; background: linear-gradient(180deg, #7a2430, #3a0e16) !important; border: 1px solid #e0805a !important; }
+
+/* --- janelas (moldura padrão) --- */
+.run-veil .run-win, .confirm-win, .city-screen .svc {
+  color: var(--au-text); background: linear-gradient(180deg, var(--au-bg1), var(--au-bg2)); border: 1.5px solid var(--au-gold); border-radius: 12px;
+  box-shadow: 0 0 0 1px #2a1e08, 0 0 0 3px rgba(199, 157, 72, 0.22), 0 18px 50px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(255, 222, 150, 0.12); }
+.run-veil .run-win > .win-title, .confirm-win > .win-title, .city-screen .svc > .win-title {
+  height: auto; min-height: 44px; padding: 8px 14px; gap: 10px; justify-content: flex-start; border-bottom: 1px solid rgba(199, 157, 72, 0.6);
+  background: linear-gradient(180deg, rgba(42, 62, 128, 0.9), rgba(18, 30, 70, 0.9)); font-family: Cinzel, serif; font-size: 18px; letter-spacing: 0.5px; color: var(--au-title); text-shadow: 0 2px 4px #000; }
+.run-veil .run-win > .win-title .dots, .confirm-win > .win-title .dots { display: none; }
+.run-veil .run-win .win-body, .confirm-win .win-body { color: var(--au-text); }
+.run-veil .run-sum, .run-veil p, .confirm-win p { color: var(--au-text); }
+.confirm-win small { color: var(--au-dim) !important; }
+.run-veil .run-btns, .confirm-win .confirm-btns { gap: 10px; }
+/* ícone redondo do título e X dourado */
+.au-ico { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; font-size: 16px; font-style: normal; text-shadow: none;
+  background: radial-gradient(circle at 35% 30%, #34508f, #0f1a3c); box-shadow: 0 0 0 1.5px var(--au-gold), 0 0 8px rgba(255, 211, 106, 0.35); }
+.au-x { all: unset; margin-left: auto; width: 30px; height: 30px; display: grid; place-items: center; cursor: pointer; border-radius: 50%; font: 700 20px/1 Tahoma, sans-serif;
+  color: var(--au-gold-hi); border: 1px solid rgba(199, 157, 72, 0.7); background: rgba(10, 16, 40, 0.8); }
+.au-x:hover { color: #fff; box-shadow: 0 0 10px rgba(255, 196, 80, 0.5); }
+/* seção com título dourado */
+.au-sec { padding: 10px 12px; border-radius: 10px; background: var(--au-panel); border: 1px solid var(--au-line); }
+.au-h { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font: 700 13px Cinzel, serif; letter-spacing: 1px; text-transform: uppercase; color: #ffe6a8; }
+/* abas */
+.au-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.city-screen .au-tab { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 18px; font-family: Cinzel, serif; font-size: 13px; }
+.city-screen .au-tab.on { color: #2a1405; border-color: #ffe6a8; background: linear-gradient(180deg, #ffe08a, #e0a03a); box-shadow: 0 0 10px rgba(255, 196, 80, 0.45); }
+/* etiqueta de preço */
+.au-price, .city-screen .tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 12px; font-weight: bold; color: #fff3d6; background: rgba(6, 10, 28, 0.75); border: 1px solid rgba(199, 157, 72, 0.6); }
+.city-screen .big-act.primary .tag { color: #2a1405; background: rgba(255, 245, 210, 0.55); border-color: rgba(106, 58, 10, 0.5); }
+
+/* ---------- Cidade no padrão (serviços: Loja, Forja, Treino, Almas, Templo) ---------- */
+.city-screen .svc-veil { background: radial-gradient(ellipse at 50% 45%, rgba(8, 12, 30, 0.35), rgba(4, 6, 16, 0.75) 75%); backdrop-filter: blur(1.5px); }
+.city-screen .svc { width: min(900px, 94vw); font-size: 13px; animation: nrUp .2s ease-out; }
+.city-screen .svc .win-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.city-screen .svc h4 { margin: 0; font: 700 13px Cinzel, serif; letter-spacing: 1px; text-transform: uppercase; color: #ffe6a8; }
+.city-screen .empty { color: var(--au-dim); }
+.city-screen .hint { color: var(--au-dim); }
+.city-screen .hint b { color: var(--au-title); }
+.city-screen .toast.ok { color: #9ff0b0; } .city-screen .toast.bad { color: #ff8a7a; }
+/* heróis como abas com retrato */
+.city-screen .hero-pick { gap: 10px; margin: 0; flex-wrap: wrap; }
+.city-screen .hero-pick .hp { padding: 4px 16px 4px 4px !important; border-radius: 30px !important; background: linear-gradient(180deg, rgba(36, 52, 104, 0.95), rgba(16, 26, 60, 0.95)) !important; border: 1px solid #4a5a94 !important; color: var(--au-text) !important; }
+.city-screen .hero-pick .hp img { width: 40px; height: 40px; box-shadow: 0 0 0 1.5px var(--au-gold); }
+.city-screen .hero-pick .hp span { font-family: Cinzel, serif; font-size: 14px; color: var(--au-title); }
+.city-screen .hero-pick .hp small { font-family: Tahoma, sans-serif; color: var(--au-dim); }
+.city-screen .hero-pick .hp.on { border-color: var(--au-gold-hi) !important; box-shadow: 0 0 0 1px var(--au-gold-hi), 0 0 14px rgba(255, 196, 80, 0.45) !important; background: linear-gradient(180deg, rgba(60, 80, 150, 0.95), rgba(26, 40, 90, 0.95)) !important; }
+/* cartas de item: slot escuro com borda da raridade */
+.city-screen .igrid { gap: 10px; }
+.city-screen .icard { width: 112px; padding: 8px 6px 7px; border-radius: 10px; border: 1.5px solid var(--rc); border-bottom-width: 1.5px;
+  background: radial-gradient(circle at 50% 30%, #26387a, #0d1530 75%); box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.6), 0 0 8px color-mix(in srgb, var(--rc) 35%, transparent); color: var(--au-text); }
+.city-screen .icard.on { box-shadow: 0 0 0 2px var(--au-gold-hi), 0 0 16px rgba(255, 211, 106, 0.6); }
+.city-screen .icard span { filter: none; padding: 0 8px; border-radius: 8px; font-size: 10px; color: #10142a; background: var(--rc); }
+.city-screen .icard .rf { color: var(--au-gold-hi); text-shadow: 0 1px 2px #000; }
+.city-screen .icard .price { margin-top: 2px; padding: 4px 6px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; font-weight: bold; }
+.city-screen .price.sell { background: linear-gradient(180deg, #2e6a3a, #164422) !important; border-color: #7ad08a !important; }
+.city-screen .price.soul { background: linear-gradient(180deg, #2a5a6a, #12323e) !important; border-color: #6affe0 !important; }
+.city-screen .igrid.small .icard { width: 96px; }
+.city-screen .igrid.small { align-content: flex-start; max-height: 360px; overflow: auto; padding: 4px; }
+/* poções */
+.city-screen .pot { padding: 10px !important; border-radius: 10px !important; }
+.city-screen .pot b { color: var(--au-title); }
+/* ações grandes */
+.city-screen .acts { gap: 10px; margin: 0; }
+.city-screen .big-act { padding: 12px 14px !important; font-size: 14px !important; border-radius: 10px !important; }
+.city-screen .big-act b { color: inherit; }
+/* forja: abas + grade + painel "Melhorar equipamento" */
+.city-screen .forge-wrap { grid-template-columns: 1fr 290px; gap: 14px; }
+.city-screen .forge { padding: 12px; border-radius: 10px; background: var(--au-panel); border: 1px solid var(--au-line); }
+.city-screen .forge-item { width: 128px; height: 128px; border: 2px solid var(--rc); border-bottom-width: 2px; background: radial-gradient(circle at 50% 35%, #2a4088, #0d1530 75%);
+  box-shadow: 0 0 0 2px #2a1e08, 0 0 18px color-mix(in srgb, var(--rc) 50%, transparent); }
+.city-screen .forge-item b { color: var(--au-gold-hi); text-shadow: 0 1px 3px #000; }
+.city-screen .chance { padding: 1px 8px; border-radius: 10px; background: rgba(40, 140, 70, 0.35); color: #9ff0b0; font-weight: bold; }
+.city-screen .chance.risk { background: rgba(160, 40, 40, 0.35); color: #ffb0a0; }
+.city-screen .forge-desc { padding: 10px 12px; border-radius: 10px; background: var(--au-panel); border: 1px solid var(--au-line); display: flex; gap: 12px; align-items: flex-start; }
+.city-screen .forge-desc b { font-family: Cinzel, serif; font-size: 15px; color: var(--au-title); }
+.city-screen .forge-desc em { font-style: normal; font-size: 10px; padding: 0 8px; border-radius: 8px; color: #10142a; background: var(--rc); margin-left: 6px; }
+.city-screen .forge-desc ul { margin: 4px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; color: #8fc0ff; font-size: 12px; }
+/* muralha e reviver */
+.city-screen .wall-bar { height: 22px; border-radius: 11px; background: #0a1028; border: 1px solid #3a4a80; }
+.city-screen .wall-bar span { line-height: 20px; }
+.city-screen .rv { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px; border-radius: 10px; background: var(--au-panel); border: 1px solid var(--au-line); }
+.city-screen .rv img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; object-position: top; filter: grayscale(1) brightness(0.7); box-shadow: 0 0 0 2px var(--au-gold); }
+.city-screen .rv b { font-family: Cinzel, serif; color: var(--au-title); }
+/* topo da cidade: estandarte com o nome, banco em pílula, botões no padrão */
+.city-screen .city-head h1 { padding: 6px 26px; border-radius: 12px; font-size: 28px; color: var(--au-title);
+  background: linear-gradient(180deg, rgba(22, 34, 72, 0.9), rgba(9, 14, 34, 0.9)); border: 1.5px solid var(--au-gold); box-shadow: 0 0 0 1px #2a1e08, 0 8px 20px rgba(0, 0, 0, 0.5); }
+.city-screen .city-bank { color: var(--au-text); background: linear-gradient(180deg, rgba(22, 34, 72, 0.92), rgba(9, 14, 34, 0.92)); border: 1.5px solid var(--au-gold); border-radius: 24px; padding: 8px 16px; }
+.city-screen .pchip img { box-shadow: 0 0 0 1.5px var(--au-gold); }
+.city-screen .city-spot span { padding: 4px 14px; border-radius: 10px; font: 700 13px Cinzel, serif; color: var(--au-title); background: linear-gradient(180deg, rgba(22, 34, 72, 0.95), rgba(9, 14, 34, 0.95)); border: 1px solid var(--au-gold); opacity: 1; }
+.city-screen .city-spot:hover, .city-screen .city-spot.on { box-shadow: 0 0 0 2px var(--au-gold-hi), 0 0 28px 6px rgba(255, 211, 106, 0.6); }
+.city-screen .city-go { border-radius: 14px !important; animation: none; }
+/* HeroCard e Relatório: mesmos botões do kit */
+.hc-actions button { color: #fff3d6; border: 1px solid #6f82c8; background: linear-gradient(180deg, #2a3f86, #182a60); }
+.hc-actions button:hover { border-color: var(--au-gold-hi); }
+.nr-alt { background: linear-gradient(180deg, #2a3f86, #182a60) !important; border: 1px solid #6f82c8 !important; }
+.confirm-win { width: 380px; font-size: 13px; }
+.confirm-win .confirm-btns button { padding: 9px 0; }
+.city-screen .city-go { position: absolute; }
+.city-screen button.au-x, .run-veil button.au-x, .nr-veil button.au-x { all: unset; margin-left: auto; width: 30px; height: 30px; display: grid; place-items: center; cursor: pointer; border-radius: 50%;
+  font: 700 20px/1 Tahoma, sans-serif; color: var(--au-gold-hi); border: 1px solid rgba(199, 157, 72, 0.7); background: rgba(10, 16, 40, 0.8); }
+.city-screen button.au-x:hover { color: #fff; box-shadow: 0 0 10px rgba(255, 196, 80, 0.5); }
+.city-screen .forge .big-act { font-size: 12.5px !important; gap: 6px; }
+.city-screen .forge .big-act b { white-space: nowrap; }
+.city-screen .big-act.primary .chance { background: rgba(20, 70, 30, 0.75); color: #b8ffc8; }
+.city-screen .big-act.primary .chance.risk { background: rgba(110, 20, 20, 0.75); color: #ffd0c8; }
+.city-screen .big-act.alt { background: linear-gradient(180deg, #2a3f86, #182a60) !important; color: #f2f5ff; }
