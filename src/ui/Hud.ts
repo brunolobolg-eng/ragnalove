@@ -595,6 +595,13 @@ export class Hud {
 
   // ---------- Janela de personagem ----------
 
+  /** Escolhe a aba do herói na janela de personagem. */
+  selectCharacter(kind: HeroKind): void {
+    if (!this.party.includes(kind)) return;
+    this.charKind = kind;
+    if (!this.charWin.hidden) this.renderCharacter();
+  }
+
   toggleCharacter(force?: boolean): void {
     const open = force ?? this.charWin.hidden;
     this.charWin.hidden = !open;

@@ -3,6 +3,7 @@ import type { HeroKind } from '../core/progression/skills';
 import { NODE_COLOR, nodeIconUrl } from './nodeArt';
 import { ACTS, BIOME_LABEL, NODE_LABEL, REGIONS, REGION_BY_ID, type NodeType } from '../config/world';
 import { MAP_ART } from '../config/visualConfig';
+import { HeroCard, type HeroCardVM } from './HeroCard';
 
 /**
  * Mapa-múndi de Aurenthal: terreno pintado em canvas (original), grade de regiões por cima,
@@ -19,7 +20,17 @@ export interface MapState {
   /** Vida da cidade (segundo objetivo da jornada). */
   cityHp?: number;
   cityMaxHp?: number;
-  heroes: { kind: HeroKind; level: number; dead: boolean; points: number; skillPoints: number }[];
+  heroes: {
+    kind: HeroKind;
+    level: number;
+    dead: boolean;
+    points: number;
+    skillPoints: number;
+    maxHp: number;
+    /** Ícone da arma equipada (vazio = sem arma). */
+    weaponIcon?: string;
+    weaponColor?: string;
+  }[];
   /** Regiões já percorridas (em ordem). */
   visited: string[];
   current: string;
@@ -30,8 +41,10 @@ export interface MapState {
 
 export interface MapCallbacks {
   onChoose(t: NodeType): void;
-  onCharacter(): void;
-  onSkills(): void;
+  onCharacter(kind?: HeroKind): void;
+  onSkills(kind?: HeroKind): void;
+  /** Dados da janelinha do herói (clique na party). */
+  heroCard(kind: HeroKind): HeroCardVM;
   onAbandon(): void;
   onRevive(kind: HeroKind): void;
   onUi(): void;
@@ -68,6 +81,7 @@ export class WorldMap {
   private travel?: { from: string; to: string; t: number; done: () => void };
   private painted = false;
   private readonly choices: HTMLElement;
+  private readonly card: HeroCard;
   private walkers: Partial<Record<HeroKind, HTMLImageElement[]>> = {};
   /** arte do mapa, a mesma arte desfocada (névoa) e a camada de névoa recortada a cada quadro */
   private readonly art = new Image();
@@ -93,6 +107,13 @@ export class WorldMap {
     this.panel = this.el.querySelector('.wm-panel')!;
     this.info = this.el.querySelector('.wm-info')!;
     this.choices = this.el.querySelector('.wm-choices')!;
+    this.card = new HeroCard(this.el.querySelector('.wm-frame')!, {
+      onBag: (k) => this.cb.onCharacter(k),
+      onAttributes: (k) => this.cb.onCharacter(k),
+      onSkills: (k) => this.cb.onSkills(k),
+      onAbandon: () => this.cb.onAbandon(),
+      onUi: () => this.cb.onUi(),
+    });
     this.choices.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-a]');
       if (!b || this.travel) return;
@@ -115,6 +136,7 @@ export class WorldMap {
       else if (a === 'skills') this.cb.onSkills();
       else if (a === 'abandon') this.cb.onAbandon();
       else if (a === 'revive') this.cb.onRevive(b.dataset.k as HeroKind);
+      else if (a === 'hero') this.openHero(b.dataset.k as HeroKind);
     });
   }
 
@@ -180,7 +202,20 @@ export class WorldMap {
     this.raf = requestAnimationFrame(loop);
   }
 
+  /** Herói com a janelinha aberta (ou undefined). */
+  get heroOpen(): HeroKind | undefined {
+    return this.card.kind;
+  }
+
+  /** Abre (ou fecha, se já aberta) a janelinha do herói. */
+  openHero(kind: HeroKind): void {
+    if (this.card.kind === kind) return this.card.close();
+    this.card.open(this.cb.heroCard(kind));
+    this.panel.querySelectorAll('.wm-hero').forEach((r) => r.classList.toggle('on', (r as HTMLElement).dataset.k === kind));
+  }
+
   hide(): void {
+    this.card.close();
     this.el.hidden = true;
     this.info.hidden = true;
     cancelAnimationFrame(this.raf);
@@ -214,15 +249,20 @@ export class WorldMap {
       <div class="wm-ch-head"><span>${act.name} · Fase ${s.phase} de ${s.totalPhases}</span><b>${s.options.length > 1 ? 'Escolha o caminho' : 'Próxima fase'}</b></div>
       <div class="wm-ch-row">${cards}</div>
       <button class="wm-fold" data-a="fold"><span class="a">Ver o mapa ▾</span><span class="b">Escolher caminho ▴</span></button>`;
+    const open = this.card.kind;
     const heroes = s.heroes
       .map(
-        (h) => `<div class="wm-hero ${h.dead ? 'dead' : ''}">
-          <img src="${PORTRAITS[h.kind] ?? ''}" alt=""><span><b>${HERO_NAME[h.kind]}</b> Nv. ${h.level}
-          ${h.points ? `<em class="pt">${h.points} atr.</em>` : ''}${h.skillPoints ? `<em class="pt sk">${h.skillPoints} hab.</em>` : ''}</span>
+        (h) => `<div class="wm-hero ${h.dead ? 'dead' : ''} ${open === h.kind ? 'on' : ''}" data-a="hero" data-k="${h.kind}" title="Ver equipamento e status">
+          <img class="wm-pic" src="${PORTRAITS[h.kind] ?? ''}" alt="">
+          <span class="wm-who"><b>${HERO_NAME[h.kind]}</b><small>Nv. ${h.level}</small>
+            <span class="wm-chips"><em class="hp">♥ ${h.dead ? 0 : h.maxHp}/${h.maxHp}</em>${h.points ? `<em class="pt">${h.points} atr.</em>` : ''}${h.skillPoints ? `<em class="pt sk">${h.skillPoints} hab.</em>` : ''}</span>
+          </span>
+          ${h.weaponIcon ? `<img class="wm-wpn" src="${h.weaponIcon}" alt="" style="--rc:${h.weaponColor}">` : '<i class="wm-wpn none"></i>'}
           ${h.dead ? `<button data-a="revive" data-k="${h.kind}" ${s.zeni > 0 ? '' : 'disabled'} title="Reviver custa 50% do Zeni">Reviver (${s.reviveCost} z)</button>` : ''}
         </div>`,
       )
       .join('');
+    if (this.card.kind) this.card.open(this.cb.heroCard(this.card.kind));
     this.panel.innerHTML = `
       <div class="win wm-card">
         <div class="win-title"><span>${act.name}</span><i class="dots"></i></div>
