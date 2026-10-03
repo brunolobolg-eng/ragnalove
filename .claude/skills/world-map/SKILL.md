@@ -34,7 +34,7 @@ Jornada (RunState)
 - A UI do mapa não decide caminho; mostra `options` do nó e chama `onChoose`.
 
 ## Mapas pintados (arte do dono como chão)
-- `ZoneDef.painted = { image, fx }` (ex.: `ZONES.serene`, Floresta Serena 80×40, usada nas fases de combate do Ato I).
+- `ZoneDef.painted = { image, fx }` (ex.: `ZONES.serene`, Floresta Serena 80×40 — pronta, mas hoje fora da jornada: o dono preferiu voltar aos mapas 3D).
   A imagem (`public/maps/*.webp`) cobre a grade inteira; a grade (`map`) só diz onde se anda (T = bloqueado, ~ = rio,
   g = porta da cidade). Render: `render/scenery/PaintedScenery.ts` (pintura sem luz, plano de sombras, tochas, névoa, brilho).
 - Câmera: `Stage.setPainted` — sem névoa, zoom em `VISUAL_CONFIG.cameraControl.painted`, presa dentro da pintura; sem giro.

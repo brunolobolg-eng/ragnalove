@@ -3,7 +3,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { ParsedZone } from '../../config/zones';
 import type { ParticleLayer } from '../fx/Particles';
 import { softCircle } from '../textures';
-import { bridgeDeckTexture, bridgeSideTexture, plazaTexture, roofTexture, wallBlockTexture, woodTexture } from './bridgeTextures';
+import { bridgeDeckTexture, bridgeSideTexture, plazaTexture, wallBlockTexture, woodTexture } from './bridgeTextures';
+import { grassTileTexture } from './sceneryTextures';
+import { placeProp } from './props';
 
 /**
  * Zona 1 — o fim da ponte de pedra, diante das muralhas da cidade, à noite.
@@ -211,78 +213,29 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
     // carroça virada de lado, ocupando os tiles 'c'
     const cx = cartTiles.reduce((s, p) => s + X(p.x), 0) / cartTiles.length;
     const cz = cartTiles.reduce((s, p) => s + Z(p.y), 0) / cartTiles.length;
-    const cart = new THREE.Group();
-    cart.position.set(cx, 0, cz);
-    cart.rotation.y = 0.18;
-    const bed = shadow(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.7, 1.7), wood));
-    bed.position.set(0.3, 0.35, 0);
-    const sideA = shadow(new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 1.7), wood));
-    sideA.position.set(0.02, 0.04, 0);
-    const sideB = shadow(new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 1.7), wood));
-    sideB.position.set(0.02, 0.66, 0);
-    const back = shadow(new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.7, 0.08), wood));
-    back.position.set(0.02, 0.35, 0.82);
-    cart.add(bed, sideA, sideB, back);
-    // roda presa (vertical, deitada no plano do carro) e roda solta no chão
-    const wheel = (): THREE.Group => {
-      const g = new THREE.Group();
-      g.add(shadow(new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.05, 6, 16), wood)));
-      for (let i = 0; i < 4; i++) {
-        const sp = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.64, 0.04), wood);
-        sp.rotation.z = (i * Math.PI) / 4;
-        g.add(sp);
-      }
-      g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 8).rotateX(Math.PI / 2), iron));
-      return g;
-    };
-    const w1 = wheel();
-    w1.position.set(0.42, 0.35, -0.5);
-    w1.rotation.y = Math.PI / 2;
-    const w2 = wheel();
-    w2.position.set(-0.6, 0.06, 0.7);
-    w2.rotation.x = -Math.PI / 2 + 0.1;
-    cart.add(w1, w2);
-    // carga espalhada: sacos e caixotes
-    const sackMat = lambert({ color: 0xa08a64 });
-    for (const [x, z, s] of [
-      [-0.35, -0.4, 0.2],
-      [-0.5, 0.1, 0.17],
-      [-0.2, 0.45, 0.15],
-    ]) {
-      const sack = shadow(new THREE.Mesh(new THREE.SphereGeometry(s, 8, 6), sackMat));
-      sack.scale.set(1.2, 0.7, 0.9);
-      sack.position.set(x, s * 0.6, z);
-      cart.add(sack);
-    }
-    const crate = shadow(new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.34), wood));
-    crate.position.set(-0.45, 0.17, -0.85);
-    crate.rotation.y = 0.5;
-    cart.add(crate);
-    props.add(cart);
+    // carroça tombada de lado (peça Kenney) com a carga espalhada
+    placeProp(props, 'town/cart-high', cx, cz, { y: 0.45, rot: 0.18, scale: 1.25, tiltZ: Math.PI / 2 - 0.15 });
+    placeProp(props, 'town/wheel', cx - 0.9, cz + 0.6, { y: 0.05, rot: 0.6, scale: 1.4, tiltZ: Math.PI / 2 });
+    placeProp(props, 'survival/box-large', cx - 0.6, cz - 0.8, { rot: 0.5, scale: 2 });
+    placeProp(props, 'survival/box', cx - 0.9, cz + 0.05, { rot: 1.2, scale: 2 });
+    placeProp(props, 'survival/barrel', cx + 0.7, cz + 0.85, { y: 0.27, rot: 0.3, scale: 2, tiltX: Math.PI / 2 });
   }
-  for (const p of zone.props.filter((q) => q.kind === 'rubble')) addRocks(new THREE.Vector3(X(p.x), 0, Z(p.y)), 9, 0.8, 0.22);
+  // escombros: pedras soltas, tábuas e caixotes quebrados (peças Kenney)
+  for (const p of zone.props.filter((q) => q.kind === 'rubble')) {
+    const x = X(p.x);
+    const z = Z(p.y);
+    placeProp(props, r() < 0.5 ? 'castle/rocks-small' : 'castle/rocks-large', x, z, { rot: r() * 6.28, scale: 0.75 + r() * 0.2, tint: ROCK_TINT });
+    if (r() < 0.6) placeProp(props, 'survival/resource-planks', x + (r() - 0.5) * 0.5, z + (r() - 0.5) * 0.5, { y: 0.05, rot: r() * 6.28, scale: 2, tiltZ: 0.15 });
+    if (r() < 0.35) placeProp(props, 'survival/box-open', x + (r() - 0.5) * 0.6, z + (r() - 0.5) * 0.6, { rot: r() * 6.28, scale: 2.2, tiltX: 0.3 });
+  }
+  // barris e caixotes (peças Kenney)
   for (const p of zone.props.filter((q) => q.kind === 'barrels')) {
-    const g = new THREE.Group();
-    g.position.set(X(p.x), 0, Z(p.y));
-    const barrel = (x: number, z: number, lying = false) => {
-      const b = new THREE.Group();
-      const body = shadow(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.52, 12), wood));
-      const bulge = shadow(new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.3, 12), wood));
-      const hoop1 = new THREE.Mesh(new THREE.TorusGeometry(0.215, 0.018, 4, 14).rotateX(Math.PI / 2), iron);
-      hoop1.position.y = 0.17;
-      const hoop2 = hoop1.clone();
-      hoop2.position.y = -0.17;
-      b.add(body, bulge, hoop1, hoop2);
-      if (lying) {
-        b.rotation.z = Math.PI / 2;
-        b.position.set(x, 0.23, z);
-      } else b.position.set(x, 0.26, z);
-      g.add(b);
-    };
-    barrel(-0.18, -0.15);
-    barrel(0.2, 0.05);
-    barrel(-0.05, 0.32, true);
-    props.add(g);
+    const x = X(p.x);
+    const z = Z(p.y);
+    placeProp(props, 'survival/barrel', x - 0.2, z - 0.15, { rot: r() * 6.28, scale: 2.2 });
+    placeProp(props, 'survival/barrel', x + 0.22, z + 0.05, { rot: r() * 6.28, scale: 2.2 });
+    placeProp(props, 'survival/barrel-open', x - 0.05, z + 0.35, { y: 0.27, rot: r() * 6.28, scale: 2.2, tiltX: Math.PI / 2 });
+    placeProp(props, 'survival/box', x + 0.35, z - 0.35, { rot: r() * 6.28, scale: 2.2 });
   }
   if (rockGeos.length) root.add(shadow(new THREE.Mesh(mergeGeometries(rockGeos)!, rockMat)));
   root.add(props);
@@ -331,41 +284,27 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
     banners.push(flag);
   }
   root.add(gate);
-  // torres redondas nas pontas da praça
-  for (const tx of [plazaL - 0.4, plazaR + 0.4]) {
-    const t = new THREE.Group();
-    t.position.set(tx, 0, wallZ + 0.4);
-    const tex = wallBlockTexture(44);
-    tex.repeat.set(3, 1.2);
-    const body = shadow(new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.1, 1.9, 16), lambert({ map: tex })));
-    body.position.y = 0.95;
-    const cone = shadow(new THREE.Mesh(new THREE.ConeGeometry(1.25, 1.0, 16), lambert({ map: roofTexture() })));
-    cone.position.y = 2.4;
-    t.add(body, cone);
-    root.add(t);
+  // torres de pedra nas pontas da praça (castelo Kenney: base + telhado alto) com estandarte
+  for (const tx of [plazaL - 0.6, plazaR + 0.6]) {
+    placeProp(root, 'castle/tower-square-base', tx, wallZ + 0.4, { scale: 2.3 });
+    placeProp(root, 'castle/tower-square-top-roof-high', tx, wallZ + 0.4, { y: 2.3, scale: 2.3 });
+    placeProp(root, 'castle/flag-banner-long', tx + (tx < 0 ? 1.2 : -1.2), wallZ - 0.4, { scale: 1.2, rot: Math.PI / 2 });
   }
+  // balestras de defesa no alto da muralha
+  for (const bx of [plazaL + 5, plazaR - 5]) placeProp(root, 'castle/siege-ballista', bx, wallZ + 0.5, { y: 1.3, rot: Math.PI, scale: 1.1 });
+
 
   // ---------------- Água escura com reflexo da lua e das estrelas ----------------
   const waterMat = waterMaterial({ deckL, deckR, plazaL, plazaR, plazaN, wallZ, pierZ0: plazaN - 2.5 });
   const water = new THREE.Mesh(new THREE.PlaneGeometry(W + 110, H + 90, 1, 1).rotateX(-Math.PI / 2), waterMat);
   water.position.set(0, WATER_Y, -12);
   root.add(water);
-  // névoa rasteira sobre a água
-  const mistTex = softCircle();
-  const mists: { m: THREE.Mesh; speed: number; x0: number }[] = [];
-  for (let i = 0; i < 26; i++) {
-    const m = new THREE.Mesh(
-      new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ map: mistTex, color: 0x8ea0c8, transparent: true, opacity: 0.12 + r() * 0.1, depthWrite: false }),
-    );
-    const side = i % 2 ? 1 : -1;
-    m.scale.set(4 + r() * 5, 1, 2.5 + r() * 3);
-    const x0 = side * (deckR + 2 + r() * 6);
-    m.position.set(x0, WATER_Y + 0.4 + r() * 0.8, FAR_Z * 0.6 + r() * (H + 10));
-    m.renderOrder = 1;
-    root.add(m);
-    mists.push({ m, speed: 0.15 + r() * 0.25, x0 });
-  }
+  // (a névoa agora é de partículas rentes à água; as antigas manchas pareciam poças flutuando)
+  const mistSpots: THREE.Vector3[] = [];
+  for (let i = 0; i < 14; i++) mistSpots.push(new THREE.Vector3((i % 2 ? 1 : -1) * (deckR + 2 + r() * 10), WATER_Y + 0.15, FAR_Z * 0.6 + r() * (H + 10)));
+
+  // ---------------- Margens do rio: barrancos, mata e o acampamento dos refugiados ----------------
+  buildBanks(root, { W, H, X, Z, FAR_Z, plazaN, wallZ, deckL, deckR, r });
 
   // ---------------- Fogo: braseiros, lanternas e tochas ----------------
   const lights: THREE.PointLight[] = [];
@@ -386,6 +325,9 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
     }
     flames.push({ pos, size, light, glow, phase: r() * 10 });
   };
+  // fogueiras do acampamento nas margens
+  for (const f of BANK_FIRES) addFlame(f, 0.4, true);
+  for (const l of BANK_LANTERNS) addFlame(l, 0.12, false);
   const brazier = (x: number, z: number) => {
     const g = new THREE.Group();
     g.position.set(x, 0, z);
@@ -543,10 +485,10 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
         for (const s of smokeSources)
           particles.smoke.emit({ pos: s, posJitter: 0.6, vel: new THREE.Vector3(0.25, 0.9, 0), velJitter: 0.2, life: 6, size: 1.4, sizeEnd: 3.8, color: C_SMOKE, alpha: 0.5, drag: 0.05 });
       }
-      // névoa derivando
-      for (const m of mists) {
-        m.m.position.x = m.x0 + Math.sin(t * m.speed) * 1.5;
-      }
+      // névoa rasteira sobre a água (partículas lentas, sempre encostadas na superfície)
+      if (smokeAcc === 0)
+        for (const m of mistSpots)
+          particles.smoke.emit({ pos: m, posJitter: 2.5, vel: new THREE.Vector3(0.2, 0.05, 0), velJitter: 0.1, life: 7, size: 2.2, sizeEnd: 4.5, color: new THREE.Color(0.55, 0.62, 0.78), alpha: 0.07, count: 1 });
       // estandartes ondulando
       for (const b of banners) {
         const pos = b.geometry.attributes.position as THREE.BufferAttribute;
@@ -603,10 +545,10 @@ function waterMaterial(L: WaterLayout): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
-      uDeep: { value: new THREE.Color(0x02050b) },
-      uMid: { value: new THREE.Color(0x0b1a30) },
-      uSkyLow: { value: new THREE.Color(0x24366a) },
-      uSkyHigh: { value: new THREE.Color(0x3a3f7a) },
+      uDeep: { value: new THREE.Color(0x061a2e) },
+      uMid: { value: new THREE.Color(0x15466a) },
+      uSkyLow: { value: new THREE.Color(0x3a5a96) },
+      uSkyHigh: { value: new THREE.Color(0x5a6aa8) },
       uMoon: { value: new THREE.Color(0.8, 0.9, 1.2) },
       uMoonDir: { value: new THREE.Vector3(0.3, 0.75, -0.6).normalize() },
       uFog: { value: new THREE.Color(0x0a1020) },
@@ -696,7 +638,10 @@ function waterMaterial(L: WaterLayout): THREE.ShaderMaterial {
         float wd = max(dot(R, warmDir), 0.0);
         col += uFire * (pow(wd, 30.0) * 0.3 + pow(wd, 260.0) * smoothstep(0.4, 0.85, noise(p * 4.5 - uTime * 0.6)) * 1.1);
         // crista das ondas levemente clara (lê o movimento da água dos dois lados)
-        col += uSkyHigh * smoothstep(0.35, 0.75, h0) * 0.12;
+        col += uSkyHigh * smoothstep(0.35, 0.75, h0) * 0.22;
+        // correnteza: estrias claras descendo o rio (a água "anda")
+        float flow = noise(vec2(p.x * 0.7, p.y * 0.18 - uTime * 0.5));
+        col += vec3(0.25, 0.4, 0.55) * smoothstep(0.62, 0.9, flow) * 0.18;
         col += uMoon * (spec * 1.6 + glow * 0.05);
         // sombra embaixo/junto da ponte e dos cais
         float ed = edgeDist(p);
@@ -720,11 +665,147 @@ function waterMaterial(L: WaterLayout): THREE.ShaderMaterial {
         vec3 foamCol = vec3(0.55, 0.62, 0.72) + fire * 0.4;
         col = mix(col, foamCol, clamp(foamEdge * 0.75 + foamPier * 0.55, 0.0, 0.85));
         // névoa da distância
-        float fog = smoothstep(18.0, 42.0, vDist);
+        float fog = smoothstep(55.0, 95.0, vDist); // só bem longe (antes escurecia o rio inteiro)
         gl_FragColor = vec4(mix(col, uFog, fog), 1.0);
         #include <colorspace_fragment>
       }`,
   });
+}
+
+interface BankLayout {
+  W: number;
+  H: number;
+  X: (x: number) => number;
+  Z: (y: number) => number;
+  FAR_Z: number;
+  plazaN: number;
+  wallZ: number;
+  deckL: number;
+  deckR: number;
+  r: () => number;
+}
+
+/** Pedras da Kenney são claras (lilás/branco): escurecidas para o tom da pedra da ponte. */
+const ROCK_TINT = 0x8a8070;
+
+/** Fogueiras do acampamento e lanternas do mercado (o update anima as chamas). */
+export const BANK_FIRES: THREE.Vector3[] = [];
+export const BANK_LANTERNS: THREE.Vector3[] = [];
+
+/**
+ * Margens do rio dos dois lados: barranco de terra e pedra até a água, pedras na beira
+ * (algumas dentro d'água), mata de pinheiros e, ao lado da praça, o acampamento dos
+ * refugiados de Valdrec (barracas, fogueiras, caixotes, carroça). Peças GLB da Kenney.
+ */
+function buildBanks(root: THREE.Group, L: BankLayout): void {
+  const { W, FAR_Z, wallZ, r } = L;
+  void L.deckL;
+  BANK_FIRES.length = 0;
+  BANK_LANTERNS.length = 0;
+  const z0 = FAR_Z - 24;
+  const z1 = wallZ + 10;
+  const len = z1 - z0;
+  const grass = grassTileTexture();
+  grass.repeat.set(10, len / 4);
+  const top = new THREE.MeshLambertMaterial({ map: grass, color: 0x6a7a62 });
+  const sideTex = wallBlockTexture(57);
+  sideTex.repeat.set(len / 3, 1);
+  const side = new THREE.MeshLambertMaterial({ map: sideTex, color: 0x7a6e60 });
+  const earth = new THREE.MeshLambertMaterial({ color: 0x3a3128 });
+  const depth = -WATER_Y + 0.6;
+  for (const s of [-1, 1]) {
+    const edge = s * (W / 2 + 1.5); // um tile de água além da borda do mapa
+    const width = 40;
+    const land = new THREE.Mesh(new THREE.BoxGeometry(width, depth, len), [side, side, top, earth, earth, earth]);
+    // a face do barranco voltada para o rio recebe a textura de pedra
+    land.material = s < 0 ? [side, earth, top, earth, earth, earth] : [earth, side, top, earth, earth, earth];
+    land.position.set(edge + (s * width) / 2, -0.15 - depth / 2, (z0 + z1) / 2);
+    land.receiveShadow = true;
+    root.add(land);
+
+    // pedras na beira: algumas meio afundadas na água, outras no alto do barranco
+    for (let z = z0 + 2; z < z1 - 1; z += 1.3 + r() * 1.4) {
+      const inWater = r() < 0.5;
+      const kind = ['town/rock-small', 'town/rock-wide', 'survival/rock-b', 'survival/rock-c', 'castle/rocks-large'][Math.floor(r() * 5)];
+      placeProp(root, kind, edge - s * (inWater ? 0.4 + r() * 0.6 : -0.6 - r() * 0.8), z, {
+        y: inWater ? WATER_Y - 0.25 : -0.15,
+        rot: r() * 6.28,
+        scale: kind.startsWith('survival') ? 1.6 + r() * 1.2 : 0.7 + r() * 0.6,
+        tint: ROCK_TINT,
+      });
+    }
+    // vitórias-régias na água mansa perto da margem
+    for (let i = 0; i < 10; i++) placeProp(root, 'nature/lily_large', edge - s * (0.8 + r() * 4), z0 + 8 + r() * (len - 20), { y: WATER_Y + 0.06, rot: r() * 6.28, scale: 3 + r() * 2 });
+
+    // mata: pinheiros e árvores, mais densa longe da beira
+    const campZ0 = L.plazaN - 1;
+    const campZ1 = wallZ + 2;
+    for (let i = 0; i < 70; i++) {
+      const x = edge + s * (2.2 + r() * r() * 22);
+      const z = z0 + r() * len;
+      const inCamp = z > campZ0 && z < campZ1 && Math.abs(x - edge) < 11;
+      if (inCamp) continue;
+      const kind = ['town/tree', 'town/tree-high', 'town/tree-high-round', 'castle/tree-large', 'survival/tree-tall', 'town/tree-crooked'][Math.floor(r() * 6)];
+      const sc = kind.startsWith('town') ? 1.3 + r() * 0.7 : kind.startsWith('castle') ? 2.2 + r() * 0.8 : 2.4 + r() * 1;
+      placeProp(root, kind, x, z, { y: -0.15, rot: r() * 6.28, scale: sc });
+    }
+    for (let i = 0; i < 16; i++) {
+      const kind = ['nature/stump_old', 'survival/tree-log', 'nature/log_stack'][Math.floor(r() * 3)];
+      placeProp(root, kind, edge + s * (1.5 + r() * 14), z0 + r() * len, { y: -0.15, rot: r() * 6.28, scale: kind.startsWith('nature') ? 3 : 2.2 });
+    }
+
+    // acampamento dos refugiados ao lado da praça
+    const cx = edge + s * 5.5;
+    const cz = (campZ0 + campZ1) / 2;
+    const tents: [string, number, number, number][] = [
+      ['nature/tent_detailedOpen', -2.5, -3, 3.2],
+      ['survival/tent-canvas', 2.2, -2.2, 3.2],
+      ['nature/tent_smallClosed', -3, 2.5, 3],
+      ['nature/tent_detailedOpen', 2.6, 3.2, 3],
+    ];
+    for (const [k, dx, dz, sc] of tents) placeProp(root, k, cx + s * dx, cz + dz, { y: -0.15, rot: Math.atan2(-dx * s, -dz) + (r() - 0.5) * 0.4, scale: sc });
+    const fire = new THREE.Vector3(cx, -0.1, cz);
+    placeProp(root, 'survival/campfire-pit', fire.x, fire.z, { y: -0.15, scale: 2.6 });
+    BANK_FIRES.push(fire.clone().setY(0.15));
+    for (const [k, dx, dz, sc, rot] of [
+      ['survival/bedroll', -1.2, 0.6, 2.4, 0.4],
+      ['survival/bedroll', 1.1, -0.9, 2.4, -0.9],
+      ['survival/box-large', 4.2, 0.2, 2.2, 0.3],
+      ['survival/box', 4.6, 1.1, 2.2, 1],
+      ['survival/barrel', 4.0, -0.9, 2.2, 0],
+      ['survival/barrel-open', -4.4, -0.6, 2.2, 0],
+      ['survival/bucket', 0.9, 1.4, 2.4, 0],
+      ['town/cart', -4.8, 4.8, 1.3, 1.1],
+      ['survival/signpost', s * 1 > 0 ? -5.2 : -5.2, -5.4, 2.4, 0.3],
+    ] as [string, number, number, number, number][])
+      placeProp(root, k, cx + s * dx, cz + dz, { y: -0.15, rot, scale: sc });
+  }
+
+  // ---- dentro dos muros (ao sul da muralha): o largo do mercado de Valdrec ----
+  const cityDepth = 26;
+  const plaza = plazaTexture();
+  plaza.repeat.set((W + 60) / 4, cityDepth / 4);
+  const city = new THREE.Mesh(new THREE.BoxGeometry(W + 60, 0.6, cityDepth), new THREE.MeshLambertMaterial({ map: plaza, color: 0x9a9088 }));
+  city.position.set(0, -0.3, wallZ + 1 + cityDepth / 2);
+  city.receiveShadow = true;
+  root.add(city);
+  const cz = wallZ + 3.2;
+  for (let x = -W / 2 + 3; x < W / 2 - 2; x += 3.4 + r() * 1.5) {
+    if (Math.abs(x) < 5) continue; // rua livre atrás do portão
+    const k = ['town/stall-red', 'town/stall-green', 'town/stall', 'town/stall-red'][Math.floor(r() * 4)];
+    placeProp(root, k, x, cz + r() * 0.8, { rot: Math.PI, scale: 1.6 });
+    if (r() < 0.6) placeProp(root, 'survival/barrel', x + 1.1, cz + 0.2, { scale: 2.2 });
+    if (r() < 0.4) placeProp(root, 'survival/box-large', x - 1.1, cz + 0.5, { rot: r(), scale: 2 });
+  }
+  for (let x = -W / 2 + 1; x < W / 2; x += 6) {
+    placeProp(root, 'town/lantern', x + 1.5, wallZ + 1.6, { scale: 1.2 });
+    BANK_LANTERNS.push(new THREE.Vector3(x + 1.5, 1.72, wallZ + 1.6));
+  }
+  for (let i = 0; i < 24; i++) {
+    const x = (r() - 0.5) * (W + 40);
+    if (Math.abs(x) < 4) continue;
+    placeProp(root, ['town/tree', 'town/tree-high-round', 'castle/tree-large'][Math.floor(r() * 3)], x, wallZ + 6 + r() * 14, { scale: 1.5 + r() * 0.6 });
+  }
 }
 
 function mulberry(seed: number): () => number {
