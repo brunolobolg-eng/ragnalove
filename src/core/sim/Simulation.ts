@@ -11,7 +11,7 @@ import { expToNext, starterWeapon, type WaveResult } from '../progression/profil
 /** Sem loadout (testes/sandbox): herói com a arma inicial. */
 const defaultGear = (kind: string) => gearBonus([starterWeapon(kind)]);
 import { Rng } from './rng';
-import type { AreaEffect, CombatMoveStats, DamageSource, MapObject, SimEvent, SimPhase, Trap, Unit, WaveReport } from './types';
+import type { AreaEffect, CombatMoveStats, DamageSource, MapObject, Sanctuary, SimEvent, SimPhase, Trap, TrapKind, Unit, WaveReport } from './types';
 import { SKILL_NUM, lvOf, startingSkills, type HeroKind } from '../progression/skills';
 import { lockedSkillKeys } from '../progression/skillSlots';
 import { neutralMods, testRangeMult, type SimMods } from './RangeSystem';
@@ -144,6 +144,8 @@ export class Simulation {
   // ---- Muralha do Guerreiro e Armadilhas da Arqueira ----
   /** Armadilhas armadas no chão. */
   readonly traps: Trap[] = [];
+  /** Santuários ativos (Cléria, especialização Divina). */
+  readonly sanctuaries: Sanctuary[] = [];
   private nextTrapId = 1;
   /** Ids dos objetos criados na onda começam aqui (não colidem com os do mapa). */
   private nextObjectId = 10000;
@@ -484,6 +486,21 @@ export class Simulation {
     }
     // Maldição (Bruxa): o amaldiçoado sofre mais dano de toda a party
     if (u.team === 'enemy' && (u.cursedUntil ?? 0) > this.tick) amount *= 1 + (u.curseAmp ?? 0);
+    // Bênção: quem ataca abençoado causa mais dano
+    if (u.team === 'enemy' && sourceId !== undefined) {
+      const a = this.units.get(sourceId);
+      if (a && (a.blessUntil ?? 0) > this.tick) amount *= 1 + (a.blessAmp ?? 0);
+    }
+    // Escudo Sagrado: absorve o dano antes da vida
+    if (u.team === 'party' && (u.shield ?? 0) > 0 && (u.shieldUntil ?? 0) > this.tick) {
+      const absorbed = Math.min(u.shield!, amount);
+      u.shield! -= absorbed;
+      amount -= absorbed;
+      if (amount <= 0) {
+        this.emit({ type: 'avoid', unitId: u.id, how: 'shield' });
+        return;
+      }
+    }
     if (crit === undefined && u.team === 'enemy' && sourceId !== undefined && !NO_CRIT.has(source)) {
       const a = this.units.get(sourceId);
       if (a?.team === 'party' && a.stats && a.stats.crit > 0 && this.combatRng.next() < a.stats.crit) {
@@ -681,10 +698,10 @@ export class Simulation {
   // ---------- Armadilhas da Arqueira ----------
 
   /** Arma uma armadilha no tile (livre, andável, sem outra armadilha). */
-  placeTrap(ownerId: number, at: Vec2, damage: number, slowTicks: number, slowMult: number): boolean {
+  placeTrap(ownerId: number, at: Vec2, damage: number, slowTicks: number, slowMult: number, extra: { kind?: TrapKind; radius?: number; stunTicks?: number; freezeTicks?: number } = {}): boolean {
     if (!this.board.isWalkable(at.x, at.y) || this.unitAt(at.x, at.y) || this.board.isCity(at.x, at.y)) return false;
     if (this.traps.some((t) => t.x === at.x && t.y === at.y)) return false;
-    const trap: Trap = { id: this.nextTrapId++, x: at.x, y: at.y, ownerId, damage, slowTicks, slowMult };
+    const trap: Trap = { id: this.nextTrapId++, x: at.x, y: at.y, ownerId, damage, slowTicks, slowMult, ...extra };
     this.traps.push(trap);
     this.emit({ type: 'trapSet', trap });
     return true;
@@ -715,10 +732,54 @@ export class Simulation {
     if (i < 0) return;
     const t = this.traps[i];
     this.traps.splice(i, 1);
-    this.emit({ type: 'trapTrigger', trapId: t.id, x: t.x, y: t.y, targetId: u.id });
-    u.slowUntil = this.tick + t.slowTicks;
-    u.slowMult = t.slowMult;
-    this.damage(u, t.damage, 'trap', t.ownerId);
+    const kind = t.kind ?? 'snare';
+    this.emit(kind === 'snare' ? { type: 'trapTrigger', trapId: t.id, x: t.x, y: t.y, targetId: u.id } : { type: 'trapTrigger', trapId: t.id, x: t.x, y: t.y, targetId: u.id, kind, radius: t.radius ?? 1 });
+    if (kind === 'snare') {
+      u.slowUntil = this.tick + t.slowTicks;
+      u.slowMult = t.slowMult;
+      this.damage(u, t.damage, 'trap', t.ownerId);
+      return;
+    }
+    // minas e armadilhas de área: atingem todos em volta de quem pisou
+    const hit = this.enemiesWithin(t, t.radius ?? 1);
+    if (!hit.includes(u)) hit.push(u);
+    for (const e of hit) {
+      if (kind === 'freeze') this.freeze(e, t.freezeTicks ?? 20);
+      this.damage(e, e === u || kind !== 'mine' ? t.damage : t.damage * 0.6, 'trap', t.ownerId);
+    }
+    if (kind === 'mine' && u.alive) this.stun(u, t.stunTicks ?? 10);
+  }
+
+  // ---------- Cléria (especialização Divina) ----------
+
+  /** Escudo Sagrado num aliado: absorve `absorb` de dano por `ticks`. */
+  shieldAlly(caster: Unit, u: Unit, absorb: number, ticks: number): void {
+    u.shield = absorb;
+    u.shieldUntil = this.tick + ticks;
+    this.emit({ type: 'holyShield', unitId: caster.id, targetId: u.id, ticks });
+  }
+
+  /** Bênção: +`amp` de dano para os aliados até `ticks`. */
+  bless(caster: Unit, targets: Unit[], amp: number, ticks: number): void {
+    for (const u of targets) {
+      u.blessAmp = amp;
+      u.blessUntil = this.tick + ticks;
+    }
+    this.emit({ type: 'blessing', unitId: caster.id, targets: targets.map((u) => u.id), ticks });
+  }
+
+  /** Santuário: cura `perSec` por segundo a quem estiver dentro (até `ticks`). */
+  addSanctuary(caster: Unit, at: Vec2, radius: number, perSec: number, ticks: number): void {
+    this.sanctuaries.push({ x: at.x, y: at.y, radius, perSec, until: this.tick + ticks, ownerId: caster.id });
+    this.emit({ type: 'sanctuary', unitId: caster.id, x: at.x, y: at.y, radius, ticks });
+  }
+
+  private updateSanctuaries(): void {
+    if (!this.sanctuaries.length) return;
+    for (let i = this.sanctuaries.length - 1; i >= 0; i--) if (this.sanctuaries[i].until <= this.tick) this.sanctuaries.splice(i, 1);
+    if (this.tick % GAME_CONFIG.sim.tickRate !== 0) return;
+    for (const s of this.sanctuaries)
+      for (const u of this.sortedUnits('party')) if (chebyshev(u, s) <= s.radius) this.heal(u, s.perSec);
   }
 
   /** Move uma unidade até `steps` tiles na direção (dx, dy), parando em obstáculo/ocupado. */
@@ -907,6 +968,7 @@ export class Simulation {
     this.refreshCityFlows();
     this.spawnEnemies();
 
+    this.updateSanctuaries();
     const moving = this.combatMovementOn;
     for (const u of this.sortedUnits('party')) {
       if (this.cheats.noCooldowns) u.cooldowns = {};
@@ -983,7 +1045,7 @@ export class Simulation {
     return u;
   }
 
-  private sortedUnits(team: Unit['team'], includeDead = false): Unit[] {
+  sortedUnits(team: Unit['team'], includeDead = false): Unit[] {
     const out: Unit[] = [];
     for (const u of this.units.values()) if ((u.alive || includeDead) && u.team === team) out.push(u);
     return out.sort((a, b) => a.id - b.id);

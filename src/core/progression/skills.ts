@@ -21,6 +21,12 @@ export type SkillId =
   | 'arcaneShield'
   | 'thunderstorm'
   | 'combustion'
+  | 'heal'
+  | 'sanctuary'
+  | 'holyShield'
+  | 'blessing'
+  | 'healGift'
+  | 'judgment'
   // Guerreiro
   | 'bash'
   | 'cleave'
@@ -41,6 +47,10 @@ export type SkillId =
   | 'fireRain'
   | 'hunterFocus'
   | 'snareTrap'
+  | 'landMine'
+  | 'freezingTrap'
+  | 'claymore'
+  | 'trapMaster'
   // Feiticeira
   | 'arcaneOrb'
   | 'meteorStrike'
@@ -75,7 +85,24 @@ export interface SkillDef {
   desc: string;
   /** Texto do efeito num nível. */
   effect(lv: number): string;
+  /**
+   * Especialização (ramo exclusivo). Aprender uma habilidade de um ramo trava os outros ramos
+   * do herói até refazer as habilidades. Sem ramo = habilidade comum a todos.
+   */
+  branch?: string;
 }
+
+/** Especializações por classe (ramos exclusivos da árvore). */
+export const BRANCHES: Partial<Record<HeroKind, { id: string; name: string; desc: string }[]>> = {
+  mage: [
+    { id: 'divina', name: 'Cura (Divina)', desc: 'Magia sagrada: cura, santuário, escudo e bênção para a party.' },
+    { id: 'arcana', name: 'Dano (Arcana)', desc: 'Magia de destruição: nova congelante, tempestade, combustão e julgamento.' },
+  ],
+  archer: [
+    { id: 'armadilhas', name: 'Armadilhas', desc: 'Minas, armadilhas congelantes e claymores no caminho da horda.' },
+    { id: 'tiro', name: 'Tiro', desc: 'Flechas perfurantes, tiro duplo e foco do caçador.' },
+  ],
+};
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const sec = (ticks: number) => `${(ticks / 10).toFixed(1)} s`;
@@ -89,6 +116,18 @@ export const SKILL_NUM = {
   doubleBarrier: (lv: number) => ({ extraLen: lv >= 4 ? 2 : lv >= 2 ? 1 : 0, extraTicks: 8 * lv }),
   arcaneShield: (lv: number) => ({ block: 0.03 * lv, reduce: 0.04 * lv }),
   thunderstorm: (lv: number) => ({ strikes: 2 + lv, damage: 14 + 6 * lv, cooldown: 75 - 4 * lv }),
+  /** Cura (Heal do Ragnarok): cura o aliado mais ferido ao alcance. */
+  heal: (lv: number) => ({ amount: 16 + 7 * lv, range: 6, cooldown: Math.max(15, 42 - 2 * lv) }),
+  /** Santuário (Sanctuary): chão sagrado que cura quem estiver dentro, a cada segundo. */
+  sanctuary: (lv: number) => ({ radius: lv >= 4 ? 2 : 1, perSec: 3 + 2 * lv, ticks: 50 + 6 * lv, cooldown: 140 - 8 * lv }),
+  /** Escudo Sagrado (Kyrie Eleison): barreira que absorve dano num aliado. */
+  holyShield: (lv: number) => ({ absorb: 20 + 10 * lv, ticks: 80 + 10 * lv, cooldown: 110 - 6 * lv }),
+  /** Bênção (Blessing): a party perto causa mais dano por um tempo. */
+  blessing: (lv: number) => ({ amp: 0.08 + 0.03 * lv, ticks: 80 + 10 * lv, radius: 6, cooldown: 180 - 10 * lv }),
+  /** Dom da Cura (passiva): curas mais fortes; no nível 3+ a Cura alcança 2 aliados. */
+  healGift: (lv: number) => ({ healMult: 1 + 0.1 * lv, targets: lv >= 3 ? 2 : 1 }),
+  /** Julgamento Divino (Magnus Exorcismus): pilares de luz em cruz sobre o grupo mais denso. */
+  judgment: (lv: number) => ({ damage: 26 + 10 * lv, stun: 6 + 2 * lv, cooldown: 125 - 7 * lv }),
   combustion: (lv: number) => ({ splash: 0.3 + 0.1 * lv }),
   bash: (lv: number) => ({ dmgMult: 1 + 0.12 * (lv - 1) }),
   cleave: (lv: number) => ({ dmgMult: 1 + 0.1 * (lv - 1) }),
@@ -122,6 +161,14 @@ export const SKILL_NUM = {
     const T = GAME_CONFIG.archetypes.archer.trap;
     return { damage: T.damage + T.damagePerLevel * (lv - 1), slowTicks: T.slowTicks + 6 * (lv - 1), slowMult: T.slowMult, maxTraps: T.maxTraps + (lv >= 3 ? 1 : 0), cooldown: Math.max(20, T.cooldownTicks - 4 * (lv - 1)) };
   },
+  /** Mina Terrestre (Land Mine): explode ao ser pisada — dano em volta e atordoa quem pisou. */
+  landMine: (lv: number) => ({ damage: 22 + 8 * lv, stun: 10 + 3 * lv, radius: 1, maxTraps: 2, cooldown: Math.max(25, 70 - 4 * lv) }),
+  /** Armadilha Congelante (Freezing Trap): congela os inimigos em volta de quem pisou. */
+  freezingTrap: (lv: number) => ({ damage: 8 + 3 * lv, freeze: 20 + 5 * lv, radius: 1, maxTraps: 2, cooldown: Math.max(30, 90 - 5 * lv) }),
+  /** Armadilha Claymore (Claymore Trap): grande explosão de fogo em área. */
+  claymore: (lv: number) => ({ damage: 30 + 12 * lv, radius: 2, maxTraps: 1, cooldown: Math.max(45, 125 - 8 * lv) }),
+  /** Mestre Armadilheiro (passiva): todas as armadilhas mais fortes, mais rápidas e +1 armada no nível 3+. */
+  trapMaster: (lv: number) => ({ dmgMult: 1 + 0.08 * lv, cdMult: 1 - 0.04 * lv, extraTraps: lv >= 3 ? 1 : 0 }),
   arcaneOrb: (lv: number) => ({ dmgMult: 1 + 0.12 * (lv - 1) }),
   meteorStrike: (lv: number) => ({ dmgMult: 1 + 0.1 * (lv - 1) }),
   arcaneFlow: (lv: number) => ({ cdr: 0.02 * lv }),
@@ -159,7 +206,7 @@ export const SKILLS: SkillDef[] = [
     effect: (lv) => `Recarga −${pct(N.meditation(lv).cdr)}`,
   },
   {
-    id: 'frostNova', hero: 'mage', name: 'Nova Congelante', tier: 2, col: 0, kind: 'active', maxLevel: 5, requires: [{ id: 'frostBolt', level: 3 }], start: 0,
+    id: 'frostNova', hero: 'mage', name: 'Nova Congelante', tier: 2, col: 0, kind: 'active', maxLevel: 5, requires: [{ id: 'frostBolt', level: 3 }], start: 0, branch: 'arcana',
     desc: 'Explosão de gelo ao redor do Mago: dano e congela os inimigos no lugar.',
     effect: (lv) => { const n = N.frostNova(lv); return `Raio ${n.radius} · dano ${n.damage} · congela ${sec(n.freezeTicks)} · recarga ${sec(n.cooldown)}`; },
   },
@@ -175,14 +222,46 @@ export const SKILLS: SkillDef[] = [
   },
   {
     id: 'thunderstorm', hero: 'mage', name: 'Tempestade Elétrica', tier: 3, col: 0, kind: 'active', maxLevel: 5,
-    requires: [{ id: 'frostNova', level: 3 }, { id: 'fireBarrier', level: 3 }], start: 0,
+    requires: [{ id: 'frostNova', level: 3 }, { id: 'fireBarrier', level: 3 }], start: 0, branch: 'arcana',
     desc: 'Raios caem sobre inimigos congelados (ou sobre o grupo mais denso), com respingo em volta.',
     effect: (lv) => { const n = N.thunderstorm(lv); return `${n.strikes} raios · dano ${n.damage} · recarga ${sec(n.cooldown)}`; },
   },
   {
-    id: 'combustion', hero: 'mage', name: 'Combustão', tier: 3, col: 1, kind: 'passive', maxLevel: 5, requires: [{ id: 'doubleBarrier', level: 4 }], start: 0,
+    id: 'combustion', hero: 'mage', name: 'Combustão', tier: 3, col: 1, kind: 'passive', maxLevel: 5, requires: [{ id: 'doubleBarrier', level: 4 }], start: 0, branch: 'arcana',
     desc: 'Passiva: as chamas saltam dos inimigos queimando para os vizinhos.',
     effect: (lv) => `Respingo de ${pct(N.combustion(lv).splash)} da queimadura nos vizinhos`,
+  },
+  {
+    id: 'judgment', hero: 'mage', name: 'Julgamento Divino', tier: 3, col: 2, kind: 'active', maxLevel: 5,
+    requires: [{ id: 'frostNova', level: 3 }, { id: 'arcaneShield', level: 2 }], start: 0, branch: 'arcana',
+    desc: 'Pilares de luz caem em cruz sobre o grupo mais denso: dano alto e atordoa.',
+    effect: (lv) => { const n = N.judgment(lv); return `Dano ${n.damage} em cruz · atordoa ${sec(n.stun)} · recarga ${sec(n.cooldown)}`; },
+  },
+  // ---------------- Mago: especialização Divina (cura) ----------------
+  {
+    id: 'heal', hero: 'mage', name: 'Cura', tier: 1, col: 3, kind: 'active', maxLevel: 10, requires: [], start: 0, branch: 'divina',
+    desc: 'Luz curativa no aliado mais ferido ao alcance (inclui a própria Cléria).',
+    effect: (lv) => { const n = N.heal(lv); return `Cura ${n.amount} de vida · alcance ${n.range} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'sanctuary', hero: 'mage', name: 'Santuário', tier: 2, col: 3, kind: 'active', maxLevel: 5, requires: [{ id: 'heal', level: 3 }], start: 0, branch: 'divina',
+    desc: 'Consagra o chão onde a party está: todo aliado dentro recupera vida a cada segundo.',
+    effect: (lv) => { const n = N.sanctuary(lv); return `Área ${n.radius * 2 + 1}×${n.radius * 2 + 1} · cura ${n.perSec}/s por ${sec(n.ticks)} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'holyShield', hero: 'mage', name: 'Escudo Sagrado', tier: 2, col: 4, kind: 'active', maxLevel: 5, requires: [{ id: 'heal', level: 2 }], start: 0, branch: 'divina',
+    desc: 'Barreira de luz no aliado da linha de frente: absorve o dano até quebrar.',
+    effect: (lv) => { const n = N.holyShield(lv); return `Absorve ${n.absorb} de dano por ${sec(n.ticks)} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'blessing', hero: 'mage', name: 'Bênção', tier: 3, col: 3, kind: 'active', maxLevel: 5, requires: [{ id: 'sanctuary', level: 3 }], start: 0, branch: 'divina',
+    desc: 'Abençoa a party por perto: todos causam mais dano por alguns segundos.',
+    effect: (lv) => { const n = N.blessing(lv); return `Dano +${pct(n.amp)} por ${sec(n.ticks)} · raio ${n.radius} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'healGift', hero: 'mage', name: 'Dom da Cura', tier: 3, col: 4, kind: 'passive', maxLevel: 5, requires: [{ id: 'holyShield', level: 2 }], start: 0, branch: 'divina',
+    desc: 'Passiva: curas e santuário mais fortes; no nível 3 a Cura alcança 2 aliados.',
+    effect: (lv) => { const n = N.healGift(lv); return `Cura ×${n.healMult.toFixed(2)} · Cura em ${n.targets} aliado(s)`; },
   },
   // ---------------- Guerreiro ----------------
   {
@@ -244,7 +323,7 @@ export const SKILLS: SkillDef[] = [
     effect: (lv) => `Alcance +${N.eagleEye(lv).range} · crítico +${pct(N.eagleEye(lv).crit)}`,
   },
   {
-    id: 'piercing', hero: 'archer', name: 'Flecha Perfurante', tier: 2, col: 0, kind: 'active', maxLevel: 5, requires: [{ id: 'preciseShot', level: 3 }], start: 0,
+    id: 'piercing', hero: 'archer', name: 'Flecha Perfurante', tier: 2, col: 0, kind: 'active', maxLevel: 5, requires: [{ id: 'preciseShot', level: 3 }], start: 0, branch: 'tiro',
     desc: 'Atravessa todos os inimigos em linha reta até o fim do alcance.',
     effect: (lv) => `Dano ${N.piercing(lv).damage} em cada · recarga ${sec(N.piercing(lv).cooldown)}`,
   },
@@ -254,13 +333,13 @@ export const SKILLS: SkillDef[] = [
     effect: (lv) => `Área +${N.volley(lv).radius} · dano ×${N.volley(lv).dmgMult.toFixed(2)}`,
   },
   {
-    id: 'doubleShot', hero: 'archer', name: 'Tiro Duplo', tier: 2, col: 2, kind: 'passive', maxLevel: 5, requires: [{ id: 'eagleEye', level: 3 }], start: 0,
+    id: 'doubleShot', hero: 'archer', name: 'Tiro Duplo', tier: 2, col: 2, kind: 'passive', maxLevel: 5, requires: [{ id: 'eagleEye', level: 3 }], start: 0, branch: 'tiro',
     desc: 'Passiva: chance de disparar uma segunda flecha em outro alvo.',
     effect: (lv) => `${pct(N.doubleShot(lv).chance)} de chance`,
   },
   {
     id: 'hunterFocus', hero: 'archer', name: 'Foco do Caçador', tier: 3, col: 0, kind: 'active', maxLevel: 5,
-    requires: [{ id: 'piercing', level: 3 }, { id: 'doubleShot', level: 3 }], start: 0,
+    requires: [{ id: 'piercing', level: 3 }, { id: 'doubleShot', level: 3 }], start: 0, branch: 'tiro',
     desc: 'Concentração total: recargas muito mais curtas por alguns segundos.',
     effect: (lv) => { const n = N.hunterFocus(lv); return `Recargas ×${n.cdMult.toFixed(2)} por ${sec(n.duration)} · recarga ${sec(n.cooldown)}`; },
   },
@@ -274,6 +353,27 @@ export const SKILLS: SkillDef[] = [
     id: 'snareTrap', hero: 'archer', name: 'Armadilha', tier: 1, col: 3, kind: 'active', maxLevel: 10, requires: [], start: 1,
     desc: 'Arma uma armadilha no caminho da horda: o primeiro inimigo que pisar leva dano alto e fica lento. Só 1 alvo.',
     effect: (lv) => { const n = N.snareTrap(lv); return `Dano ${n.damage} · lento ×${n.slowMult} por ${sec(n.slowTicks)} · até ${n.maxTraps} armadas · recarga ${sec(n.cooldown)}`; },
+  },
+  // ---------------- Arqueira: especialização em Armadilhas ----------------
+  {
+    id: 'landMine', hero: 'archer', name: 'Mina Terrestre', tier: 2, col: 3, kind: 'active', maxLevel: 5, requires: [{ id: 'snareTrap', level: 3 }], start: 0, branch: 'armadilhas',
+    desc: 'Enterra uma mina no caminho da horda: explode ao ser pisada, fere quem estiver em volta e atordoa quem pisou.',
+    effect: (lv) => { const n = N.landMine(lv); return `Dano ${n.damage} em área · atordoa ${sec(n.stun)} · até ${n.maxTraps} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'freezingTrap', hero: 'archer', name: 'Armadilha Congelante', tier: 2, col: 4, kind: 'active', maxLevel: 5, requires: [{ id: 'snareTrap', level: 2 }], start: 0, branch: 'armadilhas',
+    desc: 'Ao ser pisada, congela todos os inimigos em volta: a horda para no lugar.',
+    effect: (lv) => { const n = N.freezingTrap(lv); return `Congela ${sec(n.freeze)} em área · dano ${n.damage} · até ${n.maxTraps} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'claymore', hero: 'archer', name: 'Armadilha Claymore', tier: 3, col: 3, kind: 'active', maxLevel: 5, requires: [{ id: 'landMine', level: 3 }], start: 0, branch: 'armadilhas',
+    desc: 'Carga explosiva enorme: ao ser pisada, uma explosão de fogo arrasa a área.',
+    effect: (lv) => { const n = N.claymore(lv); return `Dano ${n.damage} · área ${n.radius * 2 + 1}×${n.radius * 2 + 1} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'trapMaster', hero: 'archer', name: 'Mestre Armadilheiro', tier: 3, col: 4, kind: 'passive', maxLevel: 5, requires: [{ id: 'freezingTrap', level: 2 }], start: 0, branch: 'armadilhas',
+    desc: 'Passiva: todas as armadilhas causam mais dano e voltam mais rápido; no nível 3 arma uma a mais.',
+    effect: (lv) => { const n = N.trapMaster(lv); return `Dano das armadilhas ×${n.dmgMult.toFixed(2)} · recarga ×${n.cdMult.toFixed(2)}${n.extraTraps ? ' · +1 armada' : ''}`; },
   },
   // ---------------- Guerreiro (muralha) ----------------
   {
@@ -377,9 +477,20 @@ export function startingSkills(hero: HeroKind): SkillLevels {
 
 export const lvOf = (levels: SkillLevels | undefined, id: SkillId) => levels?.[id] ?? 0;
 
-/** Falta algum pré-requisito? Devolve o texto do que falta (ou vazio). */
+/** Especialização já escolhida (o ramo de qualquer habilidade de ramo aprendida). */
+export function chosenBranch(hero: HeroKind, levels: SkillLevels): string | undefined {
+  return heroSkills(hero).find((d) => d.branch && lvOf(levels, d.id) > 0)?.branch;
+}
+
+export const branchName = (hero: HeroKind, id: string) => BRANCHES[hero]?.find((b) => b.id === id)?.name ?? id;
+
+/** Falta algum pré-requisito? Devolve o texto do que falta (ou vazio). Inclui a especialização. */
 export function missingRequirements(levels: SkillLevels, id: SkillId): string[] {
-  return SKILL_BY_ID[id].requires.filter((r) => lvOf(levels, r.id) < r.level).map((r) => `${SKILL_BY_ID[r.id].name} nv ${r.level}`);
+  const d = SKILL_BY_ID[id];
+  const out = d.requires.filter((r) => lvOf(levels, r.id) < r.level).map((r) => `${SKILL_BY_ID[r.id].name} nv ${r.level}`);
+  const chosen = d.branch ? chosenBranch(d.hero, levels) : undefined;
+  if (chosen && chosen !== d.branch) out.push(`especialização ${branchName(d.hero, d.branch!)} (já escolheu ${branchName(d.hero, chosen)})`);
+  return out;
 }
 
 /** Zeni para levar a habilidade ao nível `next`. */

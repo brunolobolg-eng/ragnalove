@@ -35,6 +35,12 @@ export interface Unit {
   frozenUntil?: number;
   /** Fúria ativa até este tick. */
   furyUntil?: number;
+  /** Escudo Sagrado: dano que ainda absorve e até quando dura. */
+  shield?: number;
+  shieldUntil?: number;
+  /** Bênção: dano extra (0,1 = +10%) até o tick. */
+  blessAmp?: number;
+  blessUntil?: number;
   /** Multiplicador de dano próprio (estágios da Sobrevivência). */
   dmgScale?: number;
   /** Só inimigos: comportamento de aggro (ENEMY_CONFIG.aggroType). */
@@ -80,6 +86,8 @@ export interface CombatMoveStats {
 }
 
 /** Armadilha armada no chão (Arqueira): dispara no primeiro inimigo que pisar. */
+export type TrapKind = 'snare' | 'mine' | 'freeze' | 'claymore';
+
 export interface Trap {
   id: number;
   x: number;
@@ -88,6 +96,22 @@ export interface Trap {
   damage: number;
   slowTicks: number;
   slowMult: number;
+  /** Tipo (ausente = armadilha comum que prende). */
+  kind?: TrapKind;
+  /** Área da explosão/congelamento (raio em tiles) e efeitos extras. */
+  radius?: number;
+  stunTicks?: number;
+  freezeTicks?: number;
+}
+
+/** Santuário: chão sagrado que cura aliados dentro a cada segundo. */
+export interface Sanctuary {
+  x: number;
+  y: number;
+  radius: number;
+  perSec: number;
+  until: number;
+  ownerId: number;
 }
 
 /** Estado de um objeto interativo do mapa (autoritativo; o render só lê). */
@@ -135,7 +159,7 @@ export type SimEvent =
   | { type: 'melee'; unitId: number; targetId: number }
   | { type: 'bolt'; unitId: number; targetId: number; from: Vec2; to: Vec2 }
   | { type: 'bash'; unitId: number; targetId: number; x: number; y: number }
-  | { type: 'avoid'; unitId: number; how: 'dodge' | 'block' | 'deflect' }
+  | { type: 'avoid'; unitId: number; how: 'dodge' | 'block' | 'deflect' | 'shield' }
   | { type: 'exp'; x: number; y: number; amount: number }
   | { type: 'zeni'; x: number; y: number; amount: number }
   | { type: 'levelup'; unitId: number; level: number }
@@ -172,7 +196,11 @@ export type SimEvent =
   | { type: 'objectSpawn'; object: MapObject }
   /** Armadilha armada / disparada. */
   | { type: 'trapSet'; trap: Trap }
-  | { type: 'trapTrigger'; trapId: number; x: number; y: number; targetId: number }
+  | { type: 'trapTrigger'; trapId: number; x: number; y: number; targetId: number; kind?: TrapKind; radius?: number }
+  | { type: 'holyShield'; unitId: number; targetId: number; ticks: number }
+  | { type: 'blessing'; unitId: number; targets: number[]; ticks: number }
+  | { type: 'sanctuary'; unitId: number; x: number; y: number; radius: number; ticks: number }
+  | { type: 'divineHeal'; unitId: number; targetId: number }
   /** Maldição lançada numa área. */
   | { type: 'curse'; unitId: number; x: number; y: number; radius: number }
   /** Execução do Assassino. */

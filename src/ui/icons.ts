@@ -718,3 +718,35 @@ Object.assign(SKILL_ICONS, {
     g.stroke();
   }),
 });
+
+/**
+ * Arte nova das habilidades (folhas de ícones do dono, recortadas em public/icons/skills).
+ * O catálogo completo, com os ícones guardados para habilidades futuras, está em
+ * public/icons/skills/catalogo.json (8 classes × 20 + as cartas do Clérigo).
+ */
+export const SKILL_ART: Record<string, string> = {
+  // Guerreiro
+  bash: 'guerreiro/investida', cleave: 'guerreiro/redemoinho', ironSkin: 'guerreiro/pele-de-pedra', fury: 'guerreiro/furia',
+  battleBreath: 'guerreiro/vontade-de-ferro', shatter: 'guerreiro/rompimento', taunt: 'guerreiro/provocacao',
+  shockwave: 'guerreiro/ataque-pesado', shieldWall: 'guerreiro/escudo-de-ferro',
+  // Mago (Cléria): Arcana (dano) e Divina (cura)
+  frostBolt: 'mago/rajada-de-gelo', fireBarrier: 'mago/bola-de-fogo', meditation: 'clerigo/meditacao', frostNova: 'mago/nova-de-gelo',
+  doubleBarrier: 'mago/amplificar', arcaneShield: 'mago/campo-de-forca', thunderstorm: 'mago/tempestade-arcana',
+  combustion: 'mago/explosao-de-magia', judgment: 'clerigo/explosao-divina',
+  heal: 'clerigo/cura', sanctuary: 'clerigo/santuario', holyShield: 'clerigo/escudo-sagrado', blessing: 'clerigo/bencao', healGift: 'clerigo/dom-da-cura',
+  // Arqueira: Tiro e Armadilhas
+  preciseShot: 'arqueiro/tiro-preciso', arrowRain: 'arqueiro/tempestade-de-flechas', eagleEye: 'arqueiro/deteccao',
+  piercing: 'arqueiro/tiro-poderoso', volley: 'arqueiro/disparo-rapido', doubleShot: 'arqueiro/tiro-triplo',
+  fireRain: 'arqueiro/flecha-de-fogo', hunterFocus: 'arqueiro/precisao-mortal', snareTrap: 'arqueiro/armadilha',
+  landMine: 'arqueiro/explosao-de-flechas', freezingTrap: 'arqueiro/flecha-congelante', claymore: 'professor/instalar-armadilha', trapMaster: 'arqueiro/cacador',
+  // Feiticeira
+  arcaneOrb: 'professor/ataque-magico', meteorStrike: 'professor/meteoro', arcaneFlow: 'professor/ciclo-arcano',
+  chainLightning: 'professor/raio', meteorShower: 'mago/chuva-de-meteoros',
+  // Bruxa
+  lifeDrain: 'professor/dreno-de-mana', curse: 'professor/veneno', darkPact: 'mago/mana-sanguinea',
+  shadowSwarm: 'professor/explosao-arcana', soulHarvest: 'mago/desintegracao',
+  // Assassino
+  backstab: 'ladrao/ataque-furtivo', bladeFan: 'ladrao/chuva-de-adagas', shadowStep: 'ladrao/passo-sombrio',
+  poisonBlades: 'ladrao/veneno', execute: 'ladrao/sombra-mortal',
+};
+for (const [id, file] of Object.entries(SKILL_ART)) SKILL_ICONS[id] = () => `icons/skills/${file}.webp`;

@@ -1,4 +1,4 @@
-import { SKILL_BY_ID, heroSkills, lvOf, missingRequirements, skillState, skillZeniCost, type HeroKind, type SkillDef, type SkillId } from '../core/progression/skills';
+import { BRANCHES, SKILL_BY_ID, branchName, chosenBranch, heroSkills, lvOf, missingRequirements, skillState, skillZeniCost, type HeroKind, type SkillDef, type SkillId } from '../core/progression/skills';
 import { learnSkill, type RunState } from '../core/run/run';
 import { heroEquipped, heroStats, toggleSkillSlot } from '../core/progression/profile';
 import { manaToNextSlot, slotCost, slotCount, usesSlot } from '../core/progression/skillSlots';
@@ -108,7 +108,9 @@ export class SkillTree {
     const hp = r.profile.heroes[this.hero];
     const skills = heroSkills(this.hero);
     const cols = Math.max(3, ...skills.map((d) => d.col + 1));
-    const pos = (d: SkillDef) => ({ x: 30 + d.col * (NODE_W + 40), y: 24 + (d.tier - 1) * (NODE_H + 34) });
+    const gap = cols >= 5 ? 20 : 40; // com especializações (5 colunas) os nós ficam mais juntos
+    const pos = (d: SkillDef) => ({ x: 24 + d.col * (NODE_W + gap), y: 24 + (d.tier - 1) * (NODE_H + 34) });
+    const treeW = cols * NODE_W + (cols - 1) * gap + 48;
     const mana = heroStats(r.profile, this.hero).mana;
     const equipped = heroEquipped(r.profile, this.hero);
     const total = slotCount(this.hero, mana);
@@ -118,6 +120,13 @@ export class SkillTree {
         const id = equipped[i];
         return id ? `<button class="sk-cell on" data-c="node" data-id="${id}" title="${SKILL_BY_ID[id].name}"><img src="${this.icon(id)}" alt=""></button>` : `<span class="sk-cell ${i < total ? '' : 'locked'}" title="${i < total ? 'Slot livre' : 'Sem slot: falta Mana'}"></span>`;
       }).join('')}</span><b class="sk-count">${equipped.length}/${total} slots</b><small class="sk-basic">O ataque básico e as passivas não usam slot.</small></div>`;
+    const chosen = chosenBranch(this.hero, hp.skills);
+    const branches = BRANCHES[this.hero];
+    const branchBar = branches
+      ? `<div class="sk-branches"><b>Especialização:</b>${branches
+          .map((b) => `<span class="sk-bopt ${chosen === b.id ? 'on' : chosen ? 'off' : ''}" title="${b.desc}">${b.name}${chosen === b.id ? ' ✓' : ''}</span>`)
+          .join('<em>ou</em>')}<small>${chosen ? 'Escolhida. Refazer habilidades (Mestre de Armas) libera a troca.' : 'Aprender a 1ª habilidade de um ramo escolhe a especialização e trava o outro.'}</small></div>`
+      : '';
     const lines = skills
       .flatMap((d) =>
         d.requires.map((req) => {
@@ -137,9 +146,10 @@ export class SkillTree {
         const p = pos(d);
         const lv = lvOf(hp.skills, d.id);
         const st = skillState(hp.skills, d.id);
+        const br = d.branch ? `<i class="sk-br ${chosen && chosen !== d.branch ? 'off' : ''}">${branchName(this.hero, d.branch).replace(/ \(.*\)/, '')}</i>` : '';
         const tag = !usesSlot(d.id) ? '' : equipped.includes(d.id) ? '<i class="sk-slot on">No slot</i>' : lv > 0 ? '<i class="sk-slot">Fora</i>' : '';
         return `<button class="sk-node ${st} ${this.sel === d.id ? 'sel' : ''}" data-c="node" data-id="${d.id}" style="left:${p.x}px;top:${p.y}px">
-          <img src="${this.icon(d.id)}" alt=""><span class="lv">${lv}/${d.maxLevel}</span>${tag}
+          <img src="${this.icon(d.id)}" alt=""><span class="lv">${lv}/${d.maxLevel}</span>${tag}${br}
           <b>${d.name}</b><small>${d.kind === 'active' ? 'Ativa' : 'Passiva'} · Tier ${d.tier}</small></button>`;
       })
       .join('');
@@ -167,9 +177,9 @@ export class SkillTree {
         <div class="win-body">
           <div class="tabs-row">${r.party.map((h) => `<button data-c="tab" data-h="${h}" class="${h === this.hero ? 'on' : ''}">${HERO_PT[h]} <small>Nv.${r.profile.heroes[h].level}</small>${r.profile.heroes[h].skillPoints ? ` <span class="badge">${r.profile.heroes[h].skillPoints}</span>` : ''}</button>`).join('')}
             <span class="sk-bank">Pontos: <b>${hp.skillPoints}</b> · <i class="zeni-ico"></i>${r.profile.zeni.toLocaleString('pt-BR')}</span></div>
-          ${slotBar}
+          ${slotBar}${branchBar}
           <div class="sk-wrap">
-            <div class="sk-tree"><svg width="${(cols) * NODE_W + (cols - 1) * 40 + 60}" height="${3 * NODE_H + 2 * 34 + 40}">${lines}</svg>${nodes}</div>
+            <div class="sk-tree" style="width:${treeW}px"><svg width="${treeW}" height="${3 * NODE_H + 2 * 34 + 40}">${lines}</svg>${nodes}</div>
             <div class="sk-side">${detail}<div class="sk-msg">${this.msg}</div></div>
           </div>
         </div>

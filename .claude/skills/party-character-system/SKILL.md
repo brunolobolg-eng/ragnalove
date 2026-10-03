@@ -27,3 +27,15 @@ Telas: `Hud` (ficha completa C), `HeroCard` (janelinha no mapa), `SkillTree` (K)
 ## Pet e Asas
 Ainda **não existem** como sistema (aparecem "Em breve" no HeroCard). Ao implementar: slots novos no `HeroProgress`
 (ex.: `pet?`, `wings?`) com migração de save, bônus somados em `heroStats`, dados em config, e UI já reservada.
+
+
+## Especializações (ramos exclusivos da árvore)
+- `SkillDef.branch` + `BRANCHES` em `skills.ts`. Aprender a 1ª habilidade de um ramo escolhe a especialização;
+  as habilidades dos outros ramos ficam travadas (`missingRequirements`). Refazer habilidades libera a troca.
+  Não há campo extra no save: o ramo escolhido é derivado das habilidades aprendidas (`chosenBranch`).
+- **Mago (Cléria, maga divina):** Cura/Divina (Cura, Santuário, Escudo Sagrado, Bênção, Dom da Cura) ×
+  Dano/Arcana (Nova Congelante, Tempestade, Combustão, Julgamento Divino). Barreira, Raio Gélido, Meditação comuns.
+- **Arqueira:** Armadilhas (Mina Terrestre, Armadilha Congelante, Claymore, Mestre Armadilheiro) ×
+  Tiro (Flecha Perfurante, Tiro Duplo, Foco do Caçador). Armadilha (básica) e Chuva de Flechas comuns.
+- Habilidade nova: mecânica inspirada nas skills do Ragnarok (midgardhub.com/tools/skills), adaptada ao que o
+  jogo já tem (cura, escudo, buff de dano, congelar, atordoar, armadilhas, áreas, dano contínuo).

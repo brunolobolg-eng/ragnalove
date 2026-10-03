@@ -623,6 +623,9 @@ function startHorde(): void {
   if (sim.phase !== 'setup') return;
   if (mode === 'battle' && run.choice) {
     run.battle = { act: run.act, node: run.node, choice: run.choice, setup: structuredClone(sim.setup), loadout: loadout() };
+    // a formação fica salva para as próximas hordas (a última e a desta zona)
+    run.lastLayout = structuredClone(setup);
+    run.layouts = { ...run.layouts, [ZONE_STATE.current.id]: structuredClone(setup) };
     SaveStore.set(RUN_KEY, JSON.stringify(run));
   }
   sim.start();
@@ -672,14 +675,39 @@ function loadZone(zone: ZoneDef, wave: WaveOptions): void {
   audio.setAmbience(zone.theme);
   if (themeChanged || !view.boardView) view.rebuildBoard();
   run.usedObjects ??= [];
-  setup = withPartyMembers(structuredClone(zone.defaultSetup), zone);
+  const base = withPartyMembers(structuredClone(zone.defaultSetup), zone);
   if (run.party.length === 1 && run.party[0] === 'mage') {
-    const m = setup.members.find((mm) => mm.archetype === 'mage')!;
-    setup.barriers = barriersShield(m.x, m.y);
+    const m = base.members.find((mm) => mm.archetype === 'mage')!;
+    base.barriers = barriersShield(m.x, m.y);
   }
-  setup.wall = defaultWall(setup);
+  base.wall = defaultWall(base);
+  // a formação do jogador vale entre as hordas: a última usada (se couber neste mapa) ou a desta zona
+  setup = savedLayout(zone, base) ?? base;
   tool = run.party[0];
   resetSim(false);
+}
+
+/**
+ * Formação salva do jogador adaptada à zona: heróis e barreiras só em chão livre deste mapa
+ * (o que não couber volta ao lugar padrão). Undefined = nada salvo que sirva.
+ */
+function savedLayout(zone: ZoneDef, base: PartySetup): PartySetup | undefined {
+  const pz = parseZone(zone);
+  const floor = new Set(pz.floor.map((f) => `${f.x},${f.y}`));
+  const fits = (l: PartySetup) => l.members.filter((m) => run.party.includes(m.archetype as HeroKind)).every((m) => floor.has(`${m.x},${m.y}`));
+  const pick = [run.lastLayout, run.layouts?.[zone.id]].find((l) => l && fits(l));
+  if (!pick) return undefined;
+  const out = structuredClone(pick);
+  out.members = out.members.filter((m) => run.party.includes(m.archetype as HeroKind));
+  for (const m of base.members) if (!out.members.some((o) => o.archetype === m.archetype)) out.members.push({ ...m });
+  out.barriers = base.barriers.map((b, i) => {
+    const s = out.barriers[i];
+    return s && floor.has(`${s.x},${s.y}`) ? s : b;
+  });
+  if (!out.wall || !floor.has(`${out.wall.x},${out.wall.y}`)) out.wall = base.wall;
+  // dois heróis no mesmo tile (o padrão de quem entrou caiu em cima de alguém): usa o padrão
+  const tiles = out.members.map((m) => `${m.x},${m.y}`);
+  return new Set(tiles).size === tiles.length ? out : undefined;
 }
 
 /** Muralha padrão: duas casas à frente do Guerreiro. */

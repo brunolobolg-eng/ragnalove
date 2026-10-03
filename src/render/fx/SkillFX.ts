@@ -430,3 +430,43 @@ export class MeteorFX extends TimedFX {
     this.kit.particles.smoke.emit({ pos: p, life: 0.6, size: 0.3, sizeEnd: 0.7, color: new THREE.Color(0.25, 0.2, 0.18), alpha: 0.5, count: 1 });
   }
 }
+
+// ---------------- Cléria divina (cura) ----------------
+const HOLY = new THREE.Color(3, 2.5, 1.2);
+const HOLY_END = new THREE.Color(0.6, 0.4, 0.1);
+
+/** Luz sagrada subindo no aliado (Cura, Bênção). */
+export function holyBurst(kit: FxKit, pos: THREE.Vector3, count = 14): void {
+  kit.particles.glow.emit({ pos: pos.clone().setY(0.3), posJitter: 0.35, vel: new THREE.Vector3(0, 1.8, 0), velJitter: 0.4, life: 0.8, size: 0.12, sizeEnd: 0.03, color: HOLY, colorEnd: HOLY_END, count });
+  kit.particles.spark.emit({ pos: pos.clone().setY(1.6), posJitter: 0.2, vel: new THREE.Vector3(0, -1.2, 0), velJitter: 0.6, life: 0.5, size: 0.08, sizeEnd: 0.02, color: HOLY, colorEnd: HOLY_END, count: 6 });
+}
+
+/** Santuário: círculo de runas douradas no chão enquanto dura. */
+export function sanctuaryDecal(kit: FxKit, pos: THREE.Vector3, radius: number, seconds: number): void {
+  const s = radius * 2 + 1;
+  kit.decals.spawn({ kind: 'runesFrost', pos: pos.clone().setY(0.035), size: s * 1.05, color: new THREE.Color(2.2, 1.7, 0.6), life: seconds, additive: true, fadeIn: 0.3, fadeOut: 0.5, spin: 0.15 });
+  kit.decals.spawn({ kind: 'glow', pos: pos.clone().setY(0.03), size: s * 1.3, color: new THREE.Color(1.2, 0.95, 0.4), life: seconds, additive: true, fadeIn: 0.3, fadeOut: 0.5 });
+  holyBurst(kit, pos, 20);
+}
+
+/** Escudo Sagrado: anel de luz azul-dourada em volta do aliado. */
+export function shieldBurst(kit: FxKit, pos: THREE.Vector3): void {
+  kit.decals.spawn({ kind: 'ring', pos: pos.clone().setY(0.04), size: 0.4, sizeEnd: 1.8, color: new THREE.Color(1.6, 1.9, 3), life: 0.5, additive: true, fadeIn: 0.02, fadeOut: 0.6 });
+  kit.particles.glow.emit({ pos: pos.clone().setY(0.8), posJitter: 0.45, vel: new THREE.Vector3(0, 0.4, 0), velJitter: 0.5, life: 0.7, size: 0.1, sizeEnd: 0.03, color: new THREE.Color(1.6, 2, 3.2), colorEnd: new THREE.Color(0.2, 0.3, 0.8), count: 16 });
+}
+
+/** Armadilhas da Arqueira: explosão (mina/claymore) ou estouro de gelo (congelante). */
+export function trapBlast(kit: FxKit, pos: THREE.Vector3, kind: 'mine' | 'freeze' | 'claymore', radius: number): void {
+  if (kind === 'freeze') {
+    kit.decals.spawn({ kind: 'frost', pos: pos.clone().setY(0.03), size: (radius * 2 + 1) * 1.1, color: new THREE.Color(1, 1, 1), life: 3, fadeIn: 0.05, fadeOut: 0.4, dissolve: true, opacity: 0.85 });
+    kit.particles.spark.emit({ pos: pos.clone().setY(0.4), vel: new THREE.Vector3(0, 2, 0), velJitter: 3, life: 0.5, size: 0.1, sizeEnd: 0.02, color: ICE, colorEnd: ICE_END, drag: 2, count: 24 });
+    kit.stage.addShake(0.06);
+    return;
+  }
+  const big = kind === 'claymore';
+  kit.particles.fire.emit({ pos: pos.clone().setY(0.2), posJitter: radius * 0.45, vel: new THREE.Vector3(0, 2.2, 0), velJitter: big ? 2.8 : 1.8, life: 0.55, size: big ? 0.4 : 0.28, sizeEnd: 0.08, color: new THREE.Color(3, 1.4, 0.3), colorEnd: new THREE.Color(0.5, 0.08, 0), count: big ? 30 : 14 });
+  kit.particles.smoke.emit({ pos: pos.clone().setY(0.4), posJitter: radius * 0.5, vel: new THREE.Vector3(0, 1.1, 0), velJitter: 0.9, life: 1.4, size: 0.6, sizeEnd: 1.5, color: new THREE.Color(0.2, 0.17, 0.15), alpha: 0.55, count: big ? 10 : 5, spin: 0.8 });
+  kit.decals.spawn({ kind: 'scorch', pos: pos.clone().setY(0.03), size: (radius * 2 + 1) * 1.05, color: new THREE.Color(1, 1, 1), life: 5, fadeIn: 0.02, fadeOut: 0.3, dissolve: true, opacity: 0.85 });
+  kit.stage.addShake(big ? 0.2 : 0.1);
+  if (big) kit.hitStop(0.04);
+}

@@ -53,6 +53,12 @@ export interface RunState {
    * com este selo e sem poder mexer — como a onda é determinística, o resultado é o mesmo.
    */
   battle?: BattleSeal;
+  /**
+   * Formação que o jogador montou (heróis, barreiras, muralha): a última usada e a de cada zona.
+   * A próxima horda começa com ela em vez da formação padrão.
+   */
+  lastLayout?: PartySetup;
+  layouts?: Record<string, PartySetup>;
   /** A recompensa Mítica garantida (depois do 1º chefe da jornada) já foi entregue. */
   mythicGranted?: boolean;
 }
