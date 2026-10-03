@@ -221,12 +221,12 @@ export const ACT_DRESSING = {
 };
 
 /**
- * Menu principal (tela de título): a arte `tela-entrada.png` enche a tela; por cima, os botões, o
+ * Menu principal (tela de título): a arte `tela-entrada.jpg` enche a tela; por cima, os botões, o
  * painel de Ranking e o slogan recortados da mesma arte, com as áreas clicáveis e os valores vivos. Coordenadas em pixels da imagem original (x, y, largura, altura).
  */
 export const MENU_VISUAL = {
   version: 'v0.5',
-  image: 'tela-entrada.png',
+  image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
   /**

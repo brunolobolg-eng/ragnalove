@@ -853,7 +853,7 @@ body.sand-warn #app::after { opacity: 0.12; }
 .cs-slot { width: 150px; }
 .cs-slot.locked small { white-space: normal; text-align: center; line-height: 1.25; }
 
-/* ---------- Menu principal (jogo offline: sem login) — arte tela-entrada.png ---------- */
+/* ---------- Menu principal (jogo offline: sem login) — arte tela-entrada.jpg ---------- */
 #mainmenu { position: fixed; inset: 0; z-index: 100; overflow: hidden; background: #050b18; color: #f3ead2; font-family: Cinzel, Georgia, serif; user-select: none; transition: opacity 0.8s ease, filter 0.8s ease; }
 #mainmenu.leaving { opacity: 0; filter: blur(6px) brightness(1.4); pointer-events: none; }
 #mainmenu[hidden] { display: none; }

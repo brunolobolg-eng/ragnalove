@@ -5,3 +5,7 @@ Executavel/
 .env
 *.log
 release/
+
+# Ferramentas baixadas sozinhas e logs locais
+tools/
+atualizar_log.txt
