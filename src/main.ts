@@ -950,11 +950,10 @@ function returnToMenu(): void {
 function progressionChanged(changed: boolean): void {
   if (!changed || sim.phase === 'running') return;
   saveProfile();
+  // a ficha mostra valores derivados: sempre redesenha (na batalha e fora dela)
+  hud.setCharacter(characterVM());
   if (mode === 'battle') resetSim(false);
-  else {
-    hud.setCharacter(characterVM());
-    refreshOverlays();
-  }
+  else refreshOverlays();
 }
 
 const fmtPct = (v: number) => `${Math.round(v * 100)}%`;

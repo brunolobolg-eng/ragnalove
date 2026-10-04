@@ -1,6 +1,6 @@
 import type { Orientation } from '../core/grid/types';
 import type { Item, Slot } from '../core/progression/equipment';
-import { ITEM_KIND_LABEL, RARITY_INFO, SLOT_GROUP, SLOT_KINDS, SLOT_LABEL, canUse, itemKind, itemLines, itemName } from '../core/progression/equipment';
+import { ITEM_KIND_LABEL, RARITY_INFO, SLOTS, SLOT_GROUP, SLOT_KINDS, SLOT_LABEL, canUse, itemKind, itemLines, itemName } from '../core/progression/equipment';
 import { itemArtCanvas } from './itemArt';
 import { ATTR_KEYS, ATTR_LABEL, attrHint, type AttrKey } from '../core/progression/attributes';
 import { SKILL_ICONS } from './icons';
@@ -655,6 +655,15 @@ export class Hud {
         <button data-c="plus" data-key="${k}" data-n="1" title="+1 ponto"${dis(vm.editable && h.points > 0)}>+</button><button class="p5" data-c="plus" data-key="${k}" data-n="5" title="+5 pontos (ou o que sobrar)"${dis(vm.editable && h.points > 0)}>+5</button></div>`;
     }).join('');
     const derived = h.derived.map(([a, b]) => `<div class="cw-drv"><span>${a}</span><b>${b}</b></div>`).join('');
+    // de onde vem cada bônus: por item equipado (base + rolagens + refino)
+    const bonus = SLOTS.map((s) => h.equipment[s])
+      .filter((it) => !!it)
+      .map((it) => {
+        const info = RARITY_INFO[it!.rarity];
+        const lines = itemLines(it!).join(' · ');
+        return `<div class="cw-bonus"><i style="--rc:${info.color}"></i><span>${itemName(it!)}${it!.refine ? ` +${it!.refine}` : ''}</span><small>${lines || '—'}</small></div>`;
+      })
+      .join('');
     const F = this.bagFilter;
     const bagItems = vm.inventory.filter((it) => F === 'all' || SLOT_GROUP[it.slot] === F);
     const cells = bagItems.map((it) => {
@@ -683,6 +692,8 @@ export class Hud {
             <div class="cw-box"><div class="cw-sub">Atributos <span>Pontos: <b>${h.points}</b></span></div>${attrs}
               <div class="cw-hint">${vm.editable ? 'Refazer pontos: Mestre de Armas (cidade).' : 'Distribua pontos entre as fases.'}</div></div>
             <div class="cw-box"><div class="cw-sub">Status</div><div class="cw-drvs">${derived}</div></div>
+            <div class="cw-box"><div class="cw-sub">Bônus dos equipamentos <small>cada item soma nos atributos acima</small></div>${bonus || '<div class="cw-dim">Nenhum item equipado.</div>'}</div>
+
           </div>
         </section>
         <section class="cw-panel cw-bag">
