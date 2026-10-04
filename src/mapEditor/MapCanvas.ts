@@ -4,6 +4,7 @@
  */
 import { CHAR_INFO } from './legend';
 import { getChar, type MapDoc } from './mapDoc';
+import { paintTile } from './tileArt';
 
 export type LayerId = 'ground' | 'props' | 'objects' | 'spawns' | 'collision';
 
@@ -84,10 +85,6 @@ export class MapCanvas {
     ctx.fillRect(0, 0, W, H);
     ctx.save();
     ctx.globalAlpha = view.layerOpacity;
-    const font = `${Math.max(8, t * 0.52)}px monospace`;
-    ctx.font = font;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
     for (let y = 0; y < doc.height; y++) {
       for (let x = 0; x < doc.width; x++) {
         const ch = getChar(doc, x, y);
@@ -102,10 +99,7 @@ export class MapCanvas {
           ctx.fillRect(px, py, t, t);
           continue;
         }
-        ctx.fillStyle = info.bg;
-        ctx.fillRect(px, py, t, t);
-        ctx.fillStyle = info.color;
-        ctx.fillText(ch, px + t / 2, py + t / 2 + 1);
+        paintTile(ctx, ch, px, py, t, x, y);
       }
     }
     ctx.restore();

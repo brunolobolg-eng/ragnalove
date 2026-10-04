@@ -37,7 +37,7 @@ export const MAP_EDITOR_CSS = `
   text-align: center; font-size: 11px; background: #0d1420; }
 .me-swatch:hover { border-color: #c9a227; }
 .me-swatch.on { border-color: #ffd75e; box-shadow: 0 0 0 1px #ffd75e; }
-.me-swatch b { display: block; font-size: 15px; font-family: monospace; }
+.me-swatch canvas { display: block; width: 30px; height: 30px; margin: 0 auto 2px; border-radius: 3px; image-rendering: auto; }
 .me-layer { display: flex; align-items: center; gap: 6px; padding: 4px 2px; border-bottom: 1px solid #1b2740; font-size: 12px; }
 .me-layer input[type=checkbox] { accent-color: #c9a227; }
 .me-bottom { flex: none; display: flex; gap: 14px; align-items: center; padding: 4px 10px;

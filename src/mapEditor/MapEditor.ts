@@ -15,6 +15,7 @@ import { MAP_EDITOR_CSS } from './mapEditorStyle';
 import { defaultView, MapCanvas, type LayerId } from './MapCanvas';
 import { openJsonFile, exportTs, saveJson } from './storage';
 import { applyLine, applyRect, floodFill, TOOLS, paintAt, type ToolId } from './tools';
+import { SHELVES, paintTile } from './tileArt';
 import { validate } from './validate';
 
 type El = HTMLElement;
@@ -143,20 +144,16 @@ export class MapEditor {
       this.toolBtns.set(t.id, b);
       left.append(b);
     }
-    left.append(h('h4', '', 'Paleta (chão)'));
-    const palG = h('div', 'me-pal');
-    for (const [ch, info] of Object.entries(CHAR_INFO)) {
-      if (info.cat !== 'ground' && info.cat !== 'gate' && info.cat !== 'void') continue;
-      palG.append(this.swatch(ch, info.label, info.color));
+    left.append(h('h4', '', 'Prateleiras (clique e pinte)'));
+    for (const shelf of SHELVES) {
+      left.append(h('h4', '', shelf.label));
+      const pal = h('div', 'me-pal');
+      for (const ch of shelf.chars) {
+        const info = CHAR_INFO[ch];
+        pal.append(this.swatch(ch, info?.label ?? ch, info?.hint ?? ''));
+      }
+      left.append(pal);
     }
-    left.append(palG);
-    left.append(h('h4', '', 'Paleta (bloqueio)'));
-    const palB = h('div', 'me-pal');
-    for (const [ch, info] of Object.entries(CHAR_INFO)) {
-      if (info.cat !== 'block') continue;
-      palB.append(this.swatch(ch, info.label, info.color));
-    }
-    left.append(palB);
     const center = h('div', 'me-center');
     const right = h('div', 'me-right');
     const layers = h('div', '');
@@ -192,13 +189,17 @@ export class MapEditor {
     return body;
   }
 
-  private swatch(ch: string, label: string, color: string): El {
+  private swatch(ch: string, label: string, hint: string): El {
     const b = h('button', 'me-swatch') as HTMLButtonElement;
-    b.title = `${label} ("${ch}")`;
+    b.title = `${label} — ${hint}`;
     b.dataset.ch = ch;
-    b.append(h('b', '', ch));
+    const cv = document.createElement('canvas');
+    cv.width = 30;
+    cv.height = 30;
+    const g = cv.getContext('2d')!;
+    paintTile(g, ch, 0, 0, 30, 0, 0);
+    b.append(cv);
     const s = h('span', '', label);
-    s.style.color = color;
     b.append(s);
     b.onclick = () => {
       this.selChar = ch;
