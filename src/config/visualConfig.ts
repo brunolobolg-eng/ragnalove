@@ -21,7 +21,7 @@ export const VISUAL_CONFIG = {
   cleave: { sweepTime: 0.14, fadeTime: 0.28, shakePerHit: 0.05 },
   /** Investida: tremor sutil, menor que um Golpe em Área cheio. */
   bash: { shake: 0.09 },
-  unit: { hitFlashTime: 0.15, deathTime: 1.1 },
+  unit: { hitFlashTime: 0.22, deathTime: 1.1 },
   /** Planejamento: heróis passeiam em volta do posto (raio em tiles, velocidades em tiles/s, esperas em s). */
   idleWander: { radius: 0.85, speed: 0.9, orderSpeed: 3.2, waitMin: 1.5, waitMax: 4.5, lookAtCameraAfter: 1.2 },
   /** Ordem de posição: marca no chão (duração em s). */
@@ -39,7 +39,7 @@ export const VISUAL_CONFIG = {
     painted: { zoomStart: 1.3, zoomMin: 0.7, zoomMax: 1.75 },
     zoomStep: 0.1,
     follow: 2.4, // suavização do seguir
-    manualHold: 4, // s sem seguir depois que o jogador mexe na câmera
+    manualHold: 1.5, // s sem seguir depois que o jogador mexe na câmera
     shadowHalf: 17, // meia-largura da área de sombras em volta do foco (tiles)
   },
   /** Direção do sol (de onde a luz vem) — o deserto usa sol baixo de fim de tarde (sombras longas). */

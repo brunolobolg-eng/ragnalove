@@ -72,6 +72,22 @@ const HIT_VFX: Partial<Record<string, string>> = { melee: 'hitSpark', cleave: 'h
 /** Objetos que soltam farpas de madeira ao quebrar (o resto solta pedra). */
 const WOOD_OBJECTS = new Set(['cart', 'roots', 'torch', 'altar', 'campfire', 'oilBarrel']);
 const WIND = new THREE.Vector3(1, 0, 0.11).normalize();
+/** Momento do acerto dentro de cada animação/FX (sincroniza dano som e número com o visual). */
+const MELEE_IMPACT = 0.28;
+const EXECUTE_IMPACT = 0.3;
+const NOVA_IMPACT = 0.25;
+const SHOCKWAVE_IMPACT = 0.22;
+const STORM_IMPACT = 0.3;
+const PIERCE_IMPACT = 0.15;
+const STOMP_IMPACT = 0.3;
+/** Distância ponto→segmento em tiles (para o disparo perfurante). */
+function segDist(ax: number, ay: number, bx: number, by: number, px: number, py: number): number {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len2 = dx * dx + dy * dy || 1;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
 /** Geometrias do orderMarker: uma só instância para todas as marcas (nunca dispor). */
 let markerRingGeo: THREE.BufferGeometry | undefined;
 let markerDotGeo: THREE.BufferGeometry | undefined;
@@ -389,7 +405,24 @@ export class GameView {
       }
       else if (e.type === 'shadowBolt') delay.set(e.targetId, ShadowBoltFX.impactDelay(tileToWorld(e.from.x, e.from.y, undefined, 1.0), tileToWorld(e.to.x, e.to.y, undefined, 0.9)));
       else if (e.type === 'arrow') delay.set(e.targetId, ArrowFX.impactDelay(this.bowTip(e.unitId, e.from), tileToWorld(e.to.x, e.to.y, undefined, 0.6)));
-      else if (e.type === 'rain') {
+      else if (e.type === 'melee') delay.set(e.targetId, MELEE_IMPACT);
+      else if (e.type === 'execute') delay.set(e.targetId, EXECUTE_IMPACT);
+      else if (e.type === 'nova' || e.type === 'shockwave') {
+        const at = e.type === 'nova' ? NOVA_IMPACT : SHOCKWAVE_IMPACT;
+        for (const u of this.sim.units.values()) if (u.team === 'enemy' && Math.max(Math.abs(u.x - e.x), Math.abs(u.y - e.y)) <= e.radius) delay.set(u.id, at);
+      } else if (e.type === 'storm') {
+        for (const u of this.sim.units.values()) {
+          if (u.team !== 'enemy') continue;
+          if (e.strikes.some((s) => Math.max(Math.abs(u.x - s.x), Math.abs(u.y - s.y)) <= 1)) delay.set(u.id, STORM_IMPACT);
+        }
+      } else if (e.type === 'pierce') {
+        for (const u of this.sim.units.values()) {
+          if (u.team !== 'enemy') continue;
+          if (segDist(e.from.x, e.from.y, e.to.x, e.to.y, u.x, u.y) <= 1) delay.set(u.id, PIERCE_IMPACT);
+        }
+      } else if (e.type === 'stomp') {
+        for (const u of this.sim.units.values()) if (u.team === 'party' && Math.max(Math.abs(u.x - e.x), Math.abs(u.y - e.y)) <= e.radius) delay.set(u.id, STOMP_IMPACT);
+      } else if (e.type === 'rain') {
         for (const u of this.sim.units.values()) if (u.team === 'enemy' && Math.max(Math.abs(u.x - e.x), Math.abs(u.y - e.y)) <= e.radius) delay.set(u.id, RainFX.IMPACT);
       }
     }
@@ -653,6 +686,8 @@ export class GameView {
           if (v instanceof ModelUnitView) v.attack('heavy');
           else v?.attack();
           this.float('EXECUÇÃO!', tileToWorld(e.x, e.y, undefined, 1.8), '#ffd04a', 0.36, 1.1);
+          this.stage.addShake(0.12);
+          this.kit.hitStop(0.09);
           break;
         }
         case 'objectHit':

@@ -144,6 +144,7 @@ export class Hud {
     const inv = bar.querySelector<HTMLElement>('.cb-in')!;
     inv.hidden = invaded <= 0;
     inv.textContent = `${invaded} invadiram`;
+    bar.title = `Vida da cidade: cada inimigo que alcança o portão invade e desconta a vida dela. Zero = fim da jornada. Ameaça atual: ${Math.round((1 - frac) * 100)}%.`;
     if (this.cityHp >= 0 && hp < this.cityHp) {
       bar.classList.remove('hit');
       void bar.offsetWidth;
@@ -301,7 +302,7 @@ export class Hud {
           <div class="row"><button class="retreat" data-act="retreat" hidden>🏳 Recuar e coletar prêmios</button></div>
           <div class="row plan-only">
             <button data-act="reset" title="Volta a party para a posição inicial da zona">↺ Reposicionar</button>
-            <button class="primary" data-act="start" hidden>Iniciar onda</button>
+            <button class="primary" data-act="start" hidden>Iniciar horda</button>
           </div>
           <div class="row speed" data-group="speed">
             <span class="lbl">Vel.</span>

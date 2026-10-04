@@ -635,14 +635,15 @@ function enterBattle(t: NodeType): void {
   hud.setStage(`Fase ${phaseNumber(run)}/${totalPhases()} · ${NODE_LABEL[t]}`, `${reg.name} — ${currentAct(run).name.split(' — ')[0]}`);
   hud.clearLog();
   hud.log(`${reg.name}: ${t === 'boss' ? `${currentAct(run).bossName} aguarda no fim da horda.` : t === 'elite' ? 'um mini-chefe lidera esta horda.' : 'a horda se aproxima.'}`, 'warn');
-  hud.log(`Planejamento: posicione a party e a Barreira de Fogo. A horda vem sozinha em ${GAME_CONFIG.wave.autoStartSeconds} s (Espaço inicia antes).`, 'info');
+  // a horda começa sozinha após a contagem (o jogador pode iniciar antes); a 1ª fase dá mais tempo
+  const firstAutoStart = run.act === 0 && run.node === 0 ? 30 : GAME_CONFIG.wave.autoStartSeconds;
+  hud.log(`Planejamento: posicione a party e a Barreira de Fogo. A horda vem sozinha em ${firstAutoStart} s (Espaço inicia antes).`, 'info');
   hud.log('A horda vem em levas pelos 2 portais roxos, se espalha pelo caminho e vai para o portão da cidade (dourado). Cada inimigo que entrar desconta a vida da cidade.', 'info');
   if (sim.objects.size) hud.log('Objetos brilhando no mapa podem ser usados antes da horda (clique neles).', 'info');
   if (run.dead.length) hud.log(`${run.dead.map((h) => NAME_PT[h]).join(' e ')} está caído e não luta nesta fase.`, 'warn');
   // a câmera começa na party (o jogador pode inspecionar o mapa antes de iniciar)
   focusParty(true);
-  // a horda começa sozinha após a contagem (o jogador pode iniciar antes)
-  autoStartLeft = GAME_CONFIG.wave.autoStartSeconds;
+  autoStartLeft = firstAutoStart;
 }
 
 /** Segundos que faltam para a horda começar sozinha (0 = sem contagem). */
@@ -870,7 +871,7 @@ function showRunEnd(victory: boolean, cityFell = false): void {
     victory ? 'Aurenthal está salva!' : 'A jornada terminou',
     `<div class="end-art ${victory ? 'win' : 'lose'}"></div>
      <p class="ev-text">${victory ? 'O Senhor Orc das Cinzas caiu. Os portões de Valdrec se abrem para os heróis.' : cityFell ? 'A horda rompeu a muralha e a cidade caiu. Toda jornada ensina algo — a próxima começa do zero.' : 'A party caiu em combate. Toda jornada ensina algo — a próxima começa do zero.'}</p>
-     <ul class="run-sum"><li>Chegou à fase ${phaseNumber(run)} de ${totalPhases()} (${currentAct(run).name.split(' — ')[0]})</li><li>${run.kills} inimigos abatidos</li><li>${lv}</li></ul>`,
+     <ul class="run-sum"><li>Chegou à fase ${phaseNumber(run)} de ${totalPhases()} (${currentAct(run).name.split(' — ')[0]})</li><li>${run.kills} inimigos abatidos</li><li>${lv}</li><li>Recorde, abates e classes desbloqueadas ficam salvos para a próxima.</li></ul>`,
     [
       { label: 'Nova jornada', primary: true, onClick: () => startNewRun() },
       { label: 'Tela inicial', onClick: () => (endModal.hide(), returnToMenu()) },
@@ -1945,13 +1946,19 @@ function playSounds(events: SimEvent[]): void {
     else if (e.type === 'bolt') {
       later('frostBolt', 0.1);
       later('frostHit', 0.26);
-    } else if (e.type === 'cleave') later('cleave', 0.12);
+    } else if (e.type === 'cleave') later('cleave', 0.24);
     else if (e.type === 'bash') later('bash', 0.28);
-    else if (e.type === 'melee') s('hit');
+    else if (e.type === 'melee') later('hit', 0.24);
     else if (e.type === 'nova') s('nova');
     else if (e.type === 'storm') later('thunder', 0.06);
     else if (e.type === 'taunt' || e.type === 'fury') s('roar');
-    else if (e.type === 'shockwave') later('shock', 0.2);
+    else if (e.type === 'shockwave') later('shock', 0.22);
+    else if (e.type === 'curse') later('spell', 0.1);
+    else if (e.type === 'execute') later('shock', 0.15);
+    else if (e.type === 'divineHeal') s('levelup');
+    else if (e.type === 'holyShield') s('coin');
+    else if (e.type === 'blessing') s('levelup');
+    else if (e.type === 'sanctuary') s('spell');
     else if (e.type === 'soul') s('soul');
     else if (e.type === 'levelup') s('levelup');
     else if (e.type === 'drop') s('drop');
@@ -1959,8 +1966,8 @@ function playSounds(events: SimEvent[]): void {
     else if (e.type === 'arrow') s('bow');
     else if (e.type === 'shadowBolt') s('spell');
     else if (e.type === 'stomp') s('shock');
-    else if (e.type === 'meteor') later('meteor', 0.2);
-    else if (e.type === 'rain') (s('bow'), later('rainArrows', 0.45));
+    else if (e.type === 'meteor') later('meteor', 0.28);
+    else if (e.type === 'rain') (s('bow'), later('rainArrows', 0.53));
     else if (e.type === 'pierce') s('bow');
     else if (e.type === 'focus') s('levelup');
     else if (e.type === 'ruinCollapse') later('ruin', 0.05);

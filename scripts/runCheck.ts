@@ -4,7 +4,7 @@ import { applyZone } from '../src/config/gameConfig';
 import { ACTS } from '../src/config/world';
 import { ZONES } from '../src/config/zones';
 import { Simulation } from '../src/core/sim/Simulation';
-import { createProfile, heroStats } from '../src/core/progression/profile';
+import { applyWaveResult, createProfile, heroStats } from '../src/core/progression/profile';
 import { weaponPower } from '../src/core/progression/equipment';
 import { battleFor, newRun } from '../src/core/run/run';
 import type { HeroKind, SkillId } from '../src/core/progression/skills';
@@ -35,12 +35,13 @@ for (let a = 0; a < ACTS.length; a++) {
       h.level = b.level;
       for (const [at, v] of Object.entries(b.attrs[k] ?? {})) (h.attrs as Record<string, number>)[at] += v;
       Object.assign(h.skills, b.skills[k] ?? {});
-      // arma típica do ponto da jornada: Comum no Ato I, Rara no II, Épica no III
+      // arma típica do ponto da jornada: Comum no Ato I, Incomum no II, Rara no III
       const rar = (['common', 'uncommon', 'rare'] as const)[a];
       Object.assign(h.equipment.weapon!, { rarity: rar }, weaponPower(rar, h.equipment.weapon!.kind!));
     }
     const run = newRun(party[0], 12345);
     let cityHp = run.cityHp;
+    let cityDamage = 0;
     run.party = party;
     run.act = a;
     ACTS[a].nodes.forEach((node, ni) => {
@@ -66,8 +67,13 @@ for (let a = 0; a < ACTS.length; a++) {
         while (sim.phase === 'running' && sim.tick < 6000) for (const e of sim.step()) count[e.type] = (count[e.type] ?? 0) + 1;
         const alive = [...sim.units.values()].filter((u) => u.team === 'party').map((u) => `${u.kind}:${Math.round(u.hp)}/${u.maxHp}`).join(' ');
         cityHp = sim.cityHp;
+        cityDamage += sim.cityDamage;
+        // economia acumulada da jornada (instrumentação: prova folga vs limite)
+        applyWaveResult(p, sim.result());
         console.log(`A${a + 1}N${ni + 1} ${party.join('+').padEnd(20)} ${zone.id.padEnd(12)} ${t.padEnd(5)} ${sim.phase.padEnd(7)} t=${sim.tick} kills=${sim.killed} drops=${sim.drops.length} | ${alive} | spells:${(count.shadowBolt ?? 0) + (count.stomp ?? 0) + (count.meteor ?? 0)} | cidade −${sim.cityDamage} (${sim.reachedCity} invadiram) → ${sim.cityHp}`);
       }
     });
+    const lv = party.map((k) => `${k}:${p.heroes[k].level}`).join(' ');
+    console.log(`  == economia ${party.join('+')}: níveis ${lv} · zeni ${p.zeni} · almas ${p.souls} · itens ${p.inventory.length} · dano cidade acumulado ${cityDamage} · cidade ${cityHp}`);
   }
 }

@@ -183,9 +183,10 @@ function rewards(vm: NightReportVM): string {
     ? vm.items
         .map((it) => {
           const info = RARITY_INFO[it.rarity as Rarity];
-          const name = ITEM_KIND_LABEL[itemKind(it)] ?? SLOT_LABEL[it.slot];
-          return `<div class="nr-item r-${it.rarity}" style="--rc:${info.color}" title="${esc([itemName(it), ...itemLines(it)].join('\n'))}">
-            <img src="${itemIconUrl(it)}" alt=""><div><b>${name}${it.refine ? ` +${it.refine}` : ''}</b><em>${info.label}</em></div></div>`;
+          const name = itemName(it);
+          const sub = `${ITEM_KIND_LABEL[itemKind(it)] ?? SLOT_LABEL[it.slot]} · ${info.label}`;
+          return `<div class="nr-item r-${it.rarity}" style="--rc:${info.color}" title="${esc([name, ...itemLines(it)].join('\n'))}">
+            <img src="${itemIconUrl(it)}" alt=""><div><b>${name}${it.refine ? ` +${it.refine}` : ''}</b><em>${sub}</em></div></div>`;
         })
         .join('')
     : '<p class="nr-dim nr-noitem">Nenhum item caiu nesta noite.</p>';

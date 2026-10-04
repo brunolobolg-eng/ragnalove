@@ -8,7 +8,7 @@ import { itemIconUrl } from './itemArt';
  */
 const CARD = 162; // largura de cada carta + espaço (150 + 12)
 const WIN_INDEX = 46;
-const FILLER_WEIGHTS: Record<Rarity, number> = { common: 40, uncommon: 26, rare: 16, epic: 9, legendary: 6, mythic: 3 };
+const FILLER_WEIGHTS: Record<Rarity, number> = { common: 52, uncommon: 30, rare: 18, epic: 0, legendary: 0, mythic: 0 };
 
 export class Roulette {
   readonly el: HTMLElement;
