@@ -1961,8 +1961,7 @@ hud.setCharacter(characterVM());
 requestAnimationFrame(frame);
 
 // ---------- Game Editor V1 (F10): só no client desktop; lê/grava o balanceamento pelo Electron ----------
-const desktopBalance = window.vanguardaDesktop?.balance;
-if (desktopBalance)
+const desktopBalance = window.vanguardaDesktop?.balance;if (desktopBalance)
   void desktopBalance.load().then(async (r) => {
     // o balanceamento salvo (balance.ts do projeto ou do jogador) vale por cima do que veio no build,
     // mesmo antes de recompilar (o executável dentro da pasta do projeto grava no balance.ts)
@@ -1970,6 +1969,10 @@ if (desktopBalance)
     const { installEditor } = await import('./editor/GameEditor');
     installEditor(r.data, (h, t, fn) => panels.addButton(h, t, fn));
   });
+
+// ---------- Editor de mapas (F6): mesma condição do Game Editor (client desktop) ----------
+if (desktopBalance)
+  void import('./mapEditor/MapEditor').then(({ installMapEditor }) => installMapEditor((h, t, fn) => panels.addButton(h, t, fn)));
 
 // ---------- Painel de debug: só em desenvolvimento ----------
 // No build de produção o Vite troca `import.meta.env.DEV` por `false`, este bloco

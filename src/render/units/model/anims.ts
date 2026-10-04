@@ -81,23 +81,58 @@ const RELAX: Pose = {
 };
 
 function walkKeys(dur: number, stride: number, armSwing: number, bob: number, extra: (half: 0 | 1) => Pose = () => ({})): Key[] {
-  const step = (s: 1 | -1, t: number, lift: number): Key => ({
+  // Passo com peso: contato (calcanhar) → absorção (quadril desce) → impulso (ponta) → balanço.
+  // Braços oscilam com leve atraso em relação às pernas (a arma "pesa" na mão).
+  const contact = (s: 1 | -1, t: number): Key => ({
     t,
-    hips: [0, lift, 0],
+    hips: [0, 0, 0],
     pose: {
       'thigh.L': [-stride * s, 0, 0],
-      'shin.L': [s > 0 ? 8 : 28, 0, 0],
-      'foot.L': [s > 0 ? 12 : -8, 0, 0],
+      'shin.L': [s > 0 ? 6 : 42, 0, 0],
+      'foot.L': [s > 0 ? 14 : -22, 0, 0],
       'thigh.R': [stride * s, 0, 0],
-      'shin.R': [s > 0 ? 28 : 8, 0, 0],
-      'foot.R': [s > 0 ? -8 : 12, 0, 0],
-      ...(armSwing ? { 'upperArm.L': [armSwing * s, 0, 9], 'upperArm.R': [-armSwing * s, 0, -9] } : {}),
-      spine: [4, -6 * s, 0],
+      'shin.R': [s > 0 ? 42 : 6, 0, 0],
+      'foot.R': [s > 0 ? -22 : 14, 0, 0],
+      ...(armSwing ? { 'upperArm.L': [armSwing * s * 0.9, 0, 9], 'upperArm.R': [-armSwing * s * 0.9, 0, -9] } : {}),
+      spine: [3, -7 * s, 0],
+      chest: [0, -4 * s, 0],
+      head: [0, 5 * s, 0],
       ...extra(s > 0 ? 0 : 1),
     },
   });
-  const pass = (t: number): Key => ({ t, hips: [0, bob, 0], pose: { 'thigh.L': [0, 0, 0], 'thigh.R': [0, 0, 0], 'shin.L': [30, 0, 0], 'shin.R': [30, 0, 0], spine: [4, 0, 0] } });
-  return [step(1, 0, 0), pass(dur * 0.25), step(-1, dur * 0.5, 0), pass(dur * 0.75), step(1, dur, 0)];
+  const absorb = (s: 1 | -1, t: number): Key => ({
+    t,
+    hips: [0, -bob, 0],
+    pose: {
+      'thigh.L': [-stride * s * 0.55, 0, 0],
+      'shin.L': [20, 0, 0],
+      'foot.L': [2, 0, 0],
+      'thigh.R': [stride * s * 0.55, 0, 0],
+      'shin.R': [20, 0, 0],
+      'foot.R': [2, 0, 0],
+      ...(armSwing ? { 'upperArm.L': [armSwing * s * 0.4, 0, 9], 'upperArm.R': [-armSwing * s * 0.4, 0, -9] } : {}),
+      spine: [5, -3 * s, 0],
+      ...extra(s > 0 ? 0 : 1),
+    },
+  });
+  const push = (s: 1 | -1, t: number): Key => ({
+    t,
+    hips: [0, bob * 0.6, 0.01],
+    pose: {
+      'thigh.L': [-stride * s * 0.15, 0, 0],
+      'shin.L': [s > 0 ? 48 : 10, 0, 0],
+      'foot.L': [s > 0 ? -6 : -26, 0, 0],
+      'thigh.R': [stride * s * 0.15, 0, 0],
+      'shin.R': [s > 0 ? 10 : 48, 0, 0],
+      'foot.R': [s > 0 ? -26 : -6, 0, 0],
+      ...(armSwing ? { 'upperArm.L': [-armSwing * s, 0, 9], 'upperArm.R': [armSwing * s, 0, -9] } : {}),
+      spine: [2, 5 * s, 0],
+      chest: [0, 3 * s, 0],
+      head: [0, -4 * s, 0],
+      ...extra(s > 0 ? 0 : 1),
+    },
+  });
+  return [contact(1, 0), absorb(1, dur * 0.15), push(1, dur * 0.32), contact(-1, dur * 0.5), absorb(-1, dur * 0.65), push(-1, dur * 0.82), contact(1, dur)];
 }
 
 export function warriorClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
@@ -117,24 +152,36 @@ export function warriorClips(bones: BoneDef[]): Record<ClipName, THREE.Animation
   };
   const idle = withBase(BASE, [
     { t: 0, pose: {} },
-    { t: 1.1, hips: [0, -0.012, 0], pose: { chest: [3, 0, 0], head: [-2, 0, 0], 'foreArm.R': [-52, 0, 0] } },
+    // respiração: peito enche, ombros sobem, espada balança na mão
+    { t: 0.55, hips: [0, 0.008, 0], pose: { chest: [-2, 0, 0], head: [-17, 0, 0], 'shoulder.R': [-3, 0, 0], 'shoulder.L': [-3, 0, 0], 'foreArm.R': [-46, 0, 0], 'hand.R': [20, 0, 0] } },
+    // troca o peso para a direita, olhar varre para a direita
+    { t: 1.1, hips: [0.012, -0.006, 0], pose: { chest: [2, -6, 2], head: [-15, -10, 0], spine: [0, -4, 2], 'upperArm.R': [-20, 0, -14], 'foreArm.L': [-60, 0, 0] } },
+    // respiração completa, volta ao centro
+    { t: 1.65, hips: [0, 0.004, 0], pose: { chest: [-1, 3, 0], head: [-17, 5, 0], 'foreArm.R': [-50, 0, 0], 'hand.R': [16, 0, 0] } },
     { t: 2.2, pose: {} },
   ]);
-  const walk = withBase(BASE, walkKeys(1.0, 26, 0, 0.03));
-  // Golpe em Área: varredura horizontal da direita para a esquerda
+  const walk = withBase(BASE, walkKeys(1.0, 26, 10, 0.03, (h) =>
+    // espada firme à frente, escudo colado no corpo durante a marcha
+    h === 0 ? { 'foreArm.R': [-52, 0, 0], 'upperArm.L': [-22, 0, 24] } : { 'foreArm.R': [-44, 0, 0], 'upperArm.L': [-14, 0, 20] },
+  ));
+  // Golpe em Área: agacha enrolando → varredura com overshoot → chicote do quadril → recolhe
   const attack = withBase(BASE, [
     { t: 0, pose: {} },
-    { t: 0.14, pose: { spine: [0, 38, 0], chest: [0, 18, 0], 'upperArm.R': [-40, 0, -95], 'foreArm.R': [-35, 0, 0], 'hand.R': [0, 0, 0] } },
-    { t: 0.26, hips: [0, -0.02, 0.03], pose: { spine: [8, -42, 0], chest: [4, -20, 0], 'upperArm.R': [-88, 0, -4], 'foreArm.R': [-6, 0, 0], 'hand.R': [0, -30, 0], 'thigh.L': [-22, 0, 4], 'shin.L': [18, 0, 0] } },
-    { t: 0.36, hips: [0, -0.02, 0.03], pose: { spine: [8, -48, 0], chest: [4, -24, 0], 'upperArm.R': [-78, 0, 18], 'foreArm.R': [-10, 0, 0], 'hand.R': [0, -40, 0], 'thigh.L': [-22, 0, 4], 'shin.L': [18, 0, 0] } },
+    { t: 0.08, hips: [0, -0.015, -0.02], pose: { spine: [6, 22, 0], chest: [2, 12, 0], 'upperArm.R': [-30, 0, -60], 'foreArm.R': [-42, 0, 0], 'thigh.L': [-12, 0, 4], 'shin.L': [16, 0, 0] } },
+    { t: 0.15, pose: { spine: [0, 40, 0], chest: [0, 20, 0], head: [-14, 12, 0], 'upperArm.R': [-42, 0, -98], 'foreArm.R': [-36, 0, 0], 'hand.R': [0, 0, 0] } },
+    { t: 0.25, hips: [0, -0.02, 0.035], pose: { spine: [9, -46, 0], chest: [5, -22, 0], head: [-18, -8, 0], 'upperArm.R': [-90, 0, -2], 'foreArm.R': [-5, 0, 0], 'hand.R': [0, -32, 0], 'thigh.L': [-24, 0, 4], 'shin.L': [20, 0, 0] } },
+    { t: 0.33, hips: [0, -0.015, 0.02], pose: { spine: [7, -34, 0], chest: [3, -16, 0], 'upperArm.R': [-76, 0, 20], 'foreArm.R': [-12, 0, 0], 'hand.R': [0, -42, 0], 'thigh.L': [-18, 0, 4], 'shin.L': [14, 0, 0] } },
+    { t: 0.45, hips: [0, -0.005, 0], pose: { spine: [2, -10, 0], 'upperArm.R': [-40, 0, -20], 'foreArm.R': [-40, 0, 0] } },
     { t: 0.55, pose: {} },
   ]);
-  // Investida: ergue a espada sobre a cabeça, avança e desce com peso
+  // Investida: agacha reunindo força → espada ao céu esticando o corpo → queda com o peso → crava e recupera
   const heavy = withBase(BASE, [
     { t: 0, pose: {} },
-    { t: 0.18, hips: [0, 0.01, -0.05], pose: { spine: [-12, 10, 0], chest: [-8, 0, 0], head: [-6, 0, 0], 'upperArm.R': [-172, 0, -12], 'foreArm.R': [-38, 0, 0], 'hand.R': [-10, 0, 0] } },
-    { t: 0.29, hips: [0, -0.07, 0.14], pose: { spine: [26, -8, 0], chest: [10, 0, 0], head: [-8, 0, 0], 'upperArm.R': [-58, 0, -6], 'foreArm.R': [0, 0, 0], 'hand.R': [30, 0, 0], 'thigh.L': [-38, 0, 4], 'shin.L': [40, 0, 0], 'thigh.R': [22, 0, -4], 'shin.R': [20, 0, 0] } },
-    { t: 0.4, hips: [0, -0.07, 0.14], pose: { spine: [28, -8, 0], chest: [10, 0, 0], 'upperArm.R': [-50, 0, -6], 'foreArm.R': [0, 0, 0], 'hand.R': [36, 0, 0], 'thigh.L': [-38, 0, 4], 'shin.L': [40, 0, 0], 'thigh.R': [22, 0, -4], 'shin.R': [20, 0, 0] } },
+    { t: 0.1, hips: [0, -0.03, -0.03], pose: { spine: [10, 6, 0], chest: [4, 0, 0], 'thigh.L': [-20, 0, 4], 'shin.L': [30, 0, 0], 'thigh.R': [-6, 0, -4], 'shin.R': [22, 0, 0], 'upperArm.R': [-60, 0, -20], 'foreArm.R': [-50, 0, 0] } },
+    { t: 0.2, hips: [0, 0.015, -0.06], pose: { spine: [-14, 12, 0], chest: [-10, 0, 0], head: [-4, 0, 0], 'upperArm.R': [-174, 0, -12], 'foreArm.R': [-36, 0, 0], 'hand.R': [-12, 0, 0], 'upperArm.L': [-30, 0, 30] } },
+    { t: 0.3, hips: [0, -0.075, 0.15], pose: { spine: [28, -10, 0], chest: [12, 0, 0], head: [-6, 0, 0], 'upperArm.R': [-56, 0, -6], 'foreArm.R': [2, 0, 0], 'hand.R': [32, 0, 0], 'thigh.L': [-40, 0, 4], 'shin.L': [44, 0, 0], 'thigh.R': [24, 0, -4], 'shin.R': [22, 0, 0] } },
+    { t: 0.42, hips: [0, -0.06, 0.12], pose: { spine: [24, -6, 0], chest: [10, 0, 0], 'upperArm.R': [-48, 0, -6], 'foreArm.R': [0, 0, 0], 'hand.R': [38, 0, 0], 'thigh.L': [-34, 0, 4], 'shin.L': [36, 0, 0] } },
+    { t: 0.52, hips: [0, -0.02, 0.03], pose: { spine: [6, 0, 0], 'upperArm.R': [-34, 0, -10], 'foreArm.R': [-30, 0, 0] } },
     { t: 0.6, pose: {} },
   ]);
   return {
@@ -143,7 +190,7 @@ export function warriorClips(bones: BoneDef[]): Record<ClipName, THREE.Animation
     attack: makeClip('attack', 0.55, attack, bones, BASE),
     heavy: makeClip('heavy', 0.6, heavy, bones, BASE),
     cast: makeClip('cast', 0.55, attack, bones, BASE),
-    hit: makeClip('hit', 0.32, hitKeys(BASE), bones, BASE),
+    hit: makeClip('hit', 0.32, hitKeys(BASE, { 'upperArm.L': [-34, 0, 26], 'foreArm.L': [-72, 0, 0], 'upperArm.R': [-28, 0, -16] }), bones, BASE),
     death: makeClip('death', 1.0, deathKeys(BASE, -1), bones, BASE),
   };
 }
@@ -161,24 +208,34 @@ export function mageClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationCli
   };
   const idle = withBase(BASE, [
     { t: 0, pose: {} },
-    { t: 1.3, hips: [0, -0.01, 0], pose: { chest: [3, 0, 0], head: [-3, 4, 0], 'foreArm.L': [-46, 0, 10] } },
+    // respiração funda: cajado acompanha a mão, orbe "respira" junto
+    { t: 0.65, hips: [0, 0.008, 0], pose: { chest: [-2, 0, 0], head: [-17, 0, 0], 'shoulder.R': [-3, 0, 0], 'foreArm.R': [-56, 0, 0], 'hand.R': [60, 0, 0], 'foreArm.L': [-38, 0, 10] } },
+    // mão esquerda flutua desenhando runa no ar, olhar acompanha
+    { t: 1.3, hips: [-0.01, -0.006, 0], pose: { chest: [2, 6, 0], head: [-14, 10, 0], 'upperArm.L': [-22, 0, 18], 'foreArm.L': [-52, 0, 14], spine: [0, 4, -2] } },
+    { t: 1.95, hips: [0, 0.004, 0], pose: { chest: [-1, -3, 0], head: [-17, -5, 0], 'foreArm.R': [-60, 0, 0], 'hand.R': [56, 0, 0], 'upperArm.L': [-8, 0, 12] } },
     { t: 2.6, pose: {} },
   ]);
-  const walk = withBase(BASE, walkKeys(1.1, 20, 0, 0.02));
-  // Raio Gélido: puxa e aponta o cajado para frente
+  const walk = withBase(BASE, walkKeys(1.1, 20, 7, 0.022, (h) =>
+    // cajado firme na vertical ao lado do corpo; túnica balança com o passo
+    h === 0 ? { 'foreArm.R': [-60, 0, 0], 'hand.R': [58, 0, 0] } : { 'foreArm.R': [-56, 0, 0], 'hand.R': [56, 0, 0] },
+  ));
+  // Raio Gélido: recolhe o cajado enrolando o corpo → estocada com overshoot → segura a mira → recolhe
   const attack = withBase(BASE, [
     { t: 0, pose: {} },
-    { t: 0.12, pose: { spine: [-4, 18, 0], 'upperArm.R': [-35, 0, -24], 'foreArm.R': [-70, 0, 0], 'hand.R': [40, 0, 0] } },
-    { t: 0.22, pose: { spine: [6, -14, 0], chest: [4, -8, 0], 'upperArm.R': [-96, 0, -6], 'foreArm.R': [-4, 0, 0], 'hand.R': [-10, 0, 0], 'upperArm.L': [10, 0, 20] } },
-    { t: 0.32, pose: { spine: [6, -14, 0], chest: [4, -8, 0], 'upperArm.R': [-92, 0, -6], 'foreArm.R': [-6, 0, 0], 'hand.R': [-10, 0, 0], 'upperArm.L': [10, 0, 20] } },
+    { t: 0.07, pose: { spine: [-2, 20, 0], chest: [0, 10, 0], 'upperArm.R': [-28, 0, -26], 'foreArm.R': [-72, 0, 0], 'hand.R': [44, 0, 0] } },
+    { t: 0.13, pose: { spine: [-4, 20, 0], 'upperArm.R': [-38, 0, -26], 'foreArm.R': [-72, 0, 0], 'hand.R': [38, 0, 0], head: [-14, 8, 0] } },
+    { t: 0.22, hips: [0, -0.01, 0.02], pose: { spine: [7, -16, 0], chest: [5, -9, 0], head: [-18, -6, 0], 'upperArm.R': [-98, 0, -5], 'foreArm.R': [-3, 0, 0], 'hand.R': [-12, 0, 0], 'upperArm.L': [12, 0, 22] } },
+    { t: 0.3, pose: { spine: [6, -13, 0], chest: [4, -7, 0], 'upperArm.R': [-93, 0, -6], 'foreArm.R': [-7, 0, 0], 'hand.R': [-9, 0, 0], 'upperArm.L': [9, 0, 20] } },
     { t: 0.5, pose: {} },
   ]);
-  // Barreira de Fogo: ergue o cajado com as duas mãos e crava à frente
+  // Barreira de Fogo: inspira erguendo o cajado ao céu → crava no chão com o peso do corpo → segura → solta
   const cast = withBase(BASE, [
     { t: 0, pose: {} },
-    { t: 0.28, hips: [0, 0.02, 0], pose: { spine: [-12, 0, 0], chest: [-8, 0, 0], head: [-14, 0, 0], 'upperArm.R': [-165, 0, -8], 'foreArm.R': [-12, 0, 0], 'hand.R': [0, 0, 0], 'upperArm.L': [-150, 0, 22], 'foreArm.L': [-30, 0, 0] } },
-    { t: 0.5, hips: [0, -0.05, 0.05], pose: { spine: [18, 0, 0], chest: [8, 0, 0], head: [4, 0, 0], 'upperArm.R': [-78, 0, -8], 'foreArm.R': [-20, 0, 0], 'hand.R': [40, 0, 0], 'upperArm.L': [-70, 0, 18], 'foreArm.L': [-30, 0, 0], 'thigh.L': [-24, 0, 0], 'shin.L': [26, 0, 0] } },
-    { t: 0.62, hips: [0, -0.05, 0.05], pose: { spine: [18, 0, 0], chest: [8, 0, 0], 'upperArm.R': [-78, 0, -8], 'foreArm.R': [-20, 0, 0], 'hand.R': [40, 0, 0], 'upperArm.L': [-70, 0, 18], 'foreArm.L': [-30, 0, 0], 'thigh.L': [-24, 0, 0], 'shin.L': [26, 0, 0] } },
+    { t: 0.15, hips: [0, 0.012, -0.01], pose: { spine: [-6, 0, 0], chest: [-4, 0, 0], head: [-16, 0, 0], 'upperArm.R': [-120, 0, -8], 'foreArm.R': [-18, 0, 0], 'upperArm.L': [-110, 0, 20], 'foreArm.L': [-32, 0, 0] } },
+    { t: 0.3, hips: [0, 0.025, 0], pose: { spine: [-13, 0, 0], chest: [-9, 0, 0], head: [-13, 0, 0], 'upperArm.R': [-167, 0, -8], 'foreArm.R': [-11, 0, 0], 'hand.R': [0, 0, 0], 'upperArm.L': [-152, 0, 22], 'foreArm.L': [-28, 0, 0] } },
+    { t: 0.5, hips: [0, -0.055, 0.055], pose: { spine: [19, 0, 0], chest: [9, 0, 0], head: [5, 0, 0], 'upperArm.R': [-76, 0, -8], 'foreArm.R': [-22, 0, 0], 'hand.R': [42, 0, 0], 'upperArm.L': [-68, 0, 18], 'foreArm.L': [-32, 0, 0], 'thigh.L': [-26, 0, 0], 'shin.L': [28, 0, 0] } },
+    { t: 0.62, hips: [0, -0.05, 0.05], pose: { spine: [17, 0, 0], chest: [8, 0, 0], 'upperArm.R': [-74, 0, -8], 'foreArm.R': [-20, 0, 0], 'hand.R': [40, 0, 0], 'upperArm.L': [-66, 0, 18], 'foreArm.L': [-30, 0, 0], 'thigh.L': [-22, 0, 0], 'shin.L': [24, 0, 0] } },
+    { t: 0.74, hips: [0, -0.02, 0.01], pose: { spine: [6, 0, 0], 'upperArm.R': [-40, 0, -10], 'foreArm.R': [-40, 0, 0], 'upperArm.L': [-30, 0, 14] } },
     { t: 0.85, pose: {} },
   ]);
   return {
@@ -187,7 +244,7 @@ export function mageClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationCli
     attack: makeClip('attack', 0.5, attack, bones, BASE),
     heavy: makeClip('heavy', 0.5, attack, bones, BASE),
     cast: makeClip('cast', 0.85, cast, bones, BASE),
-    hit: makeClip('hit', 0.32, hitKeys(BASE), bones, BASE),
+    hit: makeClip('hit', 0.32, hitKeys(BASE, { 'upperArm.R': [-24, 0, -15], 'foreArm.R': [-62, 0, 0], 'upperArm.L': [-16, 0, 18] }), bones, BASE),
     death: makeClip('death', 1.0, deathKeys(BASE, -1), bones, BASE),
   };
 }
@@ -249,17 +306,20 @@ export function gruntClips(bones: BoneDef[], variant: 'grunt' | 'runner' | 'brut
   };
 }
 
-/** Tranco para trás (dano). */
-function hitKeys(base: Pose): Key[] {
+/** Tranco para trás (dano): susto → recuo com overshoot → balanço de retorno → base. */
+function hitKeys(base: Pose, brace: Pose = {}): Key[] {
   const p = (k: Pose) => ({ ...base, ...k });
+  const b = (k: Pose) => ({ ...base, ...brace, ...k });
   return [
     { t: 0, pose: p({}) },
-    { t: 0.07, hips: [0, -0.01, -0.05], pose: p({ spine: [(base.spine?.[0] ?? 0) - 14, 0, 4], chest: [-8, 0, 0], head: [-16, 0, -6] }) },
+    { t: 0.04, hips: [0, 0.005, -0.015], pose: b({ spine: [(base.spine?.[0] ?? 0) - 4, 0, 0], chest: [-3, 0, 0], head: [-14, 0, -3] }) },
+    { t: 0.09, hips: [0, -0.012, -0.055], pose: b({ spine: [(base.spine?.[0] ?? 0) - 15, 0, 5], chest: [-9, 0, 0], head: [-18, 0, -7], 'thigh.L': [-10, 0, 3], 'shin.L': [14, 0, 0] }) },
+    { t: 0.17, hips: [0, -0.004, -0.02], pose: b({ spine: [(base.spine?.[0] ?? 0) + 3, 0, -2], chest: [2, 0, 0], head: [-13, 0, 2] }) },
     { t: 0.32, pose: p({}) },
   ];
 }
 
-/** Queda: dir −1 cai de costas (heróis), +1 cai de cara (zumbis). */
+/** Queda: amortece os joelhos → desaba o tronco → cai (dir −1 costas, +1 cara) → quica e assenta. */
 function deathKeys(base: Pose, dir: 1 | -1): Key[] {
   const p = (k: Pose) => ({ ...base, ...k });
   const limp: Pose = {
@@ -276,15 +336,67 @@ function deathKeys(base: Pose, dir: 1 | -1): Key[] {
   };
   return [
     { t: 0, pose: p({}) },
-    { t: 0.22, hips: [0, -0.06, 0], pose: p({ spine: [dir * 14, 0, 6], head: [dir * 18, 0, 12], 'thigh.L': [-30, 0, 0], 'shin.L': [55, 0, 0], 'thigh.R': [-24, 0, 0], 'shin.R': [50, 0, 0] }) },
-    { t: 0.62, hips: [0, -0.04, -dir * 0.11], root: [dir * 86, 0, 0], pose: p(limp) },
-    { t: 0.72, hips: [0, -0.02, -dir * 0.13], root: [dir * 80, 0, 0], pose: p(limp) },
-    { t: 0.85, hips: [0, -0.04, -dir * 0.11], root: [dir * 86, 0, 0], pose: p(limp) },
+    { t: 0.14, hips: [0, -0.09, 0], pose: p({ spine: [dir * 6, 0, 0], head: [dir * 8, 0, 6], 'thigh.L': [-34, 0, 2], 'shin.L': [62, 0, 0], 'thigh.R': [-28, 0, -2], 'shin.R': [56, 0, 0], 'upperArm.L': [-30, 0, 30], 'upperArm.R': [-30, 0, -30] }) },
+    { t: 0.3, hips: [0, -0.1, -dir * 0.03], pose: p({ spine: [dir * 16, 0, 8], head: [dir * 22, 0, 14], 'thigh.L': [-44, 0, 0], 'shin.L': [70, 0, 0], 'upperArm.L': [-70, 0, 40], 'upperArm.R': [-60, 0, -45] }) },
+    { t: 0.55, hips: [0, -0.05, -dir * 0.1], root: [dir * 68, 0, 0], pose: p(limp) },
+    { t: 0.68, hips: [0, -0.02, -dir * 0.13], root: [dir * 90, 0, 0], pose: p(limp) },
+    { t: 0.8, hips: [0, -0.035, -dir * 0.11], root: [dir * 82, 0, 0], pose: p(limp) },
     { t: 1.0, hips: [0, -0.04, -dir * 0.11], root: [dir * 86, 0, 0], pose: p(limp) },
   ];
 }
 
 export { mirror };
+
+/**
+ * Híbrido UAL + procedural (Fase 1): `idle`, `walk`, `hit` e `death` vêm da
+ * Universal Animation Library (retargeting em `ualClips.ts`); `attack`,
+ * `heavy` e `cast` continuam procedurais porque o momento do impacto visual
+ * (CLEAVE_IMPACT/BASH_IMPACT) foi coreografado para eles.
+ */
+import { UAL_PELVIS_REST, ualRawClips } from './ualClips';
+
+/**
+ * Ajusta `hips.position` do espaço UAL (offset em metros, eixo Z = cima)
+ * para o descanso do boneco: escala pela altura do quadril e remapeia
+ * os eixos (mundo UAL = mundo do jogo: frente +Z, esquerda +X, cima +Y).
+ */
+function fitHips(clip: THREE.AnimationClip, bones: BoneDef[]): THREE.AnimationClip {
+  const hips = bones.find((b) => b.name === 'hips')!;
+  const s = hips.pos[1] / UAL_PELVIS_REST[2];
+  const c = clip.clone();
+  const t = c.tracks.find((x) => x.name === 'hips.position') as THREE.VectorKeyframeTrack | undefined;
+  if (t) {
+    const v = t.values as unknown as number[];
+    for (let i = 0; i < v.length; i += 3) {
+      const ox = v[i];
+      const oy = v[i + 1];
+      const oz = v[i + 2];
+      v[i] = hips.pos[0] + ox * s;
+      v[i + 1] = hips.pos[1] + oz * s;
+      v[i + 2] = hips.pos[2] - oy * s;
+    }
+  }
+  return c;
+}
+
+function withUAL(bones: BoneDef[], proc: (b: BoneDef[]) => Record<ClipName, THREE.AnimationClip>): Record<ClipName, THREE.AnimationClip> {
+  const raw = ualRawClips();
+  const p = proc(bones);
+  return {
+    idle: fitHips(raw.idle, bones),
+    walk: fitHips(raw.walk, bones),
+    attack: p.attack,
+    heavy: p.heavy,
+    cast: p.cast,
+    hit: fitHips(raw.hit, bones),
+    death: fitHips(raw.death, bones),
+  };
+}
+
+/** Heróis com animações UAL (idle/walk/hit/death) + ataque/magia procedurais. */
+export const warriorClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, warriorClips);
+export const mageClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, mageClips);
+export const archerClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, archerClips);
 
 export function archerClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
   // Arco baixo à frente (mão esquerda), mão direita perto da aljava.
@@ -299,17 +411,26 @@ export function archerClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationC
   };
   const idle = withBase(BASE, [
     { t: 0, pose: {} },
-    { t: 1.2, hips: [0, -0.01, 0], pose: { chest: [3, 0, 0], head: [-3, -4, 0], 'upperArm.L': [-34, 0, 16] } },
+    // respiração curta de patrulha: arco balança na mão estendida
+    { t: 0.6, hips: [0, 0.007, 0], pose: { chest: [-2, 0, 0], head: [-17, 0, 0], 'shoulder.L': [-3, 0, 0], 'upperArm.L': [-32, 0, 16], 'foreArm.R': [-28, 0, 0] } },
+    // olhar varre o horizonte para a esquerda, orelha acompanha
+    { t: 1.2, hips: [-0.01, -0.005, 0], pose: { chest: [2, 8, 0], head: [-15, 14, 0], spine: [0, 5, -2], 'upperArm.R': [-10, 0, -16] } },
+    { t: 1.8, hips: [0, 0.004, 0], pose: { chest: [-1, -4, 0], head: [-17, -6, 0], 'upperArm.L': [-28, 0, 16], 'foreArm.L': [-32, 0, 0] } },
     { t: 2.4, pose: {} },
   ]);
-  const walk = withBase(BASE, walkKeys(0.95, 24, 0, 0.025));
-  // Flecha: ergue o arco na horizontal, puxa a corda e solta
+  const walk = withBase(BASE, walkKeys(0.95, 24, 9, 0.028, (h) =>
+    // arco baixo à frente como lanterna; mão direita solta balança livre
+    h === 0 ? { 'upperArm.L': [-36, 0, 14], 'foreArm.L': [-24, 0, 0] } : { 'upperArm.L': [-26, 0, 16], 'foreArm.L': [-30, 0, 0] },
+  ));
+  // Flecha: ergue e engatilha → puxada total com o peito torcido → solta com coice → acompanha → desce
   const shot = (up: number) =>
     withBase(BASE, [
       { t: 0, pose: {} },
-      { t: 0.14, pose: { spine: [0, 30, 0], chest: [0, 10, 0], head: [-14 - up * 0.3, -24, 0], 'upperArm.L': [-88 - up, 0, 10], 'foreArm.L': [-4, 0, 0], 'upperArm.R': [-84 - up, 0, -30], 'foreArm.R': [-120, 0, 0] } },
-      { t: 0.3, pose: { spine: [0, 34, 0], chest: [0, 12, 0], head: [-14 - up * 0.3, -26, 0], 'upperArm.L': [-90 - up, 0, 10], 'foreArm.L': [-2, 0, 0], 'upperArm.R': [-80 - up, 0, -62], 'foreArm.R': [-140, 0, 0] } },
-      { t: 0.36, pose: { spine: [0, 34, 0], chest: [0, 12, 0], head: [-14 - up * 0.3, -26, 0], 'upperArm.L': [-90 - up, 0, 10], 'foreArm.L': [-2, 0, 0], 'upperArm.R': [-60 - up, 0, -80], 'foreArm.R': [-40, 0, 0] } },
+      { t: 0.08, pose: { spine: [0, 12, 0], chest: [0, 6, 0], 'upperArm.L': [-58 - up * 0.5, 0, 12], 'foreArm.L': [-14, 0, 0], 'upperArm.R': [-50 - up * 0.5, 0, -22], 'foreArm.R': [-70, 0, 0], head: [-14 - up * 0.2, -10, 0] } },
+      { t: 0.16, pose: { spine: [0, 32, 0], chest: [0, 12, 0], head: [-14 - up * 0.3, -26, 0], 'upperArm.L': [-89 - up, 0, 10], 'foreArm.L': [-4, 0, 0], 'upperArm.R': [-86 - up, 0, -28], 'foreArm.R': [-122, 0, 0] } },
+      { t: 0.28, hips: [0, -0.008, 0.01], pose: { spine: [0, 36, 0], chest: [0, 13, 0], head: [-14 - up * 0.3, -27, 0], 'upperArm.L': [-91 - up, 0, 10], 'foreArm.L': [-2, 0, 0], 'upperArm.R': [-81 - up, 0, -60], 'foreArm.R': [-142, 0, 0] } },
+      { t: 0.35, pose: { spine: [0, 30, 0], chest: [0, 10, 0], head: [-14 - up * 0.3, -24, 0], 'upperArm.L': [-86 - up, 0, 12], 'foreArm.L': [-6, 0, 0], 'upperArm.R': [-58 - up, 0, -82], 'foreArm.R': [-38, 0, 0] } },
+      { t: 0.44, pose: { spine: [0, 16, 0], chest: [0, 6, 0], 'upperArm.L': [-60 - up * 0.5, 0, 14], 'upperArm.R': [-34 - up * 0.3, 0, -40], 'foreArm.R': [-50, 0, 0] } },
       { t: 0.55, pose: {} },
     ]);
   return {
@@ -318,7 +439,7 @@ export function archerClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationC
     attack: makeClip('attack', 0.55, shot(0), bones, BASE),
     heavy: makeClip('heavy', 0.55, shot(0), bones, BASE),
     cast: makeClip('cast', 0.55, shot(55), bones, BASE),
-    hit: makeClip('hit', 0.32, hitKeys(BASE), bones, BASE),
+    hit: makeClip('hit', 0.32, hitKeys(BASE, { 'upperArm.L': [-52, 0, 12], 'foreArm.L': [-20, 0, 0], 'upperArm.R': [-20, 0, -20] }), bones, BASE),
     death: makeClip('death', 1.0, deathKeys(BASE, -1), bones, BASE),
   };
 }
