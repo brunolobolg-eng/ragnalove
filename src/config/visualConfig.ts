@@ -138,7 +138,7 @@ export interface MonsterModelVisual {
   /** Heróis: cor do espectro ao usar habilidade. */
   ghost?: [number, number, number];
   /** Usa as animações do personagem do jogo (o GLB traz só malha + esqueleto com os mesmos nomes de ossos). */
-  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute';
+  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist';
   /** Variantes de cor: texturas alternativas no mesmo atlas do GLB (cada inimigo sorteia uma, ou a original). */
   skins?: string[];
   /** Armas presas nos ossos da mão (para modelos que vêm de mãos vazias); accent = cor do brilho. */
@@ -181,7 +181,7 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   zombie: { file: 'models/zombie.glb', height: 1.6, walkRate: 1.3, outline: 0.013, clips: 'zombie', skins: ZOMBIE_SKINS },
   zombieRunner: { file: 'models/zombie.glb', height: 1.35, walkRate: 2.4, outline: 0.013, clips: 'zombieRunner', skins: ZOMBIE_SKINS },
   zombieBrute: { file: 'models/zombie.glb', height: 2.0, walkRate: 0.85, outline: 0.012, clips: 'zombieBrute', skins: ZOMBIE_SKINS },
-  zombieNecro: { file: 'models/zombie.glb', height: 1.65, walkRate: 1.2, outline: 0.013, clips: 'zombie', skins: ZOMBIE_SKINS, aura: [0.7, 0.2, 1.6] },
+  zombieNecro: { file: 'models/cultist.glb', height: 1.7, walkRate: 1.2, outline: 0.013, clips: 'cultist', aura: [0.7, 0.2, 1.6] },
   // Ato III — orc guerreiro chibi (V2Fun): golpe de machado por cima vem do próprio GLB, o resto é do brutamonte
   orcWarrior: { file: 'models/orc.glb', height: 2.3, walkRate: 0.85, outline: 0.011, clips: 'brute', aura: [0.9, 0.3, 1.8], weapons: [ORC_AXE] },
   orcLord: { file: 'models/orc.glb', height: 3.3, walkRate: 0.9, outline: 0.009, clips: 'brute', aura: [1.6, 0.15, 0.4], weapons: [ORC_AXE] },

@@ -356,15 +356,39 @@ export { mirror };
 import { UAL_PELVIS_REST, ualRawClips } from './ualClips';
 
 /**
+ * Altura ABSOLUTA de descanso de um osso (sobe a cadeia aplicando rests).
+ * Igual a pos[1] para esqueletos com descanso identidade; correto para
+ * rigs Mixamo (onde pos é relativo pequeno e a pose vem das rotações).
+ */
+export function absRestY(bones: BoneDef[], name: string): number {
+  const byName = new Map(bones.map((b) => [b.name, b]));
+  const chain: BoneDef[] = [];
+  let cur = byName.get(name);
+  while (cur) {
+    chain.unshift(cur);
+    cur = cur.parent ? byName.get(cur.parent) : undefined;
+  }
+  const p = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const e = new THREE.Vector3();
+  for (const b of chain) {
+    e.set(...b.pos).applyQuaternion(q);
+    p.add(e);
+    if (b.rest) q.multiply(new THREE.Quaternion(...b.rest));
+  }
+  return p.y;
+}
+/**
  * Ajusta `hips.position` do espaço UAL (offset em metros, eixo Z = cima)
- * para o descanso do boneco: escala pela altura do quadril e remapeia
+ * para o descanso do boneco: escala pela altura ABSOLUTA do quadril e remapeia
  * os eixos (mundo UAL = mundo do jogo: frente +Z, esquerda +X, cima +Y).
  */
-export function fitHips(clip: THREE.AnimationClip, bones: BoneDef[]): THREE.AnimationClip {
-  const hips = bones.find((b) => b.name === 'hips')!;
-  const s = hips.pos[1] / UAL_PELVIS_REST[2];
+export function fitHips(clip: THREE.AnimationClip, bones: BoneDef[], hipsName = 'hips', scaleOverride?: number): THREE.AnimationClip {
+  const hips = bones.find((b) => b.name === hipsName)!;
+  // escala sempre positiva (descanso agachado/estranho nunca inverte o balanço)
+  const s = scaleOverride ?? Math.abs(absRestY(bones, hipsName)) / UAL_PELVIS_REST[2];
   const c = clip.clone();
-  const t = c.tracks.find((x) => x.name === 'hips.position') as THREE.VectorKeyframeTrack | undefined;
+  const t = c.tracks.find((x) => x.name === `${hipsName}.position`) as THREE.VectorKeyframeTrack | undefined;
   if (t) {
     const v = t.values as unknown as number[];
     for (let i = 0; i < v.length; i += 3) {

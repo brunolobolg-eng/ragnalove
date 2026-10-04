@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HERO_MODELS, MONSTER_MODELS } from '../../../config/visualConfig';
-import { archerClips, gruntClips, mageClips, warriorClips, type ClipName } from './anims';
+import { archerClips, fitHips, gruntClips, mageClips, warriorClips, type ClipName } from './anims';
+import { ualMixamoClips } from './ualMixamo';
+
+/** Escala UAL->cultista pela altura (modelo nativo 1.82m, personagem UAL ~1.75m). */
+const CULTIST_HIPS_SCALE = 1.82 / 1.75;
 import type { BoneDef, BuiltModel } from './ModelBuilder';
 import { registerModel } from './ModelUnitView';
 
@@ -10,6 +14,21 @@ const CLIP_NAMES: ClipName[] = ['idle', 'walk', 'attack', 'heavy', 'cast', 'hit'
 interface LoadedGlb {
   model: BuiltModel;
   clips: Record<ClipName, THREE.AnimationClip>;
+}
+
+/** Moveset UAL com retargeting para o rig Mixamo embutido (cultista). */
+function cultistClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
+  const raw = ualMixamoClips();
+  const fit = (c: THREE.AnimationClip): THREE.AnimationClip => fitHips(c, bones, 'Hips', CULTIST_HIPS_SCALE);
+  return {
+    idle: fit(raw.idle),
+    walk: fit(raw.walk),
+    attack: fit(raw.attack),
+    heavy: fit(raw.attack),
+    cast: fit(raw.cast),
+    hit: fit(raw.hit),
+    death: fit(raw.death),
+  };
 }
 
 /** Animações do próprio jogo para GLBs que trazem só malha + esqueleto (mesmos nomes de ossos). */
@@ -21,6 +40,7 @@ const GAME_CLIPS = {
   zombieRunner: (b: BoneDef[]) => gruntClips(b, 'runner'),
   zombieBrute: (b: BoneDef[]) => gruntClips(b, 'brute'),
   brute: (b: BoneDef[]) => gruntClips(b, 'brute'),
+  cultist: cultistClips,
 };
 
 /** Textura alternativa no mesmo atlas: herda orientação, espaço de cor e filtros da textura do GLB. */
@@ -66,6 +86,8 @@ function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.Animation
     if (a) geometry.setAttribute(k, a.clone());
   }
   if (src.index) geometry.setIndex(src.index.clone());
+  // GLBs de IA às vezes vêm sem normais: calcula antes do contorno (senão o load quebra e cai no fallback)
+  if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();
   geometry.setAttribute('aSmoothNormal', geometry.getAttribute('normal').clone());
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
@@ -76,9 +98,12 @@ function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.Animation
     name: boneName(b),
     parent: (b.parent as THREE.Bone | null)?.isBone ? boneName(b.parent!) : undefined,
     pos: [b.position.x, b.position.y, b.position.z],
+    // descanso rotacionado (rigs Mixamo/V2Fun): sem ele o bind desmonta
+    rest: [b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w],
   }));
   const map = (mesh.material as THREE.MeshStandardMaterial).map ?? undefined;
-  const model: BuiltModel = { geometry, bones, glows: [], height: geometry.boundingBox!.max.y, map };
+  const inverses = mesh.skeleton.boneInverses.map((m: THREE.Matrix4) => m.clone());
+  const model: BuiltModel = { geometry, bones, glows: [], height: geometry.boundingBox!.max.y, map, inverses };
   if (gameClips) {
     // clipes do jogo; os que o GLB trouxer pelo nome (ex.: "attack" do V2Fun) entram por cima
     const clips = GAME_CLIPS[gameClips](bones);

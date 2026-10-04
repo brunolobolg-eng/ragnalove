@@ -131,7 +131,7 @@ export class ModelUnitView {
       this.u.uRimColor.value.setRGB(0.75, 1.0, 0.85);
     }
 
-    const sk = instantiateSkeleton(model.bones);
+    const sk = instantiateSkeleton(model.bones, model.inverses);
     const body = createBodyMaterial(this.u);
     if (model.map) body.map = model.map;
     this.mesh = new THREE.SkinnedMesh(model.geometry, body);

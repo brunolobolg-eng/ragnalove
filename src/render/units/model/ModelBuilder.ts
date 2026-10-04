@@ -15,6 +15,12 @@ export interface BoneDef {
   parent?: string;
   /** Posição relativa ao pai (na pose de descanso). */
   pos: [number, number, number];
+  /**
+   * Rotação de descanso local (quat xyzw). Rigs procedurais/auto-rig usam
+   * identidade (ausente); GLBs Mixamo/V2Fun trazem a sua — sem ela o bind
+   * desmonta (esqueleto colapsa na origem).
+   */
+  rest?: [number, number, number, number];
 }
 
 export interface PartOpts {
@@ -35,6 +41,8 @@ export interface BuiltModel {
   height: number;
   /** Textura de cor (modelos importados); os construídos em código usam cor por vértice. */
   map?: THREE.Texture;
+  /** Inversas de bind do arquivo (GLBs com descanso rotacionado); sem elas, o instantiateSkeleton deriva. */
+  inverses?: THREE.Matrix4[];
 }
 
 const _m = new THREE.Matrix4();
@@ -152,28 +160,44 @@ function smoothNormals(g: THREE.BufferGeometry): THREE.BufferAttribute {
   return new THREE.BufferAttribute(out, 3);
 }
 
-/** Cria uma instância nova de ossos + esqueleto para a geometria compartilhada. */
-export function instantiateSkeleton(bones: BoneDef[]): { root: THREE.Bone; bones: THREE.Bone[]; skeleton: THREE.Skeleton; byName: Map<string, THREE.Bone> } {
+/**
+ * Cria uma instância nova de ossos + esqueleto para a geometria compartilhada.
+ * Com descanso identidade (padrão), as inversas derivadas são as de sempre;
+ * com `rest` rotacionado (GLB Mixamo), compõe o mundo completo.
+ * `inverses` do arquivo têm precedência (bind exato do modelo).
+ */
+export function instantiateSkeleton(
+  bones: BoneDef[],
+  inverses?: THREE.Matrix4[],
+): { root: THREE.Bone; bones: THREE.Bone[]; skeleton: THREE.Skeleton; byName: Map<string, THREE.Bone> } {
   const byName = new Map<string, THREE.Bone>();
   const list: THREE.Bone[] = [];
-  const inverses: THREE.Matrix4[] = [];
+  const inv: THREE.Matrix4[] = [];
   const world = new Map<string, THREE.Vector3>();
+  const worldQ = new Map<string, THREE.Quaternion>();
   let root: THREE.Bone | undefined;
+  const IDENT = new THREE.Quaternion();
   for (const d of bones) {
     const b = new THREE.Bone();
     b.name = d.name;
     b.position.set(...d.pos);
+    const rq = d.rest ? new THREE.Quaternion(...d.rest) : IDENT.clone();
+    b.quaternion.copy(rq);
     const w = new THREE.Vector3(...d.pos);
+    let wq = rq.clone();
     if (d.parent) {
       byName.get(d.parent)!.add(b);
-      w.add(world.get(d.parent)!);
+      // posição relativa vive no espaço do pai (com a rotação de descanso dele)
+      w.copy(world.get(d.parent)!).add(new THREE.Vector3(...d.pos).applyQuaternion(worldQ.get(d.parent)!));
+      wq = worldQ.get(d.parent)!.clone().multiply(rq);
     } else root = b;
     world.set(d.name, w);
+    worldQ.set(d.name, wq);
     byName.set(d.name, b);
     list.push(b);
-    inverses.push(new THREE.Matrix4().makeTranslation(-w.x, -w.y, -w.z));
+    inv.push(inverses?.[list.length - 1]?.clone() ?? new THREE.Matrix4().compose(w, wq, new THREE.Vector3(1, 1, 1)).invert());
   }
-  return { root: root!, bones: list, skeleton: new THREE.Skeleton(list, inverses), byName };
+  return { root: root!, bones: list, skeleton: new THREE.Skeleton(list, inv), byName };
 }
 
 // ---------- primitivas úteis ----------
