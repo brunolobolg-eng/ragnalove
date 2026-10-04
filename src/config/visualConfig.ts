@@ -227,7 +227,9 @@ export const ACT_DRESSING = {
  * painel de Ranking e o slogan recortados da mesma arte, com as áreas clicáveis e os valores vivos. Coordenadas em pixels da imagem original (x, y, largura, altura).
  */
 export const MENU_VISUAL = {
-  version: 'v0.5',
+  // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
+  // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
+  version: 'v0.5a',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
