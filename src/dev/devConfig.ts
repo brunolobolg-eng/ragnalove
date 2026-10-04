@@ -2,10 +2,10 @@
  * Configuração do Dev Lab (ferramenta interna de testes e balanceamento).
  *
  * O Dev Lab roda no client desktop (executável Electron), como o Game Editor.
- * DEV_MODE = false: o Dev Lab não aparece, o módulo não é carregado e nenhum
- * modificador de teste afeta o jogo (use false na versão que vai para a Steam).
+ * DEV_MODE segue o build: true em desenvolvimento (`npm run dev` / `desktop:dev`),
+ * false na build de produção/Steam (o Vite elimina o código junto com o import).
  */
-export const DEV_MODE: boolean = true;
+export const DEV_MODE: boolean = import.meta.env.DEV;
 
 /** Números do Dev Lab (só da ferramenta — os de gameplay continuam no GAME_CONFIG). */
 export const DEV_CONFIG = {

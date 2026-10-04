@@ -61,6 +61,12 @@ export interface RunState {
   layouts?: Record<string, PartySetup>;
   /** A recompensa Mítica garantida (depois do 1º chefe da jornada) já foi entregue. */
   mythicGranted?: boolean;
+  /**
+   * Chave da última recompensa paga (`w:act:node`, `s:act:node`, `e:act:node:evento`).
+   * Rejogar o mesmo nó (crash na roleta/relatório) mostra o relatório de novo,
+   * mas não paga duas vezes. Saves antigos (sem a chave) pagam normalmente 1×.
+   */
+  paidKey?: string;
 }
 
 export interface BattleSeal {

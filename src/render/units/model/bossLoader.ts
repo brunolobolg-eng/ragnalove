@@ -11,7 +11,7 @@ const BOSS_HEIGHT = 3.1;
  * como modelo do chefe. Se falhar, o Colosso procedural continua sendo usado.
  * Para outro modelo humanoide parecido basta trocar o arquivo (e a pintura, se vier sem textura).
  */
-export async function loadBossModel(url = 'models/orcboss.glb'): Promise<void> {
+export async function loadBossModel(url = 'models/orc.glb'): Promise<void> {
   const g = await new GLTFLoader().loadAsync(url);
   const rig = prepareRiggedModel(g.scene, paintOrc);
   const clips = bossClips(rig.bones);

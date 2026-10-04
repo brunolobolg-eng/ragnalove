@@ -582,6 +582,7 @@ function openCharSelect(): void {
     run = newRun(h);
     profile = run.profile;
     hasSavedRun = true;
+    claimOpen = false;
     saveProfile();
     hud.clearLog();
     hud.setParty(run.party, run.dead);
@@ -592,6 +593,7 @@ function openCharSelect(): void {
 
 /** Opção escolhida no nó atual do mapa. */
 function chooseNode(t: NodeType): void {
+  claimOpen = false; // novo contexto: só o desfecho deste nó libera conclusão
   run.choice = t;
   saveProfile();
   worldMap.hide();
@@ -771,8 +773,11 @@ function withMember(s: PartySetup, zone: ZoneDef, kind: HeroKind): PartySetup {
   return s;
 }
 
-/** Conclui o nó atual e volta para o mapa (viagem animada se mudou de ato). */
+/** Conclui o nó atual e volta para o mapa (viagem animada se mudou de ato). Consumo único: só anda se uma conclusão foi aberta (relatório/cidade/evento) — duplo-clique não avança 2×. */
+let claimOpen = false;
 function completeNode(outcome: string): void {
+  if (!claimOpen) return;
+  claimOpen = false;
   const from = currentNode(run).region;
   const newAct = advance(run, outcome);
   noteRecords();
@@ -795,6 +800,7 @@ function completeNode(outcome: string): void {
 function openCity(): void {
   closeOverlays();
   setMode('city');
+  claimOpen = true; // sair da cidade conclui o nó (uma vez)
   const node = currentNode(run);
   city.open(run, node.city ?? 'Cidade', REGION_BY_ID[node.region].biome);
 }
@@ -814,10 +820,16 @@ function openEvent(): void {
       label: `${o.label}${o.cost ? ` (${o.cost} z)` : ''}`,
       disabled: (o.cost ?? 0) > profile.zeni,
       onClick: () => {
-        if (o.cost) profile.zeni -= o.cost;
-        const out = applyEventEffects(run, o.effects);
-        audio.sfx(out.length ? 'coin' : 'ui');
-        saveProfile();
+        const payKey = `e:${run.act}:${run.node}:${ev.id}`;
+        claimOpen = true; // o resultado vai abrir: uma conclusão liberada
+        let out: string[] = [];
+        if (run.paidKey !== payKey) {
+          run.paidKey = payKey;
+          if (o.cost) profile.zeni -= o.cost;
+          out = applyEventEffects(run, o.effects);
+          audio.sfx(out.length ? 'coin' : 'ui');
+          saveProfile();
+        }
         hud.setCharacter(characterVM());
         eventModal.show(ev.title, `<p class="ev-text">${o.result || out[0] || ''}</p>${out.length ? `<ul class="run-sum">${out.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}`, [
           { label: 'Continuar ➜', primary: true, onClick: () => (eventModal.hide(), completeNode(`evento:${ev.id}`)) },
@@ -895,6 +907,7 @@ function returnToMenu(): void {
   panels.closeAll();
   closeOverlays();
   setMode('menu');
+  claimOpen = false;
   resetSim();
   saveProfile();
   hudRoot.style.visibility = 'hidden';
@@ -1014,7 +1027,7 @@ function nightVM(report: WaveReport, title: string, items: Item[], before: Recor
   };
 }
 
-/** Fim de onda: aplica EXP/níveis/almas/drops no perfil, coleta os itens do chão. */
+/** Fim de onda: aplica EXP/níveis/almas/drops no perfil, coleta os itens do chão. Recompensa paga 1× por nó (paidKey); rejogar após crash mostra o relatório sem pagar de novo. */
 function finishWave(): void {
   run.battle = undefined; // a onda terminou: o selo sai junto com o próximo save
   if (run.choice === 'survival') return finishSurvival();
@@ -1022,45 +1035,63 @@ function finishWave(): void {
   const r = sim.result();
   const firstPhase = run.act === 0 && run.node === 0;
   const before = Object.fromEntries(run.party.map((h) => [h, profile.heroes[h].level]));
-  applyWaveResult(profile, r);
   const won = sim.phase === 'victory';
   const bonus = won ? Math.round(GAME_CONFIG.zeni.waveClearBonus * (1 + run.act * 0.6)) : 0;
-  if (won) {
-    profile.wavesWon = (profile.wavesWon ?? 0) + 1;
-    addZeni(profile, bonus);
+  const payKey = `w:${run.act}:${run.node}`;
+  claimOpen = true; // o relatório vai abrir: uma conclusão liberada
+  let summary = '';
+  let unlockHtml = '';
+  let gifts: Item[] = [];
+  let mythic: Item | undefined;
+  if (run.paidKey !== payKey) {
+    run.paidKey = payKey;
+    applyWaveResult(profile, r);
+    if (won) {
+      profile.wavesWon = (profile.wavesWon ?? 0) + 1;
+      addZeni(profile, bonus);
+    }
+    run.kills += sim.killed;
+    run.damage = (run.damage ?? 0) + report.damageDealtByUnit.reduce((s, d) => s + d.amount, 0);
+    noteRecords();
+    // conquistas entre jornadas (liberam classes): abates, noites perfeitas e chefes
+    const metaBefore = loadMetaStats();
+    const meta: MetaStats = { ...metaBefore, bossesKilled: { ...metaBefore.bossesKilled } };
+    meta.kills += sim.killed;
+    if (won && report.cityDamageTaken <= 0) meta.perfectNights++;
+    if (won && run.choice === 'boss' && GAME_CONFIG.wave.boss) meta.bossesKilled[GAME_CONFIG.wave.boss] = (meta.bossesKilled[GAME_CONFIG.wave.boss] ?? 0) + 1;
+    saveMetaStats(meta);
+    const newClasses = HERO_ORDER.filter((k) => !heroUnlocked(k, metaBefore) && heroUnlocked(k, meta));
+    for (const k of newClasses) hud.log(`Nova classe desbloqueada: ${NAME_PT[k]}! Escolha-a ao iniciar uma nova jornada.`, 'good');
+    hud.log(`Zeni ganho: ${r.zeni + bonus}${won ? ' (inclui bônus de vitória)' : ''}.`, 'good');
+    const n = view.collectDrops();
+    if (n > 0) hud.log(`Coletado: ${r.drops.map((d) => itemName(d)).join(', ')}.`, 'good');
+    summary = newClasses.map((k) => `<div class="unlock"><img src="${PORTRAITS[k] ?? ''}" alt=""><div><b>Nova classe desbloqueada: ${NAME_PT[k]}!</b><small>Disponível ao iniciar uma nova jornada (e como reforço quando um chefe cair).</small></div></div>`).join('');
+    const node = run.choice ?? 'horde';
+    // Chefe de ato derrotado: um novo herói se junta à party
+    if (won && node === 'boss') {
+      const nh = nextUnlock(run, availableHeroes());
+      if (nh) {
+        unlockHero(run, nh);
+        unlockHtml = `<div class="unlock"><img src="${PORTRAITS[nh]}" alt=""><div><b>${NAME_PT[nh]} se juntou à party!</b><small>Chega no nível ${profile.heroes[nh].level}, com pontos para distribuir.</small></div></div>`;
+        hud.setParty(run.party, run.dead);
+      }
+    }
+    // 1ª vitória: presente de raridade SORTEADA (1 ou 2 itens) — cada jornada começa diferente.
+    // 1º chefe vencido: 1 recompensa Mítica garantida (uma vez por jornada).
+    // (Só na vitória, como antes: a derrota sai pelo caminho do relatório sem presentes.)
+    if (won) {
+      gifts = firstPhase ? starterGift(run) : [];
+      mythic = bossMythicReward(run, run.choice, r.drops) ?? undefined;
+      for (const it of [...gifts, ...(mythic ? [mythic] : [])]) profile.inventory.push(it);
+    }
+    saveProfile();
   }
-  run.kills += sim.killed;
-  run.damage = (run.damage ?? 0) + report.damageDealtByUnit.reduce((s, d) => s + d.amount, 0);
-  noteRecords();
-  // conquistas entre jornadas (liberam classes): abates, noites perfeitas e chefes
-  const metaBefore = loadMetaStats();
-  const meta: MetaStats = { ...metaBefore, bossesKilled: { ...metaBefore.bossesKilled } };
-  meta.kills += sim.killed;
-  if (won && report.cityDamageTaken <= 0) meta.perfectNights++;
-  if (won && run.choice === 'boss' && GAME_CONFIG.wave.boss) meta.bossesKilled[GAME_CONFIG.wave.boss] = (meta.bossesKilled[GAME_CONFIG.wave.boss] ?? 0) + 1;
-  saveMetaStats(meta);
-  const newClasses = HERO_ORDER.filter((k) => !heroUnlocked(k, metaBefore) && heroUnlocked(k, meta));
-  for (const k of newClasses) hud.log(`Nova classe desbloqueada: ${NAME_PT[k]}! Escolha-a ao iniciar uma nova jornada.`, 'good');
-  hud.log(`Zeni ganho: ${r.zeni + bonus}${won ? ' (inclui bônus de vitória)' : ''}.`, 'good');
-  const n = view.collectDrops();
-  if (n > 0) hud.log(`Coletado: ${r.drops.map((d) => itemName(d)).join(', ')}.`, 'good');
-  // quem terminou a fase caído fica fora até ser revivido
+  // quem terminou a fase caído fica fora até ser revivido (idempotente: ignora quem já está fora)
   const alive = new Set([...sim.units.values()].filter((u) => u.team === 'party' && u.alive).map((u) => u.kind));
   const fell = run.party.filter((h) => !run.dead.includes(h) && setup.members.some((m) => m.archetype === h) && !alive.has(h));
   run.dead.push(...fell);
   hud.setCharacter(characterVM());
-  const summary = newClasses.map((k) => `<div class="unlock"><img src="${PORTRAITS[k] ?? ''}" alt=""><div><b>Nova classe desbloqueada: ${NAME_PT[k]}!</b><small>Disponível ao iniciar uma nova jornada (e como reforço quando um chefe cair).</small></div></div>`).join('');
   const node = run.choice ?? 'horde';
-  // Chefe de ato derrotado: um novo herói se junta à party
-  let unlockHtml = '';
-  if (won && node === 'boss') {
-    const nh = nextUnlock(run, availableHeroes());
-    if (nh) {
-      unlockHero(run, nh);
-      unlockHtml = `<div class="unlock"><img src="${PORTRAITS[nh]}" alt=""><div><b>${NAME_PT[nh]} se juntou à party!</b><small>Chega no nível ${profile.heroes[nh].level}, com pontos para distribuir.</small></div></div>`;
-      hud.setParty(run.party, run.dead);
-    }
-  }
   if (!won || run.dead.length >= run.party.length || run.cityHp <= 0) {
     run.ended = 'defeat';
     saveMeta('defeat');
@@ -1072,12 +1103,6 @@ function finishWave(): void {
     }, 1400);
     return;
   }
-  // 1ª vitória: presente de raridade SORTEADA (1 ou 2 itens) — cada jornada começa diferente.
-  // 1º chefe vencido: 1 recompensa Mítica garantida (uma vez por jornada).
-  const gifts = firstPhase ? starterGift(run) : [];
-  const mythic = bossMythicReward(run, run.choice, r.drops);
-  for (const it of [...gifts, ...(mythic ? [mythic] : [])]) profile.inventory.push(it);
-  saveProfile();
   window.setTimeout(async () => {
     for (const it of gifts) await roulette.spin('Recompensa da primeira vitória', 'Um presente dos refugiados de Valdrec... o que veio desta vez?', it, () => it.slot);
     if (mythic) await roulette.spin('Garantia Mítica', 'O chefe caiu! Uma relíquia lendária de Aurenthal se revela...', mythic, () => mythic.slot);
@@ -1086,12 +1111,14 @@ function finishWave(): void {
       const c = reviveCost(run);
       buttons.push({
         label: `Reviver ${NAME_PT[h]} (${c} z)`,
-        disabled: profile.zeni <= 0,
+        disabled: profile.zeni < c,
         onClick: () => {
-          if (revive(run, h)) {
-            audio.sfx('levelup');
-            saveProfile();
+          if (!revive(run, h)) {
+            hud.log(`${NAME_PT[h]} não pôde ser revivido (Zeni insuficiente).`, 'warn');
+            return;
           }
+          audio.sfx('levelup');
+          saveProfile();
           resultModal.hide();
           completeNode(`${node}:vitória`);
         },
@@ -1104,21 +1131,33 @@ function finishWave(): void {
   }, 1300);
 }
 
-/** Fim da Sobrevivência (queda ou recuo): pontuação → roleta de prêmios. Cair aqui não mata ninguém. */
+/** Fim da Sobrevivência (queda ou recuo): pontuação → roleta de prêmios. Cair aqui não mata ninguém. Prêmio 1× por nó (paidKey). */
 function finishSurvival(): void {
   const report = nightReport();
   const r = sim.result();
   const before = Object.fromEntries(run.party.map((h) => [h, profile.heroes[h].level]));
-  applyWaveResult(profile, r);
-  run.kills += sim.killed;
-  run.damage = (run.damage ?? 0) + report.damageDealtByUnit.reduce((s, d) => s + d.amount, 0);
-  noteRecords();
-  view.collectDrops();
+  const payKey = `s:${run.act}:${run.node}`;
+  claimOpen = true;
+  let prizes: Item[] = [];
+  let score = 0;
+  if (run.paidKey !== payKey) {
+    run.paidKey = payKey;
+    applyWaveResult(profile, r);
+    run.kills += sim.killed;
+    run.damage = (run.damage ?? 0) + report.damageDealtByUnit.reduce((s, d) => s + d.amount, 0);
+    noteRecords();
+    view.collectDrops();
+    const seconds = Math.round(sim.tick / GAME_CONFIG.sim.tickRate);
+    const res = survivalRewards(sim.killed, seconds);
+    score = res.score;
+    prizes = res.rarities.map((ra) => makeItem(ra, undefined, run.party));
+    profile.inventory.push(...prizes);
+    saveProfile();
+  } else {
+    const seconds = Math.round(sim.tick / GAME_CONFIG.sim.tickRate);
+    score = survivalRewards(sim.killed, seconds).score;
+  }
   const seconds = Math.round(sim.tick / GAME_CONFIG.sim.tickRate);
-  const { score, rarities } = survivalRewards(sim.killed, seconds);
-  const prizes = rarities.map((ra) => makeItem(ra, undefined, run.party));
-  profile.inventory.push(...prizes);
-  saveProfile();
   hud.setSurvival(false);
   window.setTimeout(async () => {
     for (let i = 0; i < prizes.length; i++)
@@ -1798,7 +1837,7 @@ function frame(now: number): void {
     };
     // vitória: a cinemática roda no golpe final (chefe congelado antes de cair); derrota: o chefe comemora
     if (ended && isFinalBossFight() && sim.phase === 'victory') void waitFinalCinematic().then(announce);
-    else if (ended && isFinalBossFight() && !cinePlayed) void bossCinematic(false).then(announce);
+    else if (ended && isFinalBossFight() && !cinePlayed) void bossCinematic(false).then(announce, announce);
     else if (ended) announce();
     else hud.setCharacter(characterVM());
   }
@@ -1960,18 +1999,20 @@ hud.setPlanning(true);
 hud.setCharacter(characterVM());
 requestAnimationFrame(frame);
 
-// ---------- Game Editor V1 (F10): só no client desktop; lê/grava o balanceamento pelo Electron ----------
-const desktopBalance = window.vanguardaDesktop?.balance;if (desktopBalance)
+// ---------- Game Editor V1 (F10): só em desenvolvimento; o balance salvo continua valendo ----------
+const desktopBalance = window.vanguardaDesktop?.balance;
+if (desktopBalance)
   void desktopBalance.load().then(async (r) => {
     // o balanceamento salvo (balance.ts do projeto ou do jogador) vale por cima do que veio no build,
     // mesmo antes de recompilar (o executável dentro da pasta do projeto grava no balance.ts)
     if (r.data) applyOverrides(r.data);
+    if (!import.meta.env.DEV) return;
     const { installEditor } = await import('./editor/GameEditor');
     installEditor(r.data, (h, t, fn) => panels.addButton(h, t, fn));
   });
 
 // ---------- Editor de mapas (F6): mesma condição do Game Editor (client desktop) ----------
-if (desktopBalance)
+if (import.meta.env.DEV && desktopBalance)
   void import('./mapEditor/MapEditor').then(({ installMapEditor }) => installMapEditor((h, t, fn) => panels.addButton(h, t, fn)));
 
 // ---------- Painel de debug: só em desenvolvimento ----------
@@ -2156,6 +2197,7 @@ function devApi(): DevApi {
       },
       nextPhase: () => {
         if (mode === 'battle' && sim.phase === 'running') return;
+        claimOpen = true;
         completeNode('debug');
       },
       jumpAct: (a) => {

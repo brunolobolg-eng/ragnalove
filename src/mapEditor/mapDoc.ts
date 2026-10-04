@@ -23,6 +23,8 @@ export interface MapDoc {
   objects: MapObjectDef[];
   setup: PartySetup;
   wave: { count: number; spawnIntervalTicks: number; seed: number; mix: WaveMix[]; boss?: string; bossDelayTicks: number };
+  /** Mapa pintado (arte do dono): preservado byte a byte no round-trip. */
+  painted?: ZoneDef['painted'];
   /** Nome do arquivo (só editor, não vai para o jogo). */
   fileName?: string;
 }
@@ -72,6 +74,7 @@ export function fromZoneDef(z: ZoneDef): MapDoc {
     objects: z.objects.map((o) => ({ ...o })),
     setup: JSON.parse(JSON.stringify(z.defaultSetup)) as PartySetup,
     wave: JSON.parse(JSON.stringify(z.wave)) as MapDoc['wave'],
+    ...(z.painted ? { painted: JSON.parse(JSON.stringify(z.painted)) as ZoneDef['painted'] } : {}),
   };
 }
 
@@ -88,6 +91,7 @@ export function toZoneDef(d: MapDoc): ZoneDef {
     objects: d.objects.map((o) => ({ ...o })),
     defaultSetup: JSON.parse(JSON.stringify(d.setup)) as PartySetup,
     wave: JSON.parse(JSON.stringify(d.wave)) as ZoneDef['wave'],
+    ...(d.painted ? { painted: JSON.parse(JSON.stringify(d.painted)) as ZoneDef['painted'] } : {}),
   };
 }
 

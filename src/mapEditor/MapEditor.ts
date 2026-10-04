@@ -636,6 +636,14 @@ export class MapEditor {
       this.afterEdit();
     };
     p.append(apply);
+    if (d.painted) {
+      const pz = h('div', '');
+      pz.style.color = '#9fb0c9';
+      const fx = d.painted.fx;
+      const fxTxt = fx ? ` (fx: ${[fx.mist && 'mist', fx.torches && 'torches', fx.glow && 'glow'].filter(Boolean).join(', ') || '—'})` : '';
+      pz.textContent = `🖼 Pintado: ${d.painted.image}${fxTxt} (preservado na exportação)`;
+      p.append(pz);
+    }
     const v = validate(d);
     const box = h('div', '');
     box.append(h('h4', '', 'Validação'));

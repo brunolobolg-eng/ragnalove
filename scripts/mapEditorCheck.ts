@@ -47,6 +47,12 @@ resize(r, 30, 25);
 check('resize mantém área comum', r.grid[0] === ZONES.bridge.map[0].slice(0, 30));
 check('resize prende spawns', r.spawnPoints.every((p) => p.x < 30 && p.y < 25));
 
+// 4b. mapa pintado sobrevive ao round-trip (A6)
+const serene = fromZoneDef(ZONES.serene);
+check('serene importa painted', serene.painted?.image === ZONES.serene.painted?.image);
+const sereneBack = toZoneDef(serene);
+check('serene exporta painted idêntico', JSON.stringify(sereneBack.painted) === JSON.stringify(ZONES.serene.painted));
+
 // 5. applyZone aceita o ZoneDef gerado (integração real com o jogo)
 applyZone(back);
 check('applyZone: tabuleiro 45x39', GAME_CONFIG.board.width === 45 && GAME_CONFIG.board.height === 39);

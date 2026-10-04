@@ -66,6 +66,9 @@ export function zoneDefTs(d: MapDoc): string {
   if (z.defaultSetup.wall) lines.push(`      wall: { x: ${z.defaultSetup.wall.x}, y: ${z.defaultSetup.wall.y}, orientation: ${q(z.defaultSetup.wall.orientation)} },`);
   lines.push(`    },`);
   lines.push(`    wave: { count: ${z.wave.count}, spawnIntervalTicks: ${z.wave.spawnIntervalTicks}, seed: ${z.wave.seed}, mix: [${z.wave.mix.map((m) => `{ kind: ${q(m.kind)}, weight: ${m.weight} }`).join(', ')}]${z.wave.boss ? `, boss: ${q(z.wave.boss)}` : ''}, bossDelayTicks: ${z.wave.bossDelayTicks} },`);
+  if (z.painted) {
+    lines.push(`    painted: { image: ${q(z.painted.image)}${z.painted.fx ? `, fx: ${JSON.stringify(z.painted.fx)}` : ''} },`);
+  }
   lines.push(`  },`);
   return lines.join('\n');
 }

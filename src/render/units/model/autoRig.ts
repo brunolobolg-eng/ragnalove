@@ -467,7 +467,7 @@ const ORC_PAL = {
   bone: new THREE.Color(0xd8cfb0),
 };
 
-/** Juntas medidas no orcboss.glb (altura 1,9, pés em y = −0,95, frente em +Z). */
+/** Juntas medidas no orc.glb (altura 1,9, pés em y = −0,95, frente em +Z). */
 export const ORC_JOINTS: HumanoidJoints = {
   root: new THREE.Vector3(0, -0.95, 0),
   hips: new THREE.Vector3(0, -0.26, 0),

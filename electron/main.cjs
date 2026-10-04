@@ -62,7 +62,8 @@ function createSplash() {
 }
 
 function createWindow() {
-  const devUrl = process.env.VITE_DEV_SERVER_URL;
+  // URL de dev só fora do empacotado: no release ignora a variável (anti-hijack).
+  const devUrl = !app.isPackaged ? process.env.VITE_DEV_SERVER_URL : undefined;
   const splash = createSplash();
   const shownAt = Date.now();
   const win = new BrowserWindow({
@@ -81,7 +82,7 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       autoplayPolicy: 'no-user-gesture-required', // música do menu toca ao abrir o jogo
-      devTools: !app.isPackaged || process.env.VANGUARDA_DEVTOOLS === '1',
+      devTools: !app.isPackaged, // sem porta via env no release
     },
   });
   if (app.isPackaged) Menu.setApplicationMenu(null);
