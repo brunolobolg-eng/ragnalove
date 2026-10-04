@@ -484,7 +484,8 @@ function refreshHeroArt(k: HeroKind): void {
     hud.setPortrait(k, PORTRAITS[k]);
   }
   worldMap.setWalkFrames(k, charSelect.walkFrames(k));
-  FULL_BODY[k] = charSelect.fullBody(k);
+  // arte ilustrada do dono vence o render 3D (quando existir)
+  FULL_BODY[k] = CHARSELECT_ART.fullbody[k] ?? charSelect.fullBody(k);
   hud.setFullBody(k, FULL_BODY[k]!);
 }
 hud.setParty(run.party, run.dead);

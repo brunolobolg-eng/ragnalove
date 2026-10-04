@@ -2,7 +2,6 @@ import type { Item, Slot } from '../core/progression/equipment';
 import { RARITY_INFO, SLOT_KINDS, SLOT_LABEL, itemLines, itemName } from '../core/progression/equipment';
 import { HERO_INFO, HERO_NAME } from '../config/heroes';
 import type { HeroKind } from '../core/progression/skills';
-import { HeroDoll } from './HeroDoll';
 import { SKILL_ICONS } from './icons';
 import { itemArtCanvas, itemIconUrl } from './itemArt';
 
@@ -78,7 +77,6 @@ const SVG = {
 export class HeroCard {
   readonly el: HTMLElement;
   private vm?: HeroCardVM;
-  private doll?: HeroDoll;
 
   constructor(parent: HTMLElement, private readonly cb: HeroCardCallbacks) {
     this.el = document.createElement('div');
@@ -120,27 +118,12 @@ export class HeroCard {
   }
 
   open(vm: HeroCardVM): void {
-    this.close();
     this.vm = vm;
     this.render();
     this.el.hidden = false;
-    // boneco 3D animado no lugar da imagem; se o WebGL falhar, volta a imagem
-    try {
-      const slot = this.el.querySelector<HTMLElement>('.hc-3d');
-      if (slot) {
-        this.doll = new HeroDoll(slot, vm.kind);
-        this.doll.start();
-      }
-    } catch {
-      const slot = this.el.querySelector<HTMLElement>('.hc-3d');
-      if (slot) slot.innerHTML = `<img src="${vm.art}" alt="">`;
-      this.doll = undefined;
-    }
   }
 
   close(): void {
-    this.doll?.dispose();
-    this.doll = undefined;
     this.el.hidden = true;
   }
 
@@ -167,7 +150,7 @@ export class HeroCard {
           <div class="hc-doll">
             <div class="hc-col">${LEFT.map(slot).join('')}</div>
             <div class="hc-figure" style="--aura:#${info.color.toString(16).padStart(6, '0')}">
-              <div class="hc-3d"></div>
+              <img src="${h.art}" alt="">
               <div class="hc-bars">
                 <span class="hc-hp">${SVG.heart}<b>${h.dead ? 'Caído' : `${h.hp}/${h.maxHp}`}</b><i style="--p:${hpPct}"></i></span>
                 <span class="hc-hp hc-mp" title="Mana = capacidade de slots de habilidade (não gasta em combate)">${SVG.drop}<b>Mana ${h.mana} · ${h.slots} slots</b><i style="--p:1"></i></span>

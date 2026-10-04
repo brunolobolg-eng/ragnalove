@@ -1,6 +1,5 @@
 import type { Orientation } from '../core/grid/types';
 import type { Item, Slot } from '../core/progression/equipment';
-import { HeroDoll } from './HeroDoll';
 import { ITEM_KIND_LABEL, RARITY_INFO, SLOTS, SLOT_GROUP, SLOT_KINDS, SLOT_LABEL, canUse, itemKind, itemLines, itemName } from '../core/progression/equipment';
 import { itemArtCanvas } from './itemArt';
 import { ATTR_KEYS, ATTR_LABEL, attrHint, type AttrKey } from '../core/progression/attributes';
@@ -117,7 +116,6 @@ export class Hud {
   private readonly charWin: HTMLElement;
   private readonly charBadge: HTMLElement;
   private charKind: HeroKind = 'warrior';
-  private charDoll?: HeroDoll;
   private bagFilter: 'all' | 'weapon' | 'armor' | 'accessory' = 'all';
   private readonly fullBody: Partial<Record<HeroKind, string>> = {};
   private party: HeroKind[] = ['warrior', 'mage'];
@@ -616,10 +614,6 @@ export class Hud {
     const open = force ?? this.charWin.hidden;
     this.charWin.hidden = !open;
     if (open) this.renderCharacter();
-    else {
-      this.charDoll?.dispose();
-      this.charDoll = undefined;
-    }
   }
 
   setCharacter(vm: CharacterVM): void {
@@ -689,7 +683,7 @@ export class Hud {
             <div class="cw-col">${L.map(slotCell).join('')}</div>
             <div class="cw-model ${bestRefine >= 5 ? 'aura' : ''}">
               <div class="cw-name"><b>${NAME[h.kind]}</b><span>Nv. ${h.level} · ${ROLE[h.kind]}</span></div>
-              <div class="cw-3d"></div>
+              ${this.fullBody[h.kind] ? `<img src="${this.fullBody[h.kind]}" alt="">` : `<img class="flat" src="${PORTRAIT[h.kind] ?? ''}" alt="">`}
               <i class="cw-plat"></i>
             </div>
             <div class="cw-col">${R.map(slotCell).join('')}</div>
@@ -710,19 +704,6 @@ export class Hud {
           <div class="cw-hint">Clique num item da bolsa para equipar · no equipado para guardar. Itens melhores são equipados sozinhos.</div>
         </section>
       </div>`;
-    // boneco 3D animado no lugar da imagem (recria a cada render; fallback = retrato)
-    this.charDoll?.dispose();
-    this.charDoll = undefined;
-    try {
-      const slot = this.charWin.querySelector<HTMLElement>('.cw-3d');
-      if (slot && !this.charWin.hidden) {
-        this.charDoll = new HeroDoll(slot, h.kind);
-        this.charDoll.start();
-      }
-    } catch {
-      const slot = this.charWin.querySelector<HTMLElement>('.cw-3d');
-      if (slot) slot.innerHTML = `<img src="${PORTRAIT[h.kind] ?? ''}" alt="">`;
-    }
   }
 
   /** Conteúdo da dica de um item (bolsa, equipado ou slot vazio). */

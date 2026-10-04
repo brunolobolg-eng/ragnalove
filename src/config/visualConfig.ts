@@ -229,7 +229,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.5f',
+  version: 'v0.5g',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
@@ -317,6 +317,11 @@ export const CHARSELECT_ART = {
     warrior: 'sprites/cs/chibi_warrior.png', mage: 'sprites/cs/chibi_mage.png', archer: 'sprites/cs/chibi_archer.png',
     sorcerer: 'sprites/cs/chibi_sorcerer.png', warlock: '', assassin: 'sprites/cs/chibi_assassin.png',
   } as Record<string, string>,
+  /**
+   * Arte ilustrada de corpo inteiro (ficha + janelinha do herói). Quando preenchido,
+   * vence o render 3D. Ex.: assassin: 'sprites/fullbody_assassin.jpg'.
+   */
+  fullbody: {} as Partial<Record<string, string>>,
   quotes: {
     warrior: 'Honra guia meu caminho.',
     mage: 'Mesmo na escuridão, a luz sempre encontra um caminho.',
