@@ -28,5 +28,7 @@ interface Window {
       loadScenarios(): Promise<unknown[] | null>;
       saveScenarios(list: unknown[]): Promise<string>;
     };
+    /** Menus de desenvolvimento (F6/F8/F10): true se existir devtools.txt. Ausente no navegador. */
+    devtools?(): Promise<boolean>;
   };
 }

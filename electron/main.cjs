@@ -134,6 +134,18 @@ function findProject() {
 }
 const PROJECT = findProject();
 const PROJECT_BALANCE = PROJECT ? path.join(PROJECT, 'src', 'config', 'balance.ts') : '';
+// Chave simples dos menus de desenvolvimento (F6/F8/F10): existe o arquivo = ligados.
+// Lugares: raiz do projeto (Ragnalove\devtools.txt) ou pasta de dados do usuário.
+function devToolsEnabled() {
+  try {
+    if (fs.existsSync(path.join(app.getPath('userData'), 'devtools.txt'))) return true;
+    if (PROJECT && fs.existsSync(path.join(PROJECT, 'devtools.txt'))) return true;
+  } catch {
+    /* sem acesso: desligados */
+  }
+  return false;
+}
+ipcMain.handle('vg:devtools', () => devToolsEnabled());
 const USER_BALANCE = () => path.join(app.getPath('userData'), 'balance.json');
 const projectMode = () => !!PROJECT_BALANCE && fs.existsSync(PROJECT_BALANCE);
 const BALANCE_RE = /BALANCE_OVERRIDES[^=]*=\s*(\{[\s\S]*\});\s*$/;

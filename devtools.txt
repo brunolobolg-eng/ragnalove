@@ -1,0 +1,6 @@
+Este arquivo liga os menus de desenvolvimento no executável:
+F6 (editor de mapas), F8 (Dev Lab) e F10 (Game Editor).
+
+Para DESATIVAR (versão da Steam): apague este arquivo e gere o executável de novo.
+Para ATIVAR num PC qualquer: crie um arquivo vazio chamado devtools.txt
+na pasta de dados do jogo ou na raiz do projeto.

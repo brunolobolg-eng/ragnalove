@@ -86,7 +86,6 @@ import { Rng } from './core/sim/rng';
 import { tileToWorld } from './render/coords';
 import type { DevApi } from './debug/DebugPanel';
 import type { DevLabApi } from './dev/DevLab/DevLab';
-import { DEV_MODE } from './dev/devConfig';
 import { neutralMods } from './core/sim/RangeSystem';
 import { REFINE, WEAPON_USERS } from './core/progression/equipment';
 import type { HeroLoadout } from './core/sim/Simulation';
@@ -2029,21 +2028,37 @@ hud.setPlanning(true);
 hud.setCharacter(characterVM());
 requestAnimationFrame(frame);
 
-// ---------- Game Editor V1 (F10): só em desenvolvimento; o balance salvo continua valendo ----------
+// ---------- Menus de desenvolvimento (F6/F8/F10) ----------
+// Ligados em desenvolvimento; no executável, só com devtools.txt
+// (na raiz do projeto ou na pasta de dados). Apague o arquivo para esconder.
+async function devToolsOn(): Promise<boolean> {
+  if (import.meta.env.DEV) return true;
+  try {
+    return (await window.vanguardaDesktop?.devtools?.()) === true;
+  } catch {
+    return false;
+  }
+}
+
+// ---------- Game Editor V1 (F10): só com devtools; o balance salvo continua valendo ----------
 const desktopBalance = window.vanguardaDesktop?.balance;
 if (desktopBalance)
   void desktopBalance.load().then(async (r) => {
     // o balanceamento salvo (balance.ts do projeto ou do jogador) vale por cima do que veio no build,
     // mesmo antes de recompilar (o executável dentro da pasta do projeto grava no balance.ts)
     if (r.data) applyOverrides(r.data);
-    if (!import.meta.env.DEV) return;
+    if (!(await devToolsOn())) return;
     const { installEditor } = await import('./editor/GameEditor');
     installEditor(r.data, (h, t, fn) => panels.addButton(h, t, fn));
   });
 
-// ---------- Editor de mapas (F6): mesma condição do Game Editor (client desktop) ----------
-if (import.meta.env.DEV && desktopBalance)
-  void import('./mapEditor/MapEditor').then(({ installMapEditor }) => installMapEditor((h, t, fn) => panels.addButton(h, t, fn)));
+// ---------- Editor de mapas (F6): mesma condição do Game Editor ----------
+if (desktopBalance)
+  void (async () => {
+    if (!(await devToolsOn())) return;
+    const { installMapEditor } = await import('./mapEditor/MapEditor');
+    installMapEditor((h, t, fn) => panels.addButton(h, t, fn));
+  })();
 
 // ---------- Painel de debug: só em desenvolvimento ----------
 // No build de produção o Vite troca `import.meta.env.DEV` por `false`, este bloco
@@ -2052,9 +2067,13 @@ if (import.meta.env.DEV) {
   (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic }; // inspeção no console (dev)
   void import('./debug/DebugPanel').then(({ installDebug }) => installDebug(hudRoot, devApi(), (h, t, fn) => panels.addButton(h, t, fn)));}
 
-// ---------- Dev Lab (F8): só no client desktop (executável) e com DEV_MODE ligado ----------
-if (DEV_MODE && window.vanguardaDesktop)
-  void import('./dev/DevLab/DevLab').then(({ installDevLab }) => installDevLab(hudRoot, devLabApi(), (h, t, fn) => panels.addButton(h, t, fn)));
+// ---------- Dev Lab (F8): só com devtools (dev ou devtools.txt no executável) ----------
+if (window.vanguardaDesktop)
+  void (async () => {
+    if (!(await devToolsOn())) return;
+    const { installDevLab } = await import('./dev/DevLab/DevLab');
+    installDevLab(hudRoot, devLabApi(), (h, t, fn) => panels.addButton(h, t, fn));
+  })();
 
 /** O que o Dev Lab pode fazer — por cima da DevApi, sempre pelas funções do jogo. */
 function devLabApi(): DevLabApi {

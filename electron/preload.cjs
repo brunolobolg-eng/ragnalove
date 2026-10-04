@@ -22,4 +22,6 @@ contextBridge.exposeInMainWorld('vanguardaDesktop', {
     loadScenarios: () => ipcRenderer.invoke('vg:devlab-load'),
     saveScenarios: (list) => ipcRenderer.invoke('vg:devlab-save', list),
   },
+  /** Menus de desenvolvimento (F6/F8/F10): ligados se existir devtools.txt (projeto ou pasta do usuário). */
+  devtools: () => ipcRenderer.invoke('vg:devtools'),
 });
