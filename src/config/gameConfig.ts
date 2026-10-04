@@ -67,6 +67,8 @@ export const GAME_CONFIG = {
     boss: { hp: 220, moveTicks: 9, attackTicks: 15, damage: 9 }, // Colosso (chefe do Ato I)
     elite: { hp: 150, moveTicks: 9, attackTicks: 13, damage: 11 }, // mini-chefe (nó de Elite)
     necro: { hp: 26, moveTicks: 7, attackTicks: 12, damage: 4 }, // Necromante: conjurador à distância
+    goblinImp: { hp: 110, moveTicks: 7, attackTicks: 12, damage: 9 }, // Krexx pequeno (mini-chefe, 1ª forma)
+    goblinWarlord: { hp: 150, moveTicks: 6, attackTicks: 12, damage: 13 }, // Krexx retorcido (mini-chefe, retorno maior e agressivo)
     boss2: { hp: 300, moveTicks: 9, attackTicks: 14, damage: 12 }, // Colosso Solar (chefe do Ato II)
     orcboss: { hp: 380, moveTicks: 10, attackTicks: 15, damage: 14 }, // Senhor Orc (chefe final)
   } as Record<string, { hp: number; moveTicks: number; attackTicks: number; damage: number }>,
@@ -75,7 +77,7 @@ export const GAME_CONFIG = {
    * Almas são a moeda de progressão (atributos hoje; habilidades/upgrades no futuro).
    */
   souls: {
-    dropPerKill: { grunt: 1, runner: 1, brute: 3, necro: 2, elite: 12, boss: 25, boss2: 35, orcboss: 50 } as Record<string, number>,
+    dropPerKill: { grunt: 1, runner: 1, brute: 3, necro: 2, elite: 12, boss: 25, boss2: 35, orcboss: 50, goblinImp: 10, goblinWarlord: 30 } as Record<string, number>,
     defaultDrop: 1,
   },
   /**
@@ -83,7 +85,7 @@ export const GAME_CONFIG = {
    * e vai para a bolsa da party. Almas continuam sendo a moeda de CRESCIMENTO (EXP, despertar).
    */
   zeni: {
-    dropPerKill: { grunt: 4, runner: 3, brute: 12, necro: 8, elite: 80, boss: 150, boss2: 220, orcboss: 400 } as Record<string, number>,
+    dropPerKill: { grunt: 4, runner: 3, brute: 12, necro: 8, elite: 80, boss: 150, boss2: 220, orcboss: 400, goblinImp: 60, goblinWarlord: 200 } as Record<string, number>,
     defaultDrop: 3,
     /** Bônus ao vencer a onda. */
     waveClearBonus: 60,
@@ -95,7 +97,7 @@ export const GAME_CONFIG = {
   },
   /** EXP e níveis: cada abate dá EXP a toda a party viva; cada nível dá pontos de atributo. */
   progression: {
-    expPerKill: { grunt: 5, runner: 4, brute: 12, necro: 8, elite: 40, boss: 80, boss2: 120, orcboss: 200 } as Record<string, number>,
+    expPerKill: { grunt: 5, runner: 4, brute: 12, necro: 8, elite: 40, boss: 80, boss2: 120, orcboss: 200, goblinImp: 30, goblinWarlord: 110 } as Record<string, number>,
     defaultExp: 5,
     expCurve: { base: 20, growth: 1.35 }, // EXP para passar do nível L = base * L^growth
     pointsPerLevel: 3,
@@ -221,7 +223,7 @@ export const GAME_CONFIG = {
    */
   cityDefense: {
     maxHp: 1000,
-    threat: { grunt: 8, runner: 5, brute: 20, necro: 10, elite: 60, boss: 120, boss2: 150, orcboss: 200 } as Record<string, number>,
+    threat: { grunt: 8, runner: 5, brute: 20, necro: 10, elite: 60, boss: 120, boss2: 150, orcboss: 200, goblinImp: 50, goblinWarlord: 150 } as Record<string, number>,
     defaultThreat: 8,
     /** Peso da ameaça por ato (o Ato I começa com um herói só). */
     threatActMult: [0.6, 0.9, 1.2],
@@ -243,7 +245,7 @@ export const GAME_CONFIG = {
    *    Se um deles alcançar o portão, invade a cidade do mesmo jeito.
    */
   aggro: {
-    byKind: { grunt: 'tauntable', runner: 'bypass', brute: 'heavy', necro: 'city', elite: 'hunter', boss: 'hunter', boss2: 'hunter', orcboss: 'hunter' } as Record<string, AggroType>,
+    byKind: { grunt: 'tauntable', runner: 'bypass', brute: 'heavy', necro: 'city', elite: 'hunter', boss: 'hunter', boss2: 'hunter', orcboss: 'hunter', goblinImp: 'heavy', goblinWarlord: 'hunter' } as Record<string, AggroType>,
     defaultType: 'tauntable' as AggroType,
     /** Tipos que trocam de alvo com Provocar. */
     tauntAffects: ['tauntable', 'heavy'] as AggroType[],
@@ -300,6 +302,7 @@ export const GAME_CONFIG = {
       { id: 'stomp', radius: 2, damage: 11, cooldownTicks: 55 },
       { id: 'meteor', radius: 1, range: 9, damage: 13, cooldownTicks: 70, telegraphTicks: 14, count: 3 },
     ],
+    goblinWarlord: [{ id: 'stomp', radius: 1, damage: 12, cooldownTicks: 50 }],
   } as Record<string, EnemySpell[]>,
   /** Herói sozinho na party (Ato I): mais vida e dano para aguentar a horda. */
   soloBonus: {
@@ -341,7 +344,7 @@ export const GAME_CONFIG = {
     diagonalMult: 1.4,
   },
   /** Tipos que contam como chefe/mini-chefe: derrotá-los dá +1 nível a toda a party e drop garantido. */
-  bossKinds: ['elite', 'boss', 'boss2', 'orcboss'] as string[],
+  bossKinds: ['elite', 'boss', 'boss2', 'orcboss', 'goblinImp', 'goblinWarlord'] as string[],
   archetypes: {
     mage: {
       hp: 75,

@@ -36,7 +36,7 @@ function withSkin(kind: string): string {
 }
 
 /** Tipos novos sem sprite próprio usam o de um parecido no modo 2D. */
-const SPRITE_ALIAS: Record<string, string> = { elite: 'brute', boss2: 'boss', orcboss: 'boss', necro: 'grunt' };
+const SPRITE_ALIAS: Record<string, string> = { elite: 'brute', boss2: 'boss', orcboss: 'boss', necro: 'grunt', goblinImp: 'grunt', goblinWarlord: 'grunt' };
 
 export type AnyUnitView = UnitView | SpriteUnitView | ModelUnitView;
 export type UnitStyle = '3d' | 'sprites';

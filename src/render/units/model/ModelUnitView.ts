@@ -44,6 +44,9 @@ MODELS.warlock = { ...MODELS.mage, ghost: new THREE.Color(1.6, 0.25, 0.6) };
 MODELS.assassin = { ...MODELS.archer, ghost: new THREE.Color(1.6, 1.3, 0.3) };
 // Até o GLB do orc carregar, o chefe final usa o Colosso com aura vermelha.
 MODELS.orcboss = { ...MODELS.boss, scale: 2.6 };
+// Krexx (mini-chefe goblin em duas formas): até o GLB carregar, usa corpo parecido.
+MODELS.goblinImp = { ...MODELS.runner };
+MODELS.goblinWarlord = { ...MODELS.brute, aura: new THREE.Color(1.6, 0.15, 0.4) };
 
 /** Registra (ou troca) o modelo de um tipo — usado pelos modelos importados (GLB) ao terminar de carregar. */
 export function registerModel(kind: string, def: ModelDef): void {

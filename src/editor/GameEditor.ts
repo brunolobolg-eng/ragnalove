@@ -29,6 +29,8 @@ const KIND_LABEL: Record<string, string> = {
   boss: 'Chefe Ato I',
   boss2: 'Chefe Ato II',
   orcboss: 'Chefe Ato III',
+  goblinImp: 'Krexx pequeno',
+  goblinWarlord: 'Krexx retorcido',
 };
 const AGGRO_TYPES = ['city', 'tauntable', 'bypass', 'heavy', 'hunter'];
 const AGGRO_LABEL: Record<string, string> = { city: 'cidade', tauntable: 'cidade (provocável)', bypass: 'ignora heróis', heavy: 'pesado (quebra)', hunter: 'caçador' };

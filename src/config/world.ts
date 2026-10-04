@@ -87,6 +87,8 @@ export interface RunNode {
   options: NodeType[];
   /** Cidade usada quando a opção é "city". */
   city?: string;
+  /** Mini-chefe deste nó de Elite (padrão: 'elite'). Ex.: o arco do Krexx. */
+  elite?: string;
 }
 
 export interface ActDef {
@@ -122,7 +124,7 @@ export const ACTS: ActDef[] = [
     dmgMult: 1.5,
     nodes: [
       { region: 'rootVale', options: ['horde', 'event'] },
-      { region: 'dryCrossing', options: ['elite', 'horde'] },
+      { region: 'dryCrossing', options: ['elite', 'horde'], elite: 'goblinImp' },
       { region: 'redDunes', options: ['horde', 'event', 'survival'] },
       { region: 'selmara', options: ['city'], city: 'Selmara' },
       { region: 'solarRuins', options: ['boss'] },
@@ -138,7 +140,7 @@ export const ACTS: ActDef[] = [
       { region: 'ashenFields', options: ['horde', 'event'] },
       { region: 'rustGorge', options: ['elite', 'horde', 'survival'] },
       { region: 'frostPass', options: ['city', 'event'], city: 'Kaldrun' },
-      { region: 'frostPass', options: ['elite', 'horde'] },
+      { region: 'frostPass', options: ['elite', 'horde'], elite: 'goblinWarlord' },
       { region: 'ashPeak', options: ['boss'] },
     ],
   },
