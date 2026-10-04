@@ -3,6 +3,9 @@ import { VISUAL_CONFIG } from '../../config/visualConfig';
 import { softCircle } from '../textures';
 import { createGhostMaterial, createShadowMaterial, createSpriteMaterial } from './spriteMaterials';
 
+/** Temporário do billboard (evita 1 alloc por sprite por frame). */
+const spriteTmpV = new THREE.Vector3();
+
 /**
  * Unidade desenhada como sprite 2D pintado (estilo MMO isométrico clássico):
  * plano sempre de frente para a câmera, âncora nos pés, sombra oval no chão.
@@ -261,7 +264,7 @@ export class SpriteUnitView {
     let stretch = 1;
     const cam = SpriteUnitView.camera;
     if (cam) {
-      const p = this.root.getWorldPosition(new THREE.Vector3());
+      const p = this.root.getWorldPosition(spriteTmpV);
       const dx = cam.position.x - p.x;
       const dz = cam.position.z - p.z;
       this.billboard.rotation.set(0, Math.atan2(dx, dz), 0);

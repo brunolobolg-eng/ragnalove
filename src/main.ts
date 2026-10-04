@@ -353,6 +353,21 @@ const hud = new Hud(document.getElementById('hud')!, {
 });
 
 const panels = new SettingsPanels(hudRoot, settings, () => audio.sfx('ui'));
+/** Confirmação de saída (Esc ou botão ⏻): jogador só-mouse também consegue voltar ao menu. */
+function askReturnToMenu(): void {
+  if (menu.active || mode === 'menu') return;
+  confirmBox.ask(
+    'Voltar ao menu',
+    mode === 'battle'
+      ? sim.phase === 'running'
+        ? 'Deseja voltar para a tela inicial? A onda recomeça do início, com a mesma formação, quando você continuar a jornada.'
+        : 'Deseja voltar para a tela inicial? A fase atual recomeça quando você continuar a jornada.'
+      : 'Deseja voltar para a tela inicial? A jornada fica salva.',
+    'Sim, voltar ao menu',
+    returnToMenu,
+  );
+}
+panels.addButton('⏻', 'Voltar ao menu (Esc)', () => askReturnToMenu());
 const confirmBox = new ConfirmDialog(() => audio.sfx('ui'));
 
 /** Estado que o menu principal mostra: run em andamento e recordes. */
@@ -1518,16 +1533,7 @@ window.addEventListener('keydown', (e) => {
   if (menu.active || mode === 'menu') return;
   if (e.key === 'Escape') {
     e.preventDefault();
-    confirmBox.ask(
-      'Voltar ao menu',
-      mode === 'battle'
-        ? sim.phase === 'running'
-          ? 'Deseja voltar para a tela inicial? A onda recomeça do início, com a mesma formação, quando você continuar a jornada.'
-          : 'Deseja voltar para a tela inicial? A fase atual recomeça quando você continuar a jornada.'
-        : 'Deseja voltar para a tela inicial? A jornada fica salva.',
-      'Sim, voltar ao menu',
-      returnToMenu,
-    );
+    askReturnToMenu();
     return;
   }
   if ((e.key === 'c' || e.key === 'C') && !(e.target instanceof HTMLInputElement)) hud.toggleCharacter();

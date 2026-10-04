@@ -67,7 +67,7 @@ export class LoginScreen {
         <small class="login-note">Contas online chegam em breve</small>
       </form>
       <button class="login-cta" type="button">TOQUE PARA COMEÇAR</button>
-      <footer class="login-foot">v0.5 · protótipo</footer>
+      <footer class="login-foot">v0.5</footer>
     `;
     document.body.appendChild(this.el);
     this.canvas = this.el.querySelector('.login-bg')!;

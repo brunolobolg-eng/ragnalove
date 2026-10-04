@@ -9,7 +9,7 @@ import { GAME_CONFIG, ZONE_STATE } from '../config/gameConfig';
 import { buildBiomeScenery } from './scenery/BiomeScenery';
 import { buildPaintedScenery } from './scenery/PaintedScenery';
 import type { ParticleLayer } from './fx/Particles';
-import { softCircle, tileOutline } from './textures';
+import { isSharedTexture, sharedTexture, softCircle, tileOutline } from './textures';
 import { PathArrows } from './PathArrows';
 import { buildActDressing } from './scenery/ActDressing';
 
@@ -47,7 +47,7 @@ function portalTexture(): THREE.Texture {
   r.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = r;
   g.fillRect(-40, -40, 80, 80);
-  portalTex = new THREE.CanvasTexture(c);
+  portalTex = sharedTexture(new THREE.CanvasTexture(c));
   return portalTex;
 }
 
@@ -69,7 +69,7 @@ export class BoardView {
     this.scenery.setLights(on);
   }
 
-  /** Libera a GPU ao trocar de zona. */
+  /** Libera a GPU ao trocar de zona (texturas vitalícias compartilhadas não são tocadas). */
   dispose(): void {
     this.group.removeFromParent();
     this.group.traverse((o) => {
@@ -77,7 +77,8 @@ export class BoardView {
       m.geometry?.dispose();
       const mat = m.material as THREE.Material | THREE.Material[] | undefined;
       if (mat) (Array.isArray(mat) ? mat : [mat]).forEach((x) => {
-        (x as THREE.MeshLambertMaterial).map?.dispose();
+        const map = (x as THREE.MeshLambertMaterial).map;
+        if (map && !isSharedTexture(map)) map.dispose();
         x.dispose();
       });
     });
@@ -192,9 +193,13 @@ export class BoardView {
     this.overlayColors.fill(0);
   }
 
+  /** Há marcas novas desde o último flush (evita upload de 1755 cores por frame à toa). */
+  private overlayTouched = false;
+
   mark(tiles: readonly Vec2[], color: THREE.Color, strength = 1): void {
     for (const t of tiles) {
       if (!this.board.inBounds(t.x, t.y)) continue;
+      this.overlayTouched = true;
       const i = this.board.idx(t.x, t.y) * 3;
       this.overlayColors[i] += color.r * strength;
       this.overlayColors[i + 1] += color.g * strength;
@@ -203,6 +208,8 @@ export class BoardView {
   }
 
   flushOverlay(): void {
+    if (!this.overlayTouched) return;
+    this.overlayTouched = false;
     const c = new THREE.Color();
     for (let i = 0; i < this.board.width * this.board.height; i++) {
       c.setRGB(this.overlayColors[i * 3], this.overlayColors[i * 3 + 1], this.overlayColors[i * 3 + 2]);

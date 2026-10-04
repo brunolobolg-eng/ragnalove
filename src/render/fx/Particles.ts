@@ -86,6 +86,8 @@ export class ParticleSystem {
   static density = 1;
   /** Partículas vivas no último update (HUD de debug). */
   aliveCount = 0;
+  /** Há partículas vivas (ou recém-emitidas): sem isso o update pula tudo. */
+  private active = true;
   readonly points: THREE.Points;
   private readonly max: number;
   private head = 0;
@@ -160,6 +162,7 @@ export class ParticleSystem {
     // arredondamento estocástico: com densidade 0.4, "count: 1" ainda sai 40% das vezes
     const raw = (o.count ?? 1) * ParticleSystem.density;
     const n = Math.floor(raw) + (Math.random() < raw - Math.floor(raw) ? 1 : 0);
+    if (n > 0) this.active = true;
     const pj = o.posJitter ?? 0;
     const vj = o.velJitter ?? 0;
     const ce = o.colorEnd ?? o.color;
@@ -193,6 +196,7 @@ export class ParticleSystem {
   }
 
   update(dt: number): void {
+    if (!this.active) return; // sem partículas vivas: pula scan + upload
     let alive = 0;
     for (let i = 0; i < this.max; i++) {
       const i3 = i * 3;
@@ -229,6 +233,7 @@ export class ParticleSystem {
       this.col[i4 + 3] = this.a0[i] * fade;
     }
     this.aliveCount = alive;
+    if (alive === 0) this.active = false;
     for (const k of ['position', 'aColor', 'aSize', 'aLifeT', 'aRot']) (this.geo.attributes[k] as THREE.BufferAttribute).needsUpdate = true;
   }
 

@@ -251,6 +251,18 @@ export class Hud {
       .join('');
   }
 
+  /** Cache dos `.cd` por contêiner (o DOM dos slots só muda em renderSlots; evita querySelector por frame). */
+  private cdCache = new WeakMap<HTMLElement, (HTMLElement | null)[]>();
+  private cdOf(parent: HTMLElement, i: number): HTMLElement | null {
+    const n = parent.children.length;
+    let arr = this.cdCache.get(parent);
+    if (!arr || arr.length !== n) {
+      arr = Array.from(parent.children, (c) => c.querySelector<HTMLElement>('.cd'));
+      this.cdCache.set(parent, arr);
+    }
+    return arr[i] ?? null;
+  }
+
   /** Marca a orientação ativa (quando troca a barreira selecionada). */
   showOrientation(o: Orientation): void {
     this.el.querySelectorAll<HTMLElement>('[data-orient]').forEach((b) => b.classList.toggle('on', b.dataset.orient === o));
@@ -544,13 +556,13 @@ export class Hud {
         el.expTxt.textContent = `${Math.floor(ef * 100)}%`;
         // slots de habilidade (recarga em leque escuro, brilho quando pronta)
         this.renderSlots(el, m);
-        const cells = [{ cd: m.basic.cd, node: el.basic }, ...m.slots.map((x, i) => ({ cd: x.cd, node: el.slots.children[i] as HTMLElement, skip: x.locked || !x.id }))];
+        const cells = [{ cd: m.basic.cd, parent: el.basic as HTMLElement, i: 0 }, ...m.slots.map((x, i) => ({ cd: x.cd, parent: el.slots as HTMLElement, i, skip: x.locked || !x.id }))];
         for (const c of cells) {
-          if (!c.node || ('skip' in c && c.skip)) continue;
-          const cdEl = c.node.querySelector<HTMLElement>('.cd');
+          if ('skip' in c && c.skip) continue;
+          const cdEl = this.cdOf(c.parent, c.i);
           const deg = Math.round(c.cd * 360);
           if (cdEl) cdEl.style.background = deg > 0 ? `conic-gradient(rgba(6,9,22,0.75) ${deg}deg, transparent ${deg}deg)` : 'none';
-          c.node.classList.toggle('ready', c.cd <= 0 && m.alive && s.phase === 'running');
+          (c.parent === el.basic ? el.basic : (el.slots.children[c.i] as HTMLElement))?.classList.toggle('ready', c.cd <= 0 && m.alive && s.phase === 'running');
         }
       }
     }

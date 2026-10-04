@@ -72,6 +72,15 @@ const HIT_VFX: Partial<Record<string, string>> = { melee: 'hitSpark', cleave: 'h
 /** Objetos que soltam farpas de madeira ao quebrar (o resto solta pedra). */
 const WOOD_OBJECTS = new Set(['cart', 'roots', 'torch', 'altar', 'campfire', 'oilBarrel']);
 const WIND = new THREE.Vector3(1, 0, 0.11).normalize();
+/** Geometrias do orderMarker: uma só instância para todas as marcas (nunca dispor). */
+let markerRingGeo: THREE.BufferGeometry | undefined;
+let markerDotGeo: THREE.BufferGeometry | undefined;
+function sharedMarkerRing(): THREE.BufferGeometry {
+  return (markerRingGeo ??= new THREE.RingGeometry(0.28, 0.38, 32).rotateX(-Math.PI / 2));
+}
+function sharedMarkerDot(): THREE.BufferGeometry {
+  return (markerDotGeo ??= new THREE.CircleGeometry(0.12, 16).rotateX(-Math.PI / 2));
+}
 
 /**
  * Espelho visual da simulação. Lê o estado (somente leitura) e consome os
@@ -123,12 +132,16 @@ export class GameView {
     this.keepIdle = true;
   }
 
-  /** Marca no chão onde o jogador mandou o herói ir. */
+  /** Temporários da interpolação de movimento (evita 2 allocs por frame). */
+  private interp0 = new THREE.Vector3();
+  private interp1 = new THREE.Vector3();
+
+  /** Marca no chão onde o jogador mandou o herói ir (geometrias compartilhadas; materiais descartados no fim). */
   orderMarker(x: number, y: number, color: number): void {
     const cfg = VISUAL_CONFIG.orders;
     const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.38, 32).rotateX(-Math.PI / 2), mat);
-    const dot = new THREE.Mesh(new THREE.CircleGeometry(0.12, 16).rotateX(-Math.PI / 2), mat.clone());
+    const ring = new THREE.Mesh(sharedMarkerRing(), mat);
+    const dot = new THREE.Mesh(sharedMarkerDot(), mat.clone());
     const g = new THREE.Group();
     g.add(ring, dot);
     g.position.copy(tileToWorld(x, y, undefined, 0.05));
@@ -146,6 +159,8 @@ export class GameView {
         if (k >= 1) {
           this.done = true;
           g.removeFromParent();
+          (ring.material as THREE.Material).dispose();
+          (dot.material as THREE.Material).dispose();
         }
       },
     });
@@ -246,7 +261,8 @@ export class GameView {
       ribbons: this.ribbons,
       decals: this.decals,
       hitStop: (sec) => {
-        if (VFX.hitStop) this.hitStopT = Math.max(this.hitStopT, sec);
+        // teto: hit-stops encadeados não viram slow-mo prolongado
+        if (VFX.hitStop) this.hitStopT = Math.min(0.3, Math.max(this.hitStopT, sec));
       },
     };
   }
@@ -910,8 +926,8 @@ export class GameView {
       if (ready.length) this.handle(ready, true);
     }
     const camQ = this.stage.camera.quaternion;
-    const p0 = new THREE.Vector3();
-    const p1 = new THREE.Vector3();
+    const p0 = this.interp0;
+    const p1 = this.interp1;
     for (const [id, v] of this.units) {
       const u = this.sim.units.get(id);
       if (!u) continue;

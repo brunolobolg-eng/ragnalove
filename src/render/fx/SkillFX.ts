@@ -23,8 +23,13 @@ abstract class TimedFX {
     if (t > this.dur && this.flashes.every((f) => f.done)) {
       this.done = true;
       this.light?.release();
+      this.onDone();
       this.group.removeFromParent();
     }
+  }
+  /** Gancho de limpeza (materiais próprios; geometrias compartilhadas nunca). */
+  protected onDone(): void {
+    // nada por padrão
   }
 }
 
@@ -214,6 +219,9 @@ function arrowMesh(): THREE.Mesh {
   }
   return new THREE.Mesh(arrowGeo, new THREE.MeshBasicMaterial({ color: 0xf2e2c0 }));
 }
+export function disposeArrowMesh(m: THREE.Mesh): void {
+  (m.material as THREE.Material).dispose(); // geometria é compartilhada, nunca dispor
+}
 function mergeGeo(list: THREE.BufferGeometry[]): THREE.BufferGeometry {
   const pos: number[] = [];
   for (const g of list) {
@@ -250,6 +258,9 @@ export class ArrowFX extends TimedFX {
       kit.particles.spark.emit({ pos: to, vel: new THREE.Vector3(0, 1.2, 0), velJitter: 2.4, life: 0.3, size: 0.07, sizeEnd: 0.02, color: crit ? new THREE.Color(3, 2.2, 0.6) : this.color, count: crit ? 14 : 6, gravity: 6 });
       if (crit) kit.stage.addShake(0.04);
     });
+  }
+  protected override onDone(): void {
+    disposeArrowMesh(this.arrow);
   }
   override update(dt: number): void {
     super.update(dt);
@@ -308,6 +319,9 @@ export class RainFX extends TimedFX {
       a.m.position.copy(a.from).lerp(a.to, k);
       a.m.lookAt(a.to.clone().add(new THREE.Vector3(1.2, -7, -1.5)));
     }
+  }
+  protected override onDone(): void {
+    for (const a of this.arrows) disposeArrowMesh(a.m);
   }
 }
 
