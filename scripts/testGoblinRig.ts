@@ -128,4 +128,52 @@ import { ualRawClips } from '../src/render/units/model/ualClips';
   console.log(`  quadril walk: descanso ${restY.toFixed(3)}, mín ${Math.min(...ys).toFixed(3)}, máx ${Math.max(...ys).toFixed(3)}`);
   if (Math.min(...ys) < restY - 0.15 || Math.max(...ys) > restY + 0.15) throw new Error('quadril UAL fora da faixa!');
 }
+// 6. FK: onde as mãos ficam no idle/walk UAL? (mãos p/ cima = bug confirmado)
+{
+  const raw = ualRawClips();
+  const byName = new Map(bones.map((b) => [b.name, b] as [string, typeof b]));
+  const children = new Map<string, string[]>();
+  for (const b of bones) {
+    if (!b.parent) continue;
+    if (!children.has(b.parent)) children.set(b.parent, []);
+    children.get(b.parent)!.push(b.name);
+  }
+  const fk = (clip: THREE.AnimationClip, t: number): Map<string, THREE.Vector3> => {
+    const q = new THREE.Quaternion();
+    const localQ = new Map<string, THREE.Quaternion>();
+    for (const tr of clip.tracks) {
+      if (!tr.name.endsWith('.quaternion')) continue;
+      const bn = tr.name.slice(0, tr.name.lastIndexOf('.'));
+      const track = tr as unknown as { times: ArrayLike<number>; values: ArrayLike<number> };
+      const ts = track.times;
+      let i = 0;
+      while (i < ts.length - 2 && ts[i + 1] < t) i++;
+      const f = Math.max(0, Math.min(1, (t - ts[i]) / Math.max(1e-6, ts[i + 1] - ts[i])));
+      const a = new THREE.Quaternion(track.values[i * 4], track.values[i * 4 + 1], track.values[i * 4 + 2], track.values[i * 4 + 3]);
+      const bq = new THREE.Quaternion(track.values[i * 4 + 4], track.values[i * 4 + 5], track.values[i * 4 + 6], track.values[i * 4 + 7]);
+      localQ.set(bn, a.slerp(bq, f));
+    }
+    const W = new Map<string, { p: THREE.Vector3; q: THREE.Quaternion }>();
+    const rec = (bn: string, pp: THREE.Vector3, pq: THREE.Quaternion) => {
+      const def = byName.get(bn)!;
+      const lq = localQ.get(bn) ?? new THREE.Quaternion();
+      const wq = pq.clone().multiply(lq);
+      const wp = pp.clone().add(new THREE.Vector3(...def.pos).applyQuaternion(pq));
+      W.set(bn, { p: wp, q: wq });
+      for (const c of children.get(bn) ?? []) rec(c, wp, wq);
+    };
+    rec('root', new THREE.Vector3(), new THREE.Quaternion());
+    return new Map([...W.entries()].map(([k, v]) => [k, v.p]));
+  };
+  for (const k of ['idle', 'walk'] as const) {
+    const clip = fitHips(raw[k], bones);
+    for (const t of [clip.duration * 0.25, clip.duration * 0.6]) {
+      const P = fk(clip, t);
+      const handY = (P.get('hand.L')!.y + P.get('hand.R')!.y) / 2;
+      const shY = (P.get('shoulder.L')!.y + P.get('shoulder.R')!.y) / 2;
+      const headY = P.get('head')!.y;
+      console.log(`  FK UAL ${k} t=${t.toFixed(2)}: mão ${handY.toFixed(3)} ombro ${shY.toFixed(3)} cabeça ${headY.toFixed(3)} -> ${handY > shY ? 'MÃOS P/ CIMA (BUG)' : 'braços baixos (ok)'}`);
+    }
+  }
+}
 console.log('RIG OK');

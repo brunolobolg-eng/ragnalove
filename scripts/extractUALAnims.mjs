@@ -188,6 +188,12 @@ function main() {
       const n = vals.length / 3 - 1;
       return [vals[n * 3], vals[n * 3 + 1], vals[n * 3 + 2]];
     };
+    // mundo de descanso na UAL (bind): a deformação real de cada osso é W * inv(restW).
+    // Sem isso, a rotação de descanso da UAL (ex.: braços) vazava para o jogo como pose fixa.
+    const restW = new Array(nodes.length);
+    for (const i of order) {
+      restW[i] = parent[i] >= 0 ? qmul(restW[parent[i]], rest[i].r) : [...rest[i].r];
+    }
     // orientacoes de mundo na UAL por frame
     const frames = times.map((t) => {
       const world = new Array(nodes.length);
@@ -214,10 +220,12 @@ function main() {
       const gw = {};
       for (const [u, g] of GAME_ORDER) {
         const ui = nodes.findIndex((n) => n.name === u);
+        // deformação relativa ao descanso (descanso do jogo = identidade)
+        const D = qmul(W[ui], qinv(restW[ui]));
         const gp = GAME_PARENT[g];
         const parentW = gp ? gw[gp] : [0, 0, 0, 1];
-        const local = qmul(qinv(parentW), W[ui]);
-        gw[g] = qmul(parentW, local); // == W[ui]
+        const local = qmul(qinv(parentW), D);
+        gw[g] = qmul(parentW, local); // == D
         qframes[GAME_ORDER.findIndex(([, x]) => x === g)].push(local);
       }
       void gw; void gameWorld;
