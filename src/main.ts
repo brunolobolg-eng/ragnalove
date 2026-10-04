@@ -263,7 +263,7 @@ let lastVsync = settings.value.video.vsync;
 void loadBossModel().catch((err) => console.warn('Chefe GLB indisponível, usando o Colosso procedural.', err));
 // Krexx: mini-chefe goblin em duas formas (pequeno na Travessia Seca, retorcido no Passo Gélido)
 void loadHumanoidBoss('models/goblin_warlord.glb', 'goblinImp', { height: 1.35, walkRate: 1.3 }).catch((err) => console.warn('Krexx pequeno indisponível.', err));
-void loadHumanoidBoss('models/goblin_warlord.glb', 'goblinWarlord', { height: 2.9, walkRate: 0.8, aura: [1.6, 0.15, 0.4], weapons: [{ type: 'axe', bone: 'hand.R', accent: 0xff7040, tilt: 35, scale: 1.2 }] }).catch((err) => console.warn('Krexx retorcido indisponível.', err));
+void loadHumanoidBoss('models/goblin_warlord.glb', 'goblinWarlord', { height: 2.9, walkRate: 0.8, aura: [1.6, 0.15, 0.4], weapons: [{ type: 'axe', bone: 'foreArm.R', accent: 0xff7040, tilt: 35, scale: 1.2 }] }).catch((err) => console.warn('Krexx retorcido indisponível.', err));
 // Monstros dos Atos I e II e classes avançadas (GLB já riggados). Heróis: refaz retratos ao carregar.
 void loadMonsterModels((kind) => {
   try {

@@ -233,16 +233,32 @@ export function detectHumanoidJoints(geo: THREE.BufferGeometry): HumanoidJoints 
   const yOf = (s: number) => minY + ((s + 0.5) / SL) * H;
   const sliceAt = (y: number) => Math.max(0, Math.min(SL - 1, Math.floor(((y - minY) / H) * SL)));
 
-  // --- entreperna: sobe do chão enquanto o meio (x≈0) estiver vazio ---
+  // --- entreperna: topo da sequência mais baixa de fatias com 2+ blocos estreitos ---
+  // (pernas separadas; funciona com pés grudados de chibi, onde o "meio vazio" nunca aparece)
+  const narrow2 = (s: number): Cl[] => clusters(s).filter((c) => c.hi - c.lo < 0.3 * H);
   let crotch = sliceAt(minY + 0.45 * H);
+  let runTop = -1;
+  let runBottom = -1;
   for (let s = 1; s < SL * 0.6; s++) {
-    const mid = Math.floor(-x0 / bw);
-    if (occ[s][mid] || occ[s][mid - 1] || occ[s][mid + 1]) {
-      crotch = s;
-      break;
+    if (narrow2(s).length >= 2) {
+      if (runBottom < 0) runBottom = s;
+      runTop = s;
+    } else if (runTop >= 0 && s - runTop > 2) break; // sequência terminou (tolerância de 2 fatias)
+  }
+  if (runTop >= 0 && runBottom >= 0 && yOf(runBottom) < minY + 0.25 * H && yOf(runTop) < minY + 0.5 * H) {
+    crotch = runTop;
+  } else {
+    // fallback: sobe do chão enquanto o meio (x≈0) estiver vazio (humanoides altos, pés separados)
+    for (let s = 1; s < SL * 0.6; s++) {
+      const mid = Math.floor(-x0 / bw);
+      if (occ[s][mid] || occ[s][mid - 1] || occ[s][mid + 1]) {
+        crotch = s;
+        break;
+      }
     }
   }
   const crotchY = yOf(crotch) + 0.02 * H;
+  const legLen = Math.max(0.1 * H, crotchY - minY); // pernas curtas de chibi x longas de humanoide
   const legAt = (y: number) => {
     const cl = clusters(sliceAt(y)).filter((c) => c.c > 0.02 * H);
     // perna esquerda = bloco com centro positivo mais próximo do meio (mãos ficam mais para fora)
@@ -250,9 +266,9 @@ export function detectHumanoidJoints(geo: THREE.BufferGeometry): HumanoidJoints 
     return cl[0] ?? { c: 0.1 * H, z: 0 };
   };
   const thighY = crotchY + 0.03 * H; // encaixe do quadril fica um pouco acima da entreperna
-  const shinY = minY + 0.175 * H; // joelho
-  const footY = minY + 0.06 * H;
-  const lThigh = legAt(crotchY - 0.06 * H);
+  const shinY = minY + 0.5 * legLen; // joelho
+  const footY = minY + 0.12 * legLen; // tornozelo
+  const lThigh = legAt(crotchY - 0.25 * legLen);
   const lShin = legAt(shinY);
   const lFoot = legAt(footY + 0.02 * H);
 
@@ -295,7 +311,7 @@ export function detectHumanoidJoints(geo: THREE.BufferGeometry): HumanoidJoints 
 
   const maxY = bb.max.y;
   const neckY = maxY - 0.17 * H;
-  const hipsY = crotchY + 0.05 * H;
+  const hipsY = crotchY + 0.1 * legLen;
   const chestY = neckY - 0.17 * H;
   const V = (x: number, y: number, z = 0) => new THREE.Vector3(x, y, z);
   return {
