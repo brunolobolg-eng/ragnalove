@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { fitHips } from './anims';
+import { ualRawClips } from './ualClips';
 import { bossClips, paintOrc, prepareRiggedModel } from './autoRig';
 import { registerModel } from './ModelUnitView';
 import type { WeaponAttach } from './weapons';
@@ -57,8 +59,20 @@ export interface HumanoidBossOpts {
  */
 export async function loadHumanoidBoss(url: string, kind: string, o: HumanoidBossOpts): Promise<void> {
   const rig = await loadRig(url);
-  const base = bossClips(rig.bones);
-  const clips = o.castClip ? { ...base, cast: o.castClip } : base;
+  // Híbrido: UAL (braços naturais, sem T-pose) no idle/walk/hit/death;
+  // esmagada procedural (sincronizada ao impacto) no attack/heavy;
+  // rugido original no cast (entrada).
+  const raw = ualRawClips();
+  const proc = bossClips(rig.bones);
+  const clips = {
+    idle: fitHips(raw.idle, rig.bones),
+    walk: fitHips(raw.walk, rig.bones),
+    attack: proc.attack,
+    heavy: proc.heavy,
+    cast: o.castClip ?? proc.cast,
+    hit: fitHips(raw.hit, rig.bones),
+    death: fitHips(raw.death, rig.bones),
+  };
   registerModel(kind, {
     build: () => ({ geometry: rig.geometry, bones: rig.bones, glows: [], height: rig.height, map: rig.map }),
     clips: () => clips,

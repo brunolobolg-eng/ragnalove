@@ -360,7 +360,7 @@ import { UAL_PELVIS_REST, ualRawClips } from './ualClips';
  * para o descanso do boneco: escala pela altura do quadril e remapeia
  * os eixos (mundo UAL = mundo do jogo: frente +Z, esquerda +X, cima +Y).
  */
-function fitHips(clip: THREE.AnimationClip, bones: BoneDef[]): THREE.AnimationClip {
+export function fitHips(clip: THREE.AnimationClip, bones: BoneDef[]): THREE.AnimationClip {
   const hips = bones.find((b) => b.name === 'hips')!;
   const s = hips.pos[1] / UAL_PELVIS_REST[2];
   const c = clip.clone();

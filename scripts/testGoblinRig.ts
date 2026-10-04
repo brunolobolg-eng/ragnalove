@@ -97,4 +97,35 @@ import { krexxCastClip } from '../src/render/units/model/krexxCast';
   if (moved < 0.1) throw new Error('rugido parado!');
   a.stop();
 }
+// 5. híbrido UAL (idle/walk/hit/death) no rig: braços fechados, sem T-pose?
+import { fitHips } from '../src/render/units/model/anims';
+import { ualRawClips } from '../src/render/units/model/ualClips';
+{
+  const raw = ualRawClips();
+  const names = new Set(bones.map((b) => b.name));
+  for (const k of ['idle', 'walk', 'hit', 'death'] as const) {
+    const clip = fitHips(raw[k], bones);
+    for (const t of clip.tracks) {
+      if (!names.has(t.name.slice(0, t.name.lastIndexOf('.')))) throw new Error(`UAL ${k}: track sem osso ${t.name}`);
+    }
+    const a = mixer.clipAction(clip);
+    a.play();
+    mixer.update(0);
+    const qArm0 = sk.byName.get('upperArm.R')!.quaternion.clone();
+    const qLeg0 = sk.byName.get('thigh.L')!.quaternion.clone();
+    mixer.update(Math.min(0.6, clip.duration / 2));
+    const arm = qArm0.angleTo(sk.byName.get('upperArm.R')!.quaternion);
+    const leg = qLeg0.angleTo(sk.byName.get('thigh.L')!.quaternion);
+    console.log(`  UAL ${k}: braço ${arm.toFixed(3)} rad, perna ${leg.toFixed(3)} rad`);
+    if (k === 'walk' && (arm < 0.15 || leg < 0.3)) throw new Error('walk UAL sem balanço!');
+    a.stop();
+  }
+  // quadril acompanha a escala do modelo (sem flutuar nem afundar)
+  const hipsTrack = (fitHips(raw.walk, bones).tracks.find((t) => t.name === 'hips.position') as unknown as { values: Float32Array });
+  const ys = [];
+  for (let i = 1; i < hipsTrack.values.length; i += 3) ys.push(hipsTrack.values[i]);
+  const restY = bones.find((b) => b.name === 'hips')!.pos[1];
+  console.log(`  quadril walk: descanso ${restY.toFixed(3)}, mín ${Math.min(...ys).toFixed(3)}, máx ${Math.max(...ys).toFixed(3)}`);
+  if (Math.min(...ys) < restY - 0.15 || Math.max(...ys) > restY + 0.15) throw new Error('quadril UAL fora da faixa!');
+}
 console.log('RIG OK');
