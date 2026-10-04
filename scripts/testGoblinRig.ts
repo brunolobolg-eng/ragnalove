@@ -72,4 +72,29 @@ for (const [n, c] of Object.entries(clips)) {
   console.log(`  ${n}: thigh moveu ${dq.toFixed(3)} rad, quadril ${dp.toFixed(4)}m`);
   a.stop();
 }
+// 4. rugido original com retargeting: liga nos ossos e se move?
+import { krexxCastClip } from '../src/render/units/model/krexxCast';
+{
+  const names = new Set(bones.map((b) => b.name));
+  const cast = krexxCastClip();
+  console.log(`krexx cast: ${cast.duration.toFixed(2)}s, ${cast.tracks.length} tracks`);
+  for (const t of cast.tracks) {
+    const bone = t.name.slice(0, t.name.lastIndexOf('.'));
+    if (!names.has(bone)) throw new Error(`track sem osso: ${t.name}`);
+    const vals = (t as unknown as { values: ArrayLike<number> }).values;
+    for (let i = 0; i < vals.length; i++) if (!Number.isFinite(vals[i])) throw new Error(`NaN em ${t.name}`);
+  }
+  const a = mixer.clipAction(cast);
+  a.play();
+  mixer.update(0);
+  const q0 = sk.byName.get('upperArm.R')!.quaternion.clone();
+  mixer.update(1.0);
+  const q1 = sk.byName.get('upperArm.R')!.quaternion.clone();
+  const q2 = sk.byName.get('thigh.L')!.quaternion.clone();
+  mixer.update(cast.duration);
+  const moved = q0.angleTo(q1);
+  console.log(`  rugido: braço moveu ${moved.toFixed(3)} rad no 1º segundo`);
+  if (moved < 0.1) throw new Error('rugido parado!');
+  a.stop();
+}
 console.log('RIG OK');

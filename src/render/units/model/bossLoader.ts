@@ -46,6 +46,8 @@ export interface HumanoidBossOpts {
   ghost?: [number, number, number];
   aura?: [number, number, number];
   weapons?: WeaponAttach[];
+  /** Rugido próprio (ex.: animação original do modelo com retargeting). */
+  castClip?: THREE.AnimationClip;
 }
 
 /**
@@ -55,7 +57,8 @@ export interface HumanoidBossOpts {
  */
 export async function loadHumanoidBoss(url: string, kind: string, o: HumanoidBossOpts): Promise<void> {
   const rig = await loadRig(url);
-  const clips = bossClips(rig.bones);
+  const base = bossClips(rig.bones);
+  const clips = o.castClip ? { ...base, cast: o.castClip } : base;
   registerModel(kind, {
     build: () => ({ geometry: rig.geometry, bones: rig.bones, glows: [], height: rig.height, map: rig.map }),
     clips: () => clips,
