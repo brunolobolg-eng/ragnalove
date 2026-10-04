@@ -128,7 +128,7 @@ export class WorldMap {
     this.over.addEventListener('click', (e) => this.clickRegion(e));
     this.panel.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-a]');
-      if (!b || b.hasAttribute('disabled')) return;
+      if (!b || b.hasAttribute('disabled') || this.travel) return;
       this.cb.onUi();
       const a = b.dataset.a!;
       if (a === 'go') this.cb.onChoose(b.dataset.t as NodeType);

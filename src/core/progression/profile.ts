@@ -342,7 +342,10 @@ export function clearInventory(p: Profile): void {
 /** Saves antigos: preenche campos novos (habilidades, Zeni). */
 export function migrateProfile(p: Profile): Profile {
   p.zeni ??= 0;
+  p.souls ??= 0;
+  p.inventory ??= [];
   const fresh = createProfile();
+  if (!p.heroes || typeof p.heroes !== 'object') p.heroes = fresh.heroes;
   for (const k of HERO_ORDER) if (!p.heroes[k]) p.heroes[k] = fresh.heroes[k];
   // itens antigos: ganham tipo, o slot novo (capacete, capa, botas...) e o Ataque da arma
   const fixWeapon = (it: Item) => {
@@ -353,6 +356,11 @@ export function migrateProfile(p: Profile): Profile {
   };
   p.inventory.forEach(fixWeapon);
   for (const [k, h] of Object.entries(p.heroes)) {
+    h.level ??= 1;
+    h.exp ??= 0;
+    h.points ??= 0;
+    h.attrs ??= { ...fresh.heroes[k as HeroKind].attrs };
+    h.equipment ??= {};
     h.skills ??= startingSkills(k as HeroKind);
     // habilidades iniciais novas (ex.: Muralha, Armadilha) entram aprendidas no nível 1
     for (const [id, lv] of Object.entries(startingSkills(k as HeroKind))) h.skills[id as keyof SkillLevels] ??= lv;

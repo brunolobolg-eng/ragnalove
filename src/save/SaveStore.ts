@@ -39,17 +39,23 @@ export const SaveStore = {
   get(key: SaveKey): string | null {
     return load()[key];
   },
-  set(key: SaveKey, text: string): void {
+  /** Grava; devolve false se o disco/storage recusar (o chamador deve avisar o jogador). */
+  set(key: SaveKey, text: string): boolean {
     load()[key] = text;
     const disk = window.vanguardaDesktop?.save;
     if (disk) {
-      if (!disk.write(key, text)) console.warn(`Não foi possível gravar o save "${key}" no disco.`);
-      return;
+      if (!disk.write(key, text)) {
+        console.warn(`Não foi possível gravar o save "${key}" no disco.`);
+        return false;
+      }
+      return true;
     }
     try {
       localStorage.setItem(LEGACY[key], text);
+      return true;
     } catch {
       /* sem storage: joga sem salvar */
+      return false;
     }
   },
 };

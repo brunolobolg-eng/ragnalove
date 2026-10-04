@@ -232,7 +232,15 @@ ipcMain.on('vg:save-write', (e, key, text) => {
     } finally {
       fs.closeSync(fd);
     }
-    if (fs.existsSync(file)) fs.copyFileSync(file, saveFile(key, 'bak'));
+    if (fs.existsSync(file)) {
+      // só promove a cópia se o atual estiver legível: nunca esmaga um .bak bom com lixo
+      try {
+        JSON.parse(fs.readFileSync(file, 'utf8'));
+        fs.copyFileSync(file, saveFile(key, 'bak'));
+      } catch {
+        /* atual ilegível: mantém o .bak que já existe */
+      }
+    }
     fs.renameSync(tmp, file);
     e.returnValue = true;
   } catch (err) {

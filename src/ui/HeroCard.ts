@@ -97,9 +97,16 @@ export class HeroCard {
       else if (a === 'skills') this.cb.onSkills(k);
       else if (a === 'abandon') this.cb.onAbandon();
     });
-    addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !this.el.hidden) this.close();
-    });
+    addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key === 'Escape' && !this.el.hidden) {
+          this.close();
+          e.stopImmediatePropagation(); // não abre o "voltar ao menu" junto
+        }
+      },
+      true,
+    );
   }
 
   get visible(): boolean {

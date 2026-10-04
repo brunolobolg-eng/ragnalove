@@ -127,6 +127,12 @@ export function migrateRun(r: RunState): RunState {
   r.nights ??= 0;
   r.reports ??= [];
   r.usedObjects ??= [];
+  // saves editados/antigos sem estes campos não podem travar o menu
+  if (!Number.isFinite(r.act)) r.act = 0;
+  if (!Number.isFinite(r.node)) r.node = 0;
+  if (!Number.isFinite(r.seed)) r.seed = 1;
+  r.damage ??= 0;
+  r.playMs ??= 0;
   return r;
 }
 

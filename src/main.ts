@@ -135,9 +135,10 @@ function loadRun(): RunState | undefined {
     if (raw) {
       const r = JSON.parse(raw) as RunState;
       if (r && r.version === 1 && r.profile?.heroes?.warrior && !r.ended) return migrateRun(r);
+      saveDiscarded = true;
     }
   } catch {
-    /* sem storage: joga sem salvar */
+    saveDiscarded = true;
   }
   return undefined;
 }
@@ -165,11 +166,13 @@ function autoGear(): void {
 function saveProfile(): void {
   autoGear();
   try {
-    SaveStore.set(RUN_KEY, JSON.stringify(run));
+    if (!SaveStore.set(RUN_KEY, JSON.stringify(run))) hud.log('Não foi possível salvar o progresso (disco cheio ou sem permissão?).', 'warn');
   } catch {
     /* ignora */
   }
 }
+/** O save em disco existia mas foi descartado (corrompido/versão inválida): avisar no menu. */
+let saveDiscarded = false;
 /** Conquistas entre jornadas (liberam as classes avançadas) — no mesmo save do jogador. */
 function loadMetaStats(): MetaStats {
   try {
@@ -261,10 +264,14 @@ let lastVsync = settings.value.video.vsync;
 void loadBossModel().catch((err) => console.warn('Chefe GLB indisponível, usando o Colosso procedural.', err));
 // Monstros dos Atos I e II e classes avançadas (GLB já riggados). Heróis: refaz retratos ao carregar.
 void loadMonsterModels((kind) => {
-  if (!isHeroKind(kind)) return;
-  charSelect.refreshHero(kind);
-  refreshHeroArt(kind);
-  if (sim.phase !== 'running' && mode === 'battle') view.bind(sim);
+  try {
+    if (!isHeroKind(kind)) return;
+    charSelect.refreshHero(kind);
+    refreshHeroArt(kind);
+    if (sim.phase !== 'running' && mode === 'battle') view.bind(sim);
+  } catch (err) {
+    console.warn(`Falha ao aplicar modelo ${kind}, mantendo o atual.`, err);
+  }
 });
 settings.onChange((s) => {
   const g = graphicsFrom(s);
@@ -676,7 +683,7 @@ function startHorde(): void {
 
 /** Batalha interrompida (jogo fechado/queda/menu no meio da onda): recomeça do zero com o selo, travada. */
 function resumeBattle(seal: BattleSeal): void {
-  if (seal.act !== run.act || seal.node !== run.node) {
+  if (seal.act !== run.act || seal.node !== run.node || !isCombat(seal.choice)) {
     run.battle = undefined;
     saveProfile();
     return openMap();
@@ -928,6 +935,10 @@ function returnToMenu(): void {
   hudRoot.style.visibility = 'hidden';
   audio.stopGameMusic();
   audio.playMenuMusic(MUSIC.menu, MUSIC.fadeMs);
+  if (saveDiscarded) {
+    saveDiscarded = false;
+    hud.log('Save inválido ou de outra versão — começando do zero.', 'warn');
+  }
   menu.open();
 }
 
@@ -1119,8 +1130,12 @@ function finishWave(): void {
     return;
   }
   window.setTimeout(async () => {
-    for (const it of gifts) await roulette.spin('Recompensa da primeira vitória', 'Um presente dos refugiados de Valdrec... o que veio desta vez?', it, () => it.slot);
-    if (mythic) await roulette.spin('Garantia Mítica', 'O chefe caiu! Uma relíquia lendária de Aurenthal se revela...', mythic, () => mythic.slot);
+    try {
+      for (const it of gifts) await roulette.spin('Recompensa da primeira vitória', 'Um presente dos refugiados de Valdrec... o que veio desta vez?', it, () => it.slot);
+      if (mythic) await roulette.spin('Garantia Mítica', 'O chefe caiu! Uma relíquia lendária de Aurenthal se revela...', mythic, () => mythic.slot);
+    } catch (err) {
+      console.warn('Roleta interrompida; prêmios já estão no inventário.', err);
+    }
     const buttons: { label: string; primary?: boolean; disabled?: boolean; onClick: () => void }[] = [];
     for (const h of run.dead) {
       const c = reviveCost(run);
@@ -1552,6 +1567,8 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.key === ' ') {
     e.preventDefault();
+    // nunca atrás de modal: árvore, confirmação ou relatório
+    if (skillTree.visible || confirmBox.isOpen || resultModal.visible) return;
     startHorde();
   }
 });
