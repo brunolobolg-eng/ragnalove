@@ -667,7 +667,9 @@ function enterBattle(t: NodeType): void {
   // a câmera começa na party (o jogador pode inspecionar o mapa antes de iniciar)
   focusParty(true);
   autoStartLeft = firstAutoStart;
-  coach.maybe('planning', 'Clique num <b>herói da barra</b> para ver até onde ele reage aos inimigos.');
+  window.setTimeout(() => {
+    if (mode === 'battle' && sim.phase === 'setup') coach.maybe('planning', 'Clique num <b>herói da barra</b> para ver até onde ele reage.');
+  }, 1500);
 }
 
 /** Segundos que faltam para a horda começar sozinha (0 = sem contagem). */
@@ -1631,19 +1633,6 @@ function drawOverlay(): void {
     // herói selecionado (aguardando ordens): tile destacado
     const selHero = sim.setup.members.find((m) => m.archetype === tool);
     if (selHero) bv.mark([selHero], C_HANDLE, 0.55 + 0.25 * Math.sin(performance.now() / 220));
-    // zona de agressão: SOMENTE do herói selecionado (mesma fonte da IA: aggressionRange)
-    if (selectedKind && sim.phase !== 'victory' && sim.phase !== 'defeat') {
-      const inSetup = sim.phase === 'setup';
-      const pos = inSetup
-        ? setup.members.find((m) => m.archetype === selectedKind)
-        : [...sim.units.values()].find((u) => u.team === 'party' && u.kind === selectedKind);
-      const su = !inSetup ? [...sim.units.values()].find((u) => u.team === 'party' && u.kind === selectedKind) : undefined;
-      if (pos) {
-        const stats = su?.stats ?? heroStats(profile, selectedKind);
-        const range = combatProfile({ kind: selectedKind, stats } as Unit, sim.mods, sim.rangeMult).aggressionRange;
-        bv.mark(sim.board.clip(discPattern(pos, range)), C_HANDLE, 0.3);
-      }
-    }
     const w = sim.setup.members.find((m) => m.archetype === 'warrior');
     if (w && selectedKind === 'warrior') bv.mark(sim.board.clip(conePattern(w, { x: 0, y: -1 }, ws.cleaveRange, ws.cleaveHalfAngleDeg)), C_CONE, 0.22);
     // alcance do Raio Gélido do Mago (anel sutil, só selecionada)
@@ -1684,6 +1673,20 @@ function drawOverlay(): void {
     }
   } else if (hover) {
     bv.mark([hover], C_HOVER, 0.4);
+  }
+  // zona de agressão: SOMENTE do herói selecionado, no planejamento E na horda
+  // (mesma fonte da IA: aggressionRange — acompanha posição e velocidade ao vivo)
+  if (selectedKind && (sim.phase === 'setup' || sim.phase === 'running')) {
+    const inSetup = sim.phase === 'setup';
+    const pos = inSetup
+      ? setup.members.find((m) => m.archetype === selectedKind)
+      : [...sim.units.values()].find((u) => u.team === 'party' && u.kind === selectedKind);
+    const su = !inSetup ? [...sim.units.values()].find((u) => u.team === 'party' && u.kind === selectedKind) : undefined;
+    if (pos) {
+      const stats = su?.stats ?? heroStats(profile, selectedKind);
+      const range = combatProfile({ kind: selectedKind, stats } as Unit, sim.mods, sim.rangeMult).aggressionRange;
+      bv.mark(sim.board.clip(discPattern(pos, range)), C_HANDLE, 0.3);
+    }
   }
   const f = view.lastCleaveFlash;
   if (f) bv.mark(f.tiles, C_CLEAVE, 0.6 * f.strength);
