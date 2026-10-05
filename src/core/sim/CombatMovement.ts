@@ -76,13 +76,13 @@ export function updateCombatMovement(u: Unit, sim: Simulation): void {
   set('IDLE');
 }
 
-/** Inimigo visível mais próximo, dentro da detecção e que dá para atacar sem sair do raio máximo. */
+/** Inimigo visível mais próximo, dentro da agressão e que dá para atacar sem sair do raio máximo. */
 function pickTarget(u: Unit, sim: Simulation, p: CombatProfile, home: Vec2): Unit | undefined {
   let best: Unit | undefined;
   let bestD = Infinity;
   for (const e of sim.visibleEnemies()) {
     const d = dist(u, e);
-    if (d > p.detectionRange || d >= bestD) continue;
+    if (d > p.aggressionRange || d >= bestD) continue;
     if (dist(e, home) > p.maxCombatMoveDistance + p.attackRange) continue;
     best = e;
     bestD = d;

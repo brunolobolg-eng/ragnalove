@@ -44,7 +44,7 @@ import { Modal, paintEventArt } from './ui/RunScreens';
 import { SKILL_ICONS } from './ui/icons';
 import { maxRefine, itemName, type Item } from './core/progression/equipment';
 import { Roulette } from './ui/Roulette';
-import { conePattern, linePattern } from './core/grid/patterns';
+import { conePattern, discPattern, linePattern } from './core/grid/patterns';
 import { ORIENTATIONS, type Orientation, type Vec2 } from './core/grid/types';
 import { Simulation } from './core/sim/Simulation';
 import type { SimEvent, Unit } from './core/sim/types';
@@ -86,7 +86,7 @@ import { Rng } from './core/sim/rng';
 import { tileToWorld } from './render/coords';
 import type { DevApi } from './debug/DebugPanel';
 import type { DevLabApi } from './dev/DevLab/DevLab';
-import { baseAttackRange, neutralMods } from './core/sim/RangeSystem';
+import { combatProfile, neutralMods } from './core/sim/RangeSystem';
 import { REFINE, WEAPON_USERS } from './core/progression/equipment';
 import type { HeroLoadout } from './core/sim/Simulation';
 import { slotCount } from './core/progression/skillSlots';
@@ -97,6 +97,7 @@ import { SaveStore, type SaveKey } from './save/SaveStore';
 import type { BattleSeal } from './core/run/run';
 import { SettingsStore, graphicsFrom } from './settings/Settings';
 import { AudioEngine, type SfxName } from './audio/AudioEngine';
+import { CoachTips } from './ui/CoachTips';
 import { SettingsPanels } from './ui/SettingsPanels';
 import { ConfirmDialog } from './ui/ConfirmDialog';
 import { ParticleSystem } from './render/fx/Particles';
@@ -366,10 +367,16 @@ const hud = new Hud(document.getElementById('hud')!, {
     if (mode !== 'battle') return;
     selectedKind = selectedKind === kind ? undefined : kind;
     hud.setSelected(selectedKind);
+    if (selectedKind) {
+      coach.maybe('zone', 'A área dourada mostra até onde este herói <b>avançará para agredir</b>. Inimigo dentro dela = reação na hora.');
+      if (kind === 'assassin') coach.maybe('speed-fast', 'O <b>Assassino é veloz</b>: reage mais longe que os outros.');
+      if (kind === 'mage') coach.maybe('speed-slow', 'O <b>Mago é lento</b>: só reage de perto. Posicione com carinho.');
+    }
   },
 });
 
 const panels = new SettingsPanels(hudRoot, settings, () => audio.sfx('ui'));
+const coach = new CoachTips(hudRoot);
 /** Confirmação de saída (Esc ou botão ⏻): jogador só-mouse também consegue voltar ao menu. */
 function askReturnToMenu(): void {
   if (menu.active || mode === 'menu') return;
@@ -505,6 +512,7 @@ const endModal = new Modal('end');
 function setMode(m: Mode): void {
   mode = m;
   document.body.dataset.mode = m;
+  coach.hide();
   if (m !== 'battle' && selectedKind) {
     selectedKind = undefined;
     hud.setSelected(undefined);
@@ -659,6 +667,7 @@ function enterBattle(t: NodeType): void {
   // a câmera começa na party (o jogador pode inspecionar o mapa antes de iniciar)
   focusParty(true);
   autoStartLeft = firstAutoStart;
+  coach.maybe('planning', 'Clique num <b>herói da barra</b> para ver até onde ele reage aos inimigos.');
 }
 
 /** Segundos que faltam para a horda começar sozinha (0 = sem contagem). */
@@ -896,6 +905,7 @@ function showRunEnd(victory: boolean, cityFell = false): void {
 
 function openSkills(hero: HeroKind = 'warrior'): void {
   if (skillTree.visible) return skillTree.close();
+  coach.maybe('slots', '<b>INT é capacidade</b>: mais Inteligência, mais slots de habilidade por herói.');
   skillTree.open(run, hero, mode === 'city');
 }
 
@@ -1621,7 +1631,7 @@ function drawOverlay(): void {
     // herói selecionado (aguardando ordens): tile destacado
     const selHero = sim.setup.members.find((m) => m.archetype === tool);
     if (selHero) bv.mark([selHero], C_HANDLE, 0.55 + 0.25 * Math.sin(performance.now() / 220));
-    // zona de agressão: SOMENTE do herói selecionado (campo limpo fora disso)
+    // zona de agressão: SOMENTE do herói selecionado (mesma fonte da IA: aggressionRange)
     if (selectedKind && sim.phase !== 'victory' && sim.phase !== 'defeat') {
       const inSetup = sim.phase === 'setup';
       const pos = inSetup
@@ -1630,14 +1640,8 @@ function drawOverlay(): void {
       const su = !inSetup ? [...sim.units.values()].find((u) => u.team === 'party' && u.kind === selectedKind) : undefined;
       if (pos) {
         const stats = su?.stats ?? heroStats(profile, selectedKind);
-        const range = baseAttackRange({ kind: selectedKind, stats } as Unit);
-        const disc: Vec2[] = [];
-        const r = Math.ceil(range);
-        for (let y = Math.floor(pos.y) - r; y <= Math.floor(pos.y) + r; y++)
-          for (let x = Math.floor(pos.x) - r; x <= Math.floor(pos.x) + r; x++) {
-            if (Math.hypot(x - pos.x, y - pos.y) <= range) disc.push({ x, y });
-          }
-        bv.mark(sim.board.clip(disc), C_HANDLE, 0.3);
+        const range = combatProfile({ kind: selectedKind, stats } as Unit, sim.mods, sim.rangeMult).aggressionRange;
+        bv.mark(sim.board.clip(discPattern(pos, range)), C_HANDLE, 0.3);
       }
     }
     const w = sim.setup.members.find((m) => m.archetype === 'warrior');

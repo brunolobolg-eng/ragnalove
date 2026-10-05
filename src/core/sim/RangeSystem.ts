@@ -69,6 +69,13 @@ export interface CombatProfile {
   maxCombatMoveDistance: number;
   moveTicks: number;
   attackSpeed: number;
+  /**
+   * DISTÂNCIA DE AGRESSÃO (fonte única: IA + zona visual + testes leem daqui).
+   * Rápido reage mais longe, lento mais perto — limitada pela detecção e com
+   * piso 2 (sempre reage a quem chega perto).
+   * = max(2, min(detectionRange, (maxCombatMoveDistance + attackRange) × (5 / moveTicks))).
+   */
+  aggressionRange: number;
 }
 
 /** Números de combate efetivos do herói agora. `envMult` = multiplicador do ambiente (tempestade). */
@@ -79,13 +86,17 @@ export function combatProfile(u: Unit, mods: SimMods, envMult: number): CombatPr
   const ranged = isRanged(u.kind);
   const attackRange = ranged ? baseAttackRange(u) * envMult * testRangeMult(u, mods) : (m.attackRange ?? baseAttackRange(u));
   const pref = m.preferredRange ?? base.preferredRange * (ranged ? mods.rangedRangeMult : 1);
+  const maxMove = m.maxCombatMoveDistance ?? mods.maxCombatMoveDistance ?? base.maxCombatMoveDistance;
+  const ticks = Math.max(1, Math.round(m.moveTicks ?? base.moveTicks));
+  const detectionRange = m.detectionRange ?? base.detectionRange;
   return {
     ranged,
-    detectionRange: m.detectionRange ?? base.detectionRange,
+    detectionRange,
     attackRange,
     preferredRange: Math.min(pref, attackRange),
-    maxCombatMoveDistance: m.maxCombatMoveDistance ?? mods.maxCombatMoveDistance ?? base.maxCombatMoveDistance,
-    moveTicks: Math.max(1, Math.round(m.moveTicks ?? base.moveTicks)),
+    maxCombatMoveDistance: maxMove,
+    moveTicks: ticks,
     attackSpeed: m.attackSpeed ?? 1,
+    aggressionRange: Math.max(2, Math.min(detectionRange, (maxMove + attackRange) * (5 / ticks))),
   };
 }

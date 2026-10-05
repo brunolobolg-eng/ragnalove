@@ -49,3 +49,17 @@ export function squarePattern(center: Vec2, radius: number): Vec2[] {
     for (let dx = -radius; dx <= radius; dx++) out.push({ x: center.x + dx, y: center.y + dy });
   return out;
 }
+
+/**
+ * Disco euclidiano (zona de agressão): tiles cuja distância ao centro é <= range.
+ * Mesma função no jogo e nos testes — o visual nunca diverge do cálculo.
+ */
+export function discPattern(center: Vec2, range: number): Vec2[] {
+  const out: Vec2[] = [];
+  const r = Math.ceil(range);
+  for (let dy = -r; dy <= r; dy++)
+    for (let dx = -r; dx <= r; dx++) {
+      if (Math.hypot(dx, dy) <= range + 1e-6) out.push({ x: Math.round(center.x) + dx, y: Math.round(center.y) + dy });
+    }
+  return out;
+}
