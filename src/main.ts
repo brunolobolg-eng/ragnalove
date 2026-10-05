@@ -1921,6 +1921,7 @@ function updateStatus(): void {
     souls: sim.souls,
     zeni: profile.zeni + (sim.phase === 'running' ? sim.zeni : 0),
     total: GAME_CONFIG.wave.endless ? 0 : GAME_CONFIG.wave.count + (GAME_CONFIG.wave.boss ? 1 : 0),
+    bossOut: sim.bossSpawned,
     survival: GAME_CONFIG.wave.endless ? { stage: sim.stage + 1, seconds: Math.floor(sim.tick / GAME_CONFIG.sim.tickRate) } : undefined,
     members: run.party.map((k) => {
       const u = party.find((p) => p.kind === k);

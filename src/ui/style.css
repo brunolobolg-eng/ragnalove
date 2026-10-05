@@ -791,6 +791,23 @@ body.cine #cine { pointer-events: auto; cursor: pointer; }
 .city-bar.critical { animation: cb-pulse 0.9s ease-in-out infinite; }
 .city-bar .cb-txt { font: bold 12px Tahoma, sans-serif; min-width: 80px; text-align: right; }
 .city-bar .cb-in { font: 11px Tahoma, sans-serif; color: #ff9a7a; white-space: nowrap; }
+/* Travessia da noite: a party anda da lua ao sol conforme a horda cai */
+.night-bar { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 15px; }
+.nb-track { position: relative; flex: 1; height: 12px; border-radius: 6px; border: 1px solid #3a4c72;
+  background: linear-gradient(90deg, #0a1030 0%, #1a1440 45%, #4a2440 75%, #c46a2e 100%); overflow: hidden; }
+.nb-stars { position: absolute; inset: 0;
+  background-image: radial-gradient(1px 1px at 12% 30%, #fff, transparent), radial-gradient(1px 1px at 32% 65%, #cfe4ff, transparent),
+    radial-gradient(1.5px 1.5px at 55% 25%, #fff, transparent), radial-gradient(1px 1px at 72% 55%, #cfe4ff, transparent),
+    radial-gradient(1px 1px at 88% 30%, #fff, transparent); }
+.nb-party { position: absolute; top: 50%; left: 0%; transform: translate(-50%, -58%); font-size: 15px;
+  filter: drop-shadow(0 0 4px #ffd75e); transition: left 0.25s linear; }
+.nb-boss { position: absolute; top: 50%; left: 92%; transform: translate(-50%, -58%); font-size: 12px; opacity: 0.45; filter: grayscale(1); }
+.nb-boss.out { opacity: 1; filter: none; animation: nbPulse 0.9s ease-in-out infinite; }
+@keyframes nbPulse { 50% { transform: translate(-50%, -58%) scale(1.35); } }
+.night-bar.endless .nb-party, .night-bar.endless .nb-boss { display: none; }
+.night-bar.endless .nb-track::after { content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(160, 200, 255, 0.35), transparent); animation: nbSweep 2.2s linear infinite; }
+@keyframes nbSweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 .city-bar.hit { animation: cb-hit 0.45s ease-out; }
 @keyframes cb-hit { 0% { box-shadow: 0 0 0 0 rgba(255, 70, 40, 0.9); transform: translateX(-50%) scale(1.04); } 100% { box-shadow: 0 0 0 14px rgba(255, 70, 40, 0); transform: translateX(-50%) scale(1); } }
 @keyframes cb-pulse { 50% { border-color: #ff4a2a; box-shadow: 0 0 16px rgba(255, 60, 30, 0.8); } }

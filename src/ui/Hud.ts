@@ -82,6 +82,8 @@ export interface HudState {
   phase: 'setup' | 'running' | 'victory' | 'defeat';
   killed: number;
   total: number;
+  /** Chefe já nasceu (a caveira da travessia acende). */
+  bossOut?: boolean;
   /** Almas totais da party (moeda de progressão). */
   souls: number;
   /** Zeni da bolsa (banco + ganho nesta onda). */
@@ -335,6 +337,11 @@ export class Hud {
         <b class="cb-txt">1000 / 1000</b>
         <span class="cb-in" hidden></span>
       </div>
+      <div class="night-bar" title="">
+        <span class="nb-moon" title="Anoitecer">🌙</span>
+        <div class="nb-track"><div class="nb-stars"></div><div class="nb-party">🛡️</div><div class="nb-boss" title="Chefe da horda">💀</div></div>
+        <span class="nb-sun" title="Amanhecer">☀️</span>
+      </div>
       <div class="obj-menu win" hidden>
         <div class="win-title"><span class="om-title"></span><button class="x" data-om="close">×</button></div>
         <div class="win-body"><p class="om-desc"></p><div class="om-acts"></div></div>
@@ -492,6 +499,25 @@ export class Hud {
     if (b) this.select('orient', b);
   }
 
+  /** Travessia da noite: o emblema da party anda da lua ao sol conforme a horda cai (sem números). */
+  setNight(s: HudState): void {
+    const bar = this.el.querySelector<HTMLElement>('.night-bar')!;
+    const party = bar.querySelector<HTMLElement>('.nb-party')!;
+    const boss = bar.querySelector<HTMLElement>('.nb-boss')!;
+    const stars = bar.querySelector<HTMLElement>('.nb-stars')!;
+    if (s.survival) {
+      bar.classList.add('endless');
+      bar.title = `Sobrevivência — estágio ${s.survival.stage}, sem amanhecer à vista`;
+      return;
+    }
+    bar.classList.remove('endless');
+    const frac = s.total > 0 ? Math.max(0, Math.min(1, s.killed / s.total)) : 0;
+    party.style.left = `${frac * 100}%`;
+    stars.style.opacity = String(1 - frac * 0.85);
+    boss.classList.toggle('out', !!s.bossOut);
+    bar.title = `Travessia da noite: ${s.killed}/${s.total} da horda${s.bossOut ? ' — o chefe saiu da escuridão!' : ''}`;
+  }
+
   setPlanning(planning: boolean): void {
     this.el.classList.toggle('running', !planning);
     this.startBtn.disabled = !planning;
@@ -506,6 +532,7 @@ export class Hud {
     this.waveEl.textContent = s.survival
       ? `Estágio ${s.survival.stage} · ${Math.floor(s.survival.seconds / 60)}:${String(s.survival.seconds % 60).padStart(2, '0')} · ${s.killed} abates`
       : `${s.killed}/${s.total} abatidos`;
+    this.setNight(s);
     if (s.souls !== this.lastSouls) {
       this.soulTotal.textContent = String(s.souls);
       // pulso curto a cada alma nova (sem popup grande)
