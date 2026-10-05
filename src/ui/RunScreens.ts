@@ -132,6 +132,123 @@ export function paintEventArt(root: HTMLElement, id: string): void {
       g.lineTo(212, 120);
       g.stroke();
       break;
+    case 'hermit':
+      g.fillRect(150, 60, 120, 58);
+      g.beginPath();
+      g.moveTo(140, 60);
+      g.lineTo(210, 20);
+      g.lineTo(280, 60);
+      g.fill();
+      glow(210, 90, 26, 'rgba(255,220,150,0.7)');
+      g.beginPath();
+      g.arc(210, 84, 9, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case 'starfall':
+      glow(300, 60, 60, 'rgba(150,200,255,0.6)');
+      g.strokeStyle = 'rgba(200,230,255,0.8)';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(120, 20);
+      g.lineTo(280, 70);
+      g.stroke();
+      g.fillStyle = '#12121a';
+      g.beginPath();
+      g.arc(300, 100, 18, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case 'fairyRing':
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        glow(210 + Math.cos(a) * 55, 95 + Math.sin(a) * 22, 10, 'rgba(150,255,200,0.9)');
+      }
+      break;
+    case 'oldTower':
+      g.fillStyle = '#12121a';
+      g.fillRect(185, 30, 50, 88);
+      g.fillRect(185, 30, 50, 14);
+      g.beginPath();
+      g.moveTo(185, 30);
+      g.lineTo(210, 8);
+      g.lineTo(235, 30);
+      g.fill();
+      break;
+    case 'warHorn':
+      glow(210, 80, 50, 'rgba(255,200,120,0.5)');
+      g.strokeStyle = '#12121a';
+      g.lineWidth = 12;
+      g.beginPath();
+      g.arc(210, 110, 45, Math.PI * 1.1, Math.PI * 1.9);
+      g.stroke();
+      break;
+    case 'sickTraveler':
+      g.fillStyle = '#12121a';
+      g.fillRect(150, 96, 120, 22);
+      g.beginPath();
+      g.arc(160, 88, 10, 0, Math.PI * 2);
+      g.fill();
+      glow(300, 60, 24, 'rgba(255,150,150,0.6)');
+      break;
+    case 'diceGame':
+      g.fillStyle = '#12121a';
+      for (const [x, y, r] of [[185, 85, 0], [235, 90, 1]] as const) {
+        g.save();
+        g.translate(x, y);
+        g.rotate(r ? 0.3 : -0.2);
+        g.fillRect(-16, -16, 32, 32);
+        g.fillStyle = '#e8e8f0';
+        for (const [dx, dy] of [[-7, -7], [7, 7], [7, -7], [-7, 7], [0, 0]] as const) {
+          g.beginPath();
+          g.arc(dx, dy, 3, 0, Math.PI * 2);
+          g.fill();
+        }
+        g.fillStyle = '#12121a';
+        g.restore();
+      }
+      break;
+    case 'battlefield':
+      g.strokeStyle = '#12121a';
+      g.lineWidth = 6;
+      g.beginPath();
+      g.moveTo(150, 110);
+      g.lineTo(200, 50);
+      g.moveTo(270, 110);
+      g.lineTo(220, 50);
+      g.stroke();
+      g.fillStyle = '#12121a';
+      for (const x of [150, 200, 220, 270]) {
+        g.fillRect(x - 8, 104, 16, 14);
+      }
+      break;
+    case 'blacksmith':
+      glow(210, 80, 44, 'rgba(255,140,60,0.7)');
+      g.fillStyle = '#12121a';
+      g.beginPath();
+      g.moveTo(175, 95);
+      g.lineTo(245, 95);
+      g.lineTo(230, 118);
+      g.lineTo(190, 118);
+      g.closePath();
+      g.fill();
+      g.fillRect(150, 40, 10, 50);
+      g.save();
+      g.translate(155, 38);
+      g.rotate(-0.5);
+      g.fillRect(-16, -6, 32, 12);
+      g.restore();
+      break;
+    case 'wyrmNest':
+      glow(210, 85, 55, 'rgba(255,120,60,0.55)');
+      g.fillStyle = '#12121a';
+      g.beginPath();
+      g.ellipse(210, 92, 26, 34, 0, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#3a3a48';
+      g.lineWidth = 5;
+      g.beginPath();
+      g.ellipse(210, 100, 60, 16, 0, 0, Math.PI * 2);
+      g.stroke();
+      break;
     default:
       glow(210, 100, 60, 'rgba(255,150,60,0.6)');
       g.fillStyle = '#12121a';
