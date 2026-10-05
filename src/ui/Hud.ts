@@ -25,6 +25,8 @@ export interface HudCallbacks {
   onSkills(): void;
   onEquip(kind: string, itemId: string): void;
   onUnequip(kind: string, slot: Slot): void;
+  /** Seleciona o herói na batalha (mostra a zona de agressão dele). */
+  onSelectMember(kind: HeroKind): void;
 }
 
 /** Dados da janela de personagem (atributos + equipamento), montados pelo main. */
@@ -68,6 +70,9 @@ export interface HudMember {
   level: number;
   exp: number;
   expNext: number;
+  /** Progressão pendente (mostra a estrela dourada no retrato até gastar). */
+  points: number;
+  skillPoints: number;
 }
 
 export interface HudSlot {
@@ -113,7 +118,7 @@ export class Hud {
   private readonly phaseEl: HTMLElement;
   private readonly memberEls = new Map<
     string,
-    { hp: HTMLElement; hpTxt: HTMLElement; souls: HTMLElement; win: HTMLElement; exp: HTMLElement; expTxt: HTMLElement; lv: HTMLElement; level: number; slots: HTMLElement; basic: HTMLElement; slotKey: string }
+    { hp: HTMLElement; hpTxt: HTMLElement; souls: HTMLElement; win: HTMLElement; exp: HTMLElement; expTxt: HTMLElement; lv: HTMLElement; up: HTMLElement; level: number; slots: HTMLElement; basic: HTMLElement; slotKey: string }
   >();
   private readonly charWin: HTMLElement;
   private readonly charBadge: HTMLElement;
@@ -206,7 +211,7 @@ export class Hud {
         const info = HERO_INFO[k];
         const emblem = SKILL_ICONS[info.area]?.() ?? '';
         return `<div class="pc" data-member="${k}" style="--hc:#${info.color.toString(16).padStart(6, '0')}">
-          <div class="pc-port"><img src="${PORTRAIT[k] || 'data:,'}" alt=""><i class="pc-lv" title="Nível">1</i><span class="pc-basic"></span></div>
+          <div class="pc-port"><img src="${PORTRAIT[k] || 'data:,'}" alt=""><i class="pc-lv" title="Nível">1</i><i class="pc-up" title="Progressão disponível: distribua pontos ou gaste pontos de habilidade">✦</i><span class="pc-basic"></span></div>
           <div class="pc-main">
             <div class="pc-head"><img class="pc-emb" src="${emblem}" alt=""><b>${NAME[k]}</b><span class="pc-souls" title="Almas roubadas"><i class="soul-ico"></i><b>0</b></span></div>
             <div class="pc-bars"><div class="pc-hp"><i></i><span></span></div><div class="pc-exp" title="Experiência"><i></i><span></span></div></div>
@@ -224,6 +229,7 @@ export class Hud {
         expTxt: w.querySelector('.pc-exp span')!,
         lv: w.querySelector('.pc-lv')!,
         level: 1,
+        up: w.querySelector('.pc-up')!,
         souls: w.querySelector('.pc-souls b')!,
         slots: w.querySelector('.pc-slots')!,
         basic: w.querySelector('.pc-basic')!,
@@ -264,6 +270,11 @@ export class Hud {
       this.cdCache.set(parent, arr);
     }
     return arr[i] ?? null;
+  }
+
+  /** Marca o herói selecionado na batalha (anel; independente da estrela de progressão). */
+  setSelected(kind?: HeroKind): void {
+    this.barEl.querySelectorAll<HTMLElement>('[data-member]').forEach((w) => w.classList.toggle('sel', !!kind && w.dataset.member === kind));
   }
 
   /** Marca a orientação ativa (quando troca a barreira selecionada). */
@@ -373,6 +384,10 @@ export class Hud {
     root.querySelector('[data-act="skills"]')!.addEventListener('click', () => cb.onSkills());
     this.stageEl = root.querySelector('.stage-line')!;
     this.barEl = root.querySelector('.party-bar')!;
+    this.barEl.addEventListener('click', (ev) => {
+      const w = (ev.target as HTMLElement).closest<HTMLElement>('[data-member]');
+      if (w) cb.onSelectMember(w.dataset.member as HeroKind);
+    });
     this.zoneEl = root.querySelector('.rt-zone')!;
     root.querySelector('[data-act="char-close"]')!.addEventListener('click', () => this.toggleCharacter(false));
     // Cliques da janela de personagem (delegados; o conteúdo é redesenhado a cada mudança).
@@ -582,6 +597,8 @@ export class Hud {
         el.exp.style.width = `${ef * 100}%`;
         el.lv.textContent = String(m.level);
         el.expTxt.textContent = `${Math.floor(ef * 100)}%`;
+        // estrela dourada: progressão pendente (some ao gastar os pontos)
+        el.up.hidden = !(m.points > 0 || m.skillPoints > 0);
         // slots de habilidade (recarga em leque escuro, brilho quando pronta)
         this.renderSlots(el, m);
         const cells = [{ cd: m.basic.cd, parent: el.basic as HTMLElement, i: 0 }, ...m.slots.map((x, i) => ({ cd: x.cd, parent: el.slots as HTMLElement, i, skip: x.locked || !x.id }))];

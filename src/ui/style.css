@@ -1615,6 +1615,15 @@ body.sand-warn #app::after { opacity: 0.12; }
   box-shadow: 0 0 0 2px var(--au-gold), 0 0 14px color-mix(in srgb, var(--hc) 60%, transparent); }
 #hud .pc-lv { position: absolute; left: -4px; bottom: -2px; min-width: 22px; height: 20px; padding: 0 4px; box-sizing: border-box; border-radius: 10px; display: grid; place-items: center;
   font: 700 11px Tahoma, sans-serif; font-style: normal; color: var(--au-gold-hi); background: #0a0f22; border: 1px solid var(--au-gold); }
+/* estrela de progressão pendente: ouro discreto, some ao gastar os pontos (independe da seleção) */
+#hud .pc-up { position: absolute; right: -6px; top: -6px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-style: normal; font-size: 12px; color: #1a1206; background: radial-gradient(circle at 35% 30%, #ffe9a8, #c9a227 70%); border: 1px solid #ffe9a8;
+  box-shadow: 0 0 8px rgba(255, 215, 94, 0.8); animation: upPulse 2.2s ease-in-out infinite; pointer-events: none; }
+#hud .pc-up[hidden] { display: none; }
+@keyframes upPulse { 50% { transform: scale(1.14); box-shadow: 0 0 12px rgba(255, 215, 94, 1); } }
+/* selecionado: anel claro no retrato (diferente do dourado de progressão) */
+#hud .pc.sel .pc-port > img { box-shadow: 0 0 0 2px #fff, 0 0 16px rgba(255, 255, 255, 0.65); }
+#hud .pc { cursor: pointer; }
 #hud .pc-basic { position: absolute; right: -6px; bottom: -4px; width: 28px; height: 28px; border-radius: 50%; overflow: hidden; border: 1.5px solid var(--au-gold); background: #0a0f22; }
 #hud .pc-basic img { width: 100%; height: 100%; display: block; }
 #hud .pc-basic .cd, #hud .pc-slot .cd { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }

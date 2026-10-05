@@ -86,7 +86,7 @@ import { Rng } from './core/sim/rng';
 import { tileToWorld } from './render/coords';
 import type { DevApi } from './debug/DebugPanel';
 import type { DevLabApi } from './dev/DevLab/DevLab';
-import { neutralMods } from './core/sim/RangeSystem';
+import { baseAttackRange, neutralMods } from './core/sim/RangeSystem';
 import { REFINE, WEAPON_USERS } from './core/progression/equipment';
 import type { HeroLoadout } from './core/sim/Simulation';
 import { slotCount } from './core/progression/skillSlots';
@@ -328,6 +328,8 @@ let tool: Tool = 'warrior';
 let speed = 1;
 let hover: Vec2 | undefined;
 let acc = 0;
+/** Herói selecionado na batalha (mostra só a zona de agressão dele; clique de novo desmarca). */
+let selectedKind: HeroKind | undefined;
 
 const hud = new Hud(document.getElementById('hud')!, {
   onTool: (t) => selectTool(t),
@@ -359,6 +361,11 @@ const hud = new Hud(document.getElementById('hud')!, {
   onUnequip: (kind, slot) => {
     unequip(profile, kind, slot);
     progressionChanged(true);
+  },
+  onSelectMember: (kind) => {
+    if (mode !== 'battle') return;
+    selectedKind = selectedKind === kind ? undefined : kind;
+    hud.setSelected(selectedKind);
   },
 });
 
@@ -498,6 +505,10 @@ const endModal = new Modal('end');
 function setMode(m: Mode): void {
   mode = m;
   document.body.dataset.mode = m;
+  if (m !== 'battle' && selectedKind) {
+    selectedKind = undefined;
+    hud.setSelected(undefined);
+  }
   // música da tela: batalha nos mapas de horda; cidade no resto da partida (o menu tem a dele)
   if (m === 'battle') audio.playMusic(MUSIC.battle, MUSIC.fadeMs);
   else if (m !== 'menu') audio.playMusic(MUSIC.city, MUSIC.fadeMs);
@@ -1610,11 +1621,30 @@ function drawOverlay(): void {
     // herói selecionado (aguardando ordens): tile destacado
     const selHero = sim.setup.members.find((m) => m.archetype === tool);
     if (selHero) bv.mark([selHero], C_HANDLE, 0.55 + 0.25 * Math.sin(performance.now() / 220));
+    // zona de agressão: SOMENTE do herói selecionado (campo limpo fora disso)
+    if (selectedKind && sim.phase !== 'victory' && sim.phase !== 'defeat') {
+      const inSetup = sim.phase === 'setup';
+      const pos = inSetup
+        ? setup.members.find((m) => m.archetype === selectedKind)
+        : [...sim.units.values()].find((u) => u.team === 'party' && u.kind === selectedKind);
+      const su = !inSetup ? [...sim.units.values()].find((u) => u.team === 'party' && u.kind === selectedKind) : undefined;
+      if (pos) {
+        const stats = su?.stats ?? heroStats(profile, selectedKind);
+        const range = baseAttackRange({ kind: selectedKind, stats } as Unit);
+        const disc: Vec2[] = [];
+        const r = Math.ceil(range);
+        for (let y = Math.floor(pos.y) - r; y <= Math.floor(pos.y) + r; y++)
+          for (let x = Math.floor(pos.x) - r; x <= Math.floor(pos.x) + r; x++) {
+            if (Math.hypot(x - pos.x, y - pos.y) <= range) disc.push({ x, y });
+          }
+        bv.mark(sim.board.clip(disc), C_HANDLE, 0.3);
+      }
+    }
     const w = sim.setup.members.find((m) => m.archetype === 'warrior');
-    if (w) bv.mark(sim.board.clip(conePattern(w, { x: 0, y: -1 }, ws.cleaveRange, ws.cleaveHalfAngleDeg)), C_CONE, 0.22);
-    // alcance do Raio Gélido do Mago (anel sutil)
+    if (w && selectedKind === 'warrior') bv.mark(sim.board.clip(conePattern(w, { x: 0, y: -1 }, ws.cleaveRange, ws.cleaveHalfAngleDeg)), C_CONE, 0.22);
+    // alcance do Raio Gélido do Mago (anel sutil, só selecionada)
     const mg = sim.setup.members.find((m) => m.archetype === 'mage');
-    if (mg) {
+    if (mg && selectedKind === 'mage') {
       const ring: Vec2[] = [];
       for (let y = 0; y < sim.board.height; y++)
         for (let x = 0; x < sim.board.width; x++) {
@@ -1935,6 +1965,8 @@ function updateStatus(): void {
         level: u?.level ?? profile.heroes[k].level,
         exp: u?.exp ?? profile.heroes[k].exp,
         expNext: expToNext(u?.level ?? profile.heroes[k].level),
+        points: profile.heroes[k].points,
+        skillPoints: profile.heroes[k].skillPoints,
       };
     }),
   });
