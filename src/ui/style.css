@@ -791,8 +791,9 @@ body.cine #cine { pointer-events: auto; cursor: pointer; }
 .city-bar.critical { animation: cb-pulse 0.9s ease-in-out infinite; }
 .city-bar .cb-txt { font: bold 12px Tahoma, sans-serif; min-width: 80px; text-align: right; }
 .city-bar .cb-in { font: 11px Tahoma, sans-serif; color: #ff9a7a; white-space: nowrap; }
-/* Travessia da noite: a party anda da lua ao sol conforme a horda cai */
-.night-bar { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 15px; }
+/* Travessia da noite: pílula gêmea da cidade, logo abaixo, mesmo tamanho */
+.night-bar { position: fixed; top: 46px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 4px 12px; min-width: 360px;
+  background: rgba(18, 22, 34, 0.86); border: 1px solid rgba(122, 140, 200, 0.45); border-radius: 18px; color: #f2e6c8; font-size: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.5); pointer-events: auto; }
 .nb-track { position: relative; flex: 1; height: 12px; border-radius: 6px; border: 1px solid #3a4c72;
   background: linear-gradient(90deg, #0a1030 0%, #1a1440 45%, #4a2440 75%, #c46a2e 100%); overflow: hidden; }
 .nb-stars { position: absolute; inset: 0;
