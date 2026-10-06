@@ -4,7 +4,7 @@ import { ATTRIBUTES_CONFIG, computeStats } from '../src/core/progression/attribu
 import { BRANCHES, SKILL_BY_ID, chosenBranch, heroSkills, lvOf, missingRequirements, prereqPath } from '../src/core/progression/skills';
 import { createProfile, heroStats, starterWeapon } from '../src/core/progression/profile';
 import { gearBonus } from '../src/core/progression/equipment';
-import { learnPath, learnSkill, newRun, repairCity, repairCost, respecSkills, revive, reviveCost, unlockHero } from '../src/core/run/run';
+import { learnPath, learnSkill, makeItem, newRun, repairCity, repairCost, respecSkills, revive, reviveCost, sellAllItems, sellPrice, unlockHero } from '../src/core/run/run';
 
 let failures = 0;
 const check = (label: string, cond: boolean, extra = '') => {
@@ -143,6 +143,18 @@ const check = (label: string, cond: boolean, extra = '') => {
   (r2 as { profile: typeof p }).profile = p;
   r2.profile.zeni = 9999;
   check('respec devolve pontos', (learnSkill(r2, 'mage', 'meditation') === undefined && respecSkills(r2, 'mage')) === true);
+}
+
+// ---------- 5) LOJA: vender tudo preserva Míticos (só a bolsa; equipado não mexe) ----------
+{
+  const run = newRun('warrior', 49);
+  run.profile.inventory.push(makeItem('common'), makeItem('rare'), makeItem('legendary'), makeItem('mythic'));
+  const expected = run.profile.inventory.filter((it) => it.rarity !== 'mythic').reduce((s, it) => s + sellPrice(it), 0);
+  const res = sellAllItems(run);
+  check('vende tudo exceto Mítico', res.count === 3 && res.total === expected && run.profile.zeni === expected, `${res.count} itens por ${res.total} Zen`);
+  check('só o Mítico fica na bolsa', run.profile.inventory.length === 1 && run.profile.inventory[0].rarity === 'mythic');
+  const res2 = sellAllItems(run);
+  check('bolsa sem vendável não cobra nem paga', res2.count === 0 && res2.total === 0 && run.profile.inventory.length === 1);
 }
 
 if (failures) {

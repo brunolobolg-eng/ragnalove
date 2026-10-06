@@ -25,6 +25,7 @@ import {
   revive,
   reviveCost,
   sellItem,
+  sellAllItems,
   sellPrice,
   shopStock,
   skillRespecCost,
@@ -218,6 +219,12 @@ export class CityScreen {
         this.say(sellItem(r, b.dataset.id!) ? 'Vendido!' : '');
         sound = 'coin';
         break;
+      case 'sellAll': {
+        const res = sellAllItems(r);
+        this.say(res.count ? `Vendidos ${res.count} itens por ${res.total} Zen (Míticos preservados)!` : 'Nada para vender (só há Míticos na bolsa).', res.count > 0);
+        sound = 'coin';
+        break;
+      }
       case 'ftab':
         this.forgeTab = b.dataset.t as SlotGroup | 'all';
         break;
@@ -394,6 +401,8 @@ export class CityScreen {
         const sell = p.inventory.length
           ? p.inventory.map((it) => this.itemCard(it, `<button class="price sell" data-c="sell" data-id="${it.id}">+<i class="zeni-ico"></i>${sellPrice(it)}</button>`)).join('')
           : '<div class="empty">Inventário vazio</div>';
+        const sellable = p.inventory.filter((it) => it.rarity !== 'mythic');
+        const sellAllTotal = sellable.reduce((s, it) => s + sellPrice(it), 0);
         const best = GAME_CONFIG.city.potions
           .map((pt, i) => `<b>${counts[i]}×</b> ${pt.name.replace('Poção de EXP ', '')}`)
           .join(' · ');
@@ -415,7 +424,7 @@ export class CityScreen {
           </section>
           <section class="au-sec"><h4>Comprar</h4><div class="cons-row">${cons}</div>
             <h4 class="sub">Equipamentos</h4><div class="igrid">${buy}</div></section>
-          <section class="au-sec"><h4>Vender</h4><div class="igrid">${sell}</div></section>`;
+          <section class="au-sec"><h4>Vender</h4><div class="acts"><button class="big-act" data-c="sellAll"${sellable.length ? '' : ' disabled'} title="Vende tudo da bolsa de uma vez (Míticos ficam)">💰 <b>Vender tudo</b><span class="tag">+<i class="zeni-ico"></i>${sellAllTotal}</span></button></div><div class="igrid">${sell}</div></section>`;
       }
       case 'smith': {
         const T = this.forgeTab;

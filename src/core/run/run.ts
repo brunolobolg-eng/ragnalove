@@ -449,6 +449,19 @@ export function sellItem(r: RunState, id: string): string | undefined {
   return 'Vendido.';
 }
 
+/**
+ * Vende tudo do inventário (bolsa) de uma vez, preservando Míticos.
+ * Equipados nunca entram (só a bolsa). Devolve quantidade e total em Zen.
+ */
+export function sellAllItems(r: RunState): { count: number; total: number } {
+  const kept = r.profile.inventory.filter((it) => it.rarity === 'mythic');
+  const sold = r.profile.inventory.filter((it) => it.rarity !== 'mythic');
+  const total = sold.reduce((s, it) => s + sellPrice(it), 0);
+  r.profile.inventory = kept;
+  if (total > 0) addZeni(r.profile, total);
+  return { count: sold.length, total };
+}
+
 export function buyPotion(r: RunState, i: number, hero: HeroKind): number | undefined {
   const pot = GAME_CONFIG.city.potions[i];
   if (!pot || r.dead.includes(hero) || !spend(r, potionPrice(r, i))) return undefined;
