@@ -19,6 +19,8 @@ export interface HeroMods {
   moveTicks?: number;
   /** Multiplicador de velocidade de ataque (2 = recargas pela metade). */
   attackSpeed?: number;
+  /** Multiplicador de dano da Arena de Skills (1 = desligado; temporário, nunca salvo). */
+  damageMult?: number;
 }
 
 export interface SimMods {

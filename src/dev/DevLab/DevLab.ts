@@ -28,6 +28,7 @@ import { buildEconomy } from './EconomyController';
 import { buildLoot } from './LootTester';
 import { buildWaves } from './WaveTester';
 import { ScenarioManager } from './ScenarioManager';
+import { buildSkillArena } from './SkillArena';
 
 export interface DevLabApi {
   /** Comandos já existentes do jogo (mesmas funções do painel de debug). */
@@ -59,6 +60,13 @@ export interface DevLabApi {
   };
   /** Joga a fase no jogo (muda a posição da run). */
   playPhase(act: number, node: number, type: NodeType): void;
+  /**
+   * Arena de Skills: abre o mapa de teste fotografando perfil/run (isolamento total)
+   * e fecha restaurando tudo + recarregando a batalha. Só entre ondas.
+   */
+  openTestArena(): string | undefined;
+  closeTestArena(): void;
+  arenaActive(): boolean;
   /** Cenários salvos pelo client (Electron). */
   scenarioStore?: { loadScenarios(): Promise<unknown[] | null>; saveScenarios(list: unknown[]): Promise<string> };
   setSpeed(s: number): void;
@@ -88,6 +96,7 @@ const ENEMY_LABEL: Record<string, string> = {
   boss: 'Chefe Ato I',
   boss2: 'Chefe Ato II',
   orcboss: 'Chefe final',
+  trainingDummy: 'Boneco de treino',
 };
 export const enemyLabel = (k: string) => (ENEMY_LABEL[k] ? `${ENEMY_LABEL[k]} (${k})` : k);
 const label = enemyLabel;
@@ -109,6 +118,7 @@ export const phaseLabel = (p: PhaseRef) => `Ato ${ROMAN[p.act]} · fase ${p.node
 
 const TABS: DevTab[] = [
   { id: 'arena', label: 'ARENA', enabled: true },
+  { id: 'skillarena', label: 'SKILL ARENA', enabled: true },
   { id: 'characters', label: 'CHARACTERS', enabled: true },
   { id: 'skills', label: 'SKILLS', enabled: true },
   { id: 'movement', label: 'MOVEMENT', enabled: true },
@@ -170,6 +180,7 @@ export function installDevLab(root: HTMLElement, api: DevLabApi, addBarButton: (
 
   const tabs: Record<string, { refresh?(): void; onHero?(): void }> = {
     arena: buildArena(panel.body('arena'), api, spawner),
+    skillarena: buildSkillArena(panel.body('skillarena'), ctx),
     characters: buildCharacters(panel.body('characters'), ctx),
     skills: buildSkills(panel.body('skills'), ctx),
     movement: ctx.overlay.buildTab(panel.body('movement')),

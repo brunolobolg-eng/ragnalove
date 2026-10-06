@@ -2,6 +2,9 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-06 — v0.5t
+- Skill Testing Arena (só dev, F8): mapa de teste isolado com foto/restauração de perfil+run, boneco de treino (parado, HP alto, recompensa zero, remoção limpa), estatísticas de dano real por skill/alvo com DPS e histórico, presets de build, multiplicador de dano temporário. Sem impacto na campanha (runCheck idêntico).
+
 ## 2026-10-06 — v0.5r
 - Skill tree gained automatic prerequisite path (`prereqPath`/`learnPath` + preview/button/highlight); branches never auto-chosen.
 - Currency renamed from Zeni to Zen in all player-facing text (internal identifiers kept).

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { DEFAULT_SETUP, GAME_CONFIG, ZONE_STATE, applyZone, barriersAround, barriersShield, type PartySetup, type WaveOptions } from './config/gameConfig';
 import { parseZone, type ZoneDef } from './config/zones';
+import { TEST_ZONE, TEST_ZONE_ID } from './dev/DevLab/skillArenaZone';
 import { ACTS, EVENTS, REGION_BY_ID, NODE_LABEL, type NodeType } from './config/world';
 import {
   HEROES,
@@ -710,7 +711,8 @@ function tickAutoStart(dt: number, paused: boolean): void {
 function startHorde(): void {
   if (sim.phase !== 'setup') return;
   autoStartLeft = 0;
-  if (mode === 'battle' && run.choice) {
+  // na Arena de Skills não há selo nem save de batalha (teste isolado, sem resume)
+  if (mode === 'battle' && run.choice && ZONE_STATE.current.id !== TEST_ZONE_ID) {
     run.battle = { act: run.act, node: run.node, choice: run.choice, setup: structuredClone(sim.setup), loadout: loadout() };
     // a formação fica salva para as próximas hordas (a última e a desta zona)
     run.lastLayout = structuredClone(setup);
@@ -2205,6 +2207,63 @@ if (window.vanguardaDesktop)
 /** O que o Dev Lab pode fazer — por cima da DevApi, sempre pelas funções do jogo. */
 function devLabApi(): DevLabApi {
   sim.mods = simMods;
+  // ----- Arena de Skills: foto/restauração total (isolamento da campanha) -----
+  let arenaPhoto: {
+    profile: Profile;
+    kills: number;
+    damage: number;
+    dead: HeroKind[];
+    cityHp: number;
+    history: RunState['history'];
+    act: number;
+    node: number;
+    paidKey?: string;
+    mythicGranted?: boolean;
+    nights: number;
+    reports: RunState['reports'];
+  } | undefined;
+  const openTestArena = (): string | undefined => {
+    if (mode !== 'battle' || sim.phase === 'running') return 'Abra a arena entre ondas (planejamento).';
+    if (ZONE_STATE.current.id === TEST_ZONE_ID) return 'A arena já está aberta.';
+    arenaPhoto = {
+      profile: structuredClone(profile),
+      kills: run.kills,
+      damage: run.damage ?? 0,
+      dead: [...run.dead],
+      cityHp: run.cityHp,
+      history: structuredClone(run.history),
+      act: run.act,
+      node: run.node,
+      paidKey: run.paidKey,
+      mythicGranted: run.mythicGranted,
+      nights: run.nights,
+      reports: structuredClone(run.reports),
+    };
+    loadZone(TEST_ZONE, { count: 0, boss: null, seed: (Date.now() >>> 0) || 1 });
+    hud.log('Arena de Skills: progressão congelada em foto. "Voltar à batalha" restaura tudo.', 'skill');
+    return undefined;
+  };
+  const closeTestArena = (): void => {
+    if (!arenaPhoto) return;
+    const s = arenaPhoto;
+    arenaPhoto = undefined;
+    profile = s.profile;
+    run.profile = s.profile;
+    run.kills = s.kills;
+    run.damage = s.damage;
+    run.dead = s.dead;
+    run.cityHp = s.cityHp;
+    run.history = s.history;
+    run.act = s.act;
+    run.node = s.node;
+    run.paidKey = s.paidKey;
+    run.mythicGranted = s.mythicGranted;
+    run.nights = s.nights;
+    run.reports = s.reports;
+    const bw = battleFor(run, run.choice ?? 'horde');
+    loadZone(bw.zone, bw.wave);
+    saveProfile();
+  };
   /** Setup da party numa zona (mesma regra do loadZone), sem os heróis caídos. */
   const setupFor = (zone: ZoneDef): PartySetup => {
     const s = withPartyMembers(structuredClone(zone.defaultSetup), zone);
@@ -2298,6 +2357,9 @@ function devLabApi(): DevLabApi {
       if (s > 0) hud.setSpeed(s);
     },
     getSpeed: () => speed,
+    openTestArena,
+    closeTestArena,
+    arenaActive: () => ZONE_STATE.current.id === TEST_ZONE_ID,
     waveFor: (act, node, type) => {
       const { zone, wave } = battleFor({ ...run, act, node }, type);
       return { count: wave.count ?? zone.wave.count, mix: wave.mix ?? zone.wave.mix, boss: wave.boss === null ? undefined : (wave.boss ?? zone.wave.boss), zone: zone.name };

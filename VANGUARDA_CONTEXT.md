@@ -41,7 +41,7 @@
 - **Cartas/equipamento**: cartas de item com raridade (comum→mítico), refino (+taxa, falha +5 volta 1), reroll, despertar ×1,5 (lendário/mítico), loja sorteada por ato, roleta de recompensas.
 - **Economia**: drops por abate + bônus de vitória; serviços com preço ×ato (1 / 1,6 / 2,4); reviver = 50% do Zen; reparo de muralha por HP.
 - **Saves**: acima; Ranking (`records.ts` + `HallOfLegends`, linhas ancoradas na arte — não adicionar linhas sem reposicionar).
-- **UI**: HUD (party-bar, barras, charwin), telas de cidade (5 NPCs), mapa, relatórios, `CoachTips`, roleta. Dev: F6/F8/F10 com `devtools.txt`; `dist/` sem chunks dev no release.
+- **UI**: HUD (party-bar, barras, charwin), telas de cidade (5 NPCs), mapa, relatórios, `CoachTips`, roleta. Dev: F6/F8/F10 com `devtools.txt`; `dist/` sem chunks dev no release. Dev Lab (F8) tem abas ARENA/CHARACTERS/SKILLS/MOVEMENT/ECONOMY/LOOT/WAVES/SCENARIOS + **SKILL ARENA** (mapa de teste isolado, boneco `trainingDummy`, estatísticas de dano real, presets, dano ×temporário).
 - **Áudio/animação**: ambiente por tema + sfx por evento; retratos/chibis renderizados; GLBs grandes em `public/models/` (originais preservados via git).
 
 ## Important Relationships

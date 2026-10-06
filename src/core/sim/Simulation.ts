@@ -457,8 +457,18 @@ export class Simulation {
   // ---------- API usada por arquétipos ----------
 
   private hookDepth = 0;
+  /** Ouvintes de teste (Arena de Skills): chamados a cada evento, sem efeito no jogo. */
+  private readonly tap = new Set<(e: SimEvent) => void>();
+  /** Assina o fluxo de eventos; devolve a função para cancelar. Só a Arena de Skills usa. */
+  onEvent(cb: (e: SimEvent) => void): () => void {
+    this.tap.add(cb);
+    return () => {
+      this.tap.delete(cb);
+    };
+  }
   emit(e: SimEvent): void {
     this.events.push(e);
+    for (const cb of this.tap) cb(e);
     // métrica: habilidades usadas por herói
     if (SKILL_EVENTS.has(e.type) && 'unitId' in e) {
       const u = this.units.get(e.unitId);
@@ -564,6 +574,11 @@ export class Simulation {
     }
     // Dano infinito (Dev Lab): qualquer golpe da party mata
     if (this.cheats.oneHit && u.team === 'enemy' && sourceId !== undefined && this.units.get(sourceId)?.team === 'party') amount = u.hp;
+    // Multiplicador de teste da Arena de Skills (neutro = 1: o jogo não muda)
+    if (sourceId !== undefined) {
+      const src = this.units.get(sourceId);
+      if (src?.team === 'party') amount *= this.mods.heroes[src.kind]?.damageMult ?? 1;
+    }
     const applied = Math.min(u.hp, amount);
     u.hp = Math.max(0, u.hp - amount);
     // métricas do relatório
@@ -927,6 +942,30 @@ export class Simulation {
     const n = GAME_CONFIG.wave.spawnPoints.length;
     if (this.rng.next() < GAME_CONFIG.wave.spawnSplit || n < 2) return 0;
     return 1 + this.rng.int(n - 1);
+  }
+
+  /**
+   * Spawna um inimigo num tile exato (Arena de Skills: posicionar bonecos). Não conta
+   * na onda nem em contadores — só cria a unidade. `hp` sobrescreve a vida (boneco configurável).
+   */
+  spawnEnemyAt(kind: string, x: number, y: number, hp?: number): Unit | undefined {
+    if (!this.board.isWalkable(x, y) || this.unitAt(x, y)) return undefined;
+    const u = this.createEnemy(kind, x, y, 0);
+    if (hp !== undefined && hp > 0) u.maxHp = u.hp = Math.round(hp);
+    return u;
+  }
+
+  /**
+   * Remove uma unidade sem dano, recompensa ou contador (reset da Arena de Skills).
+   * O caminho normal de morte (almas, EXP, drops) continua intacto para o jogo.
+   */
+  debugRemove(id: number): boolean {
+    const u = this.units.get(id);
+    if (!u) return false;
+    u.alive = false;
+    this.occ[this.board.idx(u.x, u.y)] = 0;
+    this.units.delete(id);
+    return true;
   }
 
   /**

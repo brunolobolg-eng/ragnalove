@@ -15,8 +15,8 @@ import { heroLabel, type DevCtx, type DevLabApi } from './DevLab';
 
 const TICK_S = (t: number) => `${(t / GAME_CONFIG.sim.tickRate).toFixed(1)} s`;
 
-/** Recarga base (ticks) da habilidade no nível dado. */
-function cooldownTicks(id: string, lv: number, u?: Unit): number | undefined {
+/** Recarga base (ticks) da habilidade no nível dado. Exportada para a Arena de Skills reutilizar. */
+export function skillCooldownTicks(id: string, lv: number, u?: Unit): number | undefined {
   const A = GAME_CONFIG.archetypes;
   const s = u?.stats;
   const basic: Record<string, number> = {
@@ -108,7 +108,7 @@ export function buildSkills(el: HTMLElement, ctx: DevCtx): { refresh(): void; on
     list.innerHTML = SKILLS.filter((d) => d.hero === k)
       .map((d) => {
         const l = lv[d.id] ?? 0;
-        const cd = d.kind === 'active' ? cooldownTicks(d.id, l, u) : undefined;
+        const cd = d.kind === 'active' ? skillCooldownTicks(d.id, l, u) : undefined;
         const ico = iconOf(d.id);
         return `<div class="dl-skill">
           ${ico ? `<img src="${ico}" alt="">` : '<div class="ph"></div>'}

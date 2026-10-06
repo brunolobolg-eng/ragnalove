@@ -27,7 +27,7 @@ const mold = (kind: string) => ({ kind }) as Unit;
 
 function values(u: Unit, mods = neutralMods()): Record<ParamKey, number> {
   const p = combatProfile(u, mods, 1);
-  return { attackRange: p.attackRange, detectionRange: p.detectionRange, preferredRange: p.preferredRange, maxCombatMoveDistance: p.maxCombatMoveDistance, moveTicks: p.moveTicks, attackSpeed: p.attackSpeed };
+  return { attackRange: p.attackRange, detectionRange: p.detectionRange, preferredRange: p.preferredRange, maxCombatMoveDistance: p.maxCombatMoveDistance, moveTicks: p.moveTicks, attackSpeed: p.attackSpeed, damageMult: 1 };
 }
 const fmt = (v: number) => (Math.round(v * 100) / 100).toString();
 

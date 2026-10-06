@@ -65,6 +65,8 @@ export const GAME_CONFIG = {
     runner: { hp: 16, moveTicks: 3, attackTicks: 8, damage: 4 }, // rápido
     brute: { hp: 85, moveTicks: 10, attackTicks: 14, damage: 11 }, // pesado
     boss: { hp: 220, moveTicks: 9, attackTicks: 15, damage: 9 }, // Colosso (chefe do Ato I)
+    /** Boneco de treino (Arena de Skills): parado, não ataca, HP alto. Recompensas zeradas abaixo. */
+    trainingDummy: { hp: 999999, moveTicks: 1000000000, attackTicks: 1000000000, damage: 0 },
     elite: { hp: 150, moveTicks: 8, attackTicks: 13, damage: 11 }, // mini-chefe (nó de Elite)
     necro: { hp: 26, moveTicks: 7, attackTicks: 12, damage: 4 }, // Necromante: conjurador à distância
     goblinImp: { hp: 110, moveTicks: 7, attackTicks: 12, damage: 9 }, // Krexx pequeno (mini-chefe, 1ª forma)
@@ -77,7 +79,7 @@ export const GAME_CONFIG = {
    * Almas são a moeda de progressão (atributos hoje; habilidades/upgrades no futuro).
    */
   souls: {
-    dropPerKill: { grunt: 1, runner: 1, brute: 2, necro: 1, elite: 8, boss: 18, boss2: 25, orcboss: 35, goblinImp: 7, goblinWarlord: 21 } as Record<string, number>,
+    dropPerKill: { grunt: 1, runner: 1, brute: 2, necro: 1, elite: 8, boss: 18, boss2: 25, orcboss: 35, goblinImp: 7, goblinWarlord: 21, trainingDummy: 0 } as Record<string, number>,
     defaultDrop: 1,
   },
   /**
@@ -85,7 +87,7 @@ export const GAME_CONFIG = {
    * e vai para a bolsa da party. Almas continuam sendo a moeda de CRESCIMENTO (EXP, despertar).
    */
   zeni: {
-    dropPerKill: { grunt: 3, runner: 2, brute: 8, necro: 6, elite: 56, boss: 105, boss2: 154, orcboss: 280, goblinImp: 42, goblinWarlord: 140 } as Record<string, number>,
+    dropPerKill: { grunt: 3, runner: 2, brute: 8, necro: 6, elite: 56, boss: 105, boss2: 154, orcboss: 280, goblinImp: 42, goblinWarlord: 140, trainingDummy: 0 } as Record<string, number>,
     defaultDrop: 2,
     /** Bônus ao vencer a onda. */
     waveClearBonus: 42,
@@ -97,7 +99,7 @@ export const GAME_CONFIG = {
   },
   /** EXP e níveis: cada abate dá EXP a toda a party viva; cada nível dá pontos de atributo. */
   progression: {
-    expPerKill: { grunt: 2, runner: 2, brute: 4, necro: 3, elite: 14, boss: 28, boss2: 42, orcboss: 70, goblinImp: 10, goblinWarlord: 38 } as Record<string, number>,
+    expPerKill: { grunt: 2, runner: 2, brute: 4, necro: 3, elite: 14, boss: 28, boss2: 42, orcboss: 70, goblinImp: 10, goblinWarlord: 38, trainingDummy: 0 } as Record<string, number>,
     defaultExp: 2,
     expCurve: { base: 20, growth: 1.6 }, // EXP para passar do nível L = base * L^growth
     pointsPerLevel: 3,
