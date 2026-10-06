@@ -5,6 +5,7 @@
  */
 import { applyZone } from '../src/config/gameConfig';
 import { ZONES } from '../src/config/zones';
+import { orderMove } from '../src/core/sim/CombatMovement';
 import { Simulation } from '../src/core/sim/Simulation';
 import type { Unit } from '../src/core/sim/types';
 
@@ -176,6 +177,22 @@ let tested = false;
     if (u.focusId !== undefined && (u.focusUntil ?? 0) < sim5.tick - 15) stale++;
   }
   check('sem lock velho ao fim', stale === 0, `stale=${stale}`);
+}
+
+// ordem de movimento: herói anda ao novo posto e age em volta dele
+{
+  const sim = mkSim(2024);
+  step(sim, 30);
+  const w = heroesOf(sim).find((h) => h.kind === 'warrior')!;
+  const tx = 30;
+  const ty = 30;
+  orderMove(w, tx, ty);
+  const d0 = Math.hypot(w.x - tx, w.y - ty);
+  step(sim, 120);
+  const w2 = sim.units.get(w.id);
+  const d1 = w2 ? Math.hypot(w2.x - tx, w2.y - ty) : d0;
+  check('ordem anda ao posto', !!w2 && w2.alive && d1 < d0, `${d0.toFixed(1)}->${d1.toFixed(1)}`);
+  check('posto atualizado', (w2?.ai?.homeX ?? -1) === tx && (w2?.ai?.homeY ?? -1) === ty);
 }
 
 if (failures) throw new Error(`${failures} FALHA(S)`);

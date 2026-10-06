@@ -17,6 +17,18 @@ import type { CombatAIStateName, Unit } from './types';
 
 const dist = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.y - b.y);
 
+/**
+ * Ordem de movimento do jogador: muda o posto do herói (a IA anda até lá
+ * e passa a agir em volta do novo posto). Vale no planejamento e na horda.
+ */
+export function orderMove(u: Unit, x: number, y: number): void {
+  const ai = (u.ai ??= { homeX: u.x, homeY: u.y, state: 'IDLE', idleTicks: 0, lastRetreatTick: -1e9 });
+  ai.homeX = x;
+  ai.homeY = y;
+  ai.idleTicks = 0;
+  ai.reason = undefined;
+}
+
 export function updateCombatMovement(u: Unit, sim: Simulation): void {
   const C = GAME_CONFIG.combatAI;
   const ai = (u.ai ??= { homeX: u.x, homeY: u.y, state: 'IDLE', idleTicks: 0, lastRetreatTick: -1e9 });

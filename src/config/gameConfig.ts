@@ -267,8 +267,8 @@ export const GAME_CONFIG = {
     maxPerHero: 6,
     /** Reavalia aquisição a cada N ticks (escalonado pelo id, sem pico). */
     checkEveryTicks: 5,
-    /** Alcance de aquisição por tipo (0 = nunca tranca, ex.: conjurador). */
-    range: { grunt: 5, runner: 7, brute: 4, necro: 0, elite: 7, boss: 8, boss2: 8, orcboss: 8, goblinImp: 6, goblinWarlord: 8 } as Record<string, number>,
+    /** Alcance de aquisição por tipo (0 = nunca tranca: conjurador e infiltrador ignoram heróis por desenho). Perto = reage; longe = segue a horda. */
+    range: { grunt: 3, runner: 0, brute: 3, necro: 0, elite: 5, boss: 6, boss2: 6, orcboss: 6, goblinImp: 4, goblinWarlord: 6 } as Record<string, number>,
     defaultRange: 5,
   },
   /** Objetos interativos dos mapas (regras em core/sim/objects.ts). */

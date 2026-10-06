@@ -36,6 +36,7 @@ import { CHARSELECT_ART, MUSIC, POSTFX, VISUAL_CONFIG } from './config/visualCon
 import type { PostFxSituation } from './render/fx/kit/PostFX';
 import type { WaveReport } from './core/sim/types';
 import { SKILL_BY_ID, SKILL_NUM, SKILLS, lvOf, type HeroKind, type SkillId } from './core/progression/skills';
+import { orderMove } from './core/sim/CombatMovement';
 import { WorldMap, PORTRAITS } from './ui/WorldMap';
 import { CharSelect } from './ui/CharSelect';
 import { CityScreen } from './ui/CityScreen';
@@ -1467,7 +1468,30 @@ canvas.addEventListener('pointerleave', () => {
   hud.planHint(undefined);
 });
 canvas.addEventListener('pointerdown', (e) => {
-  if (sim.phase !== 'setup' || e.button !== 0) return;
+  if (e.button !== 0) return;
+  // na horda rolando: clique num herói seleciona; com herói selecionado, clique no chão manda ele para lá
+  if (sim.phase === 'running' && mode === 'battle') {
+    const t = pickTile(e);
+    if (!t) return;
+    const u = sim.unitAt(t.x, t.y);
+    if (u && u.team === 'party') {
+      selectedKind = selectedKind === u.kind ? undefined : (u.kind as HeroKind);
+      hud.setSelected(selectedKind);
+      audio.sfx('ui');
+      return;
+    }
+    if (selectedKind) {
+      const hero = [...sim.units.values()].find((x) => x.team === 'party' && x.kind === selectedKind);
+      if (hero && sim.board.isWalkable(t.x, t.y) && !sim.board.isCity(t.x, t.y) && !sim.unitAt(t.x, t.y)) {
+        orderMove(hero, t.x, t.y);
+        view.orderMarker(t.x, t.y, HERO_INFO[selectedKind].color);
+        audio.sfx('ui');
+      }
+      return;
+    }
+    return;
+  }
+  if (sim.phase !== 'setup') return;
   const t = pickTile(e);
   if (!t) return;
   const g = grabbableAt(t);
@@ -1685,7 +1709,7 @@ function drawOverlay(): void {
     if (pos) {
       const stats = su?.stats ?? heroStats(profile, selectedKind);
       const range = combatProfile({ kind: selectedKind, stats } as Unit, sim.mods, sim.rangeMult).aggressionRange;
-      bv.mark(sim.board.clip(discPattern(pos, range)), C_HANDLE, 0.3);
+      bv.mark(sim.board.clip(discPattern(pos, range)), C_HANDLE, 0.45 + 0.15 * Math.sin(performance.now() / 300));
     }
   }
   const f = view.lastCleaveFlash;
