@@ -383,7 +383,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(2101, UNDEAD),
+    wave: wave(2101, UNDEAD, 44),
   },
   whisperWood: {
     id: 'whisperWood',
@@ -507,7 +507,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(2303, HEAVY),
+    wave: wave(2303, HEAVY, 44),
   },
   rootVale: {
     id: 'rootVale',
@@ -569,7 +569,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(3101, UNDEAD, 44),
+    wave: wave(3101, UNDEAD, 48, 4),
   },
   dryCrossing: {
     id: 'dryCrossing',
@@ -631,7 +631,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(3202, FAST, 46),
+    wave: wave(3202, FAST, 50, 4),
   },
   redDunes: {
     id: 'redDunes',
@@ -758,7 +758,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(3404, HEAVY, 48),
+    wave: wave(3404, HEAVY, 52),
   },
   ashenFields: {
     id: 'ashenFields',
@@ -820,7 +820,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(4101, FAST, 50),
+    wave: wave(4101, FAST, 56, 4),
   },
   rustGorge: {
     id: 'rustGorge',
@@ -882,7 +882,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(4202, HEAVY, 52),
+    wave: wave(4202, HEAVY, 58, 4),
   },
   frostPass: {
     id: 'frostPass',

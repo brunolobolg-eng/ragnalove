@@ -48,6 +48,9 @@ export interface Unit {
   /** Provocado: persegue esta unidade até `tauntUntil` (ignorando a cidade). */
   tauntedBy?: number;
   tauntUntil?: number;
+  /** Foco de agressão: persegue esta unidade até `focusUntil` (60 ticks, sem trocar). */
+  focusId?: number;
+  focusUntil?: number;
   /** Nasceu em qual spawn (0 ou 1) — só apresentação/estatística. */
   spawnIndex?: number;
   /** Horda orgânica: lado para onde o monstro tende a andar (vetor; 0 = reto) e até quando. */

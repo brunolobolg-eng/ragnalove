@@ -61,11 +61,11 @@ export const GAME_CONFIG = {
    * para dar leitura tática: o rápido fura a linha, o pesado segura e bate forte, o chefe fecha a onda.
    */
   enemies: {
-    grunt: { hp: 30, moveTicks: 6, attackTicks: 10, damage: 6 }, // comum
+    grunt: { hp: 30, moveTicks: 5, attackTicks: 10, damage: 6 }, // comum (pressiona mais que antes)
     runner: { hp: 16, moveTicks: 3, attackTicks: 8, damage: 4 }, // rápido
     brute: { hp: 85, moveTicks: 10, attackTicks: 14, damage: 11 }, // pesado
     boss: { hp: 220, moveTicks: 9, attackTicks: 15, damage: 9 }, // Colosso (chefe do Ato I)
-    elite: { hp: 150, moveTicks: 9, attackTicks: 13, damage: 11 }, // mini-chefe (nó de Elite)
+    elite: { hp: 150, moveTicks: 8, attackTicks: 13, damage: 11 }, // mini-chefe (nó de Elite)
     necro: { hp: 26, moveTicks: 7, attackTicks: 12, damage: 4 }, // Necromante: conjurador à distância
     goblinImp: { hp: 110, moveTicks: 7, attackTicks: 12, damage: 9 }, // Krexx pequeno (mini-chefe, 1ª forma)
     goblinWarlord: { hp: 150, moveTicks: 6, attackTicks: 12, damage: 13 }, // Krexx retorcido (mini-chefe, retorno maior e agressivo)
@@ -194,13 +194,13 @@ export const GAME_CONFIG = {
     organic: {
       /** monstros por leva (sorteado entre min e max; a leva inteira sai do mesmo portal) */
       packMin: 1,
-      packMax: 5,
+      packMax: 7,
       /** ticks entre monstros da mesma leva */
       packGapMin: 2,
       packGapMax: 6,
       /** pausa até a próxima leva = tamanho × intervalo da zona × fator sorteado entre min e max */
       pauseMin: 0.45,
-      pauseMax: 1.55,
+      pauseMax: 1.25,
       /** nascem num tile livre sorteado até esta distância do portal */
       spawnScatter: 2,
       /** quanto um passo pode ser "pior" (custo) que o melhor para seguir a deriva do monstro */
@@ -251,6 +251,25 @@ export const GAME_CONFIG = {
     tauntAffects: ['tauntable', 'heavy'] as AggroType[],
     /** Provocar (TAUNT_RANGE / TAUNT_DURATION / TAUNT_MAX_ENEMIES): valores no nível 1; a árvore soma por nível. */
     taunt: { range: 4, rangePerLevel: 0.5, durationTicks: 40, durationPerLevel: 6, maxEnemies: 6, maxPerLevel: 1, cooldownTicks: 85, cooldownPerLevel: -5, minTargets: 2 },
+  },
+  /**
+   * FOCO DE AGRESSÃO: o monstro que detecta um herói trava nele por `durationTicks`
+   * (6 s) sem trocar — depois solta e reavalia (outro herói ou o portão).
+   * Regra de contenção (§12): no máximo `maxPerHero` monstros por herói; o resto
+   * continua para o portão. Sem timers próprios: usa o relógio de ticks da sim.
+   */
+  focus: {
+    /** Janela de foco em ticks (60 = 6 segundos). */
+    durationTicks: 60,
+    /** Além do alcance, o alvo pode se afastar isto antes de quebrar o foco. */
+    leashBonus: 6,
+    /** Máximo de monstros focados no mesmo herói. */
+    maxPerHero: 6,
+    /** Reavalia aquisição a cada N ticks (escalonado pelo id, sem pico). */
+    checkEveryTicks: 5,
+    /** Alcance de aquisição por tipo (0 = nunca tranca, ex.: conjurador). */
+    range: { grunt: 5, runner: 7, brute: 4, necro: 0, elite: 7, boss: 8, boss2: 8, orcboss: 8, goblinImp: 6, goblinWarlord: 8 } as Record<string, number>,
+    defaultRange: 5,
   },
   /** Objetos interativos dos mapas (regras em core/sim/objects.ts). */
   objects: {

@@ -400,6 +400,60 @@ export class Simulation {
     return t;
   }
 
+  /** Alcance de aquisição de foco do tipo (0 = nunca tranca). */
+  private focusRangeOf(kind: string): number {
+    return GAME_CONFIG.focus.range[kind] ?? GAME_CONFIG.focus.defaultRange;
+  }
+
+  /**
+   * Alvo do foco de agressão, se válido. Limpa sozinho quando: alvo morto/sumiu,
+   * janela de 60 ticks acabou ou alvo fugiu além do alcance + guia.
+   */
+  private focusTarget(u: Unit): Unit | undefined {
+    if (u.focusId === undefined) return undefined;
+    const t = this.units.get(u.focusId);
+    if (!t || !t.alive || t.team !== 'party') {
+      u.focusId = u.focusUntil = undefined;
+      return undefined;
+    }
+    if (this.tick >= (u.focusUntil ?? 0)) {
+      u.focusId = u.focusUntil = undefined;
+      return undefined;
+    }
+    if (Math.hypot(u.x - t.x, u.y - t.y) > this.focusRangeOf(u.kind) + GAME_CONFIG.focus.leashBonus) {
+      u.focusId = u.focusUntil = undefined;
+      return undefined;
+    }
+    return t;
+  }
+
+  /**
+   * Tenta travar no herói vivo mais próximo dentro do alcance (desempate: menor id).
+   * Respeita o teto por herói — o excedente continua para o portão (§12).
+   */
+  private acquireFocus(u: Unit, party: Unit[]): Unit | undefined {
+    const F = GAME_CONFIG.focus;
+    const range = this.focusRangeOf(u.kind);
+    if (range <= 0) return undefined;
+    let best: Unit | undefined;
+    let bestD = Infinity;
+    for (const h of party) {
+      if (!h.alive) continue;
+      const d = Math.hypot(u.x - h.x, u.y - h.y);
+      if (d > range || d > bestD || (d === bestD && best && h.id > best.id)) continue;
+      best = h;
+      bestD = d;
+    }
+    if (!best) return undefined;
+    let n = 0;
+    for (const e of this.sortedUnits('enemy')) if (e.focusId === best.id) n++;
+    if (n >= F.maxPerHero) return undefined;
+    u.focusId = best.id;
+    u.focusUntil = this.tick + F.durationTicks;
+    this.emit({ type: 'aggro', unitId: u.id, targetId: best.id, ticks: F.durationTicks });
+    return best;
+  }
+
   // ---------- API usada por arquétipos ----------
 
   private hookDepth = 0;
@@ -1261,11 +1315,13 @@ export class Simulation {
     const party = this.sortedUnits('party');
     if (party.length === 0) return;
     this.refreshCityFlows();
-    // Provocação ativa: campo de fluxo até quem provocou
+    // Provocação ativa: campo de fluxo até quem provocou (+ quem segura foco de agressão)
     const taunters = new Map<number, Unit>();
     for (const e of this.sortedUnits('enemy')) {
       const t = this.taunter(e);
       if (t) taunters.set(t.id, t);
+      const f = this.focusTarget(e);
+      if (f) taunters.set(f.id, f);
     }
     this.tauntActive = taunters.size > 0;
     if (this.tauntActive) this.tauntFlow.compute([...taunters.values()], GAME_CONFIG.pathing, (x, y) => this.wallPass(x, y));
@@ -1296,6 +1352,19 @@ export class Simulation {
           if (adj) this.enemyAttack(u, adj, g);
           else u.nextActTick = this.tick + 1;
         }
+        continue;
+      }
+
+      // 1b) Foco de agressão: 60 ticks no mesmo alvo (sem trocar); expirou, adquire de novo
+      const focus = this.focusTarget(u) ?? (((this.tick + u.id) % GAME_CONFIG.focus.checkEveryTicks === 0) ? this.acquireFocus(u, party) : undefined);
+      if (focus) {
+        if (chebyshev(u, focus) === 1) {
+          this.enemyAttack(u, focus, g);
+          continue;
+        }
+        const plan = this.planStep(u, this.tauntFlow, false);
+        if (plan.best) this.moveEnemy(u, plan.best, g);
+        else u.nextActTick = this.tick + 1;
         continue;
       }
 
