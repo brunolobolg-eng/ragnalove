@@ -64,7 +64,7 @@ for (let a = 0; a < ACTS.length; a++) {
         const sim = new Simulation(setup, wave.seed, lo, { cityHp });
         sim.start();
         const count: Record<string, number> = {};
-        while (sim.phase === 'running' && sim.tick < 6000) for (const e of sim.step()) count[e.type] = (count[e.type] ?? 0) + 1;
+        while (sim.phase === 'running' && sim.tick < 30000) for (const e of sim.step()) count[e.type] = (count[e.type] ?? 0) + 1;
         const alive = [...sim.units.values()].filter((u) => u.team === 'party').map((u) => `${u.kind}:${Math.round(u.hp)}/${u.maxHp}`).join(' ');
         cityHp = sim.cityHp;
         cityDamage += sim.cityDamage;

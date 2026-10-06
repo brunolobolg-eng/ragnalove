@@ -120,8 +120,8 @@ export const ACTS: ActDef[] = [
     name: 'Ato II — Areias Vermelhas',
     boss: 'boss2',
     bossName: 'Colosso Solar',
-    hpMult: 2.0,
-    dmgMult: 1.5,
+    hpMult: 1.6,
+    dmgMult: 1.35,
     nodes: [
       { region: 'rootVale', options: ['horde', 'event'] },
       { region: 'dryCrossing', options: ['elite', 'horde'], elite: 'goblinImp' },
@@ -134,8 +134,8 @@ export const ACTS: ActDef[] = [
     name: 'Ato III — O Cume das Cinzas',
     boss: 'orcboss',
     bossName: 'Senhor Orc das Cinzas',
-    hpMult: 3.8,
-    dmgMult: 2.2,
+    hpMult: 3.2,
+    dmgMult: 2.0,
     nodes: [
       { region: 'ashenFields', options: ['horde', 'event'] },
       { region: 'rustGorge', options: ['elite', 'horde', 'survival'] },

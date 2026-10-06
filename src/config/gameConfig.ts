@@ -77,7 +77,7 @@ export const GAME_CONFIG = {
    * Almas são a moeda de progressão (atributos hoje; habilidades/upgrades no futuro).
    */
   souls: {
-    dropPerKill: { grunt: 1, runner: 1, brute: 3, necro: 2, elite: 12, boss: 25, boss2: 35, orcboss: 50, goblinImp: 10, goblinWarlord: 30 } as Record<string, number>,
+    dropPerKill: { grunt: 1, runner: 1, brute: 2, necro: 1, elite: 8, boss: 18, boss2: 25, orcboss: 35, goblinImp: 7, goblinWarlord: 21 } as Record<string, number>,
     defaultDrop: 1,
   },
   /**
@@ -85,10 +85,10 @@ export const GAME_CONFIG = {
    * e vai para a bolsa da party. Almas continuam sendo a moeda de CRESCIMENTO (EXP, despertar).
    */
   zeni: {
-    dropPerKill: { grunt: 4, runner: 3, brute: 12, necro: 8, elite: 80, boss: 150, boss2: 220, orcboss: 400, goblinImp: 60, goblinWarlord: 200 } as Record<string, number>,
-    defaultDrop: 3,
+    dropPerKill: { grunt: 3, runner: 2, brute: 8, necro: 6, elite: 56, boss: 105, boss2: 154, orcboss: 280, goblinImp: 42, goblinWarlord: 140 } as Record<string, number>,
+    defaultDrop: 2,
     /** Bônus ao vencer a onda. */
-    waveClearBonus: 60,
+    waveClearBonus: 42,
     /** Ponto de atributo comprado com Zeni: base + passo × pontos já comprados por esse herói. */
     attrPointBase: 40,
     attrPointStep: 20,
@@ -97,9 +97,9 @@ export const GAME_CONFIG = {
   },
   /** EXP e níveis: cada abate dá EXP a toda a party viva; cada nível dá pontos de atributo. */
   progression: {
-    expPerKill: { grunt: 5, runner: 4, brute: 12, necro: 8, elite: 40, boss: 80, boss2: 120, orcboss: 200, goblinImp: 30, goblinWarlord: 110 } as Record<string, number>,
-    defaultExp: 5,
-    expCurve: { base: 20, growth: 1.35 }, // EXP para passar do nível L = base * L^growth
+    expPerKill: { grunt: 2, runner: 2, brute: 4, necro: 3, elite: 14, boss: 28, boss2: 42, orcboss: 70, goblinImp: 10, goblinWarlord: 38 } as Record<string, number>,
+    defaultExp: 2,
+    expCurve: { base: 20, growth: 1.6 }, // EXP para passar do nível L = base * L^growth
     pointsPerLevel: 3,
     /** Almas absorvidas viram EXP (escala bem menor que as poções de EXP da cidade). */
     soulAbsorb: { souls: 10, exp: 12 },
@@ -164,14 +164,26 @@ export const GAME_CONFIG = {
   wave: {
     count: ACTIVE_ZONE.wave.count,
     spawnIntervalTicks: ACTIVE_ZONE.wave.spawnIntervalTicks,
-    /** Os 2 pontos de spawn fixos da zona (MAP_CONFIG). */
+    /** Os pontos de spawn fixos da zona (MAP_CONFIG; N portais, não só 2). */
     spawnPoints: ACTIVE_ZONE.spawnPoints.map((p) => ({ ...p })) as Vec2[],
-    /** Fração da horda que sai do 1º spawn (o resto sai do 2º). A zona pode sobrescrever. */
+    /** Fração da horda que sai do 1º spawn (o resto se divide entre os demais). A zona pode sobrescrever. */
     spawnSplit: ACTIVE_ZONE.spawnSplit ?? 0.5,
     /** Padrão quando a zona não define `spawnSplit`. */
     defaultSpawnSplit: 0.5,
     /** Se o tile do spawn está ocupado, o inimigo nasce num tile livre até esta distância. */
     spawnSpread: 2,
+    /**
+     * GOVERNADOR DE DENSIDADE: teto de inimigos vivos simultâneos. Ao atingir,
+     * o spawn recua `spawnBackoffTicks` em vez de empilhar entidades (pressão sem entulho).
+     */
+    maxAlive: 120,
+    spawnBackoffTicks: 20,
+    /**
+     * Ritmo dinâmico: acima deste nº de vivos, o spawn respira (`softBackoffTicks`)
+     * até a party limpar — a pressão acompanha o DPS real sem espiral de morte.
+     */
+    softAlive: 35,
+    softBackoffTicks: 12,
     /** Heróis não podem ser posicionados a menos disso de um spawn. */
     spawnSafeRadius: 3,
     seed: ACTIVE_ZONE.wave.seed,
@@ -194,7 +206,7 @@ export const GAME_CONFIG = {
     organic: {
       /** monstros por leva (sorteado entre min e max; a leva inteira sai do mesmo portal) */
       packMin: 1,
-      packMax: 7,
+      packMax: 10,
       /** ticks entre monstros da mesma leva */
       packGapMin: 2,
       packGapMax: 6,
@@ -202,7 +214,7 @@ export const GAME_CONFIG = {
       pauseMin: 0.45,
       pauseMax: 1.25,
       /** nascem num tile livre sorteado até esta distância do portal */
-      spawnScatter: 2,
+      spawnScatter: 3,
       /** quanto um passo pode ser "pior" (custo) que o melhor para seguir a deriva do monstro */
       wanderSlack: 8,
       /** força da deriva na escolha do passo */
@@ -223,8 +235,8 @@ export const GAME_CONFIG = {
    */
   cityDefense: {
     maxHp: 1000,
-    threat: { grunt: 8, runner: 5, brute: 20, necro: 10, elite: 60, boss: 120, boss2: 150, orcboss: 200, goblinImp: 50, goblinWarlord: 150 } as Record<string, number>,
-    defaultThreat: 8,
+    threat: { grunt: 3, runner: 2, brute: 8, necro: 4, elite: 24, boss: 48, boss2: 60, orcboss: 80, goblinImp: 20, goblinWarlord: 60 } as Record<string, number>,
+    defaultThreat: 3,
     /** Peso da ameaça por ato (o Ato I começa com um herói só). */
     threatActMult: [0.6, 0.9, 1.2],
     /** Na Sobrevivência a cidade não sofre dano (cair lá não custa nada). */

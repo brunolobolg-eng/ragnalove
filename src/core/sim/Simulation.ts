@@ -903,14 +903,30 @@ export class Simulation {
     return { souls: this.souls, zeni: this.zeni, heroes: Object.fromEntries(this.heroFinal), drops: [...this.drops] };
   }
 
-  /** Coloca um inimigo num dos 2 spawns (sorteado se `point` não vier). Não conta na onda. */
+  /** Coloca um inimigo num dos portais (sorteado se `point` não vier). Não conta na onda. */
   spawnEnemy(kind = 'grunt', point?: number): Unit | undefined {
-    const order = point !== undefined ? [point] : this.combatRng.next() < GAME_CONFIG.wave.spawnSplit ? [0, 1] : [1, 0];
+    const order = point !== undefined ? [point] : this.portalOrder(this.pickPortal());
     for (const i of order) {
       const t = this.spawnTile(i);
       if (t) return this.createEnemy(kind, t.x, t.y, i);
     }
     return undefined;
+  }
+
+  /**
+   * Ordem de tentativa dos portais a partir do sorteado (round-robin: o sorteado,
+   * depois os seguintes em ciclo). Generaliza o antigo "2 spawns".
+   */
+  private portalOrder(first: number): number[] {
+    const n = GAME_CONFIG.wave.spawnPoints.length;
+    return Array.from({ length: n }, (_, k) => (first + k) % n);
+  }
+
+  /** Sorteia o portal da próxima leva: `spawnSplit` no 1º, o resto dividido entre os demais. */
+  private pickPortal(): number {
+    const n = GAME_CONFIG.wave.spawnPoints.length;
+    if (this.rng.next() < GAME_CONFIG.wave.spawnSplit || n < 2) return 0;
+    return 1 + this.rng.int(n - 1);
   }
 
   /**
@@ -922,12 +938,14 @@ export class Simulation {
     if (!p) return undefined;
     if (scatter > 0) {
       const free: Vec2[] = [];
+      // no cerco (Survival) a party se move: basta chão livre (o fluxo até o portão não vale ali)
+      const needFlow = !GAME_CONFIG.wave.endless;
       for (let dy = -scatter; dy <= scatter; dy++)
         for (let dx = -scatter; dx <= scatter; dx++) {
           const x = p.x + dx;
           const y = p.y + dy;
           // só tiles com caminho até a cidade (não nasce preso atrás de parede)
-          if (this.board.isWalkable(x, y) && !this.unitAt(x, y) && !this.board.isCity(x, y) && this.flow.at(x, y) < FlowField.INF) free.push({ x, y });
+          if (this.board.isWalkable(x, y) && !this.unitAt(x, y) && !this.board.isCity(x, y) && (!needFlow || this.flow.at(x, y) < FlowField.INF)) free.push({ x, y });
         }
       if (free.length) return free[this.rng.int(free.length)];
     }
@@ -946,9 +964,16 @@ export class Simulation {
   /** Spawn mais distante da cidade (o chefe entra por ele). */
   private farSpawn(): number {
     const pts = GAME_CONFIG.wave.spawnPoints;
-    if (pts.length < 2) return 0;
-    const d = pts.map((p) => this.flow.at(p.x, p.y));
-    return d[1] > d[0] && d[1] < FlowField.INF ? 1 : 0;
+    let best = 0;
+    let bd = -Infinity;
+    pts.forEach((p, i) => {
+      const d = this.flow.at(p.x, p.y);
+      if (d < FlowField.INF && d > bd) {
+        bd = d;
+        best = i;
+      }
+    });
+    return best;
   }
 
   /** Mata todos os inimigos vivos pelo caminho normal de dano (almas, EXP e drops continuam valendo). */
@@ -1168,22 +1193,43 @@ export class Simulation {
     if (this.tick < this.nextSpawnTick) return;
     if (bossTurn) {
       // O chefe entra pelo spawn mais distante da cidade.
-      const i = this.farSpawn();
-      const t = this.spawnTile(i) ?? this.spawnTile(1 - i);
+      const order = this.portalOrder(this.farSpawn());
+      const t = order.map((i) => this.spawnTile(i)).find(Boolean);
       if (!t) return; // tenta de novo no próximo tick
-      this.createEnemy(w.boss!, t.x, t.y, i);
+      this.createEnemy(w.boss!, t.x, t.y, order[0]);
       this.bossSpawned = true;
       return;
     }
+    if (this.overDensity()) return; // teto de vivos: recua em vez de empilhar
     const at = this.packSpawnTile();
-    if (!at) return; // os dois lotados: tenta de novo no próximo tick
+    if (!at) return; // portais lotados: tenta de novo no próximo tick
     this.createEnemy(this.rollKind(), at.t.x, at.t.y, at.i);
     this.spawned++;
     this.nextSpawnTick = this.tick + (this.spawned >= w.count ? w.bossDelayTicks : this.packDelay(w.spawnIntervalTicks));
   }
 
+  /**
+   * Governador de densidade: com muitos vivos, adia o próximo spawn em vez de
+   * empilhar entidades (mantém pressão sem congestionamento nem custo de IA).
+   * Dois níveis: teto duro (performance) e respiro dinâmico (acompanha o DPS da party).
+   */
+  private overDensity(): boolean {
+    const w = GAME_CONFIG.wave;
+    const alive = this.sortedUnits('enemy').length;
+    if (alive >= w.maxAlive) {
+      this.nextSpawnTick = Math.max(this.nextSpawnTick, this.tick + w.spawnBackoffTicks);
+      return true;
+    }
+    if (alive >= w.softAlive) {
+      this.nextSpawnTick = Math.max(this.nextSpawnTick, this.tick + w.softBackoffTicks);
+      return true;
+    }
+    return false;
+  }
+
   private spawnEndless(): void {
     if (this.tick < this.nextSpawnTick) return;
+    if (this.overDensity()) return; // teto de vivos vale no cerco infinito também
     const w = GAME_CONFIG.wave;
     const S = GAME_CONFIG.survival;
     const at = this.packSpawnTile();
@@ -1199,21 +1245,24 @@ export class Simulation {
 
   /**
    * Onde nasce o próximo monstro: começa uma leva nova quando a anterior acabou (tamanho e portal
-   * sorteados pela seed) e escolhe um tile livre espalhado em volta do portal.
+   * sorteados pela seed) e escolhe um tile livre espalhado em volta do portal. Na falta de espaço,
+   * tenta os demais portais em round-robin (sem pilha no mesmo ponto).
    */
   private packSpawnTile(): { t: Vec2; i: number } | undefined {
     const O = GAME_CONFIG.wave.organic;
     if (this.packLeft <= 0) {
       this.packSize = this.packLeft = O.packMin + this.rng.int(O.packMax - O.packMin + 1);
-      // A horda se divide entre os 2 spawns (WAVE_CONFIG.spawnSplit), leva por leva
-      this.packPortal = this.rng.next() < GAME_CONFIG.wave.spawnSplit ? 0 : 1;
+      // A horda se divide entre os portais (WAVE_CONFIG.spawnSplit no 1º), leva por leva
+      this.packPortal = this.pickPortal();
     }
-    let i = this.packPortal;
-    let t = this.spawnTile(i, O.spawnScatter);
-    if (!t) t = this.spawnTile((i = 1 - this.packPortal), O.spawnScatter);
-    if (!t) return undefined;
-    this.packLeft--;
-    return { t, i };
+    for (const i of this.portalOrder(this.packPortal)) {
+      const t = this.spawnTile(i, O.spawnScatter);
+      if (t) {
+        this.packLeft--;
+        return { t, i };
+      }
+    }
+    return undefined;
   }
 
   /** Espera até o próximo monstro: curta dentro da leva; no fim dela, uma pausa sorteada (ritmo médio = `interval`). */
@@ -1368,8 +1417,10 @@ export class Simulation {
         continue;
       }
 
-      // 2) Chefes/elites caçam a party: batem em quem estiver colado
-      if (aggro === 'hunter') {
+      // 2) Chefes/elites caçam a party — e no cerco (Survival) TODOS caçam:
+      //    sem portão como objetivo, batem em quem estiver colado e vão atrás da party
+      const hunt = aggro === 'hunter' || GAME_CONFIG.wave.endless;
+      if (hunt) {
         const adj = this.adjacentHero(u, party);
         if (adj) {
           this.enemyAttack(u, adj, g);
@@ -1379,8 +1430,8 @@ export class Simulation {
       // 3) Padrão: foca a cidade (desce o campo de fluxo até o portão)
       const breaker = this.breaker(u);
       let flow = breaker ? this.heavyFlow : this.flow;
-      if (aggro === 'hunter' || flow.at(u.x, u.y) >= FlowField.INF) {
-        // sem caminho até a cidade (bloqueado): cai no comportamento antigo, vai atrás da party
+      if (hunt || flow.at(u.x, u.y) >= FlowField.INF) {
+        // sem caminho até a cidade (bloqueado) ou cerco: vai atrás da party
         if (this.partyFlowTick !== this.tick) {
           this.partyFlow.compute(party, GAME_CONFIG.pathing, (x, y) => this.wallPass(x, y));
           this.partyFlowTick = this.tick;

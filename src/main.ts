@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DEFAULT_SETUP, GAME_CONFIG, ZONE_STATE, applyZone, barriersShield, type PartySetup, type WaveOptions } from './config/gameConfig';
+import { DEFAULT_SETUP, GAME_CONFIG, ZONE_STATE, applyZone, barriersAround, barriersShield, type PartySetup, type WaveOptions } from './config/gameConfig';
 import { parseZone, type ZoneDef } from './config/zones';
 import { ACTS, EVENTS, REGION_BY_ID, NODE_LABEL, type NodeType } from './config/world';
 import {
@@ -93,7 +93,7 @@ import type { HeroLoadout } from './core/sim/Simulation';
 import { slotCount } from './core/progression/skillSlots';
 import { MainMenu, type MenuState } from './ui/menu/MainMenu';
 import { legendsFrom } from './ui/menu/HallOfLegends';
-import { emptyRecords, updateRecords, type Records } from './core/run/records';
+import { emptyRecords, updateRecords, updateSurvivalBest, type Records } from './core/run/records';
 import { SaveStore, type SaveKey } from './save/SaveStore';
 import type { BattleSeal } from './core/run/run';
 import { SettingsStore, graphicsFrom } from './settings/Settings';
@@ -228,6 +228,18 @@ function noteRecords(): void {
     SaveStore.set(META_KEY, JSON.stringify(m));
   } catch {
     /* ignora */
+  }
+}
+/** Registra o cerco (Survival) no Ranking; devolve o melhor (para a tela de resultado). */
+function noteSurvivalBest(seconds: number, stage: number, kills: number): Records['survivalBest'] {
+  try {
+    const m = JSON.parse(SaveStore.get(META_KEY) ?? '{}') as Record<string, unknown>;
+    const next = updateSurvivalBest(loadRecords().rec, seconds, stage, kills);
+    m.records = next;
+    SaveStore.set(META_KEY, JSON.stringify(m));
+    return next.survivalBest;
+  } catch {
+    return undefined;
   }
 }
 const savedRun = loadRun();
@@ -658,11 +670,11 @@ function enterBattle(t: NodeType): void {
   const reg = currentRegion(run);
   hud.setStage(`Fase ${phaseNumber(run)}/${totalPhases()} · ${NODE_LABEL[t]}`, `${reg.name} — ${currentAct(run).name.split(' — ')[0]}`);
   hud.clearLog();
-  hud.log(`${reg.name}: ${t === 'boss' ? `${currentAct(run).bossName} aguarda no fim da horda.` : t === 'elite' ? 'um mini-chefe lidera esta horda.' : 'a horda se aproxima.'}`, 'warn');
+  hud.log(`${reg.name}: ${t === 'boss' ? `${currentAct(run).bossName} aguarda no fim da horda.` : t === 'elite' ? 'um mini-chefe lidera esta horda.' : t === 'survival' ? 'cerco: não há portão — TODOS vêm até vocês. Posicionem a base no centro!' : 'a horda se aproxima.'}`, 'warn');
   // a horda começa sozinha após a contagem (o jogador pode iniciar antes); a 1ª fase dá mais tempo
   const firstAutoStart = run.act === 0 && run.node === 0 ? 30 : GAME_CONFIG.wave.autoStartSeconds;
   hud.log(`Planejamento: posicione a party e a Barreira de Fogo. A horda vem sozinha em ${firstAutoStart} s (Espaço inicia antes).`, 'info');
-  hud.log('A horda vem em levas pelos 2 portais roxos, se espalha pelo caminho e vai para o portão da cidade (dourado). Cada inimigo que entrar desconta a vida da cidade.', 'info');
+  hud.log(t === 'survival' ? 'O cerco vem em levas pelos portais roxos, de várias direções, direto contra a party. Não há portão a defender: sobreviva o máximo que conseguir.' : 'A horda vem em levas pelos portais roxos, se espalha pelo caminho e vai para o portão da cidade (dourado). Cada inimigo que entrar desconta a vida da cidade.', 'info');
   if (sim.objects.size) hud.log('Objetos brilhando no mapa podem ser usados antes da horda (clique neles).', 'info');
   if (run.dead.length) hud.log(`${run.dead.map((h) => NAME_PT[h]).join(' e ')} está caído e não luta nesta fase.`, 'warn');
   // a câmera começa na party (o jogador pode inspecionar o mapa antes de iniciar)
@@ -752,14 +764,16 @@ function loadZone(zone: ZoneDef, wave: WaveOptions): void {
   audio.setAmbience(zone.theme);
   if (themeChanged || !view.boardView) view.rebuildBoard();
   run.usedObjects ??= [];
-  const base = withPartyMembers(structuredClone(zone.defaultSetup), zone);
+  const base0 = withPartyMembers(structuredClone(zone.defaultSetup), zone);
+  // cerco (Survival): sem formação salva do portão — a party monta a base no centro do mapa
+  const base = GAME_CONFIG.wave.endless ? centerBase(base0, zone) : base0;
   if (run.party.length === 1 && run.party[0] === 'mage') {
     const m = base.members.find((mm) => mm.archetype === 'mage')!;
     base.barriers = barriersShield(m.x, m.y);
   }
   base.wall = defaultWall(base);
   // a formação do jogador vale entre as hordas: a última usada (se couber neste mapa) ou a desta zona
-  setup = savedLayout(zone, base) ?? base;
+  setup = GAME_CONFIG.wave.endless ? base : (savedLayout(zone, base) ?? base);
   tool = run.party[0];
   resetSim(false);
 }
@@ -791,6 +805,43 @@ function savedLayout(zone: ZoneDef, base: PartySetup): PartySetup | undefined {
 function defaultWall(s: PartySetup): PartySetup['wall'] {
   const wm = s.members.find((mm) => mm.archetype === 'warrior');
   return wm ? { x: wm.x, y: wm.y - 2, orientation: 'H' } : undefined;
+}
+
+/**
+ * Base do cerco (Survival): heróis em chão livre em espiral a partir do centro do mapa,
+ * barreiras logo ao lado — o jogador ajusta a defesa no planejamento (sem portão a defender).
+ */
+function centerBase(s: PartySetup, zone: ZoneDef): PartySetup {
+  const pz = parseZone(zone);
+  const floor = new Set(pz.floor.map((f) => `${f.x},${f.y}`));
+  const cx = Math.floor(pz.width / 2);
+  const cy = Math.floor(pz.height / 2);
+  const near: Vec2[] = [];
+  const seen = new Set<string>();
+  const R = Math.max(pz.width, pz.height);
+  for (let r = 0; r <= R && near.length < 16; r++)
+    for (let dy = -r; dy <= r && near.length < 16; dy++)
+      for (let dx = -r; dx <= r && near.length < 16; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const k = `${cx + dx},${cy + dy}`;
+        if (floor.has(k) && !seen.has(k)) {
+          seen.add(k);
+          near.push({ x: cx + dx, y: cy + dy });
+        }
+      }
+  if (!near.length) return s;
+  const out = structuredClone(s);
+  out.members = out.members.filter((m) => run.party.includes(m.archetype as HeroKind));
+  out.members.forEach((m, i) => {
+    const t = near[Math.min(i, near.length - 1)];
+    m.x = t.x;
+    m.y = t.y;
+  });
+  // barreiras em chão livre ao lado da party (o resto da espiral)
+  out.barriers = near.slice(out.members.length, out.members.length + 3).map((t) => ({ x: t.x, y: t.y, orientation: 'H' as const }));
+  if (!out.barriers.length) out.barriers = barriersAround(near[0].x, near[0].y);
+  out.wall = defaultWall(out);
+  return out;
 }
 
 /** Heróis da party que não estão no setup padrão da zona entram em tiles livres perto do grupo. */
@@ -1216,11 +1267,18 @@ function finishSurvival(): void {
     score = survivalRewards(sim.killed, seconds).score;
   }
   const seconds = Math.round(sim.tick / GAME_CONFIG.sim.tickRate);
+  const stage = sim.stage + 1;
+  const best = noteSurvivalBest(seconds, stage, sim.killed);
+  const mm = Math.floor(seconds / 60);
+  const ss = String(seconds % 60).padStart(2, '0');
+  const dmg = report.damageDealtByUnit.reduce((s, d) => s + d.amount, 0);
+  const maxLv = Math.max(0, ...Object.values(r.heroes).map((h) => h.level));
   hud.setSurvival(false);
   window.setTimeout(async () => {
     for (let i = 0; i < prizes.length; i++)
-      await roulette.spin(`Prêmio da Sobrevivência ${prizes.length > 1 ? `(${i + 1}/${prizes.length})` : ''}`, `Pontuação ${score} · ${sim.killed} abates · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} · estágio ${sim.stage + 1}`, prizes[i]);
-    const summary = `<ul class="run-sum"><li>Pontuação: <b>${score}</b> (abates + tempo)</li><li>Estágio alcançado: ${sim.stage + 1}</li></ul>`;
+      await roulette.spin(`Prêmio da Sobrevivência ${prizes.length > 1 ? `(${i + 1}/${prizes.length})` : ''}`, `Pontuação ${score} · ${sim.killed} abates · ${mm}:${ss} · estágio ${stage}`, prizes[i]);
+    const bestTxt = best ? `<li>Melhor cerco: <b>${Math.floor(best.seconds / 60)}:${String(best.seconds % 60).padStart(2, '0')}</b> · estágio ${best.stage} · ${best.kills} abates</li>` : '';
+    const summary = `<ul class="run-sum"><li>Tempo sobrevivido: <b>${mm}:${ss}</b></li><li>Estágio alcançado: ${stage}</li><li>Monstros derrotados: ${sim.killed}</li><li>Nível máximo: ${maxLv}</li><li>Dano causado: ${dmg.toLocaleString('pt-BR')}</li><li>Pontuação: <b>${score}</b> (abates + tempo)</li>${bestTxt}</ul>`;
     resultModal.show(nightVM(report, `Sobrevivência — Relatório da Noite ${report.night}`, [...r.drops, ...prizes], before, { extraHtml: summary }), [{ label: 'Continuar ➜', primary: true, onClick: () => (resultModal.hide(), completeNode(`sobrevivência:${score}`)) }]);
   }, 1200);
 }

@@ -72,8 +72,8 @@ export interface ZoneDef {
   widthTiles: number;
   heightTiles: number;
   map: string[];
-  /** Exatamente 2 pontos de spawn fixos (nunca aleatórios). */
-  spawnPoints: [Vec2, Vec2];
+  /** Pontos de spawn fixos da zona (2 nos mapas atuais; o motor aceita N e alterna entre eles). */
+  spawnPoints: Vec2[];
   /** Fração da horda que sai do 1º spawn (padrão: GAME_CONFIG.wave.spawnSplit). */
   spawnSplit?: number;
   objects: MapObjectDef[];
@@ -138,7 +138,7 @@ const HEAVY: WaveMix[] = [
   { kind: 'brute', weight: 26 },
   { kind: 'necro', weight: 8 },
 ];
-const wave = (seed: number, mix: WaveMix[], count = 40, interval = 5) => ({ count, spawnIntervalTicks: interval, seed, mix, boss: 'boss', bossDelayTicks: 30 });
+const wave = (seed: number, mix: WaveMix[], count = 40, interval = 5, bossDelay = 30) => ({ count, spawnIntervalTicks: interval, seed, mix, boss: 'boss', bossDelayTicks: bossDelay });
 
 export const ZONES: Record<string, ZoneDef> = {
   /** Zona inicial: a ponte de pedra e a praça diante dos portões de Valdrec. Spawn distante (fim da ponte) e próximo (cais do rio). */
@@ -203,8 +203,8 @@ export const ZONES: Record<string, ZoneDef> = {
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
     wave: {
-      count: 40,
-      spawnIntervalTicks: 5,
+      count: 160,
+      spawnIntervalTicks: 6,
       seed: 1337,
       mix: [
         { kind: 'grunt', weight: 62 },
@@ -383,7 +383,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(2101, UNDEAD, 44),
+    wave: wave(2101, UNDEAD, 250, 7),
   },
   whisperWood: {
     id: 'whisperWood',
@@ -445,7 +445,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(2202, FAST),
+    wave: wave(2202, FAST, 250, 7),
   },
   ravenGlade: {
     id: 'ravenGlade',
@@ -507,7 +507,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(2303, HEAVY, 44),
+    wave: wave(2303, HEAVY, 130, 7),
   },
   rootVale: {
     id: 'rootVale',
@@ -569,7 +569,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(3101, UNDEAD, 48, 4),
+    wave: wave(3101, UNDEAD, 240, 6),
   },
   dryCrossing: {
     id: 'dryCrossing',
@@ -631,7 +631,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(3202, FAST, 50, 4),
+    wave: wave(3202, FAST, 450, 6),
   },
   redDunes: {
     id: 'redDunes',
@@ -694,7 +694,13 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(3303, HEAVY, 46),
+    // Dunas: respiro tático do Ato II — horda rápida de flanqueadores (a pressão do ato está em dryCrossing/solarRuins)
+    wave: { count: 260, spawnIntervalTicks: 8, seed: 3303, mix: [
+      { kind: 'grunt', weight: 48 },
+      { kind: 'runner', weight: 34 },
+      { kind: 'brute', weight: 10 },
+      { kind: 'necro', weight: 8 },
+    ], boss: 'boss', bossDelayTicks: 30 },
   },
   solarRuins: {
     id: 'solarRuins',
@@ -758,7 +764,13 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(3404, HEAVY, 52),
+    // Ruínas: prelúdio do Colosso Solar — pressão de corredores com poucos brutamontes (duo não tanka HEAVY cheio)
+    wave: { count: 90, spawnIntervalTicks: 7, seed: 3404, mix: [
+      { kind: 'grunt', weight: 48 },
+      { kind: 'runner', weight: 34 },
+      { kind: 'brute', weight: 10 },
+      { kind: 'necro', weight: 8 },
+    ], boss: 'boss', bossDelayTicks: 30 },
   },
   ashenFields: {
     id: 'ashenFields',
@@ -820,7 +832,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(4101, FAST, 56, 4),
+    wave: wave(4101, FAST, 600, 6),
   },
   rustGorge: {
     id: 'rustGorge',
@@ -882,7 +894,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(4202, HEAVY, 58, 4),
+    wave: wave(4202, HEAVY, 600, 6),
   },
   frostPass: {
     id: 'frostPass',
@@ -943,7 +955,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(4303, UNDEAD, 52),
+    wave: wave(4303, UNDEAD, 600, 7),
   },
   ashPeak: {
     id: 'ashPeak',
@@ -1005,7 +1017,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(4404, HEAVY, 54),
+    wave: wave(4404, HEAVY, 240, 6, 600),
   },
 } satisfies Record<string, ZoneDef>);
 

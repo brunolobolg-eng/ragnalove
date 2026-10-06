@@ -317,7 +317,7 @@ export function battleFor(r: RunState, type: NodeType): { zone: ZoneDef; wave: W
     wave.count = jitter(base * 0.65);
     wave.boss = currentNode(r).elite ?? 'elite';
   } else {
-    wave.count = jitter(base * 0.7);
+    wave.count = jitter(base * 0.55);
     wave.boss = act.boss;
   }
   return { zone, wave };

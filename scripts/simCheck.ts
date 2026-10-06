@@ -48,7 +48,7 @@ for (const id of Object.keys(ZONES)) {
   applyZone(z);
   const sim = new Simulation(z.defaultSetup, z.wave.seed);
   sim.start();
-  while (sim.phase === 'running' && sim.tick < 9000) sim.step();
+  while (sim.phase === 'running' && sim.tick < 30000) sim.step();
   const r = sim.report(1);
   const ok = sim.phase !== 'running';
   console.log(`${ok ? 'ok  ' : 'TRAVOU'} ${id.padEnd(12)} ${sim.phase.padEnd(8)} t=${sim.tick} abatidos ${r.enemiesKilled} invadiram ${r.enemiesReachedCity} cidade −${r.cityDamageTaken}`);
