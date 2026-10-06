@@ -50,33 +50,33 @@ export const ATTRIBUTES_CONFIG = {
     warlock: { str: 1, int: 5, vit: 3, dex: 2, luk: 3 },
     assassin: { str: 3, int: 1, vit: 3, dex: 6, luk: 4 },
   } as Record<string, Attrs>,
-  vit: { hpPerPoint: 8 },
+  vit: { hpPerPoint: 12 },
   str: {
-    cleaveDamagePerPoint: 1.5,
+    cleaveDamagePerPoint: 2.2,
     cleaveRangeEveryPoints: 10, // +1 tile de alcance a cada 10 pontos
     cleaveRangeMax: 4,
     cleaveAnglePerPoint: 1.2, // graus
     cleaveAngleMax: 80,
-    bashDamagePerPoint: 2,
+    bashDamagePerPoint: 3,
   },
   int: {
     barrierLengthEveryPoints: 6, // +1 tile em cada barreira a cada 6 pontos
     barrierLengthMax: 8,
-    barrierDurationPerPoint: 3, // ticks
-    boltDamagePerPoint: 0.8,
+    barrierDurationPerPoint: 4, // ticks
+    boltDamagePerPoint: 1.2,
   },
   /** Destreza → Skill Haste (o único atributo que acelera a recuperação das habilidades). */
-  dex: { skillHastePerPoint: 0.015 },
+  dex: { skillHastePerPoint: 0.025 },
   luk: {
-    dodgePerPoint: 0.004,
-    dropChancePerPoint: 0.0015,
+    dodgePerPoint: 0.008,
+    dropChancePerPoint: 0.003,
     /** Quanto cada ponto de Sorte desloca os pesos de raridade (ver equipment.ts). */
     rarityShiftPerPoint: 0.05,
     /** Sorte → Chance de crítico (todas as classes). */
-    critPerPoint: 0.005,
+    critPerPoint: 0.01,
   },
   /** Arqueira: Destreza é o atributo de dano (além de reduzir recargas). */
-  archer: { arrowDamagePerDex: 0.9, rainDamagePerDex: 0.6 },
+  archer: { arrowDamagePerDex: 1.3, rainDamagePerDex: 0.9 },
   caps: { dodge: 0.5, block: 0.5, skillHaste: 0.6 },
   /** Classes avançadas: quanto cada ponto do atributo principal acima da base soma ao dano. */
   classPowerPerPoint: 0.05,

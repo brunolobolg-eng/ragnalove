@@ -1,7 +1,7 @@
 /**
  * Aba LOOT: simula abates de um tipo de monstro com o MESMO sistema de loot da onda
  * (`killRewards` + `rollLoot`, as funções que a Simulation chama quando um inimigo morre).
- * No jogo cada tipo de monstro é a sua "tabela de loot": Zeni/Almas/EXP fixos por tipo,
+ * No jogo cada tipo de monstro é a sua "tabela de loot": Zen/Almas/EXP fixos por tipo,
  * chance de item (com a Sorte do herói) e raridade garantida dos chefes.
  */
 import { GAME_CONFIG } from '../../config/gameConfig';
@@ -60,7 +60,7 @@ export function buildLoot(el: HTMLElement, ctx: DevCtx): { onHero(): void } {
     q('[data-out]').innerHTML = `
       <table class="dl-tbl"><tbody>
         <tr><td>Abates simulados</td><td class="n">${fmt(kills)}</td><td></td></tr>
-        <tr><td>Gold (Zeni)</td><td class="n">${fmt(rw.zeni * kills)}</td><td class="n">${fmt(rw.zeni * per)}/roll</td></tr>
+        <tr><td>Gold (Zen)</td><td class="n">${fmt(rw.zeni * kills)}</td><td class="n">${fmt(rw.zeni * per)}/roll</td></tr>
         <tr><td>XP</td><td class="n">${fmt(rw.exp * kills)}</td><td class="n">${fmt(rw.exp * per)}/roll</td></tr>
         <tr><td>Almas</td><td class="n">${fmt(rw.souls * kills)}</td><td class="n">${fmt(rw.souls * per)}/roll</td></tr>
         <tr><td>Itens</td><td class="n">${fmt(items)}</td><td class="n">${(items / rolls).toFixed(2)}/roll</td></tr>

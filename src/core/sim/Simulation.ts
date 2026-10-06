@@ -22,7 +22,7 @@ export function enemyStats(kind: string) {
   return GAME_CONFIG.enemies[kind] ?? GAME_CONFIG.enemies.grunt;
 }
 
-/** Recompensas fixas de um abate (almas, EXP, Zeni) — as mesmas tabelas da onda. */
+/** Recompensas fixas de um abate (almas, EXP, Zen) — as mesmas tabelas da onda. */
 export function killRewards(kind: string): { souls: number; exp: number; zeni: number } {
   return {
     souls: GAME_CONFIG.souls.dropPerKill[kind] ?? GAME_CONFIG.souls.defaultDrop,
@@ -88,7 +88,7 @@ export class Simulation {
   killed = 0;
   /** Total de almas roubadas pela party nesta sessão (fonte da verdade). */
   souls = 0;
-  /** Zeni ganho nesta onda (bolsa da party). */
+  /** Zen ganho nesta onda (bolsa da party). */
   zeni = 0;
   /** Equipamentos dropados nesta onda (coletados automaticamente no fim). */
   readonly drops: Item[] = [];

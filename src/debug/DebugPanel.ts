@@ -94,7 +94,7 @@ export function installDebug(root: HTMLElement, api: DevApi, addBarButton: (html
       </section>
       <section><h4>Almas e equipamentos</h4>
         <div class="dbg-row"><button data-cmd="souls" data-n="100">+100 almas</button><button data-cmd="clearSouls">Zerar almas</button><span class="dbg-line" data-souls></span></div>
-        <div class="dbg-row"><button data-cmd="zeni" data-n="1000">+1000 Zeni</button><button data-cmd="zeni" data-n="-999999">Zerar Zeni</button></div>
+        <div class="dbg-row"><button data-cmd="zeni" data-n="1000">+1000 Zen</button><button data-cmd="zeni" data-n="-999999">Zerar Zen</button></div>
         <div class="dbg-row"><select data-slot><option value="">Slot aleatório</option>${SLOTS.map((s) => `<option value="${s}">${SLOT_LABEL[s]}</option>`).join('')}</select>
           ${RARITIES.map((r) => `<button data-cmd="item" data-rarity="${r}" style="--rc:${RARITY_INFO[r].color}" class="rar">${RARITY_INFO[r].label} <small>(${RARITY_DOT[r]})</small></button>`).join('')}</div>
         <div class="dbg-row"><button data-cmd="clearInv">Limpar inventário</button><span class="dbg-line" data-inv></span></div>
@@ -166,7 +166,7 @@ export function installDebug(root: HTMLElement, api: DevApi, addBarButton: (html
 
   function refresh(): void {
     q('[data-heroline]').textContent = api.heroLine(hero());
-    q('[data-souls]').textContent = `${api.souls()} almas · ${api.zeni()} Zeni`;
+    q('[data-souls]').textContent = `${api.souls()} almas · ${api.zeni()} Zen`;
     q('[data-runline]').textContent = api.run.line();
     q('[data-inv]').textContent = `${api.inventorySize()} itens no inventário`;
     q('[data-cityline]').textContent = api.cityLine();

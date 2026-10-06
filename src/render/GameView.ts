@@ -734,7 +734,7 @@ export class GameView {
           this.float(`+${e.amount} EXP`, tileToWorld(e.x, e.y, undefined, 1.2), '#ffe27a', 0.28);
           break;
         case 'zeni':
-          this.float(`+${e.amount} z`, tileToWorld(e.x, e.y, undefined, 0.75), '#f3c64e', 0.26);
+          this.float(`+${e.amount} Zen`, tileToWorld(e.x, e.y, undefined, 0.75), '#f3c64e', 0.26);
           break;
         case 'levelup': {
           const v = this.units.get(e.unitId);

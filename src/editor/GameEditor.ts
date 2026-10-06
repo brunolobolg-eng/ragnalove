@@ -40,7 +40,7 @@ const KEY_LABEL: Record<string, string> = {
   hp: 'Vida', damage: 'Dano', cooldownTicks: 'Recarga (ticks)', range: 'Alcance', radius: 'Raio', durationTicks: 'Duração (ticks)',
   moveTicks: 'Mover (ticks/tile)', attackTicks: 'Ataque (ticks)', count: 'Quantidade', weight: 'Peso', min: 'Mín', max: 'Máx',
   price: 'Preço', exp: 'EXP', telegraphTicks: 'Aviso (ticks)', burnDamage: 'Dano de queima', burnIntervalTicks: 'Queima a cada (ticks)',
-  regenPerSec: 'Cura/s', zeniCost: 'Custo Zeni', soulCost: 'Custo almas', slowMult: 'Lentidão ×', pathCost: 'Custo de caminho',
+  regenPerSec: 'Cura/s', zeniCost: 'Custo Zen', soulCost: 'Custo almas', slowMult: 'Lentidão ×', pathCost: 'Custo de caminho',
   maxHp: 'Vida máx.', length: 'Comprimento', chillTicks: 'Gelo (ticks)', minTargets: 'Mín. alvos', halfAngleDeg: 'Meio ângulo (°)',
   stageKills: 'Abates por estágio', hpGrowth: 'Vida × por estágio', dmgGrowth: 'Dano × por estágio', intervalMin: 'Intervalo mín.', eliteEvery: 'Elite a cada',
   pointsPerLevel: 'Pontos por nível', levelsPerBoss: 'Níveis por chefe', skillPointsPerLevel: 'Pontos de habilidade/nível', base: 'Base', growth: 'Crescimento',
@@ -320,7 +320,7 @@ export class GameEditor {
   private renderMonsters(): void {
     const tick = this.store.get('game/sim/tickRate') as number;
     const s = this.section('Monstros', 'Vel. e DPS são calculados (só leitura). Ticks: 10 ticks = 1 segundo.');
-    const tb = this.table(s, ['Monstro', 'Vida', 'Mover', 'Ataque', 'Dano', 'Vel. tiles/s', 'DPS', 'Almas', 'Zeni', 'EXP', 'Ameaça', 'Aggro']);
+    const tb = this.table(s, ['Monstro', 'Vida', 'Mover', 'Ataque', 'Dano', 'Vel. tiles/s', 'DPS', 'Almas', 'Zen', 'EXP', 'Ameaça', 'Aggro']);
     for (const k of this.kinds()) {
       const e = this.store.get(`game/enemies/${k}`) as { moveTicks: number; attackTicks: number; damage: number };
       this.row(tb, [
@@ -341,7 +341,7 @@ export class GameEditor {
     const d = this.section('Padrões (tipos sem valor próprio)');
     const dg = h('div', 'ge-grid');
     this.field(dg, 'Almas', this.num('game/souls/defaultDrop'));
-    this.field(dg, 'Zeni', this.num('game/zeni/defaultDrop'));
+    this.field(dg, 'Zen', this.num('game/zeni/defaultDrop'));
     this.field(dg, 'EXP', this.num('game/progression/defaultExp'));
     this.field(dg, 'Ameaça à cidade', this.num('game/cityDefense/defaultThreat'));
     d.append(dg);
@@ -490,7 +490,7 @@ export class GameEditor {
     const rf = this.section('Refino', 'Chance de sucesso ao ir PARA cada nível (+0 … +10).');
     this.tree(rf, 'refine');
 
-    const ec = this.section('Economia (Zeni)');
+    const ec = this.section('Economia (Zen)');
     const eg = h('div', 'ge-grid');
     this.field(eg, 'Bônus por vencer a onda', this.num('game/zeni/waveClearBonus'));
     this.field(eg, 'Ponto de atributo: base', this.num('game/zeni/attrPointBase'));
@@ -499,9 +499,9 @@ export class GameEditor {
     this.field(eg, 'Itens na loja', this.num('game/city/shopStock', { step: 1 }));
     this.field(eg, 'Minério de refino', this.num('game/city/orePrice'));
     this.field(eg, 'Taxa de refino por nível', this.num('game/city/refineFeePerLevel'));
-    this.field(eg, 'Reviver (fração do Zeni)', this.num('game/city/reviveFraction', { step: 0.05 }));
+    this.field(eg, 'Reviver (fração do Zen)', this.num('game/city/reviveFraction', { step: 0.05 }));
     this.field(eg, 'Reparo: HP por compra', this.num('game/cityDefense/repairStep'));
-    this.field(eg, 'Reparo: Zeni por HP', this.num('game/cityDefense/repairZeniPerHp', { step: 0.1 }));
+    this.field(eg, 'Reparo: Zen por HP', this.num('game/cityDefense/repairZeniPerHp', { step: 0.1 }));
     for (const r of Object.keys(this.store.get('game/city/awakenSouls') as Record<string, number>)) this.field(eg, `Despertar ${RARITY_INFO[r as keyof typeof RARITY_INFO]?.label ?? r} (almas)`, this.num(`game/city/awakenSouls/${r}`));
     ec.append(eg);
     const pt = this.table(ec, ['Poção', 'EXP', 'Preço']);

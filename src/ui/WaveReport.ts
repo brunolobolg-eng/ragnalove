@@ -195,7 +195,7 @@ function rewards(vm: NightReportVM): string {
     <div class="nr-gains">
       <span><b class="nr-star">★</b>+${fmt(r.expEarned)} EXP <small>para a party</small></span>
       <span><i class="soul-ico big"></i>+${fmt(r.soulsCollected)} <small>almas</small></span>
-      <span><i class="zeni-ico"></i>+${fmt(zeni)} Zeni${vm.zeniBonus ? ` <small>(inclui ${fmt(vm.zeniBonus)} de bônus)</small>` : ''}</span>
+      <span><i class="zeni-ico"></i>+${fmt(zeni)} Zen${vm.zeniBonus ? ` <small>(inclui ${fmt(vm.zeniBonus)} de bônus)</small>` : ''}</span>
     </div>
     <div class="nr-items">${items}</div>
   </section>`;
@@ -213,7 +213,7 @@ function phaseCard(vm: NightReportVM): string {
       <div class="nr-node" style="--nc:${NODE_COLOR[p.node]}">${NODE_LABEL[p.node]}</div>
     </div>
     <div class="nr-card nr-bank">
-      <span><i class="zeni-ico"></i><b>${fmt(vm.bank.zeni)}</b> Zeni</span>
+      <span><i class="zeni-ico"></i><b>${fmt(vm.bank.zeni)}</b> Zen</span>
       <span><i class="soul-ico big"></i><b>${fmt(vm.bank.souls)}</b> almas</span>
     </div>`;
 }

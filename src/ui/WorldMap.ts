@@ -61,10 +61,10 @@ const H = MAP_ART.height;
 const FOG = MAP_ART.fog;
 
 const NODE_DESC: Record<NodeType, string> = {
-  horde: 'Enfrente a horda da região (sem chefe). Zeni, almas, EXP e chance de itens.',
+  horde: 'Enfrente a horda da região (sem chefe). Zen, almas, EXP e chance de itens.',
   elite: '★★ Horda menor com um mini-chefe caçador no fim (ignora provocação). Todos os heróis sobem 1 nível e o drop é garantido.',
   event: 'Um encontro na estrada: escolhas com riscos e recompensas.',
-  city: 'Descanse e gaste Zeni: loja, ferreiro, mestre de armas, oráculo e templo.',
+  city: 'Descanse e gaste Zen: loja, ferreiro, mestre de armas, oráculo e templo.',
   boss: '★★★ O chefe do ato. Vença para seguir viagem — todos sobem 1 nível e um novo herói se junta.',
   survival: 'Hordas infinitas, cada vez mais fortes. Quanto mais durar, melhor a roleta de prêmios. Cair aqui não encerra a jornada.',
 };
@@ -258,7 +258,7 @@ export class WorldMap {
             <span class="wm-chips"><em class="hp">♥ ${h.dead ? 0 : h.maxHp}/${h.maxHp}</em>${h.points ? `<em class="pt">${h.points} atr.</em>` : ''}${h.skillPoints ? `<em class="pt sk">${h.skillPoints} hab.</em>` : ''}</span>
           </span>
           ${h.weaponIcon ? `<img class="wm-wpn" src="${h.weaponIcon}" alt="" style="--rc:${h.weaponColor}">` : '<i class="wm-wpn none"></i>'}
-          ${h.dead ? `<button data-a="revive" data-k="${h.kind}" ${s.zeni >= s.reviveCost ? '' : 'disabled'} title="Reviver custa 50% do Zeni">Reviver (${s.reviveCost} z)</button>` : ''}
+          ${h.dead ? `<button data-a="revive" data-k="${h.kind}" ${s.zeni >= s.reviveCost ? '' : 'disabled'} title="Reviver custa 50% do Zen">Reviver (${s.reviveCost} Zen)</button>` : ''}
         </div>`,
       )
       .join('');
@@ -276,7 +276,7 @@ export class WorldMap {
         <div class="win-title"><span>Party</span><i class="dots"></i></div>
         <div class="win-body">
           ${heroes}
-          <div class="wm-bank"><span><i class="zeni-ico"></i>${s.zeni.toLocaleString('pt-BR')} Zeni</span><span><i class="soul-ico"></i>${s.souls} almas</span>${s.cityMaxHp ? `<span class="wm-city ${s.cityHp! / s.cityMaxHp < 0.4 ? 'low' : ''}" title="Vida da cidade — repare no Templo das cidades">🏰 ${s.cityHp}/${s.cityMaxHp}</span>` : ''}</div>
+          <div class="wm-bank"><span><i class="zeni-ico"></i>${s.zeni.toLocaleString('pt-BR')} Zen</span><span><i class="soul-ico"></i>${s.souls} almas</span>${s.cityMaxHp ? `<span class="wm-city ${s.cityHp! / s.cityMaxHp < 0.4 ? 'low' : ''}" title="Vida da cidade — repare no Templo das cidades">🏰 ${s.cityHp}/${s.cityMaxHp}</span>` : ''}</div>
           <div class="wm-btns"><button data-a="char">Personagem (C)</button><button data-a="skills">Habilidades (K)</button></div>
           <button class="wm-abandon" data-a="abandon">Abandonar jornada</button>
         </div>

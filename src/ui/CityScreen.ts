@@ -192,7 +192,7 @@ export class CityScreen {
         return;
       case 'potion': {
         const lv = buyPotion(r, Number(b.dataset.i), h);
-        if (lv === undefined) this.say('Sem Zeni suficiente', false);
+        if (lv === undefined) this.say('Sem Zen suficiente', false);
         else {
           this.say(lv ? `${HERO_PT[h]} subiu para o nível ${r.profile.heroes[h].level}!` : `+${GAME_CONFIG.city.potions[Number(b.dataset.i)].exp} EXP`);
           sound = lv ? 'levelup' : 'coin';
@@ -201,7 +201,7 @@ export class CityScreen {
       }
       case 'cons': {
         const cn = GAME_CONFIG.city.consumables.find((x) => x.id === b.dataset.id);
-        if (!cn || !buyConsumable(r, cn.id, h)) this.say('Sem Zeni suficiente', false);
+        if (!cn || !buyConsumable(r, cn.id, h)) this.say('Sem Zen suficiente', false);
         else {
           this.say(`${HERO_PT[h]}: ${cn.hp ? `+${cn.hp} de vida máxima` : `+${cn.mana} de Mana (slots de habilidade)`}!`);
           sound = 'coin';
@@ -237,21 +237,21 @@ export class CityScreen {
         const it = this.findItem(this.sel);
         if (it) {
           const m = rerollItem(r, it);
-          this.say(m?.includes('insuficiente') ? 'Sem Zeni suficiente' : 'Atributos novos!', !m?.includes('insuficiente'));
+          this.say(m?.includes('insuficiente') ? 'Sem Zen suficiente' : 'Atributos novos!', !m?.includes('insuficiente'));
         }
         sound = 'coin';
         break;
       }
       case 'attrBuy':
-        this.say(buyPointWithZeni(r.profile, h) ? '+1 ponto — distribua em Personagem (C)' : 'Sem Zeni suficiente', true);
+        this.say(buyPointWithZeni(r.profile, h) ? '+1 ponto — distribua em Personagem (C)' : 'Sem Zen suficiente', true);
         sound = 'coin';
         break;
       case 'attrRespec':
-        this.say(respecWithZeni(r.profile, h) ? 'Pontos devolvidos — redistribua em Personagem (C)' : 'Sem Zeni suficiente');
+        this.say(respecWithZeni(r.profile, h) ? 'Pontos devolvidos — redistribua em Personagem (C)' : 'Sem Zen suficiente');
         sound = 'coin';
         break;
       case 'skillRespec':
-        this.say(respecSkills(r, h) ? 'Pontos de habilidade devolvidos' : 'Sem Zeni suficiente');
+        this.say(respecSkills(r, h) ? 'Pontos de habilidade devolvidos' : 'Sem Zen suficiente');
         sound = 'coin';
         break;
       case 'awaken': {
@@ -279,10 +279,13 @@ export class CityScreen {
         sound = m?.startsWith('Muralha') ? 'coin' : 'ui';
         break;
       }
-      case 'revive':
-        this.say(revive(r, b.dataset.h as HeroKind) ? `${HERO_PT[b.dataset.h as HeroKind]} voltou!` : 'Sem Zeni suficiente');
-        sound = 'levelup';
+      case 'revive': {
+        const hk = b.dataset.h as HeroKind;
+        const ok = revive(r, hk);
+        this.say(ok ? `${HERO_PT[hk]} voltou!` : 'Sem Zen suficiente.', ok);
+        sound = ok ? 'levelup' : 'ui';
         break;
+      }
     }
     this.cb.onChange(sound);
     this.render();
@@ -470,7 +473,7 @@ export class CityScreen {
           <div class="acts"><button class="big-act" data-c="absorb"${dis(p.souls >= a.souls)}>✦ <b>${a.souls} almas → +${a.exp} EXP</b></button></div>`;
       }
       case 'priestess': {
-        // Muralha da cidade: a vida dela não volta sozinha — reparo com Zeni
+        // Muralha da cidade: a vida dela não volta sozinha — reparo com Zen
         const missing = r.cityMaxHp - r.cityHp;
         const step = Math.min(missing, GAME_CONFIG.cityDefense.repairStep);
         const frac = r.cityHp / r.cityMaxHp;
@@ -483,8 +486,8 @@ export class CityScreen {
         if (!r.dead.length) return `${wall}<h4>Heróis</h4><div class="empty">✔ Todos de pé</div>`;
         const c = reviveCost(r);
         return `${wall}<h4>Reviver</h4><div class="revives">${r.dead
-          .map((h) => `<div class="rv"><img src="${PORTRAITS[h]}" alt=""><b>${HERO_PT[h]}</b><button class="big-act primary" data-c="revive" data-h="${h}"${dis(p.zeni > 0)}>✚ Reviver <span class="tag"><i class="zeni-ico"></i>${c}</span></button></div>`)
-          .join('')}</div><div class="hint">Custa metade do seu Zeni.</div>`;
+          .map((h) => `<div class="rv"><img src="${PORTRAITS[h]}" alt=""><b>${HERO_PT[h]}</b><button class="big-act primary" data-c="revive" data-h="${h}">✚ Reviver <span class="tag"><i class="zeni-ico"></i>${c}</span></button></div>`)
+          .join('')}</div><div class="hint">Custa metade do seu Zen.${p.zeni <= 0 ? ' Com a bolsa vazia, sai de graça.' : ''}</div>`;
       }
     }
   }

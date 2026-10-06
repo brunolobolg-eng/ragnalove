@@ -4,7 +4,7 @@ import { ZONES, type ZoneDef } from '../../config/zones';
 import { ACTS, EVENTS, REGION_BY_ID, type EventDef, type EventEffect, type NodeType, type Region } from '../../config/world';
 import { REFINE, RARITIES, RARITY_INFO, rollItem, type Item, type Rarity, type Slot } from '../progression/equipment';
 import { addExperience, addZeni, createProfile, expToNext, heroEquipped, heroStats, migrateProfile, resetAttributes, type Profile } from '../progression/profile';
-import { SKILL_BY_ID, SKILL_ZENI, heroSkills, investedSkillPoints, lvOf, missingRequirements, skillZeniCost, type HeroKind, type SkillId } from '../progression/skills';
+import { SKILL_BY_ID, SKILL_ZENI, heroSkills, investedSkillPoints, lvOf, missingRequirements, prereqPath, skillZeniCost, type HeroKind, type SkillId } from '../progression/skills';
 import { Rng } from '../sim/rng';
 import { slotCount, usesSlot } from '../progression/skillSlots';
 import { HERO_INFO, HERO_ORDER, HERO_NAME as HERO_NAMES } from '../../config/heroes';
@@ -114,6 +114,8 @@ export function unlockHero(r: RunState, h: HeroKind): void {
   hp.exp = 0;
   hp.points += gained * GAME_CONFIG.progression.pointsPerLevel;
   hp.skillPoints += gained * GAME_CONFIG.progression.skillPointsPerLevel;
+  // quem entra na party entra VIVO: sem bandeira de caído nem resto de outro contexto
+  r.dead = r.dead.filter((d) => d !== h);
 }
 
 export function migrateRun(r: RunState): RunState {
@@ -146,12 +148,12 @@ export function recordNight(r: RunState, rep: WaveReport): void {
   if (r.reports.length > n) r.reports.splice(0, r.reports.length - n);
 }
 
-/** Zeni para reparar `hp` da muralha (preço sobe por ato). */
+/** Zen para reparar `hp` da muralha (preço sobe por ato). */
 export function repairCost(r: RunState, hp: number): number {
   return Math.ceil(hp * GAME_CONFIG.cityDefense.repairZeniPerHp * priceMult(r));
 }
 
-/** Repara a muralha: `all` conserta tudo o que der com o Zeni atual; senão um passo. */
+/** Repara a muralha: `all` conserta tudo o que der com o Zen atual; senão um passo. */
 export function repairCity(r: RunState, all = false): string | undefined {
   const missing = r.cityMaxHp - r.cityHp;
   if (missing <= 0) return 'A muralha já está inteira.';
@@ -160,7 +162,7 @@ export function repairCity(r: RunState, all = false): string | undefined {
     hp = missing;
     while (hp > 0 && repairCost(r, hp) > r.profile.zeni) hp--;
   }
-  if (hp <= 0 || !spend(r, repairCost(r, hp))) return 'Zeni insuficiente.';
+  if (hp <= 0 || !spend(r, repairCost(r, hp))) return 'Zen insuficiente.';
   r.cityHp += hp;
   return `Muralha reparada (+${hp}).`;
 }
@@ -181,7 +183,7 @@ export function objectActions(r: RunState, type: keyof typeof OBJECT_RULES, id: 
     const A = GAME_CONFIG.objects.altar;
     const z = Math.round(A.zeniCost * priceMult(r));
     return [
-      { id: 'zeni', label: `${rule.action} (${z} Zeni)`, disabled: r.profile.zeni < z },
+      { id: 'zeni', label: `${rule.action} (${z} Zen)`, disabled: r.profile.zeni < z },
       { id: 'souls', label: `${rule.action} (${A.soulCost} almas)`, disabled: r.profile.souls < A.soulCost },
     ];
   }
@@ -208,11 +210,11 @@ export function useMapObject(r: RunState, type: keyof typeof OBJECT_RULES, id: n
     } else {
       const v = Math.round((C.zeni[0] + uiRng.int(C.zeni[1] - C.zeni[0] + 1)) * k);
       addZeni(p, v);
-      msg = `Uma bolsa esquecida na carga: +${v} Zeni.`;
+      msg = `Uma bolsa esquecida na carga: +${v} Zen.`;
     }
   } else if (type === 'altar') {
     const A = GAME_CONFIG.objects.altar;
-    if (how === 'zeni' && !spend(r, Math.round(A.zeniCost * priceMult(r)))) return 'Zeni insuficiente.';
+    if (how === 'zeni' && !spend(r, Math.round(A.zeniCost * priceMult(r)))) return 'Zen insuficiente.';
     if (how === 'souls') {
       if (p.souls < A.soulCost) return 'Almas insuficientes.';
       p.souls -= A.soulCost;
@@ -369,7 +371,7 @@ export function applyEventEffects(r: RunState, effects: EventEffect[]): string[]
     if ('zeni' in e) {
       const v = Math.round(e.zeni * k);
       addZeni(p, v);
-      out.push(`${v >= 0 ? '+' : ''}${v} Zeni`);
+      out.push(`${v >= 0 ? '+' : ''}${v} Zen`);
     } else if ('souls' in e) {
       const v = Math.round(e.souls * k);
       p.souls = Math.max(0, p.souls + v);
@@ -432,7 +434,7 @@ export function buyItem(r: RunState, id: string): string | undefined {
   const stock = shopStock(r);
   const i = stock.findIndex((it) => it.id === id);
   if (i < 0) return;
-  if (!spend(r, itemPrice(r, stock[i]))) return 'Zeni insuficiente.';
+  if (!spend(r, itemPrice(r, stock[i]))) return 'Zen insuficiente.';
   r.profile.inventory.push(stock[i]);
   stock.splice(i, 1);
   return 'Comprado!';
@@ -489,7 +491,7 @@ export function refineItem(r: RunState, it: Item): RefineResult {
   const cur = it.refine ?? 0;
   if (cur >= REFINE.max) return { ok: false, text: 'Refino máximo.' };
   const cost = orePrice(r) + refineFee(it);
-  if (!spend(r, cost)) return { ok: false, text: 'Zeni insuficiente.' };
+  if (!spend(r, cost)) return { ok: false, text: 'Zen insuficiente.' };
   const chance = REFINE.chance[cur + 1];
   if (uiRng.next() < chance) {
     it.refine = cur + 1;
@@ -502,7 +504,7 @@ export function refineItem(r: RunState, it: Item): RefineResult {
 
 /** Roleta de atributos: sorteia de novo as rolagens mantendo slot e raridade. */
 export function rerollItem(r: RunState, it: Item): string | undefined {
-  if (!spend(r, rerollPrice(r, it))) return 'Zeni insuficiente.';
+  if (!spend(r, rerollPrice(r, it))) return 'Zen insuficiente.';
   // mantém tipo e Ataque da arma: só os atributos extras mudam
   const fresh = rollItem(uiRng, 0, it.id, { rarity: it.rarity, slot: it.slot, kind: it.kind });
   it.rolls = fresh.rolls;
@@ -538,7 +540,7 @@ export function learnSkill(r: RunState, hero: HeroKind, id: SkillId): string | u
   if (missingRequirements(h.skills, id).length) return 'Pré-requisito faltando.';
   if (h.skillPoints <= 0) return 'Sem pontos de habilidade.';
   const cost = skillZeniCost(id, lv + 1);
-  if (!spend(r, cost)) return 'Zeni insuficiente.';
+  if (!spend(r, cost)) return 'Zen insuficiente.';
   h.skillPoints--;
   h.skills[id] = lv + 1;
   // habilidade ativa nova entra sozinha num slot livre (se o jogador já escolheu os slots)
@@ -546,6 +548,23 @@ export function learnSkill(r: RunState, hero: HeroKind, id: SkillId): string | u
     const cur = heroEquipped(r.profile, hero);
     if (cur.length < slotCount(hero, heroStats(r.profile, hero).mana)) h.equippedSkills = [...cur, id];
   }
+  return undefined;
+}
+
+/**
+ * Compra o CAMINHO de pré-requisitos até `id` de uma vez (pontos + Zen do fecho transitivo).
+ * O alvo continua sendo comprado à parte, pelo `learnSkill` normal — que segue exigindo
+ * todos os pré-requisitos. Ramo de especialização nunca é escolhido sozinho.
+ */
+export function learnPath(r: RunState, hero: HeroKind, id: SkillId): string | undefined {
+  const h = r.profile.heroes[hero];
+  const path = prereqPath(h.skills, hero, id);
+  if (path.blocked.length) return path.blocked[0];
+  if (!path.steps.length) return 'Sem pré-requisitos faltando.';
+  if (h.skillPoints < path.points) return `Faltam ${path.points - h.skillPoints} ponto(s) de habilidade para o caminho.`;
+  if (!spend(r, path.zeni)) return 'Zen insuficiente para o caminho.';
+  h.skillPoints -= path.points;
+  for (const s of path.steps) h.skills[s.id] = s.to;
   return undefined;
 }
 

@@ -161,7 +161,7 @@ export type EventEffect =
 
 export interface EventOption {
   label: string;
-  /** Custo em Zeni (o botão fica desativado se não houver). */
+  /** Custo em Zen (o botão fica desativado se não houver). */
   cost?: number;
   effects: EventEffect[];
   result: string;
@@ -174,7 +174,7 @@ export interface EventDef {
   options: EventOption[];
 }
 
-/** Valores em Zeni/almas/EXP são multiplicados pelo ato (1×, 1,6×, 2,4×). */
+/** Valores em Zen/almas/EXP são multiplicados pelo ato (1×, 1,6×, 2,4×). */
 export const EVENTS: EventDef[] = [
   {
     id: 'cart',
@@ -183,7 +183,7 @@ export const EVENTS: EventDef[] = [
     options: [
       {
         label: 'Vasculhar a carga',
-        effects: [{ gamble: { chance: 0.9, win: [{ zeni: 140 }], lose: [{ zeni: -50 }], winText: 'Entre panos rasgados, uma bolsa esquecida de Zeni.', loseText: 'Saqueadores escondidos! Vocês se livram, mas não de graça.' } }],
+        effects: [{ gamble: { chance: 0.9, win: [{ zeni: 140 }], lose: [{ zeni: -50 }], winText: 'Entre panos rasgados, uma bolsa esquecida de Zen.', loseText: 'Saqueadores escondidos! Vocês se livram, mas não de graça.' } }],
         result: '',
       },
       {
@@ -199,7 +199,7 @@ export const EVENTS: EventDef[] = [
     text: 'Um altar de pedra coberto de musgo. Velas apagadas cercam uma estátua sem rosto.',
     options: [
       {
-        label: 'Ofertar Zeni',
+        label: 'Ofertar Zen',
         cost: 120,
         effects: [{ gamble: { chance: 0.9, win: [{ attrPoints: 1 }], lose: [], winText: 'Uma luz morna percorre a party: +1 ponto de atributo para cada herói.', loseText: 'Os deuses silenciam. A oferta se foi.' } }],
         result: '',
@@ -250,7 +250,7 @@ export const EVENTS: EventDef[] = [
     title: 'Poço das almas',
     text: 'Um poço de água escura sussurra nomes. Luzes azuis sobem da superfície.',
     options: [
-      { label: 'Beber da água', effects: [{ gamble: { chance: 0.55, win: [{ souls: 45 }], lose: [{ zeni: -80 }], winText: 'As almas do poço se rendem a vocês.', loseText: 'Uma mão gelada puxa a bolsa: vocês perdem Zeni.' } }], result: '' },
+      { label: 'Beber da água', effects: [{ gamble: { chance: 0.55, win: [{ souls: 45 }], lose: [{ zeni: -80 }], winText: 'As almas do poço se rendem a vocês.', loseText: 'Uma mão gelada puxa a bolsa: vocês perdem Zen.' } }], result: '' },
       {
         label: 'Jogar uma moeda',
         cost: 30,
@@ -294,7 +294,7 @@ export const EVENTS: EventDef[] = [
   {
     id: 'masons',
     title: 'Pedreiros errantes',
-    text: 'Uma turma de pedreiros fugiu da capital com as ferramentas nas costas. Por um punhado de Zeni, eles voltam para remendar a muralha.',
+    text: 'Uma turma de pedreiros fugiu da capital com as ferramentas nas costas. Por um punhado de Zen, eles voltam para remendar a muralha.',
     options: [
       {
         label: 'Pagar pelo reparo completo',

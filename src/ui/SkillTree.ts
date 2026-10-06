@@ -1,5 +1,5 @@
-import { BRANCHES, SKILL_BY_ID, branchName, chosenBranch, heroSkills, lvOf, missingRequirements, skillState, skillZeniCost, type HeroKind, type SkillDef, type SkillId } from '../core/progression/skills';
-import { learnSkill, type RunState } from '../core/run/run';
+import { BRANCHES, SKILL_BY_ID, branchName, chosenBranch, heroSkills, lvOf, missingRequirements, prereqPath, skillState, skillZeniCost, type HeroKind, type SkillDef, type SkillId } from '../core/progression/skills';
+import { learnPath, learnSkill, type RunState } from '../core/run/run';
 import { heroEquipped, heroStats, toggleSkillSlot } from '../core/progression/profile';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { manaToNextSlot, slotCost, slotCount, usesSlot } from '../core/progression/skillSlots';
@@ -50,6 +50,11 @@ export class SkillTree {
       else if (c === 'learn' && this.sel && this.run) {
         const err = learnSkill(this.run, this.hero, this.sel);
         this.msg = err ?? `${SKILL_BY_ID[this.sel].name} agora no nível ${lvOf(this.run.profile.heroes[this.hero].skills, this.sel)}!`;
+        this.cb.onChange(!err);
+        if (!err) this.pulse(this.sel);
+      } else if (c === 'path' && this.sel && this.run) {
+        const err = learnPath(this.run, this.hero, this.sel);
+        this.msg = err ?? `Caminho desbloqueado — agora aprenda ${SKILL_BY_ID[this.sel].name}!`;
         this.cb.onChange(!err);
         if (!err) this.pulse(this.sel);
       } else if (c === 'slot' && this.run) {
@@ -148,9 +153,10 @@ export class SkillTree {
         const p = pos(d);
         const lv = lvOf(hp.skills, d.id);
         const st = skillState(hp.skills, d.id);
+        const inPath = this.sel && this.sel !== d.id && prereqPath(hp.skills, this.hero, this.sel).steps.some((s) => s.id === d.id);
         const br = d.branch ? `<i class="sk-br ${chosen && chosen !== d.branch ? 'off' : ''}">${branchName(this.hero, d.branch).replace(/ \(.*\)/, '')}</i>` : '';
         const tag = !usesSlot(d.id) ? '' : equipped.includes(d.id) ? '<i class="sk-slot on">No slot</i>' : lv > 0 ? '<i class="sk-slot">Fora</i>' : '';
-        return `<button class="sk-node ${st} ${this.sel === d.id ? 'sel' : ''}" data-c="node" data-id="${d.id}" style="left:${p.x}px;top:${p.y}px">
+        return `<button class="sk-node ${st}${inPath ? ' in-path' : ''}${this.sel === d.id ? ' sel' : ''}" data-c="node" data-id="${d.id}" style="left:${p.x}px;top:${p.y}px">
           <span class="sk-ic"><img src="${this.icon(d.id)}" alt=""><span class="lv">${lv}/${d.maxLevel}</span></span>${tag}${br}
           <b>${d.name}</b><small>${d.kind === 'active' ? 'Ativa' : 'Passiva'} · Tier ${d.tier}</small></button>`;
       })
@@ -163,11 +169,24 @@ export class SkillTree {
       const max = lv >= d.maxLevel;
       const cost = max ? 0 : skillZeniCost(d.id, lv + 1);
       const can = this.canLearn && !max && !miss.length && hp.skillPoints > 0 && r.profile.zeni >= cost;
+      // caminho automático: mostra tudo o que falta (ordem, custo total) antes de confirmar
+      const path = miss.length && !max ? prereqPath(hp.skills, this.hero, d.id) : undefined;
+      const pathBox = !path
+        ? ''
+        : path.blocked.length
+          ? `<div class="sk-path blocked"><b>Caminho bloqueado:</b> ${path.blocked[0]}</div>`
+          : !path.steps.length
+            ? ''
+            : `<div class="sk-path"><b>Caminho até ${d.name}:</b>
+              <ol>${path.steps.map((s) => `<li>${SKILL_BY_ID[s.id].name} nv ${s.from} → <b>${s.to}</b> <small>(${s.points} pt + ${s.zeni} Zen)</small></li>`).join('')}</ol>
+              <p class="cost">Total do caminho: ${path.points} ponto(s) + <i class="zeni-ico"></i>${path.zeni} Zen <small>(o ${d.name} é comprado à parte)</small></p>
+              <button class="primary" data-c="path"${this.canLearn && hp.skillPoints >= path.points && r.profile.zeni >= path.zeni ? '' : ' disabled'}>Desbloquear caminho</button></div>`;
       detail = `<div class="sk-detail"><img src="${this.icon(d.id)}" alt=""><div><h3>${d.name}</h3><small>${d.kind === 'active' ? 'Ativa (o herói usa sozinho)' : 'Passiva'} · nível ${lv}/${d.maxLevel}</small></div></div>
         <p>${d.desc}</p>
         ${d.requires.length ? `<p class="req">Requisitos: ${d.requires.map((q) => `<span class="${lvOf(hp.skills, q.id) >= q.level ? 'ok' : 'no'}">${SKILL_BY_ID[q.id].name} nv ${q.level}</span>`).join(', ')}</p>` : ''}
+        ${pathBox}
         ${lv > 0 ? `<p><b>Agora:</b> ${d.effect(lv)}</p>` : ''}
-        ${max ? '<p><b>Nível máximo.</b></p>' : `<p><b>Próximo nível:</b> ${d.effect(lv + 1)}</p><p class="cost">Custo: 1 ponto de habilidade + <i class="zeni-ico"></i>${cost} Zeni</p>`}
+        ${max ? '<p><b>Nível máximo.</b></p>' : `<p><b>Próximo nível:</b> ${d.effect(lv + 1)}</p><p class="cost">Custo: 1 ponto de habilidade + <i class="zeni-ico"></i>${cost} Zen</p>`}
         ${max ? '' : `<button class="primary" data-c="learn"${can ? '' : ' disabled'}>${lv ? 'Subir de nível' : 'Aprender'}</button>`}
         ${!this.canLearn && !max ? '<p class="note">Aprenda com o Mestre de Armas, numa cidade.</p>' : ''}
         ${usesSlot(d.id) && lv > 0 ? (equipped.includes(d.id) ? '<button data-c="slot" data-id="' + d.id + '">Tirar do slot</button>' : `<button class="primary" data-c="slot" data-id="${d.id}"${equipped.length < total ? '' : ' disabled'}>Equipar no slot</button>${equipped.length < total ? '' : `<p class="note">Slots cheios: tire outra habilidade${manaToNextSlot(this.hero, mana) ? ` ou consiga +${manaToNextSlot(this.hero, mana)} de Mana (Inteligência)` : ''}.</p>`}`) : ''}

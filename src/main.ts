@@ -472,6 +472,7 @@ const city = new CityScreen({
   onChange: (snd) => {
     if (snd) audio.sfx(snd);
     saveProfile();
+    hud.setParty(run.party, run.dead);
     hud.setCharacter(characterVM());
   },
   onLeave: () => completeNode('cidade'),
@@ -918,7 +919,7 @@ function openEvent(): void {
     ev.title,
     body,
     ev.options.map((o) => ({
-      label: `${o.label}${o.cost ? ` (${o.cost} z)` : ''}`,
+      label: `${o.label}${o.cost ? ` (${o.cost} Zen)` : ''}`,
       disabled: (o.cost ?? 0) > profile.zeni,
       onClick: () => {
         const payKey = `e:${run.act}:${run.node}:${ev.id}`;
@@ -1167,7 +1168,7 @@ function finishWave(): void {
     saveMetaStats(meta);
     const newClasses = HERO_ORDER.filter((k) => !heroUnlocked(k, metaBefore) && heroUnlocked(k, meta));
     for (const k of newClasses) hud.log(`Nova classe desbloqueada: ${NAME_PT[k]}! Escolha-a ao iniciar uma nova jornada.`, 'good');
-    hud.log(`Zeni ganho: ${r.zeni + bonus}${won ? ' (inclui bônus de vitória)' : ''}.`, 'good');
+    hud.log(`Zen ganho: ${r.zeni + bonus}${won ? ' (inclui bônus de vitória)' : ''}.`, 'good');
     const n = view.collectDrops();
     if (n > 0) hud.log(`Coletado: ${r.drops.map((d) => itemName(d)).join(', ')}.`, 'good');
     summary = newClasses.map((k) => `<div class="unlock"><img src="${PORTRAITS[k] ?? ''}" alt=""><div><b>Nova classe desbloqueada: ${NAME_PT[k]}!</b><small>Disponível ao iniciar uma nova jornada (e como reforço quando um chefe cair).</small></div></div>`).join('');
@@ -1219,11 +1220,11 @@ function finishWave(): void {
     for (const h of run.dead) {
       const c = reviveCost(run);
       buttons.push({
-        label: `Reviver ${NAME_PT[h]} (${c} z)`,
+        label: `Reviver ${NAME_PT[h]} (${c} Zen)`,
         disabled: profile.zeni < c,
         onClick: () => {
           if (!revive(run, h)) {
-            hud.log(`${NAME_PT[h]} não pôde ser revivido (Zeni insuficiente).`, 'warn');
+            hud.log(`${NAME_PT[h]} não pôde ser revivido (Zen insuficiente).`, 'warn');
             return;
           }
           audio.sfx('levelup');
@@ -1234,7 +1235,7 @@ function finishWave(): void {
       });
     }
     buttons.push({ label: run.dead.length ? 'Seguir sem reviver' : 'Continuar ➜', primary: !run.dead.length, onClick: () => (resultModal.hide(), completeNode(`${node}:vitória`)) });
-    const deadTxt = run.dead.length ? `<p class="warn">${run.dead.map((h) => NAME_PT[h]).join(' e ')} caiu. Reviver custa 50% do Zeni (ou faça isso depois, no templo de uma cidade).</p>` : '';
+    const deadTxt = run.dead.length ? `<p class="warn">${run.dead.map((h) => NAME_PT[h]).join(' e ')} caiu. Reviver custa 50% do Zen (ou faça isso depois, no templo de uma cidade).</p>` : '';
     const head = node === 'boss' ? 'Chefe derrotado! — ' : node === 'elite' ? 'Elite derrotada! — ' : '';
     resultModal.show(nightVM(report, `${head}Relatório da Noite ${report.night}`, [...r.drops, ...gifts, ...(mythic ? [mythic] : [])], before, { zeniBonus: bonus, extraHtml: unlockHtml + summary + deadTxt }), buttons);
   }, 1300);

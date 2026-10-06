@@ -58,7 +58,7 @@ export const OBJECT_RULES: Record<MapObjectType, ObjectRule> = {
   },
   cart: {
     label: 'Carroça tombada',
-    desc: 'Cobertura: bloqueia passagem e visão. Vasculhe antes da horda por Zeni ou almas.',
+    desc: 'Cobertura: bloqueia passagem e visão. Vasculhe antes da horda por Zen ou almas.',
     blocksWalk: always,
     blocksSight: always,
     action: 'Vasculhar a carga',
@@ -112,7 +112,7 @@ export const OBJECT_RULES: Record<MapObjectType, ObjectRule> = {
   },
   altar: {
     label: 'Altar da floresta',
-    desc: `Bênção de cura durante a fase (+${O.altar.regenPerSec} HP/s para a party). Custa Zeni ou almas.`,
+    desc: `Bênção de cura durante a fase (+${O.altar.regenPerSec} HP/s para a party). Custa Zen ou almas.`,
     blocksWalk: always,
     blocksSight: never,
     action: 'Orar no altar',

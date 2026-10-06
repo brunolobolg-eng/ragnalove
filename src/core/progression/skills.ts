@@ -5,7 +5,7 @@ import { GAME_CONFIG } from '../../config/gameConfig';
  * habilidade nova basta adicionar uma entrada aqui e tratar o efeito na simulação.
  *
  * Regras:
- * - Cada habilidade tem nível máximo; subir 1 nível custa 1 ponto de habilidade + Zeni (na cidade).
+ * - Cada habilidade tem nível máximo; subir 1 nível custa 1 ponto de habilidade + Zen (na cidade).
  * - Pré-requisito = outras habilidades em um nível mínimo.
  * - As 4 habilidades originais começam no nível 1 (o herói já sabe usá-las).
  */
@@ -493,7 +493,69 @@ export function missingRequirements(levels: SkillLevels, id: SkillId): string[] 
   return out;
 }
 
-/** Zeni para levar a habilidade ao nível `next`. */
+/** Um passo do caminho até a habilidade desejada: subir `id` de `from` até `to`. */
+export interface PathStep {
+  id: SkillId;
+  from: number;
+  to: number;
+  /** Pontos de habilidade e Zen que este passo custa. */
+  points: number;
+  zeni: number;
+}
+/** Caminho de pré-requisitos até o alvo (fecho transitivo dos requisitos). */
+export interface PrereqPath {
+  target: SkillId;
+  /** Passos em ordem de compra (requisitos dos requisitos primeiro). Vazio = já desbloqueável. */
+  steps: PathStep[];
+  /** Totais do caminho (sem o alvo: ele continua sendo comprado à parte). */
+  points: number;
+  zeni: number;
+  /** Motivos que impedem o caminho (vazio = caminho válido). */
+  blocked: string[];
+}
+
+/**
+ * Caminho automático até `id`: que níveis faltam, em que ordem e quanto custa no total.
+ * O jogador nunca precisa calcular de cabeça — a UI mostra este caminho antes de confirmar.
+ * Regras preservadas: sem o caminho todo não há desbloqueio; ramos de especialização
+ * nunca são escolhidos sozinhos (caminho que cruza dois ramos sem escolha feita = bloqueado).
+ */
+export function prereqPath(levels: SkillLevels, hero: HeroKind, id: SkillId): PrereqPath {
+  const steps: PathStep[] = [];
+  const blocked: string[] = [];
+  const seen = new Set<SkillId>();
+  const need = (sid: SkillId, level: number): void => {
+    const d = SKILL_BY_ID[sid];
+    if (!d || seen.has(sid)) return;
+    seen.add(sid);
+    for (const r of d.requires) need(r.id, r.level);
+    const cur = lvOf(levels, sid);
+    const to = Math.min(level, d.maxLevel);
+    if (to > cur) {
+      let zeni = 0;
+      for (let lv = cur; lv < to; lv++) zeni += skillZeniCost(sid, lv + 1);
+      steps.push({ id: sid, from: cur, to, points: to - cur, zeni });
+    } else if (level > d.maxLevel) blocked.push(`${d.name} só vai até o nível ${d.maxLevel}`);
+  };
+  const target = SKILL_BY_ID[id];
+  if (!target || target.hero !== hero) {
+    blocked.push('Habilidade inválida para este herói.');
+    return { target: id, steps, points: 0, zeni: 0, blocked };
+  }
+  for (const r of target.requires) need(r.id, r.level);
+  // especialização: o caminho nunca atravessa dois ramos sozinho (a escolha é do jogador)
+  const branches = new Set([target.branch, ...steps.map((s) => SKILL_BY_ID[s.id].branch)].filter(Boolean) as string[]);
+  const chosen = chosenBranch(hero, levels);
+  if (chosen) {
+    const invader = [...branches].find((b) => b !== chosen);
+    if (invader) blocked.push(`especialização ${branchName(hero, invader)} (já escolheu ${branchName(hero, chosen)})`);
+  } else if (branches.size > 1) {
+    blocked.push(`escolha um ramo primeiro: ${[...branches].map((b) => branchName(hero, b)).join(' ou ')}`);
+  }
+  return { target: id, steps, points: steps.reduce((s, x) => s + x.points, 0), zeni: steps.reduce((s, x) => s + x.zeni, 0), blocked };
+}
+
+/** Zen para levar a habilidade ao nível `next`. */
 export function skillZeniCost(id: SkillId, next: number): number {
   const d = SKILL_BY_ID[id];
   return SKILL_ZENI.base * d.tier * next;

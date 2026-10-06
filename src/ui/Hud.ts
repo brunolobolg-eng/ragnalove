@@ -41,7 +41,7 @@ export interface CharacterVM {
     kind: HeroKind;
     level: number;
     points: number;
-    /** Preço do próximo ponto comprado com Zeni. */
+    /** Preço do próximo ponto comprado com Zen. */
     pointCost: number;
     /** Tem pontos distribuídos (pode redistribuir). */
     spent: boolean;
@@ -91,7 +91,7 @@ export interface HudState {
   bossOut?: boolean;
   /** Almas totais da party (moeda de progressão). */
   souls: number;
-  /** Zeni da bolsa (banco + ganho nesta onda). */
+  /** Zen da bolsa (banco + ganho nesta onda). */
   zeni: number;
   /** Sobrevivência em andamento: estágio e tempo. */
   survival?: { stage: number; seconds: number };
@@ -299,7 +299,7 @@ export class Hud {
           <div class="wave-line"><span class="wave">Fase 1</span><span class="kills"></span></div>
           <div class="stage-line"></div>
           <div class="soul-line" title="Almas roubadas: moeda de evolução da party"><i class="soul-ico big"></i><span>Almas</span><b class="soul-total">0</b></div>
-          <div class="zeni-line" title="Zeni: moeda para atributos, redistribuição, lojas e refino"><i class="zeni-ico"></i><span>Zeni</span><b class="zeni-total">0</b></div>
+          <div class="zeni-line" title="Zen: moeda para atributos, redistribuição, lojas e refino"><i class="zeni-ico"></i><span>Zen</span><b class="zeni-total">0</b></div>
           <div class="phase"></div>
           <div class="plan-only tool-chips" data-group="tool" title="Selecione e clique no chão — ou arraste direto no campo">
             ${ALL_HEROES.map((k, i) => `<button data-tool="${k}" class="${i === 0 ? 'on' : ''}" title="Posicionar ${NAME[k]}">${NAME[k]}</button>`).join('')}
@@ -744,7 +744,7 @@ export class Hud {
           <div class="cw-sub big">Bolsa <span>${vm.inventory.length} itens</span></div>
           <div class="cw-filter">${flt('all', 'Todos')}${flt('weapon', 'Armas')}${flt('armor', 'Armaduras')}${flt('accessory', 'Acessórios')}</div>
           <div class="cw-grid">${cells.join('')}</div>
-          <div class="cw-money"><span><i class="zeni-ico"></i>${vm.zeni.toLocaleString('pt-BR')} Zeni</span><span><i class="soul-ico"></i>${vm.souls} almas</span></div>
+          <div class="cw-money"><span><i class="zeni-ico"></i>${vm.zeni.toLocaleString('pt-BR')} Zen</span><span><i class="soul-ico"></i>${vm.souls} almas</span></div>
           <div class="cw-hint">Clique num item da bolsa para equipar · no equipado para guardar. Itens melhores são equipados sozinhos.</div>
         </section>
       </div>`;

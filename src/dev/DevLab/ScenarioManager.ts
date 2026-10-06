@@ -2,7 +2,7 @@
  * Aba SCENARIOS: cenários de teste salvos (criar, salvar, carregar, duplicar, deletar).
  * Ficam num arquivo gravado pelo client desktop (Electron): src/dev/devlab-scenarios.json
  * rodando da pasta do projeto, ou a pasta de dados do usuário no executável.
- * Carregar um cenário só chama comandos do jogo/Dev Lab (equipe, nível, Zeni, trapaças,
+ * Carregar um cenário só chama comandos do jogo/Dev Lab (equipe, nível, Zen, trapaças,
  * modificadores, spawn) — nada aqui tem lógica de combate.
  */
 import { GAME_CONFIG } from '../../config/gameConfig';
@@ -72,7 +72,7 @@ export class ScenarioManager {
           <span>Nome</span><input type="text" data-f="name">
           <span>Heróis</span><input type="text" data-f="heroes" placeholder="warrior:50, mage:30 (vazio = equipe atual)">
           <span>Inimigos</span><input type="text" data-f="enemies" placeholder="grunt:100, boss:1">
-          <span>Zeni</span><input type="number" min="0" data-f="zeni" placeholder="(não muda)">
+          <span>Zen</span><input type="number" min="0" data-f="zeni" placeholder="(não muda)">
           <span>Trapaças</span><span><label><input type="checkbox" data-c="invincible"> God</label> <label><input type="checkbox" data-c="oneHit"> Dano infinito</label> <label><input type="checkbox" data-c="noCooldowns"> Sem recarga/mana</label></span>
           <span>Movimento</span><select data-f="move"><option value="">padrão do jogo</option><option value="on">Combat Movement ON</option><option value="off">OFF</option></select>
           <span>Range mult.</span><select data-f="ranged"><option value="">desligado</option>${DEV_CONFIG.rangedMultOptions.map((v) => `<option value="${v}">${v}x</option>`).join('')}</select>

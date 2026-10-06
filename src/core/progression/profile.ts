@@ -15,7 +15,7 @@ export interface HeroProgress {
   exp: number;
   attrs: Attrs;
   points: number; // pontos de atributo livres
-  /** Pontos de atributo já comprados com Zeni (o preço sobe a cada compra). */
+  /** Pontos de atributo já comprados com Zen (o preço sobe a cada compra). */
   zeniPoints?: number;
   /** Níveis na árvore de habilidades. */
   skills: SkillLevels;
@@ -32,7 +32,7 @@ export interface HeroProgress {
 export interface Profile {
   version: 1;
   souls: number; // almas no banco (moeda de crescimento: EXP, despertar)
-  /** Zeni: moeda de gasto (atributos, respec, lojas, refino). */
+  /** Zen: moeda de gasto (atributos, respec, lojas, refino). */
   zeni: number;
   /** Quantas vezes os atributos foram redistribuídos (o custo sobe a cada uso). */
   respecs?: number;
@@ -180,12 +180,12 @@ export function removePoint(p: Profile, kind: string, k: AttrKey): boolean {
 
 export const ZENI = GAME_CONFIG.zeni;
 
-/** Preço do próximo ponto de atributo comprado com Zeni para esse herói. */
+/** Preço do próximo ponto de atributo comprado com Zen para esse herói. */
 export function attrPointCost(p: Profile, kind: string): number {
   return ZENI.attrPointBase + ZENI.attrPointStep * (p.heroes[kind].zeniPoints ?? 0);
 }
 
-/** Zeni compra pontos de atributo extras (preço crescente por herói). */
+/** Zen compra pontos de atributo extras (preço crescente por herói). */
 export function buyPointWithZeni(p: Profile, kind: string): boolean {
   const cost = attrPointCost(p, kind);
   if (p.zeni < cost) return false;
@@ -201,7 +201,7 @@ export function respecCost(p: Profile): number {
   return ZENI.respecBase * (1 + (p.respecs ?? 0));
 }
 
-/** Redistribuir: devolve todos os pontos gastos desse herói, pagando Zeni. */
+/** Redistribuir: devolve todos os pontos gastos desse herói, pagando Zen. */
 export function respecWithZeni(p: Profile, kind: string): boolean {
   const cost = respecCost(p);
   if (p.zeni < cost || spentPoints(p.heroes[kind], kind) <= 0) return false;
@@ -339,7 +339,7 @@ export function clearInventory(p: Profile): void {
   p.inventory.length = 0;
 }
 
-/** Saves antigos: preenche campos novos (habilidades, Zeni). */
+/** Saves antigos: preenche campos novos (habilidades, Zen). */
 export function migrateProfile(p: Profile): Profile {
   p.zeni ??= 0;
   p.souls ??= 0;

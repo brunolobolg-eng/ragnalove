@@ -1,5 +1,5 @@
 /**
- * Aba ECONOMY: moedas do jogo (Zeni = gold, Almas) e EXP, pelas mesmas funções do perfil.
+ * Aba ECONOMY: moedas do jogo (Zen = gold, Almas) e EXP, pelas mesmas funções do perfil.
  * O jogo não tem Gems: as moedas listadas são as que existem.
  */
 import { DEV_CONFIG } from '../devConfig';
@@ -12,15 +12,15 @@ export function buildEconomy(el: HTMLElement, ctx: DevCtx): { refresh(): void; o
   el.innerHTML = `
     <div class="dl-sec"><h4>Moedas</h4>
       <table class="dl-tbl"><tbody>
-        <tr><td>Zeni (gold)</td><td class="n" data-val="zeni"></td><td>${btns('zeni')}</td></tr>
+        <tr><td>Zen (gold)</td><td class="n" data-val="zeni"></td><td>${btns('zeni')}</td></tr>
         <tr><td>Almas</td><td class="n" data-val="souls"></td><td>${btns('souls')}</td></tr>
         <tr><td>EXP · <span data-hero></span></td><td class="n" data-val="exp"></td><td>${btns('exp')}</td></tr>
       </tbody></table>
       <div class="dl-note">EXP vai para o herói selecionado em CHARACTERS (MAX = nível ${DEV_CONFIG.maxLevel}); só muda entre ondas. O jogo não tem Gems.</div>
     </div>
     <div class="dl-sec"><h4>Opções</h4>
-      <div class="dl-row"><label><input type="checkbox" data-infinite> Infinite Gold (mantém o Zeni no MAX)</label></div>
-      <div class="dl-row"><button class="dl-btn dl-danger" data-reset>Reset Economy (Zeni e Almas = 0)</button></div>
+      <div class="dl-row"><label><input type="checkbox" data-infinite> Infinite Gold (mantém o Zen no MAX)</label></div>
+      <div class="dl-row"><button class="dl-btn dl-danger" data-reset>Reset Economy (Zen e Almas = 0)</button></div>
     </div>`;
   const q = <T extends HTMLElement>(s: string) => el.querySelector<T>(s)!;
 

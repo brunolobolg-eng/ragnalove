@@ -81,7 +81,7 @@ export const GAME_CONFIG = {
     defaultDrop: 1,
   },
   /**
-   * Zeni: moeda de GASTO da run (atributos, respec, lojas, refino). Cai de todo monstro abatido
+   * Zen: moeda de GASTO da run (atributos, respec, lojas, refino). Cai de todo monstro abatido
    * e vai para a bolsa da party. Almas continuam sendo a moeda de CRESCIMENTO (EXP, despertar).
    */
   zeni: {
@@ -89,7 +89,7 @@ export const GAME_CONFIG = {
     defaultDrop: 2,
     /** Bônus ao vencer a onda. */
     waveClearBonus: 42,
-    /** Ponto de atributo comprado com Zeni: base + passo × pontos já comprados por esse herói. */
+    /** Ponto de atributo comprado com Zen: base + passo × pontos já comprados por esse herói. */
     attrPointBase: 40,
     attrPointStep: 20,
     /** Redistribuir atributos: base × (1 + usos anteriores). */
@@ -108,7 +108,7 @@ export const GAME_CONFIG = {
     /** Cada nível dá pontos de habilidade (árvore). */
     skillPointsPerLevel: 1,
   },
-  /** Serviços das cidades (preços em Zeni, exceto onde indicado). */
+  /** Serviços das cidades (preços em Zen, exceto onde indicado). */
   city: {
     potions: [
       { id: 'expS', name: 'Poção de EXP pequena', exp: 40, price: 60 },
@@ -135,7 +135,7 @@ export const GAME_CONFIG = {
     refineFeePerLevel: 40,
     /** Almas para despertar. */
     awakenSouls: { legendary: 60, mythic: 120 } as Record<string, number>,
-    /** Reviver um herói caído custa esta fração do Zeni atual. */
+    /** Reviver um herói caído custa esta fração do Zen atual. */
     reviveFraction: 0.5,
     /** Preço sobe por ato (índice = ato 0..2). */
     actPriceMult: [1, 1.6, 2.4],
@@ -231,7 +231,7 @@ export const GAME_CONFIG = {
   /**
    * Vida da cidade (CITY_HP / CITY_THREAT_CONFIG). Funciona como zona de ameaça: cada inimigo que
    * alcança o portão invade a cidade, sai do campo e desconta `threat[tipo]` da vida dela.
-   * A cidade não regenera sozinha (reparo na cidade com Zeni ou por eventos). Zero = fim da run.
+   * A cidade não regenera sozinha (reparo na cidade com Zen ou por eventos). Zero = fim da run.
    */
   cityDefense: {
     maxHp: 1000,
@@ -241,7 +241,7 @@ export const GAME_CONFIG = {
     threatActMult: [0.6, 0.9, 1.2],
     /** Na Sobrevivência a cidade não sofre dano (cair lá não custa nada). */
     survivalThreatMult: 0,
-    /** Reparo no Templo: HP por compra e Zeni por HP (multiplicado pelo preço do ato). */
+    /** Reparo no Templo: HP por compra e Zen por HP (multiplicado pelo preço do ato). */
     repairStep: 100,
     repairZeniPerHp: 1.1,
     /** Faixas de estado mostradas no relatório (fração da vida máxima). */
@@ -285,7 +285,7 @@ export const GAME_CONFIG = {
   },
   /** Objetos interativos dos mapas (regras em core/sim/objects.ts). */
   objects: {
-    /** Carroça tombada: cobertura (bloqueia andar e visão); vasculhar dá Zeni ou almas (1× por fase). */
+    /** Carroça tombada: cobertura (bloqueia andar e visão); vasculhar dá Zen ou almas (1× por fase). */
     cart: { zeni: [70, 150] as [number, number], soulChance: 0.35, souls: [8, 16] as [number, number] },
     /** Barril de óleo: derrama no tile e vizinhos; fogo do Mago em cima (ou ao lado) incendeia. */
     oilBarrel: { radius: 1, burnTicks: 90, burnDamage: 9, burnIntervalTicks: 4 },
@@ -293,7 +293,7 @@ export const GAME_CONFIG = {
     torch: { radius: 7 },
     /** Raízes antigas: seguram os comuns; elites e chefes passam por cima; os pesados quebram. */
     roots: { hp: 120 },
-    /** Altar da floresta: bênção de cura durante a fase (custa Zeni OU almas). */
+    /** Altar da floresta: bênção de cura durante a fase (custa Zen OU almas). */
     altar: { zeniCost: 60, soulCost: 14, regenPerSec: 4 },
     /** Coluna de areia: cobertura; desmorona com dano em área ou golpes dos pesados. */
     sandColumn: { hp: 90, areaHit: 25 },
