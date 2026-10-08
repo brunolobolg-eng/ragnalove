@@ -2,6 +2,14 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.5w
+- Performance (horde): enemy GLBs simplified (cultist 18 MB/490k tris → 1.6 MB/18k; Krexx/Senhor Orc-class 20 MB → 2.8 MB/36k; heroes Assassin/Archer 8 MB → ~3.5–4 MB). Originals archived in branch `fontes`.
+- Horde units no longer cast projected shadows (only heroes and bosses); contact shadow kept. Shared geometry/materials for contact shadow and HP bars.
+- Measured (headless bench, 40 units): triangles 6.5M → 0.70M per frame; draw calls unchanged (outline still doubles crowd draws — kept by design, see TODO).
+- Graphics options cleaned: removed "Sprites 2D" (legacy 2D renderer, its frames and sprite meta), removed "Ultra" preset (saved "Ultra" falls back to "Alto"). Remaining: Qualidade (Baixo/Médio/Alto), partículas, tremor, bloom, cinematográfico, granulado, reduzir flashes, limite de FPS, V-Sync (desktop), mostrar FPS.
+- Repo: Universal Animation Library originals and card source sheets (cards2–5, reliquias1) moved out of `main` into branch `fontes` (zipped, with LEIA-ME). Scripts that regenerate them need the zip extracted back.
+- Dev only: `perfbench.html` (bancada de desempenho: `?n=40&shadows=1&outline=0&heroes=4`).
+
 ## 2026-10-08 — v0.5v
 - Zombie/orc arm bind fix: sideways upper-arm segments (T-pose) froze elbows out under procedural clips; loader now hangs the segment (length kept) and derives inverses. Goblin/rat baked clips and Mixamo rigs untouched. New `armBindCheck`.
 

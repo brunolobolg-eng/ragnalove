@@ -12,6 +12,9 @@ Só itens conhecidos/identificados. Sem features inventadas.
 
 # LOW
 - Tempo de execução da suite headless cresce com as contagens (só lógica; ok por enquanto).
+- Contorno (outline) dobra o custo de desenho da horda (medido: 192 → 152 chamadas e 0,70M → 0,40M triângulos com 40 unidades sem contorno). Decisão visual pendente do dono.
+- `ualClips.ts` / `ualMixamo.ts` guardam ~400 KB de números no código; podem virar JSON carregado sob demanda.
+- Áudio (~11 MB em `public/audio`) pode cair para 128 kbps se o tamanho do download importar.
 
 # FUTURE
 - (reservado — nada pendente além do acima)

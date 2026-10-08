@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { VISUAL_CONFIG } from '../../../config/visualConfig';
+import { GAME_CONFIG } from '../../../config/gameConfig';
 import { facingToYaw } from '../../coords';
 import { softCircle } from '../../textures';
 import { archerClips, gruntClips, mageClips, warriorClips, type ClipName } from './anims';
@@ -72,6 +73,20 @@ const IDENTITY = new THREE.Matrix4();
 const MODEL_LEAN = -0.38;
 const ONE_SHOTS: ClipName[] = ['attack', 'heavy', 'cast', 'hit', 'death'];
 
+/** Geometria e materiais iguais em todas as unidades (um conjunto para a horda inteira). */
+let shared: ReturnType<typeof buildShared> | undefined;
+function buildShared() {
+  return {
+    contactGeo: new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+    barBgGeo: new THREE.PlaneGeometry(0.7, 0.08),
+    barFillGeo: new THREE.PlaneGeometry(0.66, 0.05).translate(0.33, 0, 0),
+    barBg: new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55, depthWrite: false }),
+    barFillParty: new THREE.MeshBasicMaterial({ color: 0x4ee07a, depthWrite: false, transparent: true }),
+    barFillEnemy: new THREE.MeshBasicMaterial({ color: 0xe0463a, depthWrite: false, transparent: true }),
+  };
+}
+const sharedUnitRes = () => (shared ??= buildShared());
+
 /**
  * Unidade 3D: SkinnedMesh toon + contorno + espectro, animada por AnimationMixer.
  * Mesma interface do SpriteUnitView (o GameView não precisa saber qual é qual).
@@ -99,6 +114,8 @@ export class ModelUnitView {
   private readonly hpBar = new THREE.Group();
   private readonly hpFill: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   readonly height: number;
+  /** Projeta sombra (heróis e chefes). */
+  private readonly castsShadow: boolean;
   private readonly def: ModelDef;
   private time = Math.random() * 10;
   private yaw = 0;
@@ -137,7 +154,9 @@ export class ModelUnitView {
     this.mesh = new THREE.SkinnedMesh(model.geometry, body);
     this.mesh.add(sk.root);
     this.mesh.bind(sk.skeleton, IDENTITY);
-    this.mesh.castShadow = true;
+    // sombra projetada só de heróis e chefes: a horda não paga a 2ª passagem de desenho (a sombra de contato já existe)
+    this.castsShadow = team === 'party' || GAME_CONFIG.bossKinds.includes(kind);
+    this.mesh.castShadow = this.castsShadow;
     this.mesh.frustumCulled = false;
     const ol = createOutlineMaterial(this.u, this.def.outline);
     this.outline = new THREE.SkinnedMesh(model.geometry, ol);
@@ -197,18 +216,19 @@ export class ModelUnitView {
     });
 
     // sombra de contato (a sombra projetada é real, do sol)
+    const sh = sharedUnitRes();
     this.contact = new THREE.Mesh(
-      new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+      sh.contactGeo,
       new THREE.MeshBasicMaterial({ map: softCircle(), color: 0x000000, transparent: true, opacity: 0.38, depthWrite: false }),
     );
     this.contact.scale.set(0.6, 1, 0.45);
     this.contact.position.y = 0.014;
     this.root.add(this.contact);
 
-    const bg = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.08), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55, depthWrite: false }));
+    const bg = new THREE.Mesh(sh.barBgGeo, sh.barBg);
     this.hpFill = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.66, 0.05).translate(0.33, 0, 0),
-      new THREE.MeshBasicMaterial({ color: team === 'party' ? 0x4ee07a : 0xe0463a, depthWrite: false, transparent: true }),
+      sh.barFillGeo,
+      team === 'party' ? sh.barFillParty : sh.barFillEnemy,
     );
     this.hpFill.position.set(-0.33, 0, 0.001);
     bg.renderOrder = 10;
@@ -336,7 +356,7 @@ export class ModelUnitView {
       this.u.uTint.value.setRGB(1 - k * 0.35, 1 - k * 0.45, 1 - k * 0.45);
       this.u.uRim.value = 0.4 * (1 - k);
       this.contact.material.opacity = 0.38 * op;
-      this.mesh.castShadow = op > 0.5;
+      this.mesh.castShadow = this.castsShadow && op > 0.5;
       if (this.spectre) this.spectre.visible = false;
       if (this.dyingT >= T) this.done = true;
       return;
@@ -402,8 +422,7 @@ export class ModelUnitView {
     this.mixer.uncacheRoot(this.mesh);
     for (const m of this.materials) m.dispose();
     this.mesh.skeleton.dispose();
-    this.contact.material.dispose();
-    this.contact.geometry.dispose();
+    this.contact.material.dispose(); // (a geometria é compartilhada entre as unidades)
     for (const g of [this.hpBar, ...this.weapons])
       g.traverse((o) => {
         if (o instanceof THREE.Mesh) {

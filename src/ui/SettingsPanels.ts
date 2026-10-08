@@ -115,7 +115,7 @@ export class SettingsPanels {
     const w = this.win(
       'video',
       'Efeitos visuais',
-      `<div class="set-row"><span>Personagens</span><div class="segs"><button class="seg" data-chars="3d">3D</button><button class="seg" data-chars="sprites">Sprites 2D</button></div></div>
+      `
        <div class="set-row"><span>Qualidade</span><div class="segs">${presets}</div></div>
        <label class="set-row"><span>Partículas</span><input type="range" min="10" max="100" step="5" data-video="particles"><b data-val="particles"></b></label>
        <label class="set-row"><span>Tremor de tela</span><input type="range" min="0" max="100" step="5" data-video="shake"><b data-val="shake"></b></label>
@@ -140,14 +140,13 @@ export class SettingsPanels {
       });
     });
     w.addEventListener('click', (e) => {
-      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-preset],[data-fps],[data-reset],[data-chars]');
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-preset],[data-fps],[data-reset]');
       if (!b) return;
       this.onUiSound();
       if (b.dataset.reset !== undefined) return this.store.reset();
       this.store.update((s) => {
         if (b.dataset.preset) s.video.preset = b.dataset.preset as QualityPreset;
         if (b.dataset.fps) s.video.fpsCap = Number(b.dataset.fps) as FpsCap;
-        if (b.dataset.chars) s.video.characters = b.dataset.chars as '3d' | 'sprites';
       });
     });
     return w;
@@ -171,7 +170,6 @@ export class SettingsPanels {
     }
     for (const k of ['bloom', 'reduceFlashes', 'vsync', 'showFps', 'cinematic', 'grain'] as const) v.querySelector<HTMLInputElement>(`[data-video="${k}"]`)!.checked = s.video[k];
     v.querySelectorAll<HTMLElement>('[data-preset]').forEach((b) => b.classList.toggle('on', b.dataset.preset === s.video.preset));
-    v.querySelectorAll<HTMLElement>('[data-chars]').forEach((b) => b.classList.toggle('on', b.dataset.chars === s.video.characters));
     v.querySelectorAll<HTMLElement>('[data-fps]').forEach((b) => b.classList.toggle('on', Number(b.dataset.fps) === s.video.fpsCap));
     this.fps.hidden = !s.video.showFps;
   }

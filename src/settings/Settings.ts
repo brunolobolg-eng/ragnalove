@@ -4,7 +4,7 @@ import type { GraphicsOptions } from '../render/Stage';
  * Preferências do jogador (áudio + vídeo). Salvas localmente e restauradas ao abrir;
  * cada mudança notifica os ouvintes e vale na hora, sem reiniciar.
  */
-export type QualityPreset = 'low' | 'medium' | 'high' | 'ultra';
+export type QualityPreset = 'low' | 'medium' | 'high';
 export type FpsCap = 30 | 60 | 0; // 0 = sem limite (acompanha o monitor)
 
 export interface Settings {
@@ -19,8 +19,6 @@ export interface Settings {
     fpsCap: FpsCap;
     vsync: boolean;
     showFps: boolean;
-    /** Personagens em modelo 3D (padrão) ou nos sprites 2D antigos (mais leve). */
-    characters: '3d' | 'sprites';
     /** Aurenthal PostFX: color grading, gradiente da região, vinheta e nitidez. */
     cinematic: boolean;
     /** Grão de filme bem leve (parte do visual cinematográfico). */
@@ -28,7 +26,7 @@ export interface Settings {
   };
 }
 
-export const QUALITY_LABEL: Record<QualityPreset, string> = { low: 'Baixo', medium: 'Médio', high: 'Alto', ultra: 'Ultra' };
+export const QUALITY_LABEL: Record<QualityPreset, string> = { low: 'Baixo', medium: 'Médio', high: 'Alto' };
 
 /** O que cada preset liga. Ajustar aqui com base no FPS medido (painel de debug mostra FPS/partículas/luzes). */
 export interface PresetDef {
@@ -49,7 +47,6 @@ export const QUALITY_PRESETS: Record<QualityPreset, PresetDef> = {
   low: { particleDensity: 0.35, pixelRatio: 0.6, shadows: false, shadowMapSize: 512, maxLights: 0, bloomStrength: 0.7, heat: false, aberration: false, decals: false, outlines: false },
   medium: { particleDensity: 0.6, pixelRatio: 0.8, shadows: true, shadowMapSize: 1024, maxLights: 2, bloomStrength: 0.9, heat: false, aberration: true, decals: true, outlines: true },
   high: { particleDensity: 0.85, pixelRatio: 1, shadows: true, shadowMapSize: 2048, maxLights: 4, bloomStrength: 1, heat: true, aberration: true, decals: true, outlines: true },
-  ultra: { particleDensity: 1, pixelRatio: 1, shadows: true, shadowMapSize: 4096, maxLights: 6, bloomStrength: 1, heat: true, aberration: true, decals: true, outlines: true },
 };
 
 const KEY = 'vanguarda.settings.v1';
@@ -58,7 +55,7 @@ export function defaultSettings(): Settings {
   return {
     version: 1,
     audio: { master: 0.8, music: 0.5, sfx: 0.8, ambient: 0.6, muted: false },
-    video: { preset: 'high', particles: 1, bloom: true, shake: 1, reduceFlashes: false, fpsCap: 60, vsync: true, showFps: false, characters: '3d', cinematic: true, grain: true },
+    video: { preset: 'high', particles: 1, bloom: true, shake: 1, reduceFlashes: false, fpsCap: 60, vsync: true, showFps: false, cinematic: true, grain: true },
   };
 }
 
@@ -73,7 +70,12 @@ export class SettingsStore {
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const p = JSON.parse(raw) as Partial<Settings>;
-        if (p && p.version === 1) v = { version: 1, audio: { ...d.audio, ...p.audio }, video: { ...d.video, ...p.video } };
+        if (p && p.version === 1) {
+          v = { version: 1, audio: { ...d.audio, ...p.audio }, video: { ...d.video, ...p.video } };
+          // preset antigo (Ultra, removido) cai no Alto; chaves de opções removidas somem
+          if (!QUALITY_PRESETS[v.video.preset]) v.video.preset = 'high';
+          delete (v.video as Record<string, unknown>).characters;
+        }
       }
     } catch {
       /* sem storage: usa o padrão */

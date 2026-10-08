@@ -107,7 +107,6 @@ import { SettingsPanels } from './ui/SettingsPanels';
 import { ConfirmDialog } from './ui/ConfirmDialog';
 import { ParticleSystem } from './render/fx/Particles';
 import { VFXManager } from './render/fx/vfx/VFXManager';
-import { UNIT_STYLE } from './render/units/createUnitView';
 import { ModelUnitView } from './render/units/model/ModelUnitView';
 import { BoardView } from './render/BoardView';
 import { loadBossModel, loadHumanoidBoss } from './render/units/model/bossLoader';
@@ -276,7 +275,6 @@ const stage = new Stage(document.getElementById('app')!, GAME_CONFIG.board.width
 const view = new GameView(stage);
 view.onBossDeath = (kind) => onFinalBossDeath(kind);
 // Toda mudança nas Configurações vale na hora (sem reiniciar).
-UNIT_STYLE.value = settings.value.video.characters;
 let lastVsync = settings.value.video.vsync;
 // Chefe final importado (orc em GLB + auto-rig). Carrega enquanto o menu principal está aberto.
 void loadBossModel().catch((err) => console.warn('Chefe GLB indisponível, usando o Colosso procedural.', err));
@@ -315,11 +313,6 @@ settings.onChange((s) => {
   BoardView.sceneryLights = g.maxLights > 0;
   view.boardView?.setSceneryLights(g.maxLights > 0);
   audio.setVolumes(s.audio);
-  // Trocar 3D ↔ sprites recria as unidades (durante a onda, vale a partir da próxima).
-  if (s.video.characters !== UNIT_STYLE.value) {
-    UNIT_STYLE.value = s.video.characters;
-    if (typeof sim !== 'undefined' && sim.phase !== 'running') view.bind(sim);
-  }
 });
 
 let setup: PartySetup = structuredClone(DEFAULT_SETUP);
@@ -2603,7 +2596,7 @@ function devApi(): DevApi {
       // Pior caso: 100 zumbis + todas as magias em loop, em cada preset. Mede FPS real.
       const saved = structuredClone(settings.value.video);
       const savedCheats = { ...cheats };
-      const presets: QualityPreset[] = ['low', 'medium', 'high', 'ultra'];
+      const presets: QualityPreset[] = ['low', 'medium', 'high'];
       const out: { preset: string; avg: number; low1: number }[] = [];
       const frames = (ms: number) =>
         new Promise<number[]>((res) => {

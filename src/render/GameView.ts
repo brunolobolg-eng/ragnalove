@@ -21,7 +21,6 @@ import { RARITY_INFO } from '../core/progression/equipment';
 import { GAME_CONFIG } from '../config/gameConfig';
 import type { Stage } from './Stage';
 import { createUnitView, type AnyUnitView } from './units/createUnitView';
-import { SpriteUnitView } from './units/SpriteUnitView';
 import { ModelUnitView } from './units/model/ModelUnitView';
 import { ObjectView } from './ObjectView';
 import { FogView } from './FogView';
@@ -267,7 +266,6 @@ export class GameView {
     this.particles.setScale(stage.projScale());
     stage.onResize = (s) => this.particles.setScale(s);
     stage.scene.add(this.world);
-    SpriteUnitView.camera = stage.camera;
     this.ribbons = new RibbonPool(stage.scene);
     this.decals = new DecalLayer(stage.scene);
     this.vfx = new VFXManager(stage.scene);
@@ -383,7 +381,8 @@ export class GameView {
     const v = this.units.get(id);
     if (!v) return undefined;
     if (v instanceof ModelUnitView) return v.socketWorld('hand.R', new THREE.Vector3(0, 0.72, 0.02));
-    return 'chestWorld' in v ? v.chestWorld().add(new THREE.Vector3(0, 0.35, 0)) : v.root.position.clone().setY(1.2);
+    // (procedural: sem osso de cajado; a ponta sai acima do peito)
+    return v.root.position.clone().setY(1.2);
   }
 
   private boltFrom(e: { unitId: number; from: { x: number; y: number } }): THREE.Vector3 {

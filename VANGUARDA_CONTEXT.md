@@ -8,7 +8,7 @@
 - **Vanguarda (ROguard)**: RPG tático de fantasia medieval, campanha longa + modo Survival.
 - **Plataforma**: web (Vite) + desktop (Electron, `electron/`). Dono não é programador: respostas em pt-BR, diretas.
 - **Tecnologia**: TypeScript, Three.js + three.quarks (VFX), simulação determinística própria (10 ticks/s, sem engine de combate externa).
-- **Estado**: `v0.5r` (`MENU_VISUAL.version` em `src/config/visualConfig.ts`; esquema `0.5a…0.5z`, depois `0.6a`; bump a cada entrega). Branch `main`, commits por lote.
+- **Estado**: `v0.5w` (`MENU_VISUAL.version` em `src/config/visualConfig.ts`; esquema `0.5a…0.5z`, depois `0.6a`; bump a cada entrega). Branch `main`, commits por lote.
 
 ## Core Design
 
@@ -59,6 +59,7 @@
 ## Current Important Decisions (não desfazer)
 
 - Duração via quantidade/ritmo, **nunca** inflando HP; tabela `enemies` congelada.
+- Desempenho da horda: inimigos não projetam sombra (só a de contato); GLB de monstro/herói simplificado (≈18k–40k triângulos no máximo); originais ficam na branch `fontes`, nunca na `main`. Opções gráficas: só as que mudam algo visível (sem modo sprites 2D e sem preset Ultra).
 - Orçamento vitalício de EXP constante esticado em ~8× mais abates (per-kill baixo + curva 1,6).
 - Ameaça à cidade reduzida junto com o aumento de contagens (são um par).
 - `spawnPoints: Vec2[]` genérico; mapas seguem com 2 portais.
