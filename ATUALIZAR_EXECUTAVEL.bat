@@ -35,23 +35,28 @@ echo.
 
 REM --- 3. Copia o executavel para a pasta Executavel ---
 echo [3/3] Copiando para a pasta Executavel...
+REM fecha o jogo antes: arquivo em uso impede a copia
+taskkill /im ROguard.exe /f >nul 2>&1
+taskkill /im Vanguarda.exe /f >nul 2>&1
+timeout /t 1 >nul
 if not exist "Executavel\Vanguarda" mkdir "Executavel\Vanguarda"
-xcopy /Y /E "release\win-unpacked\*" "Executavel\Vanguarda\" >nul 2>&1
-if %errorlevel% neq 0 (
+REM robocopy: codigo 0-7 = ok; 8 ou mais = erro de verdade (mostrado na tela)
+robocopy "release\win-unpacked" "Executavel\Vanguarda" /E /NFL /NDL /NJH /NJS /NP
+if %errorlevel% geq 8 (
     echo.
-    echo [AVISO] Nao foi possivel copiar para Executavel\Vanguarda.
+    echo [ERRO] A copia falhou (codigo %errorlevel%). Veja a mensagem acima e mande para o Claude.
     echo O executavel esta em: release\win-unpacked\
-) else (
-    echo Executavel atualizado em: Executavel\Vanguarda\Vanguarda.exe
+    pause
+    exit /b 1
 )
-
+echo Executavel atualizado em: Executavel\ROguard.exe
 echo.
 echo ============================================================
 echo  PRONTO! Executavel atualizado com sucesso!
 echo ============================================================
 echo.
 echo Localizacoes:
-echo   - Executavel: Executavel\Vanguarda\Vanguarda.exe
+echo   - Executavel: Executavel\Vanguarda\ROguard.exe
 echo   - Build web:  dist\
 echo.
 pause
