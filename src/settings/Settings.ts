@@ -40,13 +40,12 @@ export interface PresetDef {
   heat: boolean;
   aberration: boolean;
   decals: boolean;
-  outlines: boolean;
 }
 
 export const QUALITY_PRESETS: Record<QualityPreset, PresetDef> = {
-  low: { particleDensity: 0.35, pixelRatio: 0.6, shadows: false, shadowMapSize: 512, maxLights: 0, bloomStrength: 0.7, heat: false, aberration: false, decals: false, outlines: false },
-  medium: { particleDensity: 0.6, pixelRatio: 0.8, shadows: true, shadowMapSize: 1024, maxLights: 2, bloomStrength: 0.9, heat: false, aberration: true, decals: true, outlines: true },
-  high: { particleDensity: 0.85, pixelRatio: 1, shadows: true, shadowMapSize: 2048, maxLights: 4, bloomStrength: 1, heat: true, aberration: true, decals: true, outlines: true },
+  low: { particleDensity: 0.35, pixelRatio: 0.6, shadows: false, shadowMapSize: 512, maxLights: 0, bloomStrength: 0.7, heat: false, aberration: false, decals: false },
+  medium: { particleDensity: 0.6, pixelRatio: 0.8, shadows: true, shadowMapSize: 1024, maxLights: 2, bloomStrength: 0.9, heat: false, aberration: true, decals: true },
+  high: { particleDensity: 0.85, pixelRatio: 1, shadows: true, shadowMapSize: 2048, maxLights: 4, bloomStrength: 1, heat: true, aberration: true, decals: true },
 };
 
 const KEY = 'vanguarda.settings.v1';

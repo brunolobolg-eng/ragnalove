@@ -57,24 +57,6 @@ export function createBodyMaterial(u: UnitUniforms): THREE.MeshToonMaterial {
 }
 
 /** Contorno escuro (casco invertido). `thickness` em unidades do modelo. */
-export function createOutlineMaterial(u: UnitUniforms, thickness: number, color = 0x1a1420): THREE.MeshBasicMaterial {
-  const m = new THREE.MeshBasicMaterial({ color, side: THREE.BackSide });
-  const th = { value: thickness };
-  m.onBeforeCompile = (sh) => {
-    sh.uniforms.uOutline = th;
-    sh.uniforms.uOpacity = u.uOpacity;
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec3 aSmoothNormal;\nuniform float uOutline;')
-      // usa a normal suavizada (sem rachar nas quinas) — o skinning transforma ela em seguida
-      .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = aSmoothNormal;')
-      .replace('#include <skinning_vertex>', '#include <skinning_vertex>\ntransformed += normalize(objectNormal) * uOutline;');
-    sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uOpacity;')
-      .replace('#include <opaque_fragment>', 'diffuseColor.a *= uOpacity;\n#include <opaque_fragment>');
-  };
-  m.customProgramCacheKey = () => 'vg-toon-outline';
-  return m;
-}
 
 /** Espectro de combate: casco aditivo translúcido com borda brilhante, cresce com `uGrow`. */
 export function createSpectreMaterial(color: THREE.Color): THREE.MeshBasicMaterial & { userData: { grow: { value: number }; intensity: { value: number }; time: { value: number } } } {

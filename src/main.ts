@@ -297,7 +297,6 @@ settings.onChange((s) => {
   stage.applyGraphics(g);
   ParticleSystem.density = g.particleDensity;
   VFXManager.density = g.particleDensity;
-  ModelUnitView.outlines = g.preset.outlines;
   // efeitos: preset + acessibilidade ("reduzir flashes" corta brilho de impacto e aberração)
   VFX.flash = s.video.reduceFlashes ? 0.4 : 1;
   VFX.aberration = g.preset.aberration && !s.video.reduceFlashes;

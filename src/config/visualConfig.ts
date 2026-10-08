@@ -133,7 +133,6 @@ export interface MonsterModelVisual {
   file: string;
   height: number;
   walkRate: number;
-  outline: number;
   aura?: [number, number, number];
   /** Heróis: cor do espectro ao usar habilidade. */
   ghost?: [number, number, number];
@@ -148,15 +147,15 @@ export interface MonsterModelVisual {
 /** Heróis avançados (GLB com o mesmo esqueleto padrão). Até carregar, usam o modelo de uma classe parecida. */
 export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   // Eliana (arte do jogador → 3D): textura + espada e escudo; animações do Guerreiro
-  warrior: { file: 'models/eliana.glb', height: 2.0, walkRate: 1, outline: 0.012, ghost: [0.35, 1.25, 1.0], clips: 'warrior' },
+  warrior: { file: 'models/eliana.glb', height: 2.0, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warrior' },
   // Cléria (arte do jogador → 3D): cajado com cristal e livro; animações da Maga
-  mage: { file: 'models/cleria.glb', height: 1.9, walkRate: 1, outline: 0.012, ghost: [0.55, 0.8, 1.6], clips: 'mage' },
+  mage: { file: 'models/cleria.glb', height: 1.9, walkRate: 1, ghost: [0.55, 0.8, 1.6], clips: 'mage' },
   // Líria (modelo do V2Fun no esqueleto padrão): animações da Arqueira
-  archer: { file: 'models/liria.glb', height: 1.9, walkRate: 1, outline: 0.012, ghost: [0.5, 1.4, 0.6], clips: 'archer', weapons: [{ type: 'bow', bone: 'hand.L', accent: 0x9aff7a }] },
-  sorcerer: { file: 'models/sorcerer.glb', height: 1.75, walkRate: 1, outline: 0.012, ghost: [1.2, 0.55, 1.8] },
-  warlock: { file: 'models/warlock.glb', height: 1.75, walkRate: 1, outline: 0.012, ghost: [1.6, 0.25, 0.6] },
+  archer: { file: 'models/liria.glb', height: 1.9, walkRate: 1, ghost: [0.5, 1.4, 0.6], clips: 'archer', weapons: [{ type: 'bow', bone: 'hand.L', accent: 0x9aff7a }] },
+  sorcerer: { file: 'models/sorcerer.glb', height: 1.75, walkRate: 1, ghost: [1.2, 0.55, 1.8] },
+  warlock: { file: 'models/warlock.glb', height: 1.75, walkRate: 1, ghost: [1.6, 0.25, 0.6] },
   // Cavaleiro sombrio (modelo do V2Fun no esqueleto padrão): animações de golpe do Guerreiro (corpo a corpo)
-  assassin: { file: 'models/assassin_dk.glb', height: 1.9, walkRate: 1.05, outline: 0.012, ghost: [1.6, 1.3, 0.3], clips: 'warrior', weapons: [{ type: 'dagger', bone: 'hand.R', accent: 0xc070ff }, { type: 'dagger', bone: 'hand.L', accent: 0xc070ff }] },
+  assassin: { file: 'models/assassin_dk.glb', height: 1.9, walkRate: 1.05, ghost: [1.6, 1.3, 0.3], clips: 'warrior', weapons: [{ type: 'dagger', bone: 'hand.R', accent: 0xc070ff }, { type: 'dagger', bone: 'hand.L', accent: 0xc070ff }] },
 };
 /** Zumbi do Ato III: coveiro, afogado, pesteado, luto e cinzas (além da cor original do modelo). */
 const ZOMBIE_SKINS = ['coveiro', 'afogado', 'pesteado', 'luto', 'cinzas'].map((n) => `models/zombie_${n}.jpg`);
@@ -164,27 +163,27 @@ const ZOMBIE_SKINS = ['coveiro', 'afogado', 'pesteado', 'luto', 'cinzas'].map((n
 const ORC_AXE = { type: 'axe' as const, bone: 'hand.R', accent: 0xff7040, tilt: 35, scale: 1.35 };
 export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   // Ato I — ratos
-  rat: { file: 'models/rato.glb', height: 1.45, walkRate: 1.3, outline: 0.013 },
-  ratRunner: { file: 'models/rato.glb', height: 1.15, walkRate: 2.4, outline: 0.013 },
-  ratBrute: { file: 'models/rato.glb', height: 1.95, walkRate: 0.85, outline: 0.012 },
-  ratNecro: { file: 'models/rato.glb', height: 1.5, walkRate: 1.2, outline: 0.013, aura: [0.7, 0.2, 1.6] },
-  ratElite: { file: 'models/ratochefe.glb', height: 2.4, walkRate: 0.85, outline: 0.011, aura: [0.9, 0.3, 1.8] },
-  ratBoss: { file: 'models/ratochefe.glb', height: 3.1, walkRate: 0.9, outline: 0.009, aura: [1.6, 0.15, 0.4] },
+  rat: { file: 'models/rato.glb', height: 1.45, walkRate: 1.3, },
+  ratRunner: { file: 'models/rato.glb', height: 1.15, walkRate: 2.4, },
+  ratBrute: { file: 'models/rato.glb', height: 1.95, walkRate: 0.85, },
+  ratNecro: { file: 'models/rato.glb', height: 1.5, walkRate: 1.2, aura: [0.7, 0.2, 1.6] },
+  ratElite: { file: 'models/ratochefe.glb', height: 2.4, walkRate: 0.85, aura: [0.9, 0.3, 1.8] },
+  ratBoss: { file: 'models/ratochefe.glb', height: 3.1, walkRate: 0.9, aura: [1.6, 0.15, 0.4] },
   // Ato II — goblins (o chefe é o goblin grande repintado, maior e com aura dourada)
-  goblin: { file: 'models/goblin2.glb', height: 1.6, walkRate: 1.3, outline: 0.013 },
-  goblinRunner: { file: 'models/goblin2.glb', height: 1.3, walkRate: 2.4, outline: 0.013 },
-  goblinBrute: { file: 'models/goblin1.glb', height: 2.0, walkRate: 0.85, outline: 0.012 },
-  goblinNecro: { file: 'models/goblin2.glb', height: 1.65, walkRate: 1.2, outline: 0.013, aura: [0.7, 0.2, 1.6] },
-  goblinElite: { file: 'models/goblin1.glb', height: 2.5, walkRate: 0.85, outline: 0.011, aura: [0.9, 0.3, 1.8] },
-  goblinBoss: { file: 'models/goblinboss.glb', height: 3.4, walkRate: 0.9, outline: 0.009, aura: [2.0, 1.4, 0.3] },
+  goblin: { file: 'models/goblin2.glb', height: 1.6, walkRate: 1.3, },
+  goblinRunner: { file: 'models/goblin2.glb', height: 1.3, walkRate: 2.4, },
+  goblinBrute: { file: 'models/goblin1.glb', height: 2.0, walkRate: 0.85, },
+  goblinNecro: { file: 'models/goblin2.glb', height: 1.65, walkRate: 1.2, aura: [0.7, 0.2, 1.6] },
+  goblinElite: { file: 'models/goblin1.glb', height: 2.5, walkRate: 0.85, aura: [0.9, 0.3, 1.8] },
+  goblinBoss: { file: 'models/goblinboss.glb', height: 3.4, walkRate: 0.9, aura: [2.0, 1.4, 0.3] },
   // Ato III — zumbi chibi (V2Fun no esqueleto padrão), animações de zumbi do jogo; 5 variantes fúnebres de cor
-  zombie: { file: 'models/zombie.glb', height: 1.6, walkRate: 1.3, outline: 0.013, clips: 'zombie', skins: ZOMBIE_SKINS },
-  zombieRunner: { file: 'models/zombie.glb', height: 1.35, walkRate: 2.4, outline: 0.013, clips: 'zombieRunner', skins: ZOMBIE_SKINS },
-  zombieBrute: { file: 'models/zombie.glb', height: 2.0, walkRate: 0.85, outline: 0.012, clips: 'zombieBrute', skins: ZOMBIE_SKINS },
-  zombieNecro: { file: 'models/cultist.glb', height: 1.7, walkRate: 1.2, outline: 0.013, clips: 'cultist', aura: [0.7, 0.2, 1.6] },
+  zombie: { file: 'models/zombie.glb', height: 1.6, walkRate: 1.3, clips: 'zombie', skins: ZOMBIE_SKINS },
+  zombieRunner: { file: 'models/zombie.glb', height: 1.35, walkRate: 2.4, clips: 'zombieRunner', skins: ZOMBIE_SKINS },
+  zombieBrute: { file: 'models/zombie.glb', height: 2.0, walkRate: 0.85, clips: 'zombieBrute', skins: ZOMBIE_SKINS },
+  zombieNecro: { file: 'models/cultist.glb', height: 1.7, walkRate: 1.2, clips: 'cultist', aura: [0.7, 0.2, 1.6] },
   // Ato III — orc guerreiro chibi (V2Fun): golpe de machado por cima vem do próprio GLB, o resto é do brutamonte
-  orcWarrior: { file: 'models/orc.glb', height: 2.3, walkRate: 0.85, outline: 0.011, clips: 'brute', aura: [0.9, 0.3, 1.8], weapons: [ORC_AXE] },
-  orcLord: { file: 'models/orc.glb', height: 3.3, walkRate: 0.9, outline: 0.009, clips: 'brute', aura: [1.6, 0.15, 0.4], weapons: [ORC_AXE] },
+  orcWarrior: { file: 'models/orc.glb', height: 2.3, walkRate: 0.85, clips: 'brute', aura: [0.9, 0.3, 1.8], weapons: [ORC_AXE] },
+  orcLord: { file: 'models/orc.glb', height: 3.3, walkRate: 0.9, clips: 'brute', aura: [1.6, 0.15, 0.4], weapons: [ORC_AXE] },
 };
 
 /**

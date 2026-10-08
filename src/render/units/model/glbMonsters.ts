@@ -188,7 +188,6 @@ export async function loadMonsterModels(onLoaded?: (kind: string) => void): Prom
           build: () => model,
           clips: () => clips,
           scale: v.height / model.height,
-          outline: v.outline,
           walkRate: v.walkRate,
           aura: v.aura ? new THREE.Color(...v.aura) : undefined,
           ghost: v.ghost ? new THREE.Color(...v.ghost) : undefined,

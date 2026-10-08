@@ -42,7 +42,6 @@ const camera = new THREE.PerspectiveCamera(40, 960 / 540, 0.1, 200);
 camera.position.set(0, CAM, CAM * 0.82);
 camera.lookAt(0, 0, 0);
 
-ModelUnitView.outlines = q.get('outline') !== '0';
 const views: ModelUnitView[] = [];
 const out = document.getElementById('bench')!;
 

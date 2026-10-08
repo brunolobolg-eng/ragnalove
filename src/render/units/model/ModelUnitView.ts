@@ -7,14 +7,13 @@ import { archerClips, gruntClips, mageClips, warriorClips, type ClipName } from 
 import { buildArcher, buildBrute, buildGrunt, buildMage, buildRunner, buildWarrior } from './characters';
 import { instantiateSkeleton, type BuiltModel } from './ModelBuilder';
 import { attachWeapon, type WeaponAttach } from './weapons';
-import { createBodyMaterial, createGlowMaterial, createOutlineMaterial, createSpectreMaterial, createUnitUniforms, type UnitUniforms } from './toonMaterials';
+import { createBodyMaterial, createGlowMaterial, createSpectreMaterial, createUnitUniforms, type UnitUniforms } from './toonMaterials';
 
 /** Definição de cada personagem 3D. A escala compensa a câmera alta (vista de cima encolhe a altura). */
 export interface ModelDef {
   build: () => BuiltModel;
   clips: (b: BuiltModel['bones']) => Record<ClipName, THREE.AnimationClip>;
   scale: number;
-  outline: number;
   ghost?: THREE.Color;
   /** Aura permanente (chefe): o mesmo casco do espectro, sempre aceso. */
   aura?: THREE.Color;
@@ -25,17 +24,17 @@ export interface ModelDef {
 }
 
 export const MODELS: Record<string, ModelDef> = {
-  warrior: { build: buildWarrior, clips: warriorClips, scale: 1.42, outline: 0.012, ghost: new THREE.Color(0.35, 1.25, 1.0), walkRate: 1 },
-  mage: { build: buildMage, clips: mageClips, scale: 1.4, outline: 0.012, ghost: new THREE.Color(0.55, 0.8, 1.6), walkRate: 1 },
-  archer: { build: buildArcher, clips: archerClips, scale: 1.4, outline: 0.012, ghost: new THREE.Color(0.6, 1.5, 0.5), walkRate: 1.05 },
-  grunt: { build: buildGrunt, clips: gruntClips, scale: 1.28, outline: 0.013, walkRate: 1.3 },
-  runner: { build: buildRunner, clips: (b) => gruntClips(b, 'runner'), scale: 1.2, outline: 0.012, walkRate: 2.4 },
-  brute: { build: () => buildBrute(false), clips: (b) => gruntClips(b, 'brute'), scale: 1.5, outline: 0.012, walkRate: 0.85 },
-  boss: { build: () => buildBrute(true), clips: (b) => gruntClips(b, 'brute'), scale: 2.25, outline: 0.009, walkRate: 0.9, aura: new THREE.Color(1.6, 0.15, 0.4) },
+  warrior: { build: buildWarrior, clips: warriorClips, scale: 1.42, ghost: new THREE.Color(0.35, 1.25, 1.0), walkRate: 1 },
+  mage: { build: buildMage, clips: mageClips, scale: 1.4, ghost: new THREE.Color(0.55, 0.8, 1.6), walkRate: 1 },
+  archer: { build: buildArcher, clips: archerClips, scale: 1.4, ghost: new THREE.Color(0.6, 1.5, 0.5), walkRate: 1.05 },
+  grunt: { build: buildGrunt, clips: gruntClips, scale: 1.28, walkRate: 1.3 },
+  runner: { build: buildRunner, clips: (b) => gruntClips(b, 'runner'), scale: 1.2, walkRate: 2.4 },
+  brute: { build: () => buildBrute(false), clips: (b) => gruntClips(b, 'brute'), scale: 1.5, walkRate: 0.85 },
+  boss: { build: () => buildBrute(true), clips: (b) => gruntClips(b, 'brute'), scale: 2.25, walkRate: 0.9, aura: new THREE.Color(1.6, 0.15, 0.4) },
   /** Mini-chefe dos nós de Elite: brutamonte maior com aura violeta. */
-  elite: { build: () => buildBrute(false), clips: (b) => gruntClips(b, 'brute'), scale: 1.85, outline: 0.011, walkRate: 0.85, aura: new THREE.Color(0.9, 0.3, 1.8) },
+  elite: { build: () => buildBrute(false), clips: (b) => gruntClips(b, 'brute'), scale: 1.85, walkRate: 0.85, aura: new THREE.Color(0.9, 0.3, 1.8) },
   /** Colosso Solar (chefe do Ato II): aura dourada. */
-  boss2: { build: () => buildBrute(true), clips: (b) => gruntClips(b, 'brute'), scale: 2.45, outline: 0.009, walkRate: 0.9, aura: new THREE.Color(2.0, 1.3, 0.25) },
+  boss2: { build: () => buildBrute(true), clips: (b) => gruntClips(b, 'brute'), scale: 2.45, walkRate: 0.9, aura: new THREE.Color(2.0, 1.3, 0.25) },
 };
 /** Necromante: zumbi conjurador com aura violeta. */
 MODELS.necro = { ...MODELS.grunt, scale: 1.3, aura: new THREE.Color(0.7, 0.2, 1.6) };
@@ -93,13 +92,11 @@ const sharedUnitRes = () => (shared ??= buildShared());
  */
 export class ModelUnitView {
   /** Liga/desliga o contorno de todos os modelos (preset de qualidade). */
-  static outlines = true;
   readonly root = new THREE.Group();
   /** Inclinação para a câmera (truque de jogo isométrico: mostra o rosto sob a câmera alta). */
   private readonly lean = new THREE.Group();
   private readonly model = new THREE.Group();
   private readonly mesh: THREE.SkinnedMesh;
-  private readonly outline: THREE.SkinnedMesh;
   private readonly spectre?: THREE.SkinnedMesh;
   private readonly spectreMat?: ReturnType<typeof createSpectreMaterial>;
   private readonly mixer: THREE.AnimationMixer;
@@ -158,12 +155,8 @@ export class ModelUnitView {
     this.castsShadow = team === 'party' || GAME_CONFIG.bossKinds.includes(kind);
     this.mesh.castShadow = this.castsShadow;
     this.mesh.frustumCulled = false;
-    const ol = createOutlineMaterial(this.u, this.def.outline);
-    this.outline = new THREE.SkinnedMesh(model.geometry, ol);
-    this.outline.bind(sk.skeleton, IDENTITY);
-    this.outline.frustumCulled = false;
-    this.materials.push(body, ol);
-    this.model.add(this.mesh, this.outline);
+    this.materials.push(body);
+    this.model.add(this.mesh);
 
     const spectreColor = team === 'party' ? this.def.ghost : this.def.aura;
     if (spectreColor) {
@@ -315,7 +308,6 @@ export class ModelUnitView {
     d = Math.atan2(Math.sin(d), Math.cos(d));
     this.yaw += d * Math.min(1, dt * 12);
     this.model.rotation.y = this.yaw;
-    this.outline.visible = ModelUnitView.outlines;
 
     // Andar ↔ parado (com pequena tolerância entre passos para não "piscar" o idle)
     const moving = moveT < 1;

@@ -34,7 +34,6 @@ export async function loadBossModel(url = 'models/orc.glb'): Promise<void> {
     build: () => ({ geometry: rig.geometry, bones: rig.bones, glows: [], height: rig.height, map: rig.map }),
     clips: () => clips,
     scale: BOSS_HEIGHT / rig.height,
-    outline: 0.008,
     walkRate: 0.8,
     aura: new THREE.Color(1.3, 0.12, 0.3),
   });
@@ -77,7 +76,6 @@ export async function loadHumanoidBoss(url: string, kind: string, o: HumanoidBos
     build: () => ({ geometry: rig.geometry, bones: rig.bones, glows: [], height: rig.height, map: rig.map }),
     clips: () => clips,
     scale: o.height / rig.height,
-    outline: o.outline ?? 0.01,
     walkRate: o.walkRate ?? 1,
     ghost: o.ghost ? new THREE.Color(...o.ghost) : undefined,
     aura: o.aura ? new THREE.Color(...o.aura) : undefined,
