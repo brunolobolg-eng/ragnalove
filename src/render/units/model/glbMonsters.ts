@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HERO_MODELS, MONSTER_MODELS } from '../../../config/visualConfig';
-import { archerClips, fitHips, gruntClips, mageClips, warriorClips, type ClipName } from './anims';
+import { archerClips, fitHips, gruntClips, hoverWalk, mageClips, warriorClips, type ClipName } from './anims';
 import { ualMixamoClips } from './ualMixamo';
+import { MIXAMO_CULTIST_REST } from './mixamoRest';
 
 /** Escala UAL->cultista pela altura (modelo nativo 1.82m, personagem UAL ~1.75m). */
 const CULTIST_HIPS_SCALE = 1.82 / 1.75;
@@ -16,10 +17,35 @@ interface LoadedGlb {
   clips: Record<ClipName, THREE.AnimationClip>;
 }
 
-/** Moveset UAL com retargeting para o rig Mixamo embutido (cultista). */
+/**
+ * Moveset UAL com retargeting para o rig Mixamo embutido (cultista). Os clipes são absolutos sobre a
+ * pose de descanso do cultista: cada osso é rebaseado para o descanso do modelo (rot = descanso_novo × inv(descanso_cultista) × clipe),
+ * assim outro rig Mixamo (ex.: bongun) recebe a mesma animação sem pernas/pés tortos. No cultista é identidade.
+ */
+function rebaseRest(c: THREE.AnimationClip, bones: BoneDef[]): THREE.AnimationClip {
+  const restOf = new Map(bones.map((b) => [b.name, b.rest]));
+  const tracks = c.tracks.map((t) => {
+    if (!(t instanceof THREE.QuaternionKeyframeTrack)) return t;
+    const bone = t.name.slice(0, -'.quaternion'.length);
+    const rb = restOf.get(bone);
+    const rs = MIXAMO_CULTIST_REST[bone];
+    if (!rb || !rs) return t;
+    const qb = new THREE.Quaternion(...rb);
+    const qsInv = new THREE.Quaternion(...rs).invert();
+    const v = t.values.slice();
+    const q = new THREE.Quaternion();
+    for (let i = 0; i < v.length; i += 4) {
+      q.set(v[i], v[i + 1], v[i + 2], v[i + 3]).premultiply(qsInv).premultiply(qb);
+      v[i] = q.x; v[i + 1] = q.y; v[i + 2] = q.z; v[i + 3] = q.w;
+    }
+    return new THREE.QuaternionKeyframeTrack(t.name, t.times.slice(), v);
+  });
+  return new THREE.AnimationClip(c.name, c.duration, tracks);
+}
+
 function cultistClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
   const raw = ualMixamoClips();
-  const fit = (c: THREE.AnimationClip): THREE.AnimationClip => fitHips(c, bones, 'Hips', CULTIST_HIPS_SCALE);
+  const fit = (c: THREE.AnimationClip): THREE.AnimationClip => rebaseRest(fitHips(c, bones, 'Hips', CULTIST_HIPS_SCALE), bones);
   return {
     idle: fit(raw.idle),
     walk: fit(raw.walk),
@@ -183,7 +209,9 @@ export async function loadMonsterModels(onLoaded?: (kind: string) => void): Prom
         // mesmo arquivo com animações diferentes (zumbi comum/rápido/pesado) = entradas separadas no cache
         const key = `${v.file}|${v.clips ?? ''}`;
         if (!files.has(key)) files.set(key, loader.loadAsync(v.file).then((g: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }) => toBuiltModel(g, v.clips)));
-        const { model, clips } = await files.get(key)!;
+        const { model, clips: baseClips } = await files.get(key)!;
+        // flutuação: o andar vira o balanço elevado (cópia: o arquivo pode ser compartilhado por outros tipos)
+        const clips = v.hover ? { ...baseClips, idle: hoverWalk(model.bones, v.hover), walk: hoverWalk(model.bones, v.hover) } : baseClips;
         const def = {
           build: () => model,
           clips: () => clips,

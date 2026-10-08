@@ -59,6 +59,8 @@ async function main(): Promise<void> {
     scene.add(v.root);
     views.push(v);
   }
+  if (q.get('act') === 'attack') for (const v of views) v.attack('swing');
+  if (q.get('act') === 'death') for (const v of views) v.die();
   const qCam = camera.quaternion;
   let cpuUpdate = 0;
   let cpuRender = 0;
@@ -82,6 +84,22 @@ async function main(): Promise<void> {
       samples.push(t2 - t0);
     }
   }
+  // medida da altura do primeiro monstro (só com 1 unidade): menor e maior ponto do corpo, em unidades do mundo
+  if (views.length === 1) {
+    // ossos dos pés e do quadril (pose real do esqueleto, no último quadro, que está em movimento)
+    const v0 = views[0] as unknown as { mesh: THREE.SkinnedMesh };
+    v0.mesh.updateMatrixWorld(true);
+    const bone = (n: string) => v0.mesh.skeleton.bones.find((b) => b.name === n);
+    const wy = (n: string) => {
+      const b = bone(n);
+      if (!b) return null;
+      const p = new THREE.Vector3();
+      b.getWorldPosition(p);
+      return Math.round(p.y * 1000) / 1000;
+    };
+    const pick = (...n: string[]) => n.map((x) => wy(x)).find((y) => y !== null) ?? null;
+    (window as unknown as Record<string, unknown>).__box = { leftFootY: pick('LeftFoot', 'foot.L', 'Foot_L'), rightFootY: pick('RightFoot', 'foot.R', 'Foot_R'), hipsY: pick('Hips', 'hips', 'Hips_') };
+  }
   const n = Math.max(1, samples.length);
   const info = renderer.info;
   const avg = (x: number) => x.toFixed(2);
@@ -102,6 +120,6 @@ async function main(): Promise<void> {
     `render CPU  ${avg(cpuRender / n)} ms/quadro (inclui envio de chamadas)\n` +
     `chamadas de desenho ${info.render.calls} · triângulos ${info.render.triangles}\n` +
     `geometrias ${info.memory.geometries} · texturas ${info.memory.textures} · programas ${info.programs?.length}`;
-  console.log('BENCH', JSON.stringify((window as unknown as Record<string, unknown>).__bench));
+  console.log('BENCH', JSON.stringify((window as unknown as Record<string, unknown>).__bench), JSON.stringify((window as unknown as Record<string, unknown>).__box ?? null));
 }
 void main();
