@@ -33,7 +33,7 @@ import {
 } from './core/run/run';
 import { OBJECT_RULES } from './core/sim/objects';
 import { NightReport, type NightReportVM } from './ui/WaveReport';
-import { CHARSELECT_ART, MUSIC, POSTFX, VISUAL_CONFIG } from './config/visualConfig';
+import { CHARSELECT_ART, MUSIC, POSTFX, VICTORY_TITLES, VISUAL_CONFIG } from './config/visualConfig';
 import type { PostFxSituation } from './render/fx/kit/PostFX';
 import type { WaveReport } from './core/sim/types';
 import { SKILL_BY_ID, SKILL_NUM, SKILLS, lvOf, type HeroKind, type SkillId } from './core/progression/skills';
@@ -1327,6 +1327,7 @@ function resetSim(clearLog = true, seal?: BattleSeal): void {
   lastSouls.mage = lastSouls.warrior = 0;
   hud.setPlanning(true);
   hud.showBanner('', '');
+  hud.hideVictory();
   if (clearLog) {
     hud.clearLog();
     hud.log('Planejamento: posicione a party e a Barreira de Fogo.', 'info');
@@ -2004,7 +2005,7 @@ function frame(now: number): void {
     lastPhase = sim.phase;
     const ended = sim.phase === 'victory' || sim.phase === 'defeat';
     const announce = () => {
-      if (sim.phase === 'victory') hud.showBanner('VITÓRIA', 'victory');
+      if (sim.phase === 'victory') hud.showVictory(VICTORY_TITLES[ZONE_STATE.current.id] ?? 'Fase Concluída', currentRegion(run).name);
       if (sim.phase === 'defeat') hud.showBanner(GAME_CONFIG.wave.endless ? 'FIM DA RESISTÊNCIA' : 'DERROTA', 'defeat');
       finishWave();
     };
@@ -2217,7 +2218,7 @@ if (desktopBalance)
 // No build de produção o Vite troca `import.meta.env.DEV` por `false`, este bloco
 // é eliminado e o módulo de debug não entra no pacote da Steam.
 if (import.meta.env.DEV) {
-  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic }; // inspeção no console (dev)
+  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic }; // inspeção no console (dev)
   void import('./debug/DebugPanel').then(({ installDebug }) => installDebug(hudRoot, devApi(), (h, t, fn) => panels.addButton(h, t, fn)));}
 
 // ---------- Dev Lab (F8): só com devtools (dev ou devtools.txt no executável) ----------

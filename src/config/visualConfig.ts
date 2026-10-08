@@ -231,7 +231,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.5x',
+  version: 'v0.5y',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
@@ -343,6 +343,27 @@ export const CHARSELECT_ART = {
 };
 
 /** Ícones dos tipos de fase (escolha do caminho no mapa). Vazio = desenho em canvas. */
+/**
+ * Título do cartão de vitória de cada mapa (um por zona de batalha; a região aparece embaixo).
+ * Cada mapa tem o seu nome: é o que a defesa "chama" quando vence.
+ */
+export const VICTORY_TITLES: Record<string, string> = {
+  bridge: 'Portões Defendidos',
+  town: 'Muralha Intacta',
+  serene: 'Floresta Preservada',
+  crookedWood: 'Bosque Retomado',
+  whisperWood: 'Sussurros Calados',
+  ravenGlade: 'Clareira Vigiada',
+  rootVale: 'Raízes Firmes',
+  dryCrossing: 'Encruzilhada Mantida',
+  redDunes: 'Areias Contidas',
+  solarRuins: 'Sol Reacendido',
+  ashenFields: 'Campos Protegidos',
+  rustGorge: 'Garganta Selada',
+  frostPass: 'Passo Aquecido',
+  ashPeak: 'Cume Inabalável',
+};
+
 /** Música de fundo de cada tela (arquivos em public/audio). */
 export const MUSIC = {
   /** tela inicial (login/menu) */

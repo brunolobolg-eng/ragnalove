@@ -2,6 +2,9 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.5y
+- Vitória da horda: novo cartão dourado (raios girando, brilho, placa azul-marinho com a borda do jogo e emblema de espada), no lugar do aviso "VITÓRIA". Título próprio de cada mapa (`VICTORY_TITLES` em visualConfig) e o nome da região embaixo. Derrota e chefe mantêm o aviso de antes.
+
 ## 2026-10-08 — v0.5x
 - Necromante agora é o Bongun (modelo enviado pelo dono): 37 MB/490k triângulos -> 2 MB/18k, textura 3072 -> 1024 WebP. Não anda: flutua rente ao chão (`hover` na configuração do monstro, pose de descanso do próprio modelo, sem passos).
 - Clipes do rig Mixamo (ataque/magia/dano/morte) rebasados para o descanso de cada modelo: o cultista não muda (identidade); o Bongun recebe a mesma animação sem pernas/pés tortos.

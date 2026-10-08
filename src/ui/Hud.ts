@@ -112,6 +112,7 @@ const PORTRAIT: Record<string, string> = {
 export class Hud {
   private readonly el: HTMLElement;
   private readonly banner: HTMLElement;
+  private readonly victory: HTMLElement;
   private readonly startBtn: HTMLButtonElement;
   private readonly logEl: HTMLElement;
   private readonly waveEl: HTMLElement;
@@ -368,10 +369,18 @@ export class Hud {
       </div>
 
       <div class="banner"></div>
+      <div class="victory-card" hidden>
+        <span class="vc-rays"></span><span class="vc-glow"></span>
+        <svg class="vc-emblem" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 3 L37 36 L32 41 L27 36 Z" fill="#ffe39a" stroke="#6a4a10" stroke-width="1.5"/><rect x="19" y="36" width="26" height="5" rx="2.5" fill="#c9a24a" stroke="#6a4a10" stroke-width="1.5"/><rect x="29" y="41" width="6" height="12" fill="#5a3a22"/><circle cx="32" cy="57" r="3.5" fill="#c9a24a" stroke="#6a4a10"/></svg>
+        <div class="vc-plate"><h2 class="vc-title"></h2></div>
+        <p class="vc-sub">Fase concluída</p>
+        <span class="vc-tag"></span>
+      </div>
       <div class="horde-count" hidden><span>A horda se aproxima em</span><b></b></div>
     `;
     this.el = root;
     this.banner = root.querySelector('.banner')!;
+    this.victory = root.querySelector('.victory-card')!;
     this.startBtn = root.querySelector('[data-act="start"]')!;
     this.logEl = root.querySelector('.log')!;
     this.waveEl = root.querySelector('.kills')!;
@@ -638,6 +647,19 @@ export class Hud {
     b.classList.remove('tick');
     void b.offsetWidth;
     b.classList.add('tick');
+  }
+
+  /** Vitória da horda: cartão dourado com o título do mapa e o nome da região. */
+  showVictory(title: string, region: string): void {
+    this.victory.querySelector('.vc-title')!.textContent = title;
+    this.victory.querySelector('.vc-tag')!.textContent = region.toUpperCase();
+    this.victory.hidden = false;
+    requestAnimationFrame(() => this.victory.classList.add('show'));
+  }
+
+  hideVictory(): void {
+    this.victory.classList.remove('show');
+    this.victory.hidden = true;
   }
 
   showBanner(text: string, kind: 'victory' | 'defeat' | ''): void {
