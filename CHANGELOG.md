@@ -2,6 +2,11 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.5x
+- Necromante agora é o Bongun (modelo enviado pelo dono): 37 MB/490k triângulos -> 2 MB/18k, textura 3072 -> 1024 WebP. Não anda: flutua rente ao chão (`hover` na configuração do monstro, pose de descanso do próprio modelo, sem passos).
+- Clipes do rig Mixamo (ataque/magia/dano/morte) rebasados para o descanso de cada modelo: o cultista não muda (identidade); o Bongun recebe a mesma animação sem pernas/pés tortos.
+- Removido `cultist.glb` (substituído pelo Bongun).
+
 ## 2026-10-08 — v0.5w
 - Performance (horde): enemy GLBs simplified (cultist 18 MB/490k tris → 1.6 MB/18k; Krexx/Senhor Orc-class 20 MB → 2.8 MB/36k; heroes Assassin/Archer 8 MB → ~3.5–4 MB). Originals archived in branch `fontes`.
 - Horde units no longer cast projected shadows (only heroes and bosses); contact shadow kept. Shared geometry/materials for contact shadow and HP bars.

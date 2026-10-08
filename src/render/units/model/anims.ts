@@ -383,6 +383,26 @@ export function absRestY(bones: BoneDef[], name: string): number {
  * para o descanso do boneco: escala pela altura ABSOLUTA do quadril e remapeia
  * os eixos (mundo UAL = mundo do jogo: frente +Z, esquerda +X, cima +Y).
  */
+/**
+ * Movimento flutuando: todos os ossos na pose de descanso do próprio modelo (sem clipe do rig de outro
+ * personagem), o corpo elevado e um balanço bem leve. Substitui o ciclo de caminhada (quem anda só desliza).
+ */
+export function hoverWalk(bones: BoneDef[], lift: number, duration = 2.4): THREE.AnimationClip {
+  const hips = bones.find((b) => /^hips$/i.test(b.name))!;
+  const N = 16;
+  const times = Array.from({ length: N + 1 }, (_, i) => (i / N) * duration);
+  const tracks: THREE.KeyframeTrack[] = [];
+  for (const b of bones) {
+    if (!b.rest) continue;
+    const q = [...b.rest];
+    tracks.push(new THREE.QuaternionKeyframeTrack(`${b.name}.quaternion`, [0, duration], [...q, ...q]));
+  }
+  const values: number[] = [];
+  for (const t of times) values.push(hips.pos[0], hips.pos[1] + lift + 0.012 * Math.sin((2 * Math.PI * t) / duration), hips.pos[2]);
+  tracks.push(new THREE.VectorKeyframeTrack(`${hips.name}.position`, times, values));
+  return new THREE.AnimationClip('hover', duration, tracks);
+}
+
 export function fitHips(clip: THREE.AnimationClip, bones: BoneDef[], hipsName = 'hips', scaleOverride?: number): THREE.AnimationClip {
   const hips = bones.find((b) => b.name === hipsName)!;
   // escala sempre positiva (descanso agachado/estranho nunca inverte o balanço)
