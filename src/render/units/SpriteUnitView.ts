@@ -215,20 +215,24 @@ export class SpriteUnitView {
     this.facing = { x: fx, y: fy };
   }
 
-  hit(): void {
+  /** (sprites ignoram direção/gravidade do golpe) */
+  hit(_info?: unknown): void {
     this.flash = VISUAL_CONFIG.unit.hitFlashTime;
     this.hpVisible = true;
   }
 
-  attack(): void {
+  /** Devolve o tempo até o impacto (0: sprites não adiam o dano). */
+  attack(_style?: 'swing' | 'heavy', _opts?: unknown): number {
     this.actionT = 0;
     // Party: golpe um pouco mais longo para o espectro "vestir" o momento (só visual).
     this.actionDur = this.team === 'party' ? 0.5 : 0.35;
+    return 0;
   }
 
-  cast(): void {
+  cast(_opts?: unknown): number {
     this.actionT = 0;
     this.actionDur = 0.8;
+    return 0;
   }
 
   /** Aura dourada de subida de nível. */
@@ -241,7 +245,7 @@ export class SpriteUnitView {
     this.absorbT = 0.3;
   }
 
-  die(): void {
+  die(_killer?: unknown): void {
     this.dyingT = 0;
     this.hpBar.visible = false;
     this.mesh.material.transparent = true;

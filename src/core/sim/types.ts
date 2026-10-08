@@ -50,6 +50,8 @@ export interface Unit {
   tauntUntil?: number;
   /** Nasceu em qual spawn (0 ou 1) — só apresentação/estatística. */
   spawnIndex?: number;
+  /** Tick em que a unidade foi empurrada/puxada à força (só apresentação: o corpo reage ao tranco). */
+  displacedTick?: number;
   /** Horda orgânica: lado para onde o monstro tende a andar (vetor; 0 = reto) e até quando. */
   drift?: Vec2;
   driftUntil?: number;

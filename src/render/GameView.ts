@@ -22,7 +22,7 @@ import { GAME_CONFIG } from '../config/gameConfig';
 import type { Stage } from './Stage';
 import { createUnitView, type AnyUnitView } from './units/createUnitView';
 import { SpriteUnitView } from './units/SpriteUnitView';
-import { ModelUnitView } from './units/model/ModelUnitView';
+import { hitSeverity, ModelUnitView } from './units/model/ModelUnitView';
 import { ObjectView } from './ObjectView';
 import { FogView } from './FogView';
 import { OBJECT_RULES } from '../core/sim/objects';
@@ -74,6 +74,41 @@ const WOOD_OBJECTS = new Set(['cart', 'roots', 'torch', 'altar', 'campfire', 'oi
 const WIND = new THREE.Vector3(1, 0, 0.11).normalize();
 
 /**
+ * Eventos que começam com uma animação de quem age. A animação toca na hora e o efeito (projétil,
+ * explosão, dano no alvo, som) sai no instante do impacto/lançamento dela (AttackImpact / CastRelease).
+ * `impactAt`: o efeito já tem tempo próprio (o golpe é que se ajusta a ele); `now`: aviso que sai na hora.
+ */
+const ANIM_SYNC: Partial<Record<SimEvent['type'], { kind: 'attack' | 'heavy' | 'cast'; impactAt?: number; now?: boolean; instantFacing?: boolean }>> = {
+  melee: { kind: 'attack' },
+  bolt: { kind: 'attack' },
+  arrow: { kind: 'attack' },
+  pierce: { kind: 'heavy' },
+  cleave: { kind: 'attack', impactAt: CLEAVE_IMPACT, instantFacing: true },
+  bash: { kind: 'heavy', impactAt: BASH_IMPACT, instantFacing: true },
+  execute: { kind: 'heavy' },
+  shockwave: { kind: 'heavy' },
+  stomp: { kind: 'heavy' },
+  cast: { kind: 'cast' },
+  nova: { kind: 'cast' },
+  storm: { kind: 'cast' },
+  taunt: { kind: 'cast' },
+  fury: { kind: 'cast' },
+  focus: { kind: 'cast' },
+  rain: { kind: 'cast' },
+  curse: { kind: 'cast' },
+  shadowBolt: { kind: 'cast' },
+  divineHeal: { kind: 'cast' },
+  holyShield: { kind: 'cast' },
+  blessing: { kind: 'cast' },
+  sanctuary: { kind: 'cast' },
+  telegraph: { kind: 'cast', now: true },
+};
+/** Abaixo disso (s) o efeito sai junto com a animação. */
+const MIN_LEAD = 0.03;
+/** Suavização do deslocamento entre tiles (s): andar contínuo, aceleração e frenagem naturais. */
+const MOVE_SMOOTH = 0.07;
+
+/**
  * Espelho visual da simulação. Lê o estado (somente leitura) e consome os
  * eventos de cada tick para disparar efeitos. Nunca altera a simulação.
  */
@@ -98,6 +133,14 @@ export class GameView {
   private hitStopT = 0;
   /** Reações de dano esperando o golpe/projétil acertar (sincroniza impacto com a animação). */
   private deferred: { t: number; events: SimEvent[] }[] = [];
+  /** Tempo (s) até o impacto/lançamento da animação disparada neste tick, por unidade (som e dano esperam). */
+  private leads = new Map<number, number>();
+  /** De onde veio o último golpe em cada unidade (a reação e a queda seguem essa direção). */
+  private lastHitFrom = new Map<number, THREE.Vector3>();
+  /** Posição suavizada e velocidade de cada unidade (andar contínuo entre tiles). */
+  private motion = new Map<number, { pos: THREE.Vector3; vel: THREE.Vector3 }>();
+  /** Último empurrão (tick) já mostrado por unidade. */
+  private knocked = new Map<number, number>();
   /** Equipamentos no chão até o fim da onda. */
   private loot: LootFX[] = [];
   private readonly world = new THREE.Group();
@@ -365,18 +408,23 @@ export class GameView {
    */
   private deferImpacts(events: SimEvent[]): SimEvent[] {
     const delay = new Map<number, number>();
+    const lead = (id: number) => this.leads.get(id) ?? 0;
     for (const e of events) {
-      if (e.type === 'bolt') delay.set(e.targetId, FrostBoltFX.impactDelay(this.boltFrom(e), tileToWorld(e.to.x, e.to.y, undefined, 0.6)));
+      if (e.type === 'bolt') delay.set(e.targetId, lead(e.unitId) + FrostBoltFX.impactDelay(this.boltFrom(e), tileToWorld(e.to.x, e.to.y, undefined, 0.6)));
+      else if (e.type === 'melee' && lead(e.unitId) > 0) delay.set(e.targetId, lead(e.unitId));
+      else if (e.type === 'execute' && lead(e.unitId) > 0) delay.set(e.targetId, lead(e.unitId));
       else if (e.type === 'bash') delay.set(e.targetId, BASH_IMPACT);
       else if (e.type === 'meteor') {
         for (const u of this.sim.units.values()) if (u.team === 'party' && Math.max(Math.abs(u.x - e.x), Math.abs(u.y - e.y)) <= e.radius) delay.set(u.id, 0.28);
       }
-      else if (e.type === 'shadowBolt') delay.set(e.targetId, ShadowBoltFX.impactDelay(tileToWorld(e.from.x, e.from.y, undefined, 1.0), tileToWorld(e.to.x, e.to.y, undefined, 0.9)));
-      else if (e.type === 'arrow') delay.set(e.targetId, ArrowFX.impactDelay(this.bowTip(e.unitId, e.from), tileToWorld(e.to.x, e.to.y, undefined, 0.6)));
+      else if (e.type === 'shadowBolt') delay.set(e.targetId, lead(e.unitId) + ShadowBoltFX.impactDelay(tileToWorld(e.from.x, e.from.y, undefined, 1.0), tileToWorld(e.to.x, e.to.y, undefined, 0.9)));
+      else if (e.type === 'arrow') delay.set(e.targetId, lead(e.unitId) + ArrowFX.impactDelay(this.bowTip(e.unitId, e.from), tileToWorld(e.to.x, e.to.y, undefined, 0.6)));
       else if (e.type === 'rain') {
-        for (const u of this.sim.units.values()) if (u.team === 'enemy' && Math.max(Math.abs(u.x - e.x), Math.abs(u.y - e.y)) <= e.radius) delay.set(u.id, RainFX.IMPACT);
+        for (const u of this.sim.units.values()) if (u.team === 'enemy' && Math.max(Math.abs(u.x - e.x), Math.abs(u.y - e.y)) <= e.radius) delay.set(u.id, lead(e.unitId) + RainFX.IMPACT);
       }
     }
+    // dano de habilidade sem projétil (nova, tempestade, onda de choque...): sai no lançamento de quem lançou
+    for (const e of events) if (e.type === 'damage' && e.sourceId !== undefined && !delay.has(e.unitId) && lead(e.sourceId) > MIN_LEAD) delay.set(e.unitId, lead(e.sourceId));
     for (const e of events) if (e.type === 'damage' && e.source === 'cleave' && !delay.has(e.unitId)) delay.set(e.unitId, CLEAVE_IMPACT);
     if (!delay.size) return events;
     const now: SimEvent[] = [];
@@ -394,9 +442,57 @@ export class GameView {
     return now;
   }
 
+  /**
+   * Toca a animação de quem age (golpe/magia) e guarda quanto falta para o impacto/lançamento.
+   */
+  private animateActors(events: SimEvent[]): void {
+    this.leads.clear();
+    for (const e of events) {
+      const sync = ANIM_SYNC[e.type];
+      const id = sync && 'unitId' in e ? e.unitId : undefined;
+      const v = id !== undefined ? this.units.get(id) : undefined;
+      if (!sync || id === undefined || !v) continue;
+      if (this.leads.has(id)) continue; // uma animação por unidade por tick
+      const u = this.sim.units.get(id);
+      const f = e.type === 'cleave' ? e.facing : u?.facing;
+      if (f) v.setFacing(f.x, f.y, sync.instantFacing);
+      const opts = sync.impactAt !== undefined ? { impactAt: sync.impactAt } : {};
+      const t = sync.kind === 'cast' ? v.cast(opts) : v.attack(sync.kind === 'heavy' ? 'heavy' : 'swing', opts);
+      this.leads.set(id, sync.impactAt !== undefined || sync.now ? 0 : t);
+    }
+  }
+
+  /** Efeitos dos eventos animados saem no impacto/lançamento (os demais seguem agora). */
+  private deferSynced(events: SimEvent[]): SimEvent[] {
+    const now: SimEvent[] = [];
+    const later = new Map<number, SimEvent[]>();
+    for (const e of events) {
+      const sync = ANIM_SYNC[e.type];
+      let id = sync && 'unitId' in e ? e.unitId : undefined;
+      // a barreira de fogo nasce no lançamento da magia de quem a conjurou
+      if (e.type === 'effectStart' && e.effect.kind !== 'oilFire') id = e.effect.ownerId;
+      const t = id !== undefined && (sync || e.type === 'effectStart') ? (this.leads.get(id) ?? 0) : 0;
+      if (t > MIN_LEAD) {
+        const list = later.get(t) ?? [];
+        list.push(e);
+        later.set(t, list);
+      } else now.push(e);
+    }
+    for (const [t, list] of later) this.deferred.push({ t, events: list });
+    return now;
+  }
+
+  /** Tempo (s) até o impacto/lançamento da animação que a unidade começou neste tick (sons esperam por ele). */
+  animLead(unitId: number): number {
+    return this.leads.get(unitId) ?? 0;
+  }
+
   handle(events: SimEvent[], immediate = false): void {
     const tmp = new THREE.Vector3();
-    if (!immediate) events = this.deferImpacts(events);
+    if (!immediate) {
+      this.animateActors(events);
+      events = this.deferSynced(this.deferImpacts(events));
+    }
     for (const e of events) {
       switch (e.type) {
         case 'spawn': {
@@ -444,15 +540,12 @@ export class GameView {
           break;
         }
         case 'cast':
-          this.units.get(e.unitId)?.cast();
           this.spectre(e.unitId, 0.85);
           break;
         case 'cleave': {
           const w = this.units.get(e.unitId);
           const u = this.sim.units.get(e.unitId);
           if (!w || !u) break;
-          w.setFacing(e.facing.x, e.facing.y, true);
-          w.attack();
           const tiles = e.tiles;
           const fx = new CleaveFX(u, e.facing, e.tiles, e.hitTiles, this.kit, () => (this.flashTiles = { tiles, t: 0.25 }));
           this.world.add(fx.group);
@@ -460,17 +553,17 @@ export class GameView {
           this.spectre(e.unitId, 0.55);
           break;
         }
-        case 'melee': {
-          const a = this.units.get(e.unitId);
-          a?.attack();
-          const u = this.sim.units.get(e.unitId);
-          if (a && u) a.setFacing(u.facing.x, u.facing.y);
-          break;
-        }
+        case 'melee':
+          break; // golpe animado em animateActors; o dano no alvo sai no impacto
         case 'damage': {
           const v = this.units.get(e.unitId);
           if (!v) break;
-          v.hit();
+          // reação na direção do golpe, com gravidade pela fração da vida perdida
+          const src = e.sourceId !== undefined ? this.units.get(e.sourceId)?.root.position.clone() : undefined;
+          if (src) this.lastHitFrom.set(e.unitId, src);
+          const target = this.sim.units.get(e.unitId);
+          const dot = e.source === 'burn' || e.source === 'poison' || e.source === 'curse';
+          v.hit({ from: src, severity: dot ? 'light' : hitSeverity(e.amount, target?.maxHp ?? 100, e.source, e.crit), head: e.source === 'arrow' || e.source === 'bolt' });
           this.damageNumber(e.unitId, e.amount, e.source, v.root.position);
           if (e.crit && e.source !== 'arrow') this.float('CRÍTICO!', v.root.position.clone().setY(1.5), '#ffd84a', 0.3);
           if (e.source === 'burn') v.burning = 0.6;
@@ -496,12 +589,6 @@ export class GameView {
           break;
         }
         case 'bolt': {
-          const m = this.units.get(e.unitId);
-          if (m) {
-            m.attack();
-            const u = this.sim.units.get(e.unitId);
-            if (u) m.setFacing(u.facing.x, u.facing.y);
-          }
           const fx = new FrostBoltFX(this.boltFrom(e), tileToWorld(e.to.x, e.to.y, undefined, 0.6), this.kit);
           this.world.add(fx.group);
           this.oneShots.push(fx);
@@ -511,12 +598,6 @@ export class GameView {
         case 'bash': {
           // Investida: golpe pesado sincronizado com a descida da espada
           const w = this.units.get(e.unitId);
-          const u = this.sim.units.get(e.unitId);
-          if (w && u) {
-            w.setFacing(u.facing.x, u.facing.y, true);
-            if (w instanceof ModelUnitView) w.attack('heavy');
-            else w.attack();
-          }
           const from = w ? w.root.position.clone() : tileToWorld(e.x, e.y);
           const fx = new BashFX(from, tileToWorld(e.x, e.y), this.kit);
           this.world.add(fx.group);
@@ -590,13 +671,11 @@ export class GameView {
           break;
         }
         case 'divineHeal': {
-          this.units.get(e.unitId)?.cast();
           const t = this.units.get(e.targetId);
           if (t) holyBurst(this.kit, t.root.position);
           break;
         }
         case 'holyShield': {
-          this.units.get(e.unitId)?.cast();
           const t = this.units.get(e.targetId);
           if (t) {
             shieldBurst(this.kit, t.root.position);
@@ -605,7 +684,6 @@ export class GameView {
           break;
         }
         case 'blessing': {
-          this.units.get(e.unitId)?.cast();
           this.spectre(e.unitId, 0.7);
           for (const id of e.targets) {
             const t = this.units.get(id);
@@ -616,15 +694,12 @@ export class GameView {
           break;
         }
         case 'sanctuary': {
-          this.units.get(e.unitId)?.cast();
           const p = tileToWorld(e.x, e.y);
           sanctuaryDecal(this.kit, p, e.radius, e.ticks / 10);
           this.float('Santuário', p.clone().setY(1.6), '#ffe08a', 0.3);
           break;
         }
         case 'curse': {
-          const v = this.units.get(e.unitId);
-          v?.cast();
           this.spectre(e.unitId, 0.7);
           telegraph(this.kit, tileToWorld(e.x, e.y), e.radius, 0.6);
           for (const u of this.sim.units.values())
@@ -633,9 +708,6 @@ export class GameView {
           break;
         }
         case 'execute': {
-          const v = this.units.get(e.unitId);
-          if (v instanceof ModelUnitView) v.attack('heavy');
-          else v?.attack();
           this.float('EXECUÇÃO!', tileToWorld(e.x, e.y, undefined, 1.8), '#ffd04a', 0.36, 1.1);
           break;
         }
@@ -698,7 +770,6 @@ export class GameView {
         }
         case 'nova': {
           const v = this.units.get(e.unitId);
-          v?.cast();
           this.spectre(e.unitId, 0.7);
           this.oneShot(new NovaFX(v ? v.root.position.clone() : tileToWorld(e.x, e.y), e.radius, this.kit));
           break;
@@ -707,23 +778,18 @@ export class GameView {
           this.frozen.set(e.unitId, e.ticks / 10);
           break;
         case 'storm': {
-          const v = this.units.get(e.unitId);
-          v?.cast();
           this.spectre(e.unitId, 0.8);
           this.oneShot(new StormFX(e.strikes.map((s) => tileToWorld(s.x, s.y)), this.kit));
           break;
         }
         case 'taunt': {
           const v = this.units.get(e.unitId);
-          v?.cast();
           if (v) this.float('Provocar!', v.root.position.clone().setY(2.2), '#ff7a5a', 0.32);
           this.oneShot(new TauntFX(v ? v.root.position.clone() : new THREE.Vector3(), e.radius, this.kit));
           break;
         }
         case 'shockwave': {
           const v = this.units.get(e.unitId);
-          if (v instanceof ModelUnitView) v.attack('heavy');
-          else v?.attack();
           this.spectre(e.unitId, 0.8);
           this.oneShot(new ShockwaveFX(v ? v.root.position.clone() : tileToWorld(e.x, e.y), e.radius, this.kit));
           break;
@@ -732,7 +798,6 @@ export class GameView {
           const v = this.units.get(e.unitId);
           this.fury.set(e.unitId, e.ticks / 10);
           if (v) {
-            v.cast();
             this.float('FÚRIA!', v.root.position.clone().setY(2.3), '#ff5a3a', 0.4, 1.2);
             this.oneShot(new FuryFX(v.root.position.clone(), this.kit));
           }
@@ -747,20 +812,12 @@ export class GameView {
           break;
         }
         case 'arrow': {
-          const v = this.units.get(e.unitId);
-          const u = this.sim.units.get(e.unitId);
-          if (v) {
-            v.attack();
-            if (u) v.setFacing(u.facing.x, u.facing.y);
-          }
           this.oneShot(new ArrowFX(this.bowTip(e.unitId, e.from), tileToWorld(e.to.x, e.to.y, undefined, 0.6), this.kit, e.crit));
           if (e.crit) this.float('CRÍTICO!', tileToWorld(e.to.x, e.to.y, undefined, 1.5), '#ffd84a', 0.3);
           this.spectre(e.unitId, 0.4);
           break;
         }
         case 'rain': {
-          const v = this.units.get(e.unitId);
-          v?.cast();
           this.spectre(e.unitId, 0.6);
           const u = this.sim.units.get(e.unitId);
           const fire = !!(u?.stats?.skills.fireRain);
@@ -768,8 +825,6 @@ export class GameView {
           break;
         }
         case 'pierce': {
-          const v = this.units.get(e.unitId);
-          if (v) v.attack('heavy');
           this.oneShot(new PierceFX(this.bowTip(e.unitId, e.from), tileToWorld(e.to.x, e.to.y, undefined, 0.6), this.kit));
           break;
         }
@@ -777,7 +832,6 @@ export class GameView {
           const v = this.units.get(e.unitId);
           this.fury.set(e.unitId, e.ticks / 10);
           if (v) {
-            v.cast();
             this.float('FOCO!', v.root.position.clone().setY(2.3), '#8aff8a', 0.4, 1.2);
             this.oneShot(new FocusFX(v.root.position.clone(), this.kit));
           }
@@ -785,21 +839,16 @@ export class GameView {
         }
         case 'shadowBolt': {
           const v = this.units.get(e.unitId);
-          v?.cast();
           const from = v ? v.root.position.clone().setY(1.1) : tileToWorld(e.from.x, e.from.y, undefined, 1.0);
           this.oneShot(new ShadowBoltFX(from, tileToWorld(e.to.x, e.to.y, undefined, 0.9), this.kit));
           break;
         }
         case 'stomp': {
           const v = this.units.get(e.unitId);
-          if (v instanceof ModelUnitView) v.attack('heavy');
-          else v?.attack();
           this.oneShot(new StompFX(v ? v.root.position.clone() : tileToWorld(e.x, e.y), e.radius, this.kit));
           break;
         }
         case 'telegraph': {
-          const v = this.units.get(e.unitId);
-          v?.cast();
           telegraph(this.kit, tileToWorld(e.x, e.y), e.radius, e.ticks / 10);
           break;
         }
@@ -848,8 +897,11 @@ export class GameView {
               break;
             }
           }
-          v.die();
+          // cai para longe de quem deu o golpe final
+          v.die(this.lastHitFrom.get(e.unitId));
+          this.lastHitFrom.delete(e.unitId);
           this.units.delete(e.unitId);
+          this.motion.delete(e.unitId);
           this.corpses.push(v);
           const kind = this.kinds.get(e.unitId) ?? '';
           if (!isHeroKind(kind))
@@ -921,8 +973,12 @@ export class GameView {
       const t = THREE.MathUtils.clamp((renderTick - u.moveStartTick) / u.moveTicks, 0, 1);
       tileToWorld(u.prevX, u.prevY, p0);
       tileToWorld(u.x, u.y, p1);
-      const e = t * t * (3 - 2 * t);
-      v.root.position.lerpVectors(p0, p1, e);
+      // empurrão/puxão de verdade (a simulação moveu a unidade à força): o corpo reage ao tranco
+      if (u.displacedTick !== undefined && u.displacedTick === u.moveStartTick && this.knocked.get(id) !== u.displacedTick) {
+        this.knocked.set(id, u.displacedTick);
+        if (v instanceof ModelUnitView) v.knockback(p1.clone().sub(p0));
+      }
+      this.smoothMove(id, v, p0.lerp(p1, t), dt);
       if (t < 1 || u.team === 'enemy') v.setFacing(u.facing.x, u.facing.y);
       if (u.team === 'party' && u.kind === 'warrior') v.setFacing(u.facing.x, u.facing.y);
       // Planejamento: heróis passeiam perto do posto e vão andando até onde o jogador mandar.
@@ -1065,6 +1121,29 @@ export class GameView {
     }, color, dur, this.kit);
     this.world.add(fx.group);
     this.oneShots.push(fx);
+  }
+
+  /**
+   * Posição na tela seguindo a da grade com uma mola crítica: passos encadeados viram andar contínuo
+   * (sem o "acelera-freia" de cada tile), e o começo/fim do movimento ganham aceleração natural.
+   * Teletransporte (posicionamento, entrada) pula direto.
+   */
+  private smoothMove(id: number, v: AnyUnitView, target: THREE.Vector3, dt: number): void {
+    let m = this.motion.get(id);
+    if (!m || m.pos.distanceToSquared(target) > 6.25) {
+      m = { pos: target.clone(), vel: new THREE.Vector3() };
+      this.motion.set(id, m);
+    } else if (dt > 0) {
+      // SmoothDamp (mola criticamente amortecida, estável para qualquer dt)
+      const w = 2 / MOVE_SMOOTH;
+      const x = w * dt;
+      const k = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+      const diff = m.pos.clone().sub(target);
+      const tmp = m.vel.clone().addScaledVector(diff, w).multiplyScalar(dt);
+      m.vel.sub(tmp.clone().multiplyScalar(w)).multiplyScalar(k);
+      m.pos.copy(target).add(diff.add(tmp).multiplyScalar(k));
+    }
+    v.root.position.copy(m.pos);
   }
 
   /** Destaque vermelho rápido dos tiles do último golpe (leitura tática). */

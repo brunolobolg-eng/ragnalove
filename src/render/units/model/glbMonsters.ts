@@ -4,6 +4,7 @@ import { HERO_MODELS, MONSTER_MODELS } from '../../../config/visualConfig';
 import { archerClips, gruntClips, mageClips, warriorClips, type ClipName } from './anims';
 import type { BoneDef, BuiltModel } from './ModelBuilder';
 import { registerModel } from './ModelUnitView';
+import { loadUalLibrary } from './anim/retarget';
 
 const CLIP_NAMES: ClipName[] = ['idle', 'walk', 'attack', 'heavy', 'cast', 'hit', 'death'];
 
@@ -123,6 +124,8 @@ function ownClips(gltf: { scene: THREE.Object3D; animations: THREE.AnimationClip
 /** Carrega cada arquivo uma vez e registra todas as variantes (tamanho/aura) definidas no MONSTER_MODELS. */
 export async function loadMonsterModels(onLoaded?: (kind: string) => void): Promise<void> {
   const loader = new GLTFLoader();
+  // a biblioteca de animações chega junto (os modelos registrados já saem com o retargeting)
+  const library = loadUalLibrary();
   const files = new Map<string, Promise<LoadedGlb>>();
   await Promise.all(
     Object.entries({ ...MONSTER_MODELS, ...HERO_MODELS }).map(async ([kind, v]) => {
@@ -131,6 +134,7 @@ export async function loadMonsterModels(onLoaded?: (kind: string) => void): Prom
         const key = `${v.file}|${v.clips ?? ''}`;
         if (!files.has(key)) files.set(key, loader.loadAsync(v.file).then((g: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }) => toBuiltModel(g, v.clips)));
         const { model, clips } = await files.get(key)!;
+        await library;
         const def = {
           build: () => model,
           clips: () => clips,
@@ -140,6 +144,7 @@ export async function loadMonsterModels(onLoaded?: (kind: string) => void): Prom
           aura: v.aura ? new THREE.Color(...v.aura) : undefined,
           ghost: v.ghost ? new THREE.Color(...v.ghost) : undefined,
           weapons: v.weapons,
+          anim: v.anim,
         };
         registerModel(kind, def);
         onLoaded?.(kind);

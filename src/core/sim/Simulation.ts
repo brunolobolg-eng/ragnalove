@@ -804,6 +804,7 @@ export class Simulation {
     this.occ[this.board.idx(x, y)] = u.id;
     u.moveStartTick = this.tick;
     u.moveTicks = 2;
+    u.displacedTick = this.tick;
     u.nextActTick = Math.max(u.nextActTick, this.tick + 3);
     return true;
   }

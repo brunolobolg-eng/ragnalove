@@ -141,7 +141,8 @@ export class CharSelect {
    */
   walkFrames(k: HeroKind, n = 8, size = 160, face: [number, number] = [1, 0.35]): string[] {
     const v = this.views.get(k)!;
-    const cycle = ({ warrior: 1.0, mage: 1.1, archer: 0.95 / 1.05 } as Partial<Record<HeroKind, number>>)[k] ?? 1.0;
+    // anda no lugar: a duração de um ciclo de passos fecha o laço dos quadros sem pulo
+    const cycle = v.walkInPlace(true);
     const oldSize = this.renderer.getSize(new THREE.Vector2());
     const wasDark = v.dark;
     v.dark = false;
@@ -178,6 +179,7 @@ export class CharSelect {
     this.scene.background = bg;
     for (const o of hidden) o.visible = true;
     this.scene.remove(fill, sun, sun.target);
+    v.walkInPlace(false);
     v.setFacing(0, 1, true);
     for (let i = 0; i < 30; i++) v.update(1 / 60, 1, 1, this.camera.quaternion);
     v.dark = wasDark;

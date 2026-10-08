@@ -183,22 +183,26 @@ export class UnitView {
     if (instant) this.rig.yaw.rotation.y = this.yawTarget;
   }
 
-  hit(): void {
+  /** (sprites ignoram direção/gravidade do golpe) */
+  hit(_info?: unknown): void {
     this.flash = VISUAL_CONFIG.unit.hitFlashTime;
     this.hpVisible = true;
   }
 
-  attack(): void {
+  /** Devolve o tempo até o impacto (0: sprites não adiam o dano). */
+  attack(_style?: 'swing' | 'heavy', _opts?: unknown): number {
     this.actionT = 0;
     this.actionKind = 'attack';
+    return 0;
   }
 
-  cast(): void {
+  cast(_opts?: unknown): number {
     this.actionT = 0;
     this.actionKind = 'cast';
+    return 0;
   }
 
-  die(): void {
+  die(_killer?: unknown): void {
     this.dyingT = 0;
     this.deathDir = Math.random() < 0.5 ? -1 : 1;
     this.hpBar.visible = false;

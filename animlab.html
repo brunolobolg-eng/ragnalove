@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Laboratório de Animações</title>
+    <style>
+      body { margin: 0; background: #1b2236; color: #e8ecf6; font: 13px Tahoma, sans-serif; overflow: hidden; }
+      #lab-ui { position: fixed; top: 8px; left: 8px; display: flex; flex-wrap: wrap; gap: 4px; max-width: 70vw; }
+      #lab-ui button, #lab-ui select { background: #24304e; color: #ffe6a8; border: 1px solid #b8a060; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+      #lab-log { position: fixed; bottom: 8px; left: 8px; white-space: pre; font: 12px monospace; color: #bfe6ff; text-shadow: 0 1px 2px #000; }
+    </style>
+  </head>
+  <body>
+    <div id="lab-ui"></div>
+    <pre id="lab-log"></pre>
+    <script type="module" src="/src/dev/animLab.ts"></script>
+  </body>
+</html>

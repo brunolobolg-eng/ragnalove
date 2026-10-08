@@ -3,6 +3,10 @@ import { VISUAL_CONFIG } from '../../../config/visualConfig';
 import { facingToYaw } from '../../coords';
 import { softCircle } from '../../textures';
 import { archerClips, gruntClips, mageClips, warriorClips, type ClipName } from './anims';
+import { ANIM_CONFIG, ANIM_PROFILES, OWN_PROFILE } from '../../../config/animConfig';
+import { AnimController, type ActionKind, type AnimEvent, type HitSeverity, type PlayOptions } from './anim/AnimController';
+import { buildAnimSet, type AnimSet } from './anim/AnimSet';
+import { loadedUalLibrary, onUalLibrary } from './anim/retarget';
 import { buildArcher, buildBrute, buildGrunt, buildMage, buildRunner, buildWarrior } from './characters';
 import { instantiateSkeleton, type BuiltModel } from './ModelBuilder';
 import { attachWeapon, type WeaponAttach } from './weapons';
@@ -21,14 +25,16 @@ export interface ModelDef {
   walkRate: number;
   /** Armas presas nos ossos (modelos importados que vêm de mãos vazias). */
   weapons?: WeaponAttach[];
+  /** Perfil de animação (ANIM_PROFILES em animConfig.ts); sem perfil = clipes próprios. */
+  anim?: string;
 }
 
 export const MODELS: Record<string, ModelDef> = {
-  warrior: { build: buildWarrior, clips: warriorClips, scale: 1.42, outline: 0.012, ghost: new THREE.Color(0.35, 1.25, 1.0), walkRate: 1 },
-  mage: { build: buildMage, clips: mageClips, scale: 1.4, outline: 0.012, ghost: new THREE.Color(0.55, 0.8, 1.6), walkRate: 1 },
-  archer: { build: buildArcher, clips: archerClips, scale: 1.4, outline: 0.012, ghost: new THREE.Color(0.6, 1.5, 0.5), walkRate: 1.05 },
-  grunt: { build: buildGrunt, clips: gruntClips, scale: 1.28, outline: 0.013, walkRate: 1.3 },
-  runner: { build: buildRunner, clips: (b) => gruntClips(b, 'runner'), scale: 1.2, outline: 0.012, walkRate: 2.4 },
+  warrior: { build: buildWarrior, clips: warriorClips, scale: 1.42, outline: 0.012, ghost: new THREE.Color(0.35, 1.25, 1.0), walkRate: 1, anim: 'sword' },
+  mage: { build: buildMage, clips: mageClips, scale: 1.4, outline: 0.012, ghost: new THREE.Color(0.55, 0.8, 1.6), walkRate: 1, anim: 'staff' },
+  archer: { build: buildArcher, clips: archerClips, scale: 1.4, outline: 0.012, ghost: new THREE.Color(0.6, 1.5, 0.5), walkRate: 1.05, anim: 'bow' },
+  grunt: { build: buildGrunt, clips: gruntClips, scale: 1.28, outline: 0.013, walkRate: 1.3, anim: 'zombie' },
+  runner: { build: buildRunner, clips: (b) => gruntClips(b, 'runner'), scale: 1.2, outline: 0.012, walkRate: 2.4, anim: 'zombie' },
   brute: { build: () => buildBrute(false), clips: (b) => gruntClips(b, 'brute'), scale: 1.5, outline: 0.012, walkRate: 0.85 },
   boss: { build: () => buildBrute(true), clips: (b) => gruntClips(b, 'brute'), scale: 2.25, outline: 0.009, walkRate: 0.9, aura: new THREE.Color(1.6, 0.15, 0.4) },
   /** Mini-chefe dos nós de Elite: brutamonte maior com aura violeta. */
@@ -41,7 +47,7 @@ MODELS.necro = { ...MODELS.grunt, scale: 1.3, aura: new THREE.Color(0.7, 0.2, 1.
 // Heróis avançados: até o GLB carregar, usam o corpo de uma classe parecida (cor do espectro própria).
 MODELS.sorcerer = { ...MODELS.mage, ghost: new THREE.Color(1.2, 0.55, 1.8) };
 MODELS.warlock = { ...MODELS.mage, ghost: new THREE.Color(1.6, 0.25, 0.6) };
-MODELS.assassin = { ...MODELS.archer, ghost: new THREE.Color(1.6, 1.3, 0.3) };
+MODELS.assassin = { ...MODELS.archer, ghost: new THREE.Color(1.6, 1.3, 0.3), anim: 'daggers' };
 // Até o GLB do orc carregar, o chefe final usa o Colosso com aura vermelha.
 MODELS.orcboss = { ...MODELS.boss, scale: 2.6 };
 
@@ -51,23 +57,35 @@ export function registerModel(kind: string, def: ModelDef): void {
   cache.delete(kind);
 }
 
-/** Geometria e clipes são construídos uma vez por tipo e compartilhados por todas as instâncias. */
-const cache = new Map<string, { model: BuiltModel; clips: Record<ClipName, THREE.AnimationClip> }>();
+/** Geometria e animações são construídas uma vez por tipo e compartilhadas por todas as instâncias. */
+const cache = new Map<string, { model: BuiltModel; anims: AnimSet }>();
 function assets(kind: string) {
   let a = cache.get(kind);
   if (!a) {
     const d = MODELS[kind];
     const model = d.build();
-    a = { model, clips: d.clips(model.bones) };
+    const own = d.clips(model.bones);
+    const profile = (d.anim && ANIM_PROFILES[d.anim]) || OWN_PROFILE;
+    a = { model, anims: buildAnimSet(model.bones, own, profile, loadedUalLibrary()) };
     cache.set(kind, a);
   }
   return a;
+}
+// a biblioteca chegou depois de algum modelo ser montado: os próximos já saem com ela
+onUalLibrary(() => cache.clear());
+
+/** Gravidade do golpe pela fração da vida perdida (e fontes que sempre derrubam). */
+export function hitSeverity(amount: number, maxHp: number, source: string, crit = false): HitSeverity {
+  const H = ANIM_CONFIG.hit;
+  const f = amount / Math.max(1, maxHp);
+  let s: HitSeverity = H.heavySources.includes(source) || f >= H.heavyAt ? 'heavy' : f >= H.mediumAt ? 'medium' : 'light';
+  if (crit && H.critBump) s = s === 'light' ? 'medium' : 'heavy';
+  return s;
 }
 
 const IDENTITY = new THREE.Matrix4();
 /** Radianos que o boneco inclina para trás, encarando melhor a câmera alta (só visual). */
 const MODEL_LEAN = -0.38;
-const ONE_SHOTS: ClipName[] = ['attack', 'heavy', 'cast', 'hit', 'death'];
 
 /**
  * Unidade 3D: SkinnedMesh toon + contorno + espectro, animada por AnimationMixer.
@@ -77,6 +95,8 @@ export class ModelUnitView {
   /** Liga/desliga o contorno de todos os modelos (preset de qualidade). */
   static outlines = true;
   readonly root = new THREE.Group();
+  /** Empurrão visual (golpe forte): desloca o corpo e volta com mola, sem mexer na posição da grade. */
+  private readonly push = new THREE.Group();
   /** Inclinação para a câmera (truque de jogo isométrico: mostra o rosto sob a câmera alta). */
   private readonly lean = new THREE.Group();
   private readonly model = new THREE.Group();
@@ -84,10 +104,10 @@ export class ModelUnitView {
   private readonly outline: THREE.SkinnedMesh;
   private readonly spectre?: THREE.SkinnedMesh;
   private readonly spectreMat?: ReturnType<typeof createSpectreMaterial>;
-  private readonly mixer: THREE.AnimationMixer;
-  private readonly actions: Record<ClipName, THREE.AnimationAction>;
-  private current: THREE.AnimationAction;
-  private base: THREE.AnimationAction;
+  /** Camadas de animação, prioridades, eventos e reações físicas. */
+  readonly anim: AnimController;
+  /** Eventos de animação (attackStart/attackImpact/attackEnd, castStart/castRelease/castEnd...). */
+  onAnimEvent?: (e: AnimEvent) => void;
   private readonly u: UnitUniforms;
   private readonly materials: THREE.Material[] = [];
   private readonly capeBones: THREE.Bone[] = [];
@@ -103,10 +123,12 @@ export class ModelUnitView {
   private flash = 0;
   private absorbT = 0;
   private levelT = 0;
-  private actionT = -1;
-  private actionDur = 0.5;
+  /** espectro de combate: tempo desde o início do golpe e quando é o impacto */
+  private ghostT = -1;
+  private ghostImpact = 0.3;
   private dyingT = -1;
-  private walkHold = 0;
+  private deathTotal = 2;
+  private prevYaw = 0;
   private hpShown = 1;
   private hpVisible: boolean;
   private readonly lastPos = new THREE.Vector3();
@@ -120,7 +142,7 @@ export class ModelUnitView {
     readonly team: 'party' | 'enemy',
   ) {
     this.def = MODELS[kind];
-    const { model, clips } = assets(kind);
+    const { model, anims } = assets(kind);
     this.hpVisible = team === 'party';
     this.u = createUnitUniforms();
     if (team === 'enemy') {
@@ -173,25 +195,14 @@ export class ModelUnitView {
     this.model.scale.setScalar(this.def.scale);
     this.lean.rotation.x = MODEL_LEAN;
     this.lean.add(this.model);
-    this.root.add(this.lean);
+    this.push.add(this.lean);
+    this.root.add(this.push);
 
-    this.mixer = new THREE.AnimationMixer(this.mesh);
-    this.actions = {} as Record<ClipName, THREE.AnimationAction>;
-    for (const [name, clip] of Object.entries(clips) as [ClipName, THREE.AnimationClip][]) {
-      const a = this.mixer.clipAction(clip);
-      if (ONE_SHOTS.includes(name)) {
-        a.setLoop(THREE.LoopOnce, 1);
-        a.clampWhenFinished = true;
-      }
-      this.actions[name] = a;
-    }
-    this.base = this.current = this.actions.idle;
-    this.current.time = Math.random() * clips.idle.duration; // horda fora de sincronia
-    this.current.play();
-    this.mixer.addEventListener('finished', (e) => {
-      if (e.action === this.actions.death) return;
-      if (e.action === this.current) this.to(this.base, 0.15);
-    });
+    this.anim = new AnimController(this.mesh, anims, sk.byName);
+    this.anim.onEvent = (e) => {
+      if (e.type === 'attackStart' || e.type === 'castStart') this.ghostT = 0;
+      this.onAnimEvent?.(e);
+    };
 
     // sombra de contato (a sombra projetada é real, do sol)
     this.contact = new THREE.Mesh(
@@ -200,7 +211,7 @@ export class ModelUnitView {
     );
     this.contact.scale.set(0.6, 1, 0.45);
     this.contact.position.y = 0.014;
-    this.root.add(this.contact);
+    this.push.add(this.contact);
 
     const bg = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.08), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55, depthWrite: false }));
     this.hpFill = new THREE.Mesh(
@@ -216,43 +227,75 @@ export class ModelUnitView {
     this.root.add(this.hpBar);
   }
 
-  private to(a: THREE.AnimationAction, fade: number): void {
-    if (a === this.current) return;
-    a.reset();
-    a.setEffectiveWeight(1);
-    a.play();
-    this.current.crossFadeTo(a, fade, false);
-    this.current = a;
-  }
-
-  private oneShot(name: ClipName, fade = 0.06): void {
-    if (this.dyingT >= 0) return;
-    this.to(this.actions[name], fade);
-  }
-
   setFacing(fx: number, fy: number, instant = false): void {
     if (fx === 0 && fy === 0) return;
+    if (this.dyingT >= 0) return; // caído: quem decide o lado da queda é o golpe final
     this.targetYaw = facingToYaw(fx, fy);
     if (instant) this.yaw = this.targetYaw;
   }
 
-  hit(): void {
+  /** Direção (espaço do personagem: x = esquerda, z = frente) do empurrão de um golpe vindo de `from`. */
+  private localPush(from: THREE.Vector3 | undefined, out = new THREE.Vector2()): THREE.Vector2 {
+    if (!from) return out.set(0, -1); // sem origem: tranco para trás
+    const dx = this.root.position.x - from.x;
+    const dz = this.root.position.z - from.z;
+    const c = Math.cos(this.yaw);
+    const s = Math.sin(this.yaw);
+    // gira o vetor do mundo para o espaço do personagem (inverso do yaw)
+    return out.set(dx * c - dz * s, dx * s + dz * c);
+  }
+
+  /**
+   * Dano: tranco na direção do golpe. `from` = posição de quem bateu; gravidade leve/média/forte
+   * (forte = cambaleio com o corpo empurrado e recuperação).
+   */
+  hit(info: { from?: THREE.Vector3; severity?: HitSeverity; head?: boolean } = {}): void {
     this.flash = VISUAL_CONFIG.unit.hitFlashTime;
     if (!this.hpLocked) this.hpVisible = true;
-    // não interrompe golpe/magia: o tranco só entra se estiver parado ou andando
-    if (this.current === this.base) this.oneShot('hit');
+    if (this.dyingT >= 0) return;
+    const sev = info.severity ?? 'light';
+    const local = this.localPush(info.from);
+    if (sev === 'heavy' && info.from) {
+      const w = new THREE.Vector2(this.root.position.x - info.from.x, this.root.position.z - info.from.z);
+      this.anim.knockback(local, w, false);
+    } else this.anim.hit(sev, local, info.head);
   }
 
-  attack(style: 'swing' | 'heavy' = 'swing'): void {
-    this.actionT = 0;
-    this.actionDur = this.team === 'party' ? 0.55 : 0.4;
-    this.oneShot(style === 'heavy' ? 'heavy' : 'attack');
+  /** Empurrão de verdade (a simulação moveu o personagem de tile): `dir` = direção do deslocamento no mundo. */
+  knockback(dir: THREE.Vector3): void {
+    if (this.dyingT >= 0) return;
+    const c = Math.cos(this.yaw);
+    const s = Math.sin(this.yaw);
+    const local = new THREE.Vector2(dir.x * c - dir.z * s, dir.x * s + dir.z * c);
+    this.anim.knockback(local, new THREE.Vector2(dir.x, dir.z), true);
   }
 
-  cast(): void {
-    this.actionT = 0;
-    this.actionDur = 0.85;
-    this.oneShot('cast');
+  /**
+   * Golpe. Devolve o tempo (s) até o impacto visual (o dano/partículas/som esperam por ele).
+   * `impactAt` força o impacto num instante (para casar com um efeito que já tem tempo próprio).
+   */
+  attack(style: 'swing' | 'heavy' = 'swing', opts: PlayOptions = {}): number {
+    const t = this.anim.play(style === 'heavy' ? 'heavy' : 'attack', opts);
+    this.ghostImpact = t || 0.3;
+    return t;
+  }
+
+  /** Magia (preparação → conjuração → lançamento → recuperação). Devolve o tempo até o lançamento. */
+  cast(opts: PlayOptions = {}): number {
+    const t = this.anim.play('cast', opts);
+    this.ghostImpact = t || 0.4;
+    return t;
+  }
+
+  /** Anda no lugar (marcador do mapa / retratos). Devolve a duração de um ciclo de passos (laço perfeito). */
+  walkInPlace(on: boolean): number {
+    this.anim.inPlaceSpeed = on ? ANIM_CONFIG.locomotion.walkAt : undefined;
+    return this.anim.walkLoopSeconds;
+  }
+
+  /** Tempo (s) até o impacto, sem tocar (o GameView agenda o dano antes de disparar o golpe). */
+  impactDelay(kind: ActionKind = 'attack', opts: PlayOptions = {}): number {
+    return this.anim.previewImpact(kind, opts);
   }
 
   /** Tela de seleção/retratos: sem barra de vida. */
@@ -272,10 +315,18 @@ export class ModelUnitView {
     this.absorbT = 0.3;
   }
 
-  die(): void {
+  /** Morte: vira para quem deu o golpe final e cai para longe dele; fica caído e só depois afunda. */
+  die(killer?: THREE.Vector3): void {
     this.hpBar.visible = false;
-    this.to(this.actions.death, 0.08);
+    if (killer) {
+      const dx = killer.x - this.root.position.x;
+      const dz = killer.z - this.root.position.z;
+      if (dx * dx + dz * dz > 1e-4) this.targetYaw = Math.atan2(dx, dz);
+    }
+    this.anim.play('death');
     this.dyingT = 0;
+    const D = ANIM_CONFIG.death;
+    this.deathTotal = this.anim.deathDuration + D.linger + D.fade;
     for (const m of this.materials) {
       m.transparent = true;
     }
@@ -286,31 +337,30 @@ export class ModelUnitView {
   }
 
   update(dt: number, moveT: number, hpFrac: number, camQuat: THREE.Quaternion): void {
+    void moveT; // a locomoção usa a velocidade real do boneco na tela (moveT fica para os sprites)
     this.time += dt;
-    // Virar suave para a direção da grade (caminho mais curto no círculo)
+    // Virar suave para a direção da grade (caminho mais curto no círculo); na morte vira mais rápido
     let d = this.targetYaw - this.yaw;
     d = Math.atan2(Math.sin(d), Math.cos(d));
-    this.yaw += d * Math.min(1, dt * 12);
+    const turn = this.dyingT >= 0 ? ANIM_CONFIG.death.turnToKiller : 12;
+    this.yaw += d * Math.min(1, dt * turn);
     this.model.rotation.y = this.yaw;
     this.outline.visible = ModelUnitView.outlines;
 
-    // Andar ↔ parado (com pequena tolerância entre passos para não "piscar" o idle)
-    const moving = moveT < 1;
-    this.walkHold = moving ? 0.18 : Math.max(0, this.walkHold - dt);
-    const wantBase = moving || this.walkHold > 0 ? this.actions.walk : this.actions.idle;
-    if (this.dyingT < 0 && wantBase !== this.base) {
-      const onBase = this.current === this.base;
-      this.base = wantBase;
-      if (onBase) this.to(wantBase, 0.2);
-    }
-    this.actions.walk.timeScale = this.def.walkRate;
-    this.mixer.update(dt);
+    // velocidade real (o empurrão visual não conta: é o corpo, não os pés)
+    const p = this.root.position;
+    const speed = dt > 1e-4 ? Math.min(12, Math.hypot(p.x - this.lastPos.x, p.z - this.lastPos.z) / dt) : 0;
+    let dyaw = this.yaw - this.prevYaw;
+    dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
+    this.prevYaw = this.yaw;
+    this.anim.update(dt, speed, dt > 1e-4 ? dyaw / dt : 0, this.def.scale);
+    this.push.position.copy(this.anim.bodyOffset);
 
     // Capa: mola simples guiada pela velocidade + brisa (camada física por cima da animação)
     if (this.capeBones.length) {
       const p = this.root.position;
       const speed = dt > 0 ? p.distanceTo(this.lastPos) / dt : 0;
-      const acting = this.actionT >= 0 ? 0.35 : 0;
+      const acting = this.anim.busy ? 0.35 : 0;
       const target = Math.min(0.7, speed * 0.35) + acting + Math.sin(this.time * 1.7) * 0.05 + 0.04;
       this.capeVel += (target - this.capeSwing) * 60 * dt - this.capeVel * 8 * dt;
       this.capeSwing += this.capeVel * dt;
@@ -326,9 +376,13 @@ export class ModelUnitView {
 
     if (this.dyingT >= 0) {
       this.dyingT += dt;
-      const T = VISUAL_CONFIG.unit.deathTime * 1.6;
-      const k = Math.min(1, this.dyingT / 0.5);
-      const op = Math.max(0, 1 - Math.max(0, this.dyingT - T * 0.55) / (T * 0.45));
+      // cai, fica caído um tempo e só então afunda no chão e some
+      const T = this.deathTotal;
+      const fadeT = ANIM_CONFIG.death.fade;
+      const k = Math.min(1, this.dyingT / 0.8);
+      const sink = Math.max(0, this.dyingT - (T - fadeT)) / fadeT;
+      const op = Math.max(0, 1 - sink);
+      this.push.position.y = -sink * 0.35;
       this.u.uOpacity.value = op;
       this.u.uTint.value.setRGB(1 - k * 0.35, 1 - k * 0.45, 1 - k * 0.45);
       this.u.uRim.value = 0.4 * (1 - k);
@@ -340,12 +394,14 @@ export class ModelUnitView {
     }
 
     // Espectro de combate: emana no preparo, pico no impacto, recolhe depois
+    // (sobe na antecipação, pico no impacto/lançamento, recolhe na recuperação)
     let ghost = 0;
-    if (this.actionT >= 0) {
-      this.actionT += dt;
-      const a = Math.min(1, this.actionT / this.actionDur);
-      ghost = a < 0.45 ? (a / 0.45) * 0.6 : a < 0.65 ? 0.6 + ((a - 0.45) / 0.2) * 0.4 : Math.max(0, 1 - (a - 0.65) / 0.35);
-      if (this.actionT >= this.actionDur) this.actionT = -1;
+    if (this.ghostT >= 0) {
+      this.ghostT += dt;
+      const imp = Math.max(0.05, this.ghostImpact);
+      const t = this.ghostT;
+      ghost = t < imp ? (t / imp) * 0.75 : t < imp + 0.08 ? 1 : Math.max(0, 1 - (t - imp - 0.08) / 0.3);
+      if (t > imp + 0.4) this.ghostT = -1;
     }
     if (this.def.aura && this.team === 'enemy') ghost = 0.4 + Math.sin(this.time * 3) * 0.12; // aura do chefe
     if (this.spectre && this.spectreMat) {
@@ -395,8 +451,8 @@ export class ModelUnitView {
   }
 
   dispose(): void {
-    this.mixer.stopAllAction();
-    this.mixer.uncacheRoot(this.mesh);
+    this.anim.dispose();
+    this.anim.mixer.uncacheRoot(this.mesh);
     for (const m of this.materials) m.dispose();
     this.mesh.skeleton.dispose();
     this.contact.material.dispose();

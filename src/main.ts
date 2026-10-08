@@ -1878,28 +1878,30 @@ function playSounds(events: SimEvent[]): void {
   const s = (n: SfxName) => audio.sfx(n);
   // som no mesmo instante do impacto visual (os tempos seguem a velocidade do jogo)
   const later = (n: SfxName, sec: number) => window.setTimeout(() => s(n), (sec * 1000) / Math.max(0.25, speed));
+  // o som de golpes e magias sai no impacto/lançamento da animação de quem agiu (view.animLead)
+  const at = (e: { unitId: number }, n: SfxName, extra = 0) => later(n, view.animLead(e.unitId) + extra);
   for (const e of events) {
-    if (e.type === 'cast') later('fireBarrier', 0.15);
+    if (e.type === 'cast') at(e, 'fireBarrier', 0.05);
     else if (e.type === 'bolt') {
-      later('frostBolt', 0.1);
-      later('frostHit', 0.26);
+      at(e, 'frostBolt');
+      at(e, 'frostHit', 0.16);
     } else if (e.type === 'cleave') later('cleave', 0.12);
     else if (e.type === 'bash') later('bash', 0.28);
-    else if (e.type === 'melee') s('hit');
-    else if (e.type === 'nova') s('nova');
-    else if (e.type === 'storm') later('thunder', 0.06);
-    else if (e.type === 'taunt' || e.type === 'fury') s('roar');
-    else if (e.type === 'shockwave') later('shock', 0.2);
+    else if (e.type === 'melee') at(e, 'hit');
+    else if (e.type === 'nova') at(e, 'nova');
+    else if (e.type === 'storm') at(e, 'thunder', 0.06);
+    else if (e.type === 'taunt' || e.type === 'fury') at(e, 'roar');
+    else if (e.type === 'shockwave') at(e, 'shock');
     else if (e.type === 'soul') s('soul');
     else if (e.type === 'levelup') s('levelup');
     else if (e.type === 'drop') s('drop');
     else if (e.type === 'death') s(HEROES.includes(view.unitKind(e.unitId) as HeroKind) ? 'heroDeath' : 'enemyDeath');
-    else if (e.type === 'arrow') s('bow');
-    else if (e.type === 'shadowBolt') s('spell');
-    else if (e.type === 'stomp') s('shock');
+    else if (e.type === 'arrow') at(e, 'bow');
+    else if (e.type === 'shadowBolt') at(e, 'spell');
+    else if (e.type === 'stomp') at(e, 'shock');
     else if (e.type === 'meteor') later('meteor', 0.2);
-    else if (e.type === 'rain') (s('bow'), later('rainArrows', 0.45));
-    else if (e.type === 'pierce') s('bow');
+    else if (e.type === 'rain') (at(e, 'bow'), at(e, 'rainArrows', 0.45));
+    else if (e.type === 'pierce') at(e, 'bow');
     else if (e.type === 'focus') s('levelup');
     else if (e.type === 'ruinCollapse') later('ruin', 0.05);
     else if (e.type === 'oilIgnite') s('fireBarrier');
