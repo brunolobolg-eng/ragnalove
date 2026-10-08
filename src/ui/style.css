@@ -363,11 +363,11 @@ body[data-mode='map'] #hud, body[data-mode='city'] #hud, body[data-mode='event']
 .wm-region { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid #aab4cc; padding-top: 5px; }
 .wm-region b { font-size: 12px; }
 .wm-choose { color: var(--ink-soft); }
-#hud button, .worldmap button, .city-screen button, .skilltree-veil button, .run-veil button, .confirm-win button {
+#hud button, .worldmap button, .city-screen button, .skilltree-veil button, .run-veil button, .confirm-win button, .cards-veil button {
   font: inherit; font-size: 11px; padding: 3px 8px; cursor: pointer; border: 1px solid #8e9bc2; border-radius: 3px;
   background: linear-gradient(180deg, #fbfcff, #dfe5f4); color: var(--ink); }
-.worldmap button:disabled, .city-screen button:disabled, .skilltree-veil button:disabled, .run-veil button:disabled { opacity: 0.45; cursor: default; }
-.worldmap button.primary, .city-screen button.primary, .skilltree-veil button.primary, .run-veil button.primary { background: linear-gradient(180deg, #e8c86e, #b58a2e); color: #2a1c05; border-color: #8a6a24; }
+.worldmap button:disabled, .city-screen button:disabled, .skilltree-veil button:disabled, .run-veil button:disabled, .cards-veil button:disabled { opacity: 0.45; cursor: default; }
+.worldmap button.primary, .city-screen button.primary, .skilltree-veil button.primary, .run-veil button.primary, .cards-veil button.primary { background: linear-gradient(180deg, #e8c86e, #b58a2e); color: #2a1c05; border-color: #8a6a24; }
 .wm-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 7px 9px !important; border-left: 4px solid #8e9bc2 !important; }
 .wm-opt b { font-size: 12px; }
 .wm-opt small { color: var(--ink-soft); font-size: 10px; line-height: 1.3; }
@@ -1750,3 +1750,20 @@ body.sand-warn #app::after { opacity: 0.12; }
 .skilltree-veil .sk-node .sk-ic { display: block; margin-bottom: 4px; }
 .skilltree-veil .tabs-row button { flex: none; width: auto; }
 .skilltree-veil .sk-side .note { background: transparent; border: 0; padding: 0; color: var(--au-dim); font-size: 11px; }
+
+/* ---------- Cartas (coleção permanente + pacote) ---------- */
+.cards-veil { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(6, 8, 20, 0.6); font-family: Tahoma, Verdana, sans-serif; }
+.cards-veil[hidden] { display: none; }
+.cards-win { width: min(1060px, 94vw); max-height: 92vh; display: flex; flex-direction: column; }
+.cards-win .win-body { overflow-y: auto; }
+.pack-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 12px 0; }
+.pcard.got { width: 150px; }
+.pcard.got img { width: 100%; border-radius: 8px; display: block; }
+.pcard.got.miniboss img, .pcard.got.mvp img { box-shadow: 0 0 18px 2px var(--rc); }
+.mvp-banner { text-align: center; font: bold 20px Cinzel, serif; color: #ffd700; text-shadow: 0 0 18px rgba(255, 215, 0, 0.8); margin: 8px 0; }
+.build-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 10px; min-height: 86px; }
+.mini-card { width: 76px; padding: 4px !important; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.mini-card img { width: 100%; border-radius: 6px; display: block; }
+.mini-card small { font-size: 9px; }
+.icard.missing { opacity: 0.35; }
+.icard.missing img { filter: grayscale(1); }

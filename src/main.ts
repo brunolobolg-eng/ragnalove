@@ -37,6 +37,9 @@ import { CHARSELECT_ART, MUSIC, POSTFX, VISUAL_CONFIG } from './config/visualCon
 import type { PostFxSituation } from './render/fx/kit/PostFX';
 import type { WaveReport } from './core/sim/types';
 import { SKILL_BY_ID, SKILL_NUM, SKILLS, lvOf, type HeroKind, type SkillId } from './core/progression/skills';
+import { addCards, applyCardLoadout, emptyCollection, migrateCollection, rollPack, type CardCollection } from './core/progression/cards';
+import { CardPack } from './ui/CardPack';
+import { Collection } from './ui/Collection';
 import { orderMove } from './core/sim/CombatMovement';
 import { WorldMap, PORTRAITS } from './ui/WorldMap';
 import { CharSelect } from './ui/CharSelect';
@@ -180,7 +183,7 @@ let saveDiscarded = false;
 function loadMetaStats(): MetaStats {
   try {
     const m = JSON.parse(SaveStore.get(META_KEY) ?? '{}') as { wins?: number; stats?: Partial<MetaStats> };
-    return { ...emptyMeta(), ...m.stats, runsWon: m.wins ?? 0, bossesKilled: { ...(m.stats?.bossesKilled ?? {}) } };
+    return { ...emptyMeta(), ...m.stats, runsWon: m.wins ?? 0, bossesKilled: { ...(m.stats?.bossesKilled ?? {}) }, collection: migrateCollection(m.stats?.collection) };
   } catch {
     return emptyMeta();
   }
@@ -188,7 +191,7 @@ function loadMetaStats(): MetaStats {
 function saveMetaStats(st: MetaStats): void {
   try {
     const m = JSON.parse(SaveStore.get(META_KEY) ?? '{}') as Record<string, unknown>;
-    m.stats = { kills: st.kills, perfectNights: st.perfectNights, bossesKilled: st.bossesKilled };
+    m.stats = { kills: st.kills, perfectNights: st.perfectNights, bossesKilled: st.bossesKilled, collection: st.collection ?? emptyCollection() };
     SaveStore.set(META_KEY, JSON.stringify(m));
   } catch {
     /* ignora */
@@ -460,6 +463,7 @@ const worldMap = new WorldMap({
       saveMeta('defeat');
       startNewRun();
     }),
+  onCards: () => openCollection(),
   onRevive: (k) => {
     if (revive(run, k)) {
       audio.sfx('levelup');
@@ -490,6 +494,24 @@ const skillTree = new SkillTree({
   },
   onUi: ui,
 });
+/** Coleção permanente de cartas: abre no mapa; equipar vale da próxima jornada em diante. */
+let openCardsRef: CardCollection | undefined;
+const collection = new Collection({
+  onChange: () => {
+    if (openCardsRef) {
+      const m = loadMetaStats();
+      m.collection = openCardsRef;
+      saveMetaStats(m);
+    }
+  },
+  onUi: ui,
+});
+const cardPack = new CardPack();
+function openCollection(): void {
+  const meta = loadMetaStats();
+  openCardsRef = meta.collection ?? emptyCollection();
+  collection.open(openCardsRef, meta.runsWon);
+}
 const charSelect = new CharSelect(
   () => {
     charSelect.close();
@@ -542,6 +564,8 @@ function closeOverlays(): void {
   charSelect.close();
   city.close();
   skillTree.close();
+  collection.hide();
+  cardPack.hide();
   resultModal.hide();
   eventModal.hide();
   endModal.hide();
@@ -641,6 +665,7 @@ function openCharSelect(): void {
     charSelect.close();
     run = newRun(h);
     profile = run.profile;
+    applyCardLoadout(run.profile, loadMetaStats().collection ?? emptyCollection());
     hasSavedRun = true;
     claimOpen = false;
     saveProfile();
@@ -657,6 +682,7 @@ function chooseNode(t: NodeType): void {
   run.choice = t;
   saveProfile();
   worldMap.hide();
+  collection.hide();
   if (isCombat(t)) enterBattle(t);
   else if (t === 'city') openCity();
   else openEvent();
@@ -888,8 +914,14 @@ function completeNode(outcome: string): void {
   saveProfile();
   if (run.ended === 'victory') {
     saveMeta('victory');
+    // pacote de 5 cartas (só vitória): entra na coleção permanente na hora; a revelação vem antes do placar
+    const meta = loadMetaStats();
+    meta.collection ??= emptyCollection();
+    const pack = rollPack();
+    addCards(meta.collection, pack);
+    saveMetaStats(meta);
     saveProfile();
-    showRunEnd(true);
+    cardPack.show(pack, () => showRunEnd(true));
     return;
   }
   openMap();

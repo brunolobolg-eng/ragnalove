@@ -1,4 +1,6 @@
 import type { HeroKind, SkillId } from '../core/progression/skills';
+import type { CardCollection } from '../core/progression/cards';
+import { emptyCollection } from '../core/progression/cards';
 
 /**
  * Heróis jogáveis (dados centrais). As classes base vêm liberadas; as avançadas são
@@ -13,6 +15,8 @@ export interface MetaStats {
   perfectNights: number;
   bossesKilled: Record<string, number>;
   runsWon: number;
+  /** Coleção permanente de cartas (owns + builds por herói). */
+  collection?: CardCollection;
 }
 
 export interface HeroInfo {
@@ -112,7 +116,7 @@ export const HERO_NAME = Object.fromEntries(HERO_ORDER.map((k) => [k, HERO_INFO[
 export const isHeroKind = (k: string): k is HeroKind => k in HERO_INFO;
 export const familyOf = (k: string): HeroFamily => (isHeroKind(k) ? HERO_INFO[k].family : 'warrior');
 
-export const emptyMeta = (): MetaStats => ({ kills: 0, perfectNights: 0, bossesKilled: {}, runsWon: 0 });
+export const emptyMeta = (): MetaStats => ({ kills: 0, perfectNights: 0, bossesKilled: {}, runsWon: 0, collection: emptyCollection() });
 
 /** O herói está liberado para esta conta? */
 export function heroUnlocked(k: HeroKind, m: MetaStats): boolean {
