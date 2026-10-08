@@ -44,7 +44,7 @@ REM robocopy: codigo 0-7 = ok; 8 ou mais = erro de verdade (mostrado na tela)
 robocopy "release\win-unpacked" "Executavel\Vanguarda" /E /NFL /NDL /NJH /NJS /NP
 if %errorlevel% geq 8 (
     echo.
-    echo [ERRO] A copia falhou (codigo %errorlevel%). Veja a mensagem acima e mande para o Claude.
+    echo [ERRO] A copia falhou. Codigo de erro: %errorlevel%. Veja a mensagem acima e mande para o Claude.
     echo O executavel esta em: release\win-unpacked\
     pause
     exit /b 1
