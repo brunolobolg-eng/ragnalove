@@ -112,15 +112,19 @@ export const VISUAL_THEMES = {
     bloom: { strength: 0.42, radius: 0.5, threshold: 0.9 },
     camera: { fov: 32, height: 18.5, distance: 17.5, lookZ: 0.4 },
   },
-  /** Montanha gelada: luz fria e clara. */
+  /**
+   * Montanha gelada: sol frio e BAIXO (sombras longas que desenham o relevo da neve), céu azul-prata
+   * e luz de preenchimento mais fraca para o contraste de luz e sombra aparecer.
+   */
   mountain: {
-    background: 0x44546a,
-    fog: { near: 24, far: 50 },
-    exposure: 1.1,
-    envIntensity: 0.12,
-    hemiIntensity: 1.3,
-    moonIntensity: 1.9,
-    light: { sky: 0xe0ecff, ground: 0x5a6070, sun: 0xfff6ea },
+    background: 0x3a4a66,
+    fog: { near: 26, far: 52 },
+    exposure: 1.12,
+    envIntensity: 0.14,
+    hemiIntensity: 0.72,
+    moonIntensity: 2.9,
+    light: { sky: 0x9fbbe8, ground: 0x3b4862, sun: 0xe2edff },
+    sun: [-15, 8.5, 6] as [number, number, number],
     bloom: { strength: 0.48, radius: 0.5, threshold: 0.88 },
     camera: { fov: 32, height: 18.5, distance: 17.5, lookZ: 0.4 },
   },
@@ -244,7 +248,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6c',
+  version: 'v0.6d',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,

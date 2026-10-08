@@ -2,6 +2,10 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.6d
+- Mapa de neve, projeto de luz: sol frio e baixo (sombras longas que desenham o relevo), luz de preenchimento mais fraca e base da neve mais fria, para o contraste de luz e sombra aparecer. Sombras de contato embaixo de cada peça. Poças de luz quente tremeluzindo nas lanternas e fogueiras. Névoa baixa deslizando devagar. Paredes da cordilheira maiores e mais baixas, com rochas da pasta town. Trilha com neve pisoteada mais suave e menos pedrinhas no chão.
+- Visualização: o mapa agora é conferido pelo caminho normal do jogo (com HUD e pós-processamento), não só pelo render direto.
+
 ## 2026-10-08 — v0.6c
 - Mapa de neve (Garganta de Ferrugem), primeira etapa do visual: rochas, árvores e acampamentos vindos dos pacotes de cenário (castle, nature, survival, town) em vez das pedras procedurais, desenhados em instâncias com geada. Chão com acúmulos de neve e rajadas de vento. Poças viram gelo. A trilha da horda vira neve pisoteada. Lanternas e fogueiras com brilho quente. Barris, tendas, toras e rodas que pareciam discos escuros saíram do conjunto.
 - Ainda não é o acabamento final: as paredes de rocha continuam densas e a luz ainda é chapada. Próxima etapa, se aprovada: luz e sombras do cenário e variação das paredes.

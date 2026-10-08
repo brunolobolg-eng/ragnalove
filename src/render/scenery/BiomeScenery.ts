@@ -59,7 +59,8 @@ const PAL: Record<Biome, Palette> = {
     waterEmissive: 0x0a1c1e,
   },
   mountain: {
-    ground: ['#a2abb8', '#aeb6c2', '#98a0ae', '#bac2ce'],
+    // base um tom mais fria e escura: as luzes da neve e as sombras longas passam a aparecer
+    ground: ['#8e9ab0', '#9aa6ba', '#8592a8', '#a6b2c6'],
     groundDetail: ['#eef4fb', '#c4d2e4', '#dde8f4', '#b3c2d8'],
     outer: ['#9ca4b0', '#a8b0bc', '#929aa6'],
     rock: [0x6a6e78, 0x5a5e68, 0x7a7e88],
@@ -85,7 +86,8 @@ const PAL: Record<Biome, Palette> = {
 const TILE_PX = 64;
 
 /** Peças de cenário da neve (pacotes em public/models/props). */
-const SNOW_ROCKS = ['castle/rocks-large', 'town/rock-large', 'town/rock-wide'];
+// rochas largas e baixas (as da castle são pontiagudas e repetidas viram cristal)
+const SNOW_ROCKS = ['town/rock-large', 'town/rock-wide', 'town/rock-large', 'castle/rocks-large'];
 const SNOW_TREES = ['castle/tree-large', 'castle/tree-small', 'survival/tree-tall', 'town/tree-high-round'];
 const SNOW_BACK = ['castle/rocks-large', 'town/rock-wide', 'castle/tower-square-mid-windows', 'castle/tower-hexagon-mid'];
 const SNOW_CAMP = ['town/cart', 'town/cart-high', 'town/planks', 'town/fence-broken', 'town/pillar-stone', 'town/banner-red', 'town/lantern', 'survival/signpost', 'survival/barrel', 'survival/box', 'survival/bucket', 'survival/bedroll', 'survival/tent-canvas', 'survival/fence-fortified', 'nature/tent_smallClosed', 'nature/campfire_logs', 'castle/siege-ballista'];
@@ -130,8 +132,11 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   // Neve: pedras e árvores vêm dos pacotes de cenário (GLB), com geada; o resto segue procedural
   const glb: Record<string, THREE.Matrix4[]> = {};
   const warm: THREE.Vector3[] = [];
+  /** Sombra de contato: mancha escura no chão sob cada peça, para ela assentar na neve. */
+  const contact: THREE.Matrix4[] = [];
   const glbPut = (path: string, x: number, z: number, s: number, rot = rnd() * Math.PI * 2, sy = s) => {
     (glb[path] ??= []).push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot), new THREE.Vector3(s, sy, s)));
+    contact.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0.015, z), new THREE.Quaternion(), new THREE.Vector3(s * 1.15, 1, s * 1.15)));
   };
   const pick = <T,>(list: T[]): T => list[Math.floor(rnd() * list.length)];
   for (const pr of zone.props) {
@@ -147,7 +152,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
         break;
       case 'rock':
         // paredes de rocha do mapa: tamanhos bem variados para não virarem um bloco repetido
-        if (biome === 'mountain') glbPut(pick(SNOW_ROCKS), x, z, 0.7 + rnd() * 0.6);
+        if (biome === 'mountain') glbPut(pick(SNOW_ROCKS), x, z, 1.0 + rnd() * 0.75);
         else put('rock', x, z, 0.8 + rnd() * 0.35, undefined, 0.7 + rnd() * 0.5);
         break;
       case 'cactus':
@@ -241,15 +246,35 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     for (let i = 0; i < n; i++) {
       const x = -W / 2 - 8 + i * ((W + 16) / (n - 1)) + (rnd() - 0.5);
       const z = -H / 2 - 7 - rnd() * 5;
-      if (biome === 'mountain') glbPut(pick(SNOW_BACK), x, z, 2.6 + rnd() * 1.8);
+      if (biome === 'mountain') glbPut(pick(SNOW_BACK), x, z, 3.4 + rnd() * 1.6);
       else put('rock', x, z, 3 + rnd() * 2, undefined, 3 + rnd() * 3);
     }
   }
 
   // Peças em GLB: uma chamada de desenho por tipo (instanciadas), com geada na neve
   for (const [path, mats] of Object.entries(glb)) instanceProps(root, path, mats, { frost: path.includes('tree') ? 0.3 : path.includes('rock') ? 0.5 : 0.35 });
-  // Luz quente pontual (lanternas, fogueiras): um brilho suave que contrasta com a neve azulada
+  // Sombras de contato: uma mancha escura e suave sob cada peça (uma chamada de desenho para todas)
+  if (contact.length) {
+    const blobs = new THREE.InstancedMesh(
+      new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ map: softCircle(), color: 0x0b1a33, transparent: true, opacity: 0.5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }),
+      contact.length,
+    );
+    contact.forEach((m, i) => blobs.setMatrixAt(i, m));
+    blobs.renderOrder = 1;
+    root.add(blobs);
+  }
+  // Luz quente pontual (lanternas, fogueiras): poça de luz alaranjada no chão + brilho no ar
+  const flames: { m: THREE.MeshBasicMaterial; ph: number }[] = [];
   for (const p of warm) {
+    const pool = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.2, 4.2).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ map: softCircle(), color: 0xff9a4a, transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    pool.position.set(p.x, 0.03, p.z);
+    pool.renderOrder = 2;
+    root.add(pool);
+    flames.push({ m: pool.material as THREE.MeshBasicMaterial, ph: rnd() * Math.PI * 2 });
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: softCircle(), color: 0xffb060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.85 }));
     sp.position.set(p.x, 1.1, p.z);
     sp.scale.setScalar(1.8);
@@ -360,8 +385,28 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   let t = 0;
   let acc = 0;
   const amb = new THREE.Vector3();
+  // Névoa baixa de montanha: manchas largas e claras na altura da cintura, deslizando devagar.
+  // Transparente e sem escrever profundidade: velam o fundo sem esconder heróis nem inimigos.
+  const mist: { m: THREE.Mesh; x: number; ph: number }[] = [];
+  if (P.snow) {
+    for (let i = 0; i < 9; i++) {
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(9 + rnd() * 6, 4 + rnd() * 3).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ map: softCircle(), color: 0xdfe9f7, transparent: true, opacity: 0.14 + rnd() * 0.07, depthWrite: false }),
+      );
+      const x = -W / 2 + rnd() * W;
+      m.position.set(x, 0.55 + rnd() * 0.5, -H / 2 + rnd() * H);
+      m.renderOrder = 3;
+      root.add(m);
+      mist.push({ m, x, ph: rnd() * Math.PI * 2 });
+    }
+  }
+
   const update = (dt: number, particles: ParticleLayer) => {
     t += dt;
+    for (const f of mist) f.m.position.x = f.x + Math.sin(t * 0.12 + f.ph) * 1.2;
+    // chama da lanterna/fogueira: a poça de luz treme de leve, em fases diferentes
+    for (const f of flames) f.m.opacity = 0.32 + 0.07 * Math.sin(t * 5.1 + f.ph) + 0.03 * Math.sin(t * 11.3 + f.ph * 2);
     if (liquid) liquid.uniforms.uTime.value = t;
     cityGate.update(dt, particles);
     for (const sh of shafts) (sh.m.material as THREE.MeshBasicMaterial).opacity = sh.base * (0.7 + 0.3 * Math.sin(t * 0.35 + sh.ph));
@@ -1005,7 +1050,7 @@ function tuftMesh(zone: ParsedZone, P: Palette, biome: Biome, X: (x: number) => 
       : biome === 'mountain'
         ? tint(new THREE.DodecahedronGeometry(0.07, 0).translate(0, 0.03, 0), 0xe2eaf5, 0.05, 41) // pedrinhas de gelo, claras
         : tint(new THREE.DodecahedronGeometry(0.06, 0).translate(0, 0.03, 0), P.rock[0], 0.15, 41);
-  const n = Math.min(Math.round((biome === 'mountain' ? 120 : 260) * areaK), floor.length * 2);
+  const n = Math.min(Math.round((biome === 'mountain' ? 60 : 260) * areaK), floor.length * 2);
   const im = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), n);
   const m = new THREE.Matrix4();
   for (let i = 0; i < n; i++) {
