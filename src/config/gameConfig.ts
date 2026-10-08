@@ -394,7 +394,7 @@ export const GAME_CONFIG = {
       frostBolt: {
         range: 6, // tiles (distância euclidiana), exige linha de visão
         damage: 8,
-        cooldownTicks: 13,
+        cooldownTicks: 16,
         chillTicks: 4, // o gelo atrasa o alvo
       },
     },
@@ -402,7 +402,7 @@ export const GAME_CONFIG = {
     archer: {
       hp: 95,
       /** Flecha Precisa: alvo único, alcance longo, exige linha de visão. */
-      arrow: { range: 7, damage: 8, cooldownTicks: 13 },
+      arrow: { range: 7, damage: 8, cooldownTicks: 16 },
       /** Chuva de Flechas: área 3×3 no grupo mais denso ao alcance. */
       rain: { range: 7, radius: 1, damage: 9, cooldownTicks: 70, minTargets: 3 },
       /** Armadilha: dano alto em 1 alvo + lentidão. Armada no caminho, `ahead` passos à frente do inimigo. */
@@ -414,12 +414,12 @@ export const GAME_CONFIG = {
         range: 2,
         halfAngleDeg: 46,
         damage: 24,
-        cooldownTicks: 12,
+        cooldownTicks: 15,
       },
       /** Investida: golpe corpo a corpo pesado em um único inimigo adjacente. */
       bash: {
         damage: 16,
-        cooldownTicks: 9,
+        cooldownTicks: 11,
       },
       /** Muralha: blocos intransponíveis que a horda precisa quebrar. Vida escala com a Vitalidade. */
       shieldWall: { length: 5, hp: 90, hpPerLevel: 20, hpPerVit: 4, cooldownTicks: 120, cooldownPerLevel: 6 },
@@ -427,19 +427,19 @@ export const GAME_CONFIG = {
     /** Feiticeira: dano arcano (Inteligência). */
     sorcerer: {
       hp: 70,
-      orb: { range: 6, damage: 10, cooldownTicks: 14 },
+      orb: { range: 6, damage: 10, cooldownTicks: 17 },
       meteor: { range: 7, radius: 1, damage: 26, cooldownTicks: 85, minTargets: 3 },
     },
     /** Bruxa: dreno e maldições (Inteligência). */
     warlock: {
       hp: 85,
-      drain: { range: 5, damage: 8, cooldownTicks: 14 },
+      drain: { range: 5, damage: 8, cooldownTicks: 17 },
       curse: { range: 6, radius: 1, damage: 4, durationTicks: 60, cooldownTicks: 90, minTargets: 2 },
     },
     /** Assassino: corpo a corpo letal (Destreza). */
     assassin: {
       hp: 110,
-      backstab: { damage: 14, cooldownTicks: 8, critBonus: 0.15 },
+      backstab: { damage: 14, cooldownTicks: 10, critBonus: 0.15 },
       fan: { range: 3, halfAngleDeg: 40, damage: 13, cooldownTicks: 40, minTargets: 2 },
     },
   },

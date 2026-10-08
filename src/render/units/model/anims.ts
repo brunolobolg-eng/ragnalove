@@ -387,20 +387,86 @@ export function absRestY(bones: BoneDef[], name: string): number {
  * Movimento flutuando: todos os ossos na pose de descanso do próprio modelo (sem clipe do rig de outro
  * personagem), o corpo elevado e um balanço bem leve. Substitui o ciclo de caminhada (quem anda só desliza).
  */
+/**
+ * Vida do modelo flutuante: respiração no peito, olhar que varre e braços que balançam de leve.
+ * Cada função devolve o desvio (graus) no instante w (fase de 0 a 2π); todas são periódicas,
+ * então o clipe fecha o loop sem emenda.
+ */
+const HOVER_SWAY: Record<string, (w: number) => Euler3> = {
+  Spine1: (w) => [0.6 * Math.sin(w), 0, 0.5 * Math.sin(w + 1)],
+  Spine2: (w) => [2.4 * Math.sin(w), 0, 0],
+  Neck: (w) => [0, 3 * Math.sin(w + 0.7), 0],
+  Head: (w) => [-1.5 * Math.sin(w), 6 * Math.sin(w + 0.7), 0.8 * Math.sin(w + 2)],
+  LeftArm: (w) => [4 * Math.sin(w + 0.4), 0, 0],
+  RightArm: (w) => [4 * Math.sin(w + 0.4 + Math.PI), 0, 0],
+};
+
+/** Flutuação em repouso e no andar: o corpo fica erguido em `lift` e tem um balanço suave (sem pés no chão). */
 export function hoverWalk(bones: BoneDef[], lift: number, duration = 2.4): THREE.AnimationClip {
   const hips = bones.find((b) => /^hips$/i.test(b.name))!;
   const N = 16;
   const times = Array.from({ length: N + 1 }, (_, i) => (i / N) * duration);
   const tracks: THREE.KeyframeTrack[] = [];
+  const e = new THREE.Euler();
+  const d = new THREE.Quaternion();
+  const q = new THREE.Quaternion();
   for (const b of bones) {
     if (!b.rest) continue;
-    const q = [...b.rest];
-    tracks.push(new THREE.QuaternionKeyframeTrack(`${b.name}.quaternion`, [0, duration], [...q, ...q]));
+    const sway = HOVER_SWAY[b.name];
+    const values: number[] = [];
+    for (const t of times) {
+      if (sway) {
+        const [x, y, z] = sway((2 * Math.PI * t) / duration).map((a) => a * D2R) as Euler3;
+        q.fromArray(b.rest).multiply(d.setFromEuler(e.set(x, y, z)));
+        values.push(q.x, q.y, q.z, q.w);
+      } else values.push(...b.rest);
+    }
+    tracks.push(new THREE.QuaternionKeyframeTrack(`${b.name}.quaternion`, times, values));
   }
   const values: number[] = [];
   for (const t of times) values.push(hips.pos[0], hips.pos[1] + lift + 0.012 * Math.sin((2 * Math.PI * t) / duration), hips.pos[2]);
   tracks.push(new THREE.VectorKeyframeTrack(`${hips.name}.position`, times, values));
   return new THREE.AnimationClip('hover', duration, tracks);
+}
+
+/**
+ * Golpe, conjuração, dano e morte de um modelo flutuante: só o tronco de cima, a cabeça e os braços se mexem.
+ * Quadril, coluna base e pernas ficam na pose de descanso, erguidos em `lift`. No bongun as coxas são filhas
+ * da coluna (não do quadril): dobrar a coluna levanta o corpo inteiro no ar. Sem pés no chão, não há passada.
+ */
+export function hoverOneShot(clip: THREE.AnimationClip, bones: BoneDef[], lift: number): THREE.AnimationClip {
+  const hips = bones.find((b) => /^hips$/i.test(b.name))!;
+  const still = new Set(bones.filter((b) => b.rest && (b === hips || /^spine$/i.test(b.name) || /(UpLeg|Leg|Foot|Toe)/i.test(b.name))).map((b) => b.name));
+  const tracks: THREE.KeyframeTrack[] = [];
+  for (const t of clip.tracks) {
+    const bone = t.name.slice(0, t.name.lastIndexOf('.'));
+    if (!still.has(bone)) tracks.push(t);
+  }
+  for (const b of bones) {
+    if (!still.has(b.name)) continue;
+    // rotação e posição: o misturador precisa de trilha nos dois para não misturar com a pose anterior
+    const r = b.rest!;
+    tracks.push(new THREE.QuaternionKeyframeTrack(`${b.name}.quaternion`, [0, clip.duration], [...r, ...r]));
+    if (b === hips) {
+      const p = [hips.pos[0], hips.pos[1] + lift, hips.pos[2]];
+      tracks.push(new THREE.VectorKeyframeTrack(`${b.name}.position`, [0, clip.duration], [...p, ...p]));
+    }
+  }
+  return new THREE.AnimationClip(clip.name, clip.duration, tracks);
+}
+
+/** Conjunto de clipes de um modelo flutuante (andar/repouso com vida própria; ações travadas no ar). */
+export function hoverClips(base: Record<ClipName, THREE.AnimationClip>, bones: BoneDef[], lift: number): Record<ClipName, THREE.AnimationClip> {
+  const air = (c: THREE.AnimationClip) => hoverOneShot(c, bones, lift);
+  return {
+    idle: hoverWalk(bones, lift),
+    walk: hoverWalk(bones, lift),
+    attack: air(base.attack),
+    heavy: air(base.heavy),
+    cast: air(base.cast),
+    hit: air(base.hit),
+    death: air(base.death),
+  };
 }
 
 export function fitHips(clip: THREE.AnimationClip, bones: BoneDef[], hipsName = 'hips', scaleOverride?: number): THREE.AnimationClip {

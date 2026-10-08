@@ -21,6 +21,15 @@ export const VISUAL_CONFIG = {
   cleave: { sweepTime: 0.14, fadeTime: 0.28, shakePerHit: 0.05 },
   /** Investida: tremor sutil, menor que um Golpe em Área cheio. */
   bash: { shake: 0.09 },
+  /**
+   * Arcos de ataque corpo a corpo (ArcFX): tufão do Guerreiro e rastro do Assassino.
+   * half = meia abertura (rad), radius = alcance visual, sweep/delay = tempo (s), height = altura da fita (m).
+   */
+  arc: {
+    windCleave: { half: 1.15, radius: 2.6, sweep: 0.3, delay: 0.12, height: 0.9, width: 0.3, color: [0.8, 1.5, 1.7], swirl: true },
+    windBash: { half: 0.55, radius: 1.6, sweep: 0.2, delay: 0.14, height: 1.1, width: 0.22, color: [0.9, 1.6, 1.8], swirl: true },
+    stab: { half: 0.9, radius: 1.3, sweep: 0.16, delay: 0.08, height: 1.0, width: 0.14, color: [1.5, 0.6, 2.0], swirl: false },
+  },
   unit: { hitFlashTime: 0.22, deathTime: 1.1 },
   /** Planejamento: heróis passeiam em volta do posto (raio em tiles, velocidades em tiles/s, esperas em s). */
   idleWander: { radius: 0.85, speed: 0.9, orderSpeed: 3.2, waitMin: 1.5, waitMax: 4.5, lookAtCameraAfter: 1.2 },
@@ -231,7 +240,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.5z',
+  version: 'v0.6a',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,

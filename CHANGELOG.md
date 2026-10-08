@@ -2,6 +2,13 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.6a
+- Bongun: corpo não sobe mais no ar durante golpe, dano e morte. O clipe do cultista dobrava a coluna e levantava as pernas (no bongun as coxas são filhas da coluna); agora coluna base, quadril e pernas ficam na pose de descanso nessas ações, e o tronco de cima, a cabeça e os braços continuam animados.
+- Bongun com vida em repouso: respiração no peito, olhar que varre e braços que balançam de leve (loop suave), sem perder a flutuação.
+- Guerreiro: tufão de vento discreto em cada golpe (arco com fita e poeira girando), mais amplo no Golpe em Área e menor na Investida.
+- Assassino: rastro fino em arco no golpe pelas costas.
+- Ataques básicos dos heróis ~25% mais lentos (Investida, Golpe em Área, Flecha, Bola/Drenagem de Gelo, Orbe, Drenar, Estocada Pelas Costas): as recargas de Skill Haste dos equipamentos passam a pesar mais. Simulação continua determinística; a jornada de referência segue com as mesmas vitórias.
+
 ## 2026-10-08 — v0.5z
 - Modelos com textura e sem cor por vértice (Bongun e o antigo cultista) apareciam pretos: o material pedia cores de vértice que o arquivo não tem. Agora as cores de vértice só são usadas quando o modelo as tem. Zumbis e heróis não mudam.
 
