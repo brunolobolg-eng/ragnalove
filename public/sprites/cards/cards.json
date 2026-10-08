@@ -1,0 +1,786 @@
+[
+    {
+        "slug":  "stalactic_golem",
+        "label":  "stalactic_golem",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "gargoyle",
+        "label":  "gargoyle",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "high_orc",
+        "label":  "high_orc",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "requiem",
+        "label":  "requiem",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "incubus",
+        "label":  "incubus",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "succubus",
+        "label":  "succubus",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "anolian",
+        "label":  "anolian",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "rooween",
+        "label":  "rooween",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "cruiser",
+        "label":  "cruiser",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "tamruan",
+        "label":  "tamruan",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "phendark",
+        "label":  "phendark",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "golems",
+        "label":  "golems",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "injustice",
+        "label":  "injustice",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "zipper_bear",
+        "label":  "zipper_bear",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "grizzly",
+        "label":  "grizzly",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "orc_zombie",
+        "label":  "orc_zombie",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "skeleton_prisoner",
+        "label":  "skeleton_prisoner",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "hunter_fly",
+        "label":  "hunter_fly",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "deviace",
+        "label":  "deviace",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "mermand",
+        "label":  "mermand",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "spore",
+        "label":  "spore",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "poison_spore",
+        "label":  "poison_spore",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "mandragora",
+        "label":  "mandragora",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "fireblend",
+        "label":  "fireblend",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "bongun",
+        "label":  "bongun",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "munak",
+        "label":  "munak",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "soldier",
+        "label":  "soldier",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "gorgon",
+        "label":  "gorgon",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "noxious",
+        "label":  "noxious",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "giant_whisper",
+        "label":  "giant_whisper",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "miming",
+        "label":  "miming",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "memorial",
+        "label":  "memorial",
+        "sheet":  "cards2.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "angeling",
+        "label":  "angeling",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "deviling",
+        "label":  "deviling",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "ghostring",
+        "label":  "ghostring",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "mastering",
+        "label":  "mastering",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "toad",
+        "label":  "toad",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "strouf",
+        "label":  "strouf",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "dragon_tail",
+        "label":  "dragon_tail",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "mao_guai",
+        "label":  "mao_guai",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "mutant_dragonoid",
+        "label":  "mutant_dragonoid",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "orc_hero",
+        "label":  "orc_hero",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "myomewnee",
+        "label":  "myomewnee",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "gryphon",
+        "label":  "gryphon",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "mistress",
+        "label":  "mistress",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "maya_purple",
+        "label":  "maya_purple",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "bloody_knight",
+        "label":  "bloody_knight",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "evil_snake_lord",
+        "label":  "evil_snake_lord",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "owl_viscount",
+        "label":  "owl_viscount",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "owl_duke",
+        "label":  "owl_duke",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "garm",
+        "label":  "garm",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "stormy_knight",
+        "label":  "stormy_knight",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "creamy",
+        "label":  "creamy",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "creamy_fear",
+        "label":  "creamy_fear",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "yoyo",
+        "label":  "yoyo",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "rocker",
+        "label":  "rocker",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "spore_2",
+        "label":  "spore",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "poison_spore_2",
+        "label":  "poison_spore",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "smokie",
+        "label":  "smokie",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "green_ferus",
+        "label":  "green_ferus",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "verit",
+        "label":  "verit",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "matyr",
+        "label":  "matyr",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "miming_2",
+        "label":  "miming",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "sohee",
+        "label":  "sohee",
+        "sheet":  "cards3.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "drops",
+        "label":  "drops",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "fabre",
+        "label":  "fabre",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "chonchon",
+        "label":  "chonchon",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "willow",
+        "label":  "willow",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "mandragora_2",
+        "label":  "mandragora",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "peco_peco_egg",
+        "label":  "peco_peco_egg",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "goblin",
+        "label":  "goblin",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "kukre",
+        "label":  "kukre",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "horong",
+        "label":  "horong",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "marina",
+        "label":  "marina",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "santa_poring",
+        "label":  "santa_poring",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "metaling",
+        "label":  "metaling",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "pupa",
+        "label":  "pupa",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "femur",
+        "label":  "femur",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "plankton",
+        "label":  "plankton",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "magnolia",
+        "label":  "magnolia",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "skeleton",
+        "label":  "skeleton",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "wolf",
+        "label":  "wolf",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "mummy",
+        "label":  "mummy",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "hydra",
+        "label":  "hydra",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "savage_babe",
+        "label":  "savage_babe",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "hornet",
+        "label":  "hornet",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "desert_wolf",
+        "label":  "desert_wolf",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "minorous",
+        "label":  "minorous",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "skeleton_worker",
+        "label":  "skeleton_worker",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "abysmal_knight",
+        "label":  "abysmal_knight",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "thara_frog",
+        "label":  "thara_frog",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "hodremlin",
+        "label":  "hodremlin",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "alice",
+        "label":  "alice",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "bigfoot",
+        "label":  "bigfoot",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "caramel",
+        "label":  "caramel",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "rafflesia",
+        "label":  "rafflesia",
+        "sheet":  "cards4.png",
+        "w":  192,
+        "h":  256
+    },
+    {
+        "slug":  "baphomet",
+        "label":  "baphomet",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "dark_lord",
+        "label":  "dark_lord",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "doppelganger",
+        "label":  "doppelganger",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "dracula",
+        "label":  "dracula",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "eddga",
+        "label":  "eddga",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "golden_thief_bug",
+        "label":  "golden_thief_bug",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "maya",
+        "label":  "maya",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "moonlight_flower",
+        "label":  "moonlight_flower",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "osiris",
+        "label":  "osiris",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "angeling_2",
+        "label":  "angeling",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "deviling_2",
+        "label":  "deviling",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "ghostring_2",
+        "label":  "ghostring",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "orc_hero_2",
+        "label":  "orc_hero",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "bloody_knight_2",
+        "label":  "bloody_knight",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "garm_2",
+        "label":  "garm",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    },
+    {
+        "slug":  "poring",
+        "label":  "poring",
+        "sheet":  "cards5.png",
+        "w":  256,
+        "h":  384
+    }
+]
