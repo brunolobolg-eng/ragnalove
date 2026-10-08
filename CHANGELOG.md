@@ -2,6 +2,9 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.6f
+- Mapa de neve: os blocos bege de muro (tiles `#`, ao lado do portão) viraram afloramentos de rocha com geada, parte da cordilheira. O tile continua bloqueado no jogo; só o visual mudou.
+
 ## 2026-10-08 — v0.6e
 - Mapa de neve, cordilheira: grupos de rochas altas em fileira atrás do mapa, uma segunda fileira de picos mais altos com duas torres de vigia da castle, e encostas de rochas nos dois lados, com um vale livre entre o mapa e as serras.
 - Acampamentos nos flancos (barraca, fogueira acesa, barril, caixa, carroça, bandeira, cama de palha e placa), visíveis ao afastar a câmera. Não aparecem na vista padrão, que enquadra só o tabuleiro.

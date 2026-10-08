@@ -203,7 +203,11 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
         else put('barrels', x, z, 1);
         break;
       case 'wall':
-        put('block', x, z, 1, 0);
+        // Neve: o obstáculo vira um afloramento de rocha da cordilheira (o tile continua bloqueado no jogo)
+        if (biome === 'mountain') {
+          glbPut(pick(SNOW_RIDGE), x - 0.12, z + 0.08, 0.8 + rnd() * 0.15);
+          glbPut(pick(SNOW_RIDGE), x + 0.14, z - 0.1, 0.6 + rnd() * 0.2);
+        } else put('block', x, z, 1, 0);
         break;
       case 'cityWall':
         break; // muralha da cidade: construída inteira em CityGate
