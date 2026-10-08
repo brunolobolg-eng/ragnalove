@@ -44,7 +44,7 @@ cartas_folhas_originais.zip Folhas originais das cartas de monstro (cards2..card
                             O jogo usa os recortes em public/sprites/cards/. Para recortar de novo, extraia
                             na raiz e use: python scripts/process_sprites.py (ver o cards.json).
 
-modelos_pesados_originais.zip  Originais ANTES da simplificacao (18 a 8 MB cada, 490k triangulos no
-                            cultista): cultist.glb, goblin_warlord.glb, assassin_dk.glb, liria.glb.
+modelos_pesados_originais.zip  Originais ANTES da simplificacao (de 7 a 20 MB cada; cultista com 490k triangulos
+                            ): cultist.glb, goblin_warlord.glb, assassin_dk.glb, liria.glb.
                             Os arquivos do jogo em public/models/ sao versoes simplificadas (~1,5 a 4 MB).
                             Para refazer: gltf-transform simplify <original> <saida> --ratio 0.02 --error 0.9
