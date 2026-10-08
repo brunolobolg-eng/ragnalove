@@ -2,6 +2,10 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.6c
+- Mapa de neve (Garganta de Ferrugem), primeira etapa do visual: rochas, árvores e acampamentos vindos dos pacotes de cenário (castle, nature, survival, town) em vez das pedras procedurais, desenhados em instâncias com geada. Chão com acúmulos de neve e rajadas de vento. Poças viram gelo. A trilha da horda vira neve pisoteada. Lanternas e fogueiras com brilho quente. Barris, tendas, toras e rodas que pareciam discos escuros saíram do conjunto.
+- Ainda não é o acabamento final: as paredes de rocha continuam densas e a luz ainda é chapada. Próxima etapa, se aprovada: luz e sombras do cenário e variação das paredes.
+
 ## 2026-10-08 — v0.6b
 - Assassino com tema de sombra e veneno: a Execução deixa um rastro roxo com fumaça escura até o alvo; o Leque de Lâminas solta um arco roxo com fumaça de sombra; o Golpe Furtivo ganha fumaça no impacto.
 - Veneno visível: inimigo envenenado solta névoa escura com fagulhas esverdeadas enquanto o veneno dura (só visual, lê a simulação).

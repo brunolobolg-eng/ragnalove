@@ -70,3 +70,40 @@ export function placeProp(parent: THREE.Object3D, path: string, x: number, z: nu
     });
   return holder;
 }
+
+/** Cor da geada: as peças do cenário de neve ficam mais claras e azuladas. */
+const FROST = new THREE.Color(0xe4edf8);
+
+export interface InstanceOpts {
+  /** Quanto da cor vai para a geada (0 = cor original, 1 = branco-azulado). */
+  frost?: number;
+}
+
+/**
+ * Desenha muitas cópias de uma peça com UMA chamada de desenho por malha (InstancedMesh).
+ * `mats` são as matrizes de cada cópia no mundo; a peça é lida uma vez e fica em cache.
+ */
+export function instanceProps(parent: THREE.Object3D, path: string, mats: THREE.Matrix4[], o: InstanceOpts = {}): void {
+  if (!mats.length) return;
+  load(path)
+    .then((src) => {
+      src.updateWorldMatrix(true, true);
+      const invRoot = new THREE.Matrix4().copy(src.matrixWorld).invert();
+      src.traverse((n) => {
+        const m = n as THREE.Mesh;
+        if (!m.isMesh) return;
+        // a malha vai para o espaço da peça (sem a transformação da raiz do GLB)
+        const geo = m.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(invRoot, m.matrixWorld));
+        const mat = (Array.isArray(m.material) ? m.material[0] : m.material).clone() as THREE.MeshStandardMaterial;
+        if (o.frost) mat.color.lerp(FROST, o.frost);
+        const im = new THREE.InstancedMesh(geo, mat, mats.length);
+        mats.forEach((mx, i) => im.setMatrixAt(i, mx));
+        im.castShadow = true;
+        im.receiveShadow = true;
+        parent.add(im);
+      });
+    })
+    .catch(() => {
+      /* peça ausente: o cenário segue sem ela */
+    });
+}
