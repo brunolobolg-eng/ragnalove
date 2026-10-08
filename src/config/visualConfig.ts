@@ -28,7 +28,11 @@ export const VISUAL_CONFIG = {
   arc: {
     windCleave: { half: 1.15, radius: 2.6, sweep: 0.3, delay: 0.12, height: 0.9, width: 0.3, color: [0.8, 1.5, 1.7], swirl: true },
     windBash: { half: 0.55, radius: 1.6, sweep: 0.2, delay: 0.14, height: 1.1, width: 0.22, color: [0.9, 1.6, 1.8], swirl: true },
-    stab: { half: 0.9, radius: 1.3, sweep: 0.16, delay: 0.08, height: 1.0, width: 0.14, color: [1.5, 0.6, 2.0], swirl: false },
+    stab: { half: 0.9, radius: 1.3, sweep: 0.16, delay: 0.08, height: 1.0, width: 0.14, color: [1.5, 0.6, 2.0], swirl: false, smoke: true },
+    /** Leque de Lâminas do Assassino: arco roxo largo com fumaça de sombra. */
+    shadowFan: { half: 0.75, radius: 2.4, sweep: 0.22, delay: 0.1, height: 1.0, width: 0.26, color: [1.3, 0.45, 2.1], swirl: true, smoke: true },
+    /** Névoa de veneno: intervalo (s) entre as baforadas sobre um inimigo envenenado. */
+    poisonMist: { every: 0.3 },
   },
   unit: { hitFlashTime: 0.22, deathTime: 1.1 },
   /** Planejamento: heróis passeiam em volta do posto (raio em tiles, velocidades em tiles/s, esperas em s). */
@@ -240,7 +244,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6a',
+  version: 'v0.6b',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,

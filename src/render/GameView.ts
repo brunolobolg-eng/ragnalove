@@ -6,6 +6,7 @@ import { tileToWorld } from './coords';
 import { CLEAVE_IMPACT, CleaveFX } from './fx/CleaveFX';
 import { BASH_IMPACT, BashFX } from './fx/BashFX';
 import { ArcFX, type ArcOpts } from './fx/ArcFX';
+import { PoisonMist, ShadowDashFX } from './fx/ShadowFX';
 import { SpectreFX } from './fx/SpectreFX';
 import { DecalLayer } from './fx/kit/Decals';
 import { RibbonPool } from './fx/kit/Ribbons';
@@ -113,6 +114,7 @@ export class GameView {
   private fading: FireBarrierFX[] = [];
   private flashTiles: { tiles: { x: number; y: number }[]; t: number } | undefined;
   private oneShots: { update(dt: number): void; done: boolean; group: THREE.Group }[] = [];
+  private readonly poisonMist = new PoisonMist();
 
   /** Arco de ataque (tufão/rastro) a partir do herói, na direção em que ele está virado (grade y → mundo z). */
   private arcFx(at: THREE.Vector3, facing: { x: number; y: number }, opts: ArcOpts): void {
@@ -515,6 +517,7 @@ export class GameView {
           this.oneShots.push(fx);
           // Guerreiro: tufão de vento varrendo a frente (discreto, junto da lâmina)
           if (u.kind === 'warrior') this.arcFx(w.root.position, e.facing, VISUAL_CONFIG.arc.windCleave);
+          else if (u.kind === 'assassin') this.arcFx(w.root.position, e.facing, VISUAL_CONFIG.arc.shadowFan);
           this.spectre(e.unitId, 0.55);
           break;
         }
@@ -693,6 +696,12 @@ export class GameView {
         }
         case 'execute': {
           const v = this.units.get(e.unitId);
+          // Execução: rastro de sombra do assassino até o alvo
+          if (v) {
+            const fx = new ShadowDashFX(v.root.position, tileToWorld(e.x, e.y), this.kit);
+            this.world.add(fx.group);
+            this.oneShots.push(fx);
+          }
           if (v instanceof ModelUnitView) v.attack('heavy');
           else v?.attack();
           this.float('EXECUÇÃO!', tileToWorld(e.x, e.y, undefined, 1.8), '#ffd04a', 0.36, 1.1);
@@ -1036,6 +1045,7 @@ export class GameView {
     for (const f of this.fading) f.update(dt);
     this.fading = this.fading.filter((f) => !f.done);
     for (const o of this.oneShots) o.update(dt);
+    this.poisonMist.update(dt, this.sim.units.values(), (u) => this.units.get(u.id)?.root.position, this.kit);
     for (const l of this.loot) l.update(dt, this.stage.camera);
     this.loot = this.loot.filter((l) => !l.done);
     this.oneShots = this.oneShots.filter((o) => !o.done);

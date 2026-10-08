@@ -2,6 +2,10 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.6b
+- Assassino com tema de sombra e veneno: a Execução deixa um rastro roxo com fumaça escura até o alvo; o Leque de Lâminas solta um arco roxo com fumaça de sombra; o Golpe Furtivo ganha fumaça no impacto.
+- Veneno visível: inimigo envenenado solta névoa escura com fagulhas esverdeadas enquanto o veneno dura (só visual, lê a simulação).
+
 ## 2026-10-08 — v0.6a
 - Bongun: corpo não sobe mais no ar durante golpe, dano e morte. O clipe do cultista dobrava a coluna e levantava as pernas (no bongun as coxas são filhas da coluna); agora coluna base, quadril e pernas ficam na pose de descanso nessas ações, e o tronco de cima, a cabeça e os braços continuam animados.
 - Bongun com vida em repouso: respiração no peito, olhar que varre e braços que balançam de leve (loop suave), sem perder a flutuação.
