@@ -71,12 +71,9 @@ export function placeProp(parent: THREE.Object3D, path: string, x: number, z: nu
   return holder;
 }
 
-/** Cor da geada: as peças do cenário de neve ficam mais claras e azuladas. */
-const FROST = new THREE.Color(0xe4edf8);
-
 export interface InstanceOpts {
-  /** Quanto da cor vai para a geada (0 = cor original, 1 = branco-azulado). */
-  frost?: number;
+  /** Cor que a peça puxa (geada, areia, musgo...) e quanto dela entra (0 = cor original). */
+  tint?: { color: number; amount: number };
 }
 
 /**
@@ -95,7 +92,7 @@ export function instanceProps(parent: THREE.Object3D, path: string, mats: THREE.
         // a malha vai para o espaço da peça (sem a transformação da raiz do GLB)
         const geo = m.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(invRoot, m.matrixWorld));
         const mat = (Array.isArray(m.material) ? m.material[0] : m.material).clone() as THREE.MeshStandardMaterial;
-        if (o.frost) mat.color.lerp(FROST, o.frost);
+        if (o.tint?.amount) mat.color.lerp(new THREE.Color(o.tint.color), o.tint.amount);
         const im = new THREE.InstancedMesh(geo, mat, mats.length);
         mats.forEach((mx, i) => im.setMatrixAt(i, mx));
         im.castShadow = true;

@@ -2,6 +2,16 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.6g
+- Todos os biomas refeitos com kit próprio de ambientação (`src/render/scenery/biomeKits.ts`): cada mapa tem as suas pedras, cordilheira, acampamento, cor de sombra, luz quente e névoa. Nada de geleira fora da neve.
+- Floresta: musgo nas pedras, faixa de árvores grandes no fundo e nas laterais, acampamento de caçadores, névoa verde-cinza.
+- Campos: pedras de campo em tom de terra, colinas verdes ao fundo, carroças e feno, sol baixo de fim de tarde.
+- Deserto: arenito nas paredes, mesas de pedra e torres em ruína, cactos, acampamento nômade, sombras duras e rajadas de areia.
+- Cinzas: basalto escuro, serra vulcânica com torre queimada, acampamento em ruínas, luz de trás pela fumaça.
+- Sol e sombra por ambientação (floresta filtrada, campos dourados, deserto duro, cinzas contraluz, ponte e vila noturnas e de pôr do sol).
+- Trilha da horda: terra gasta contínua (sem moedinhas), exceto na neve.
+- Sombras de contato, luz quente e névoa agora são de cada bioma, não mais só da neve.
+
 ## 2026-10-08 — v0.6f
 - Mapa de neve: os blocos bege de muro (tiles `#`, ao lado do portão) viraram afloramentos de rocha com geada, parte da cordilheira. O tile continua bloqueado no jogo; só o visual mudou.
 
