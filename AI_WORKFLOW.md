@@ -2,6 +2,10 @@
 
 Como trabalhar no Vanguarda gastando pouco contexto.
 
+## STEP 0
+A palavra do dono nesta conversa vale mais que qualquer documento ou código.
+Em caso de conflito, obedeça ao dono e atualize os documentos depois.
+
 ## STEP 1
 Read `VANGUARDA_CONTEXT.md`.
 
