@@ -99,6 +99,9 @@ async function main(): Promise<void> {
     };
     const pick = (...n: string[]) => n.map((x) => wy(x)).find((y) => y !== null) ?? null;
     (window as unknown as Record<string, unknown>).__box = { leftFootY: pick('LeftFoot', 'foot.L', 'Foot_L'), rightFootY: pick('RightFoot', 'foot.R', 'Foot_R'), hipsY: pick('Hips', 'hips', 'Hips_') };
+    const geo = v0.mesh.geometry;
+    const mat = v0.mesh.material as THREE.MeshToonMaterial;
+    (window as unknown as Record<string, unknown>).__mat = { attrs: Object.keys(geo.attributes), vertexColors: mat.vertexColors, hasMap: !!mat.map };
   }
   const n = Math.max(1, samples.length);
   const info = renderer.info;
@@ -120,6 +123,6 @@ async function main(): Promise<void> {
     `render CPU  ${avg(cpuRender / n)} ms/quadro (inclui envio de chamadas)\n` +
     `chamadas de desenho ${info.render.calls} · triângulos ${info.render.triangles}\n` +
     `geometrias ${info.memory.geometries} · texturas ${info.memory.textures} · programas ${info.programs?.length}`;
-  console.log('BENCH', JSON.stringify((window as unknown as Record<string, unknown>).__bench), JSON.stringify((window as unknown as Record<string, unknown>).__box ?? null));
+  console.log('BENCH', JSON.stringify((window as unknown as Record<string, unknown>).__bench), JSON.stringify((window as unknown as Record<string, unknown>).__box ?? null), JSON.stringify((window as unknown as Record<string, unknown>).__mat ?? null));
 }
 void main();
