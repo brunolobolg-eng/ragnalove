@@ -33,3 +33,17 @@ para integrar.
 kenney_particle_pack.zip  Kenney Particle Pack original (CC0, www.kenney.nl): PNGs com fundo
                           transparente e preto + amostras Unity. O jogo usa as texturas geradas em
                           public/fx/kenney/ por: python scripts/build_kenney_fx.py "<pasta PNG (Transparent)>"
+
+ADICIONADOS EM 2026-10 (otimizacao: o repositorio principal ficou mais leve)
+---------------------------------------------------------------------------
+animacao_ual_originais.zip  Universal Animation Library [Standard] (Quaternius, CC0): FBX e GLB
+                            originais (UAL1_Standard e _RM). O jogo usa o JSON/clipes gerados a partir
+                            dela (src/render/units/model/ualClips.ts). Para gerar de novo, extraia o zip
+                            na raiz do projeto (pasta "Universal Animation Library[Standard]").
+cartas_folhas_originais.zip Folhas originais das cartas de monstro (cards2..cards5.png) e reliquias1.png.
+                            O jogo usa os recortes em public/sprites/cards/. Para recortar de novo, extraia
+                            na raiz e use: python scripts/process_sprites.py (ver o cards.json).
+
+Modelos pesados (cultist.glb, goblin_warlord.glb, assassin_dk.glb, liria.glb) foram simplificados
+para o jogo. Os originais (18-20 MB cada) estao em modelos_3d/originais_pesados/ dentro de
+roguard_fontes_parte2.zip? NAO: ver o item abaixo.
