@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HERO_MODELS, MONSTER_MODELS } from '../../../config/visualConfig';
-import { archerClips, fitHips, gruntClips, hoverWalk, mageClips, warriorClips, type ClipName } from './anims';
+import { archerClips, fitHips, gruntClips, hoverClips, mageClips, warriorClips, type ClipName } from './anims';
 import { ualMixamoClips } from './ualMixamo';
 import { MIXAMO_CULTIST_REST } from './mixamoRest';
 
@@ -211,7 +211,7 @@ export async function loadMonsterModels(onLoaded?: (kind: string) => void): Prom
         if (!files.has(key)) files.set(key, loader.loadAsync(v.file).then((g: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }) => toBuiltModel(g, v.clips)));
         const { model, clips: baseClips } = await files.get(key)!;
         // flutuação: o andar vira o balanço elevado (cópia: o arquivo pode ser compartilhado por outros tipos)
-        const clips = v.hover ? { ...baseClips, idle: hoverWalk(model.bones, v.hover), walk: hoverWalk(model.bones, v.hover) } : baseClips;
+        const clips = v.hover ? hoverClips(baseClips, model.bones, v.hover) : baseClips;
         const def = {
           build: () => model,
           clips: () => clips,

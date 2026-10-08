@@ -40,7 +40,7 @@ ground.receiveShadow = true;
 scene.add(ground);
 const camera = new THREE.PerspectiveCamera(40, 960 / 540, 0.1, 200);
 camera.position.set(0, CAM, CAM * 0.82);
-camera.lookAt(0, 0, 0);
+camera.lookAt(0, Number(q.get('look') ?? 0), 0);
 
 const views: ModelUnitView[] = [];
 const out = document.getElementById('bench')!;
@@ -75,6 +75,20 @@ async function main(): Promise<void> {
       v.root.position.x += Math.sin(f * 0.05 + v.root.position.z) * 0.0015;
       v.update(dt, (f % 40) / 40, 1, qCam);
     }
+    if (q.get('trace') && views.length === 1) {
+      // rastro por quadro: altura do pé esquerdo e do quadril (depuração de animação)
+      const m = (views[0] as unknown as { mesh: THREE.SkinnedMesh }).mesh;
+      m.updateMatrixWorld(true);
+      const bn = (n: string) => m.skeleton.bones.find((b) => b.name === n);
+      const y = (n: string) => {
+        const b = bn(n);
+        if (!b) return null;
+        const p = new THREE.Vector3();
+        b.getWorldPosition(p);
+        return Math.round(p.y * 100) / 100;
+      };
+      console.log(`TRACE f${f} dt=${dt.toFixed(3)} pe=${y('LeftFoot')} perna=${y('LeftLeg')} coxa=${y('LeftUpLeg')} quadril=${y('Hips')}`);
+    }
     const t1 = performance.now();
     renderer.render(scene, camera);
     const t2 = performance.now();
@@ -98,7 +112,7 @@ async function main(): Promise<void> {
       return Math.round(p.y * 1000) / 1000;
     };
     const pick = (...n: string[]) => n.map((x) => wy(x)).find((y) => y !== null) ?? null;
-    (window as unknown as Record<string, unknown>).__box = { leftFootY: pick('LeftFoot', 'foot.L', 'Foot_L'), rightFootY: pick('RightFoot', 'foot.R', 'Foot_R'), hipsY: pick('Hips', 'hips', 'Hips_') };
+    (window as unknown as Record<string, unknown>).__box = { leftFootY: pick('LeftFoot', 'foot.L', 'Foot_L'), rightFootY: pick('RightFoot', 'foot.R', 'Foot_R'), hipsY: pick('Hips', 'hips', 'Hips_'), headY: pick('Head'), spineY: pick('Spine1'), leftKneeY: pick('LeftLeg'), leftThighY: pick('LeftUpLeg') };
     const geo = v0.mesh.geometry;
     const mat = v0.mesh.material as THREE.MeshToonMaterial;
     (window as unknown as Record<string, unknown>).__mat = { attrs: Object.keys(geo.attributes), vertexColors: mat.vertexColors, hasMap: !!mat.map };

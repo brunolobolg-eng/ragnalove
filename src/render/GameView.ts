@@ -5,6 +5,7 @@ import { BoardView } from './BoardView';
 import { tileToWorld } from './coords';
 import { CLEAVE_IMPACT, CleaveFX } from './fx/CleaveFX';
 import { BASH_IMPACT, BashFX } from './fx/BashFX';
+import { ArcFX, type ArcOpts } from './fx/ArcFX';
 import { SpectreFX } from './fx/SpectreFX';
 import { DecalLayer } from './fx/kit/Decals';
 import { RibbonPool } from './fx/kit/Ribbons';
@@ -112,6 +113,13 @@ export class GameView {
   private fading: FireBarrierFX[] = [];
   private flashTiles: { tiles: { x: number; y: number }[]; t: number } | undefined;
   private oneShots: { update(dt: number): void; done: boolean; group: THREE.Group }[] = [];
+
+  /** Arco de ataque (tufão/rastro) a partir do herói, na direção em que ele está virado (grade y → mundo z). */
+  private arcFx(at: THREE.Vector3, facing: { x: number; y: number }, opts: ArcOpts): void {
+    const fx = new ArcFX(at, new THREE.Vector3(facing.x, 0, facing.y), opts, this.kit);
+    this.world.add(fx.group);
+    this.oneShots.push(fx);
+  }
   /** Kit compartilhado pelos efeitos (partículas, fitas, decalques, luzes, hit-stop). */
   readonly kit: FxKit;
   /** Efeitos do three.quarks (pool central, tocados por nome). */
@@ -505,6 +513,8 @@ export class GameView {
           const fx = new CleaveFX(u, e.facing, e.tiles, e.hitTiles, this.kit, () => (this.flashTiles = { tiles, t: 0.25 }));
           this.world.add(fx.group);
           this.oneShots.push(fx);
+          // Guerreiro: tufão de vento varrendo a frente (discreto, junto da lâmina)
+          if (u.kind === 'warrior') this.arcFx(w.root.position, e.facing, VISUAL_CONFIG.arc.windCleave);
           this.spectre(e.unitId, 0.55);
           break;
         }
@@ -569,6 +579,7 @@ export class GameView {
           const fx = new BashFX(from, tileToWorld(e.x, e.y), this.kit);
           this.world.add(fx.group);
           this.oneShots.push(fx);
+          if (w && u) this.arcFx(w.root.position, u.facing, u.kind === 'warrior' ? VISUAL_CONFIG.arc.windBash : VISUAL_CONFIG.arc.stab);
           this.spectre(e.unitId, 0.6);
           break;
         }
