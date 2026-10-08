@@ -1,47 +1,74 @@
 @echo off
 chcp 65001 >nul
-title Atualizador do ROguard (compila o projeto e atualiza o executavel)
+title ROguard - atualizar e abrir o jogo
 cd /d "%~dp0"
-set LOG=%~dp0atualizar_log.txt
-set APP=%~dp0Executavel\Vanguarda\resources\app
+set "LOG=%~dp0atualizar_log.txt"
+set "DEST=%~dp0Executavel\Vanguarda"
+
 echo.
-echo  === ROGUARD - compilando o projeto e atualizando o executavel ===
+echo === ROGUARD - compilando e atualizando o executavel ===
 echo.
-if not exist "%APP%" (
-  echo  Nao achei "Executavel\Vanguarda". Rode primeiro o INSTALAR_VANGUARDA.bat dentro da pasta Executavel.
-  pause & exit /b 1
-)
-echo  [1/4] Compilando (pode levar 1 minuto)...
-call npm run build > "%LOG%" 2>&1
-if errorlevel 1 (
-  echo.
-  echo  A compilacao falhou. Os erros estao em atualizar_log.txt
-  echo  Avise o Claude: ele le esse arquivo e corrige.
-  echo.
-  type "%LOG%"
-  pause & exit /b 1
-)
-echo  [2/4] Copiando para o executavel...
+
+rem --- Node.js e obrigatorio para compilar ---
+where npm >nul 2>nul
+if errorlevel 1 goto sem_node
+
+rem --- Fecha o jogo antes: arquivo em uso impede a compilacao e a copia ---
+taskkill /im ROguard.exe /f >nul 2>&1
 taskkill /im Vanguarda.exe /f >nul 2>&1
 timeout /t 1 >nul
-rmdir /s /q "%APP%\dist" >nul 2>&1
-rmdir /s /q "%APP%\web" >nul 2>&1
-robocopy "%~dp0dist" "%APP%\dist" /E /NFL /NDL /NJH /NJS /NP >> "%LOG%"
-if errorlevel 8 goto erro
-robocopy "%~dp0electron" "%APP%\electron" /E /NFL /NDL /NJH /NJS /NP >> "%LOG%"
-if errorlevel 8 goto erro
-echo  [3/4] Aplicando o icone no Vanguarda.exe...
-if not exist "%~dp0tools\rcedit-x64.exe" (
-  mkdir "%~dp0tools" >nul 2>&1
-  powershell -NoProfile -Command "Invoke-WebRequest -UseBasicParsing 'https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe' -OutFile '%~dp0tools\rcedit-x64.exe'" >> "%LOG%" 2>&1
-)
-if exist "%~dp0tools\rcedit-x64.exe" "%~dp0tools\rcedit-x64.exe" "%APP%\..\..\Vanguarda.exe" --set-icon "%~dp0electron\icon.ico" >> "%LOG%" 2>&1
-echo  [4/4] Abrindo o jogo...
+
+rem --- Primeira vez: instala as dependencias ---
+if exist "node_modules" goto compilar
+echo [0/3] Instalando dependencias (primeira vez, pode demorar)...
+call npm install --no-audit --no-fund > "%LOG%" 2>&1
+if errorlevel 1 goto falhou
+
+:compilar
+echo [1/3] Compilando o jogo e gerando o executavel (pode levar alguns minutos)...
+call npm run desktop:build >> "%LOG%" 2>&1
+if errorlevel 1 goto falhou
+
+echo [2/3] Copiando para a pasta Executavel...
+rem o Vanguarda.exe antigo (nome anterior do jogo) sai da pasta para nao confundir
+if exist "%DEST%\Vanguarda.exe" del /q "%DEST%\Vanguarda.exe" >nul 2>&1
+if not exist "%DEST%" mkdir "%DEST%"
+rem robocopy: codigo 0-7 = ok; 8 ou mais = erro de verdade
+robocopy "%~dp0release\win-unpacked" "%DEST%" /E /NFL /NDL /NJH /NJS /NP >> "%LOG%"
+if errorlevel 8 goto falhou_copia
+if not exist "%DEST%\ROguard.exe" goto falhou_copia
+
+echo [3/3] Abrindo o jogo...
 echo OK %date% %time%>> "%LOG%"
-start "" "%APP%\..\..\Vanguarda.exe"
-timeout /t 3 >nul
-exit /b 0
-:erro
-echo  Algo deu errado ao copiar os arquivos. Veja atualizar_log.txt
+start "" "%DEST%\ROguard.exe"
+goto fim
+
+:sem_node
+echo [ERRO] O Node.js nao esta instalado. Instale a versao LTS em https://nodejs.org e rode de novo.
+goto fim_erro
+
+:falhou
+echo.
+echo [ERRO] A compilacao falhou. As ultimas linhas do erro estao abaixo.
+echo O log completo esta em atualizar_log.txt - mande esse arquivo para o Claude.
+echo.
+powershell -NoProfile -Command "Get-Content -Tail 40 -LiteralPath '%LOG%'"
+goto fim_erro
+
+:falhou_copia
+echo.
+echo [ERRO] Nao consegui copiar o jogo para Executavel\Vanguarda.
+echo Veja atualizar_log.txt e mande para o Claude.
+goto fim_erro
+
+:fim_erro
+echo.
 pause
 exit /b 1
+
+:fim
+echo.
+echo PRONTO! O jogo foi atualizado e esta abrindo.
+echo Para abrir depois: Executavel\Vanguarda\ROguard.exe
+timeout /t 3 >nul
+exit /b 0
