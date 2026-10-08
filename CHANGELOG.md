@@ -2,6 +2,9 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.5v
+- Zombie/orc arm bind fix: sideways upper-arm segments (T-pose) froze elbows out under procedural clips; loader now hangs the segment (length kept) and derives inverses. Goblin/rat baked clips and Mixamo rigs untouched. New `armBindCheck`.
+
 ## 2026-10-07 — v0.5u
 - Monster cards (permanent progression): 112-art catalog (`cards.ts`: Normal +3 / Mini-Boss +8 / MVP +12/+6, flexible affinity = half without); victory-only 5-pack (3N + 2× 90/5/5); fusion (3 same→different Normal, 10 Normals→Mini-Boss); slots 2/run to 20, +1 to 30; bonuses applied at `newRun` (next run onward). Collection UI on world map. No campaign impact (runCheck identical).
 

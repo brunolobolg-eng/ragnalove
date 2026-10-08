@@ -68,6 +68,30 @@ function loadSkin(url: string, like: THREE.Texture): Promise<THREE.Texture> {
 export const skinKind = (kind: string, i: number): string => `${kind}~${i}`;
 
 /**
+ * Rigs com o segmento do braço de lado (T-pose: upperArm aponta ±X em vez de para
+ * baixo). Os clipes procedurais assumem braço pendente (giro em X balança para
+ * frente/trás); com o segmento de lado, o giro só "enrola" o braço parado e os
+ * cotovelos ficam travados para fora — o zumbi/orc anda de braço aberto.
+ * Detecta o segmento lateral e pendura (mantém comprimento e um leve desvio para
+ * fora). Só vale para nomes do padrão do jogo (upperArm.L/R): rigs Mixamo
+ * (LeftArm), modelos procedurais (já pendentes) e GLBs com animação própria
+ * (feita para o próprio bind) não disparam. Retorna true se mexeu em algo.
+ */
+export function hangArms(bones: BoneDef[]): boolean {
+  let fixed = false;
+  for (const b of bones) {
+    if (b.name !== 'upperArm.L' && b.name !== 'upperArm.R') continue;
+    const [x, y, z] = b.pos;
+    const len = Math.hypot(x, y, z);
+    if (len <= 0 || Math.abs(x) < 2 * Math.abs(y)) continue; // já pendente
+    const s = Math.sign(x) || 1;
+    b.pos = [s * len * 0.25, -len * 0.97, z];
+    fixed = true;
+  }
+  return fixed;
+}
+
+/**
  * Converte um GLB do esqueleto padrão (já riggado, cor por vértice, pés em y = 0, frente em +Z)
  * no formato dos modelos do jogo: geometria skinada + lista de ossos + clipes por nome.
  * Modelos com textura (cor por vértice branca) levam a textura junto.
@@ -105,6 +129,10 @@ function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.Animation
   const inverses = mesh.skeleton.boneInverses.map((m: THREE.Matrix4) => m.clone());
   const model: BuiltModel = { geometry, bones, glows: [], height: geometry.boundingBox!.max.y, map, inverses };
   if (gameClips) {
+    // bind lateral (braço de lado) não combina com clipe procedural: pendura e
+    // deriva as inversas (as do arquivo valiam para o bind antigo; sem elas, o
+    // bind exato continua renderizando a malha modelada no descanso)
+    if (hangArms(bones)) model.inverses = undefined;
     // clipes do jogo; os que o GLB trouxer pelo nome (ex.: "attack" do V2Fun) entram por cima
     const clips = GAME_CLIPS[gameClips](bones);
     const own = ownClips(gltf);
