@@ -2,6 +2,11 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.6e
+- Mapa de neve, cordilheira: grupos de rochas altas em fileira atrás do mapa, uma segunda fileira de picos mais altos com duas torres de vigia da castle, e encostas de rochas nos dois lados, com um vale livre entre o mapa e as serras.
+- Acampamentos nos flancos (barraca, fogueira acesa, barril, caixa, carroça, bandeira, cama de palha e placa), visíveis ao afastar a câmera. Não aparecem na vista padrão, que enquadra só o tabuleiro.
+- Menos pedrinhas soltas no chão (eram centenas, pareciam moedinhas).
+
 ## 2026-10-08 — v0.6d
 - Mapa de neve, projeto de luz: sol frio e baixo (sombras longas que desenham o relevo), luz de preenchimento mais fraca e base da neve mais fria, para o contraste de luz e sombra aparecer. Sombras de contato embaixo de cada peça. Poças de luz quente tremeluzindo nas lanternas e fogueiras. Névoa baixa deslizando devagar. Paredes da cordilheira maiores e mais baixas, com rochas da pasta town. Trilha com neve pisoteada mais suave e menos pedrinhas no chão.
 - Visualização: o mapa agora é conferido pelo caminho normal do jogo (com HUD e pós-processamento), não só pelo render direto.

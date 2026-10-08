@@ -89,7 +89,12 @@ const TILE_PX = 64;
 // rochas largas e baixas (as da castle são pontiagudas e repetidas viram cristal)
 const SNOW_ROCKS = ['town/rock-large', 'town/rock-wide', 'town/rock-large', 'castle/rocks-large'];
 const SNOW_TREES = ['castle/tree-large', 'castle/tree-small', 'survival/tree-tall', 'town/tree-high-round'];
-const SNOW_BACK = ['castle/rocks-large', 'town/rock-wide', 'castle/tower-square-mid-windows', 'castle/tower-hexagon-mid'];
+/** Cordilheira: rochas altas e largas em grupos (pacotes town e castle). */
+const SNOW_RIDGE = ['town/rock-wide', 'town/rock-large', 'castle/rocks-large'];
+/** Picos do fundo: as maiores peças, para a silhueta da montanha. */
+const SNOW_PEAK = ['town/rock-wide', 'castle/rocks-large'];
+/** Torres de vigia da castle, nos picos mais altos do fundo. */
+const SNOW_TOWERS = ['castle/tower-square-top-roof-high', 'castle/tower-hexagon-mid'];
 const SNOW_CAMP = ['town/cart', 'town/cart-high', 'town/planks', 'town/fence-broken', 'town/pillar-stone', 'town/banner-red', 'town/lantern', 'survival/signpost', 'survival/barrel', 'survival/box', 'survival/bucket', 'survival/bedroll', 'survival/tent-canvas', 'survival/fence-fortified', 'nature/tent_smallClosed', 'nature/campfire_logs', 'castle/siege-ballista'];
 
 export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHandle {
@@ -139,6 +144,26 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     contact.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0.015, z), new THREE.Quaternion(), new THREE.Vector3(s * 1.15, 1, s * 1.15)));
   };
   const pick = <T,>(list: T[]): T => list[Math.floor(rnd() * list.length)];
+  /** Grupo de peças espalhadas num raio (rochas que se encostam, como uma crista de montanha). */
+  const cluster = (cx: number, cz: number, n: number, radius: number, s0: number, s1: number, list: string[]) => {
+    for (let i = 0; i < n; i++) {
+      const a = rnd() * Math.PI * 2;
+      const d = Math.sqrt(rnd()) * radius;
+      glbPut(pick(list), cx + Math.cos(a) * d, cz + Math.sin(a) * d, s0 + rnd() * (s1 - s0));
+    }
+  };
+  /** Acampamento abandonado: barraca, fogueira acesa, barril, caixa, carroça, bandeira e cama de palha. */
+  const camp = (cx: number, cz: number) => {
+    glbPut('nature/tent_smallClosed', cx, cz, 1.05, rnd() * Math.PI * 2);
+    glbPut('nature/campfire_logs', cx + 1.2, cz + 0.7, 0.95);
+    warm.push(new THREE.Vector3(cx + 1.2, 0, cz + 0.7));
+    glbPut('survival/barrel', cx - 1.0, cz - 0.8, 1.0);
+    glbPut('survival/box', cx - 1.3, cz + 1.0, 0.95);
+    glbPut('survival/bedroll', cx + 0.2, cz - 1.2, 0.95, rnd() * Math.PI * 2);
+    glbPut('town/cart', cx - 2.1, cz - 2.0, 1.0);
+    glbPut('town/banner-red', cx + 0.9, cz - 1.7, 1.0);
+    glbPut('survival/signpost', cx - 0.3, cz + 1.8, 1.0);
+  };
   for (const pr of zone.props) {
     const x = X(pr.x) + (rnd() - 0.5) * 0.12;
     const z = Z(pr.y) + (rnd() - 0.5) * 0.12;
@@ -198,7 +223,22 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     mountain: ['pineSnow', 'pineSnow', 'rock', 'rock', 'rock'],
     ash: ['rock', 'rock', 'deadTree', 'rubble'],
   };
-  const decoN = Math.round((biome === 'forest' || biome === 'plains' ? 260 : biome === 'mountain' ? 80 : 170) * edgeK);
+  if (biome === 'mountain') {
+    // Cordilheira ao fundo: grupos de rochas altas em fileira, e picos mais altos atrás com torres de vigia
+    for (let x = -W / 2 - 10; x <= W / 2 + 10; x += 4.2) cluster(x + (rnd() - 0.5) * 2, -H / 2 - 8 - rnd() * 3, 3 + Math.floor(rnd() * 2), 1.4, 2.2, 3.4, SNOW_RIDGE);
+    for (let x = -W / 2 - 6; x <= W / 2 + 6; x += 7) cluster(x + rnd() * 2, -H / 2 - 15 - rnd() * 2, 3, 2, 3.6, 5.2, SNOW_PEAK);
+    glbPut(SNOW_TOWERS[0], -W / 4, -H / 2 - 16, 1.7);
+    glbPut(SNOW_TOWERS[1], W / 4, -H / 2 - 16, 1.5);
+    // Encostas laterais: grupos de rochas que fecham o vale dos dois lados
+    for (let z = -H / 2 - 6; z <= H / 2 + 2; z += 4.6) {
+      cluster(-W / 2 - 7 - rnd() * 2, z, 3, 1.5, 1.6, 2.6, SNOW_RIDGE);
+      cluster(W / 2 + 7 + rnd() * 2, z, 3, 1.5, 1.6, 2.6, SNOW_RIDGE);
+    }
+    // Acampamentos nos flancos, na altura do meio do mapa (aparecem ao afastar a câmera, fora da barra e do chat)
+    camp(-W / 2 - 2.4, 4);
+    camp(W / 2 + 2.4, -6);
+  }
+  const decoN = Math.round((biome === 'forest' || biome === 'plains' ? 260 : biome === 'mountain' ? 26 : 170) * edgeK);
   for (let i = 0; i < decoN; i++) {
     const side = rnd();
     let x: number;
@@ -241,14 +281,9 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     for (let i = 0; i < 18 * edgeK; i++) put(rnd() < 0.6 ? 'bush' : 'flowers', -W / 2 + rnd() * W, -H / 2 - 0.3 - rnd() * 1.2, 0.9 + rnd() * 0.7);
   }
   // Montanhas: paredões de rocha grandes no fundo
-  if (biome === 'mountain' || biome === 'ash') {
+  if (biome === 'ash') {
     const n = Math.round(16 * edgeK);
-    for (let i = 0; i < n; i++) {
-      const x = -W / 2 - 8 + i * ((W + 16) / (n - 1)) + (rnd() - 0.5);
-      const z = -H / 2 - 7 - rnd() * 5;
-      if (biome === 'mountain') glbPut(pick(SNOW_BACK), x, z, 3.4 + rnd() * 1.6);
-      else put('rock', x, z, 3 + rnd() * 2, undefined, 3 + rnd() * 3);
-    }
+    for (let i = 0; i < n; i++) put('rock', -W / 2 - 8 + i * ((W + 16) / (n - 1)) + (rnd() - 0.5), -H / 2 - 7 - rnd() * 5, 3 + rnd() * 2, undefined, 3 + rnd() * 3);
   }
 
   // Peças em GLB: uma chamada de desenho por tipo (instanciadas), com geada na neve
@@ -1050,7 +1085,8 @@ function tuftMesh(zone: ParsedZone, P: Palette, biome: Biome, X: (x: number) => 
       : biome === 'mountain'
         ? tint(new THREE.DodecahedronGeometry(0.07, 0).translate(0, 0.03, 0), 0xe2eaf5, 0.05, 41) // pedrinhas de gelo, claras
         : tint(new THREE.DodecahedronGeometry(0.06, 0).translate(0, 0.03, 0), P.rock[0], 0.15, 41);
-  const n = Math.min(Math.round((biome === 'mountain' ? 60 : 260) * areaK), floor.length * 2);
+  // neve: poucas pedrinhas (o mapa grande multiplica a quantidade; muitas viram "moedinhas" no chão)
+  const n = Math.min(Math.round((biome === 'mountain' ? 10 : 260) * areaK), floor.length * 2);
   const im = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), n);
   const m = new THREE.Matrix4();
   for (let i = 0; i < n; i++) {
