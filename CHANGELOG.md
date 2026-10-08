@@ -2,6 +2,9 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.5z
+- Modelos com textura e sem cor por vértice (Bongun e o antigo cultista) apareciam pretos: o material pedia cores de vértice que o arquivo não tem. Agora as cores de vértice só são usadas quando o modelo as tem. Zumbis e heróis não mudam.
+
 ## 2026-10-08 — v0.5y
 - Vitória da horda: novo cartão dourado (raios girando, brilho, placa azul-marinho com a borda do jogo e emblema de espada), no lugar do aviso "VITÓRIA". Título próprio de cada mapa (`VICTORY_TITLES` em visualConfig) e o nome da região embaixo. Derrota e chefe mantêm o aviso de antes.
 

@@ -148,6 +148,8 @@ export class ModelUnitView {
     const sk = instantiateSkeleton(model.bones, model.inverses);
     const body = createBodyMaterial(this.u);
     if (model.map) body.map = model.map;
+    // cor por vértice só se o modelo tem o atributo: sem ele o WebGL usa preto e a textura some (ex.: Bongun)
+    body.vertexColors = !!model.geometry.getAttribute('color');
     this.mesh = new THREE.SkinnedMesh(model.geometry, body);
     this.mesh.add(sk.root);
     this.mesh.bind(sk.skeleton, IDENTITY);
