@@ -2,6 +2,10 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-09 — v0.6l
+- Ícones de equipamento novos: a folha do dono (14 tipos × 6 raridades) foi recortada por `scripts/build_item_art.py` e virou `public/sprites/item_art.webp`. Espada, machado, cajado, arco, adaga, livro, peitoral, capa, elmo, anel, brinco, amuleto, cinto e botas agora usam a arte nova; a moldura colorida continua vindo do código.
+- Escudo, talismã, lança, túnica, colete e bracelete ainda não têm arte nova: continuam com a arte antiga (`public/sprites/item_icons.png`, reduzido a esses seis tipos).
+
 ## 2026-10-09 — v0.6k
 - Guerreiro: as animações de parado, andar, dano, habilidade e morte agora vêm de captura de movimento real (UAL), copiada por direção de cada membro para o rig do modelo. Antes eram poses desenhadas à mão, que pareciam de boneco.
 - Golpe e investida: tronco, pernas e escudo vêm da captura; o braço da espada segue uma linha de tempo própria (corte horizontal e espada por cima da cabeça).

@@ -18,9 +18,24 @@ const MATS: Record<Rarity, Mat> = {
 
 const cache = new Map<string, string>();
 
-/** Ícones desenhados (public/sprites/item_icons.png): uma linha por tipo, uma coluna por raridade (células de 96px). */
-const ATLAS_KINDS = ['sword', 'dagger', 'staff', 'bow', 'axe', 'shield', 'helm', 'plate', 'ring', 'amulet', 'robe', 'vest', 'bracelet', 'earring', 'belt', 'orb', 'cloak', 'boots', 'spear', 'book'];
-const ATLAS_CELL = 96;
+/**
+ * Ícones (uma linha por tipo, uma coluna por raridade, da Comum à Mítica):
+ *  - item_art.webp (células de 128px): arte nova da folha de equipamentos (14 tipos), recortada por
+ *    scripts/build_item_art.py. A moldura colorida e o brilho vêm do código, como nos demais.
+ *  - item_icons.png (células de 96px): arte antiga, só para os tipos que ainda não têm arte nova.
+ */
+const ART_KINDS = ['sword', 'axe', 'staff', 'bow', 'dagger', 'book', 'plate', 'cloak', 'helm', 'ring', 'earring', 'amulet', 'belt', 'boots'];
+const ART_CELL = 128;
+const art = new Image();
+let artReady = false;
+art.onload = () => {
+  artReady = true;
+  cache.clear();
+};
+art.src = 'sprites/item_art.webp';
+
+const OLD_KINDS = ['shield', 'robe', 'vest', 'bracelet', 'orb', 'spear'];
+const OLD_CELL = 96;
 const atlas = new Image();
 let atlasReady = false;
 atlas.onload = () => {
@@ -36,7 +51,9 @@ export function itemIconUrl(it: Pick<Item, 'id' | 'slot' | 'rarity'>, size = 96)
   let url = cache.get(key);
   if (!url) {
     url = itemArtCanvas(kind, it.rarity, size).toDataURL();
-    if (atlasReady || !ATLAS_KINDS.includes(kind)) cache.set(key, url);
+    // só guarda no cache quando a arte do tipo já carregou (senão ficaria o desenho provisório)
+    const ready = ART_KINDS.includes(kind) ? artReady : OLD_KINDS.includes(kind) ? atlasReady : true;
+    if (ready) cache.set(key, url);
   }
   return url;
 }
@@ -66,8 +83,10 @@ export function itemArtCanvas(kind: string, rarity: Rarity, size = 96): HTMLCanv
   g.save();
   g.shadowColor = m.glow > 0 ? withAlpha(rc, 0.9) : 'rgba(0,0,0,0.6)';
   g.shadowBlur = 3 + m.glow * 6;
-  const row = ATLAS_KINDS.indexOf(kind);
-  if (atlasReady && row >= 0) g.drawImage(atlas, tier * ATLAS_CELL, row * ATLAS_CELL, ATLAS_CELL, ATLAS_CELL, 5, 5, 54, 54);
+  const artRow = ART_KINDS.indexOf(kind);
+  const oldRow = OLD_KINDS.indexOf(kind);
+  if (artReady && artRow >= 0) g.drawImage(art, tier * ART_CELL, artRow * ART_CELL, ART_CELL, ART_CELL, 5, 5, 54, 54);
+  else if (atlasReady && oldRow >= 0) g.drawImage(atlas, tier * OLD_CELL, oldRow * OLD_CELL, OLD_CELL, OLD_CELL, 5, 5, 54, 54);
   else DRAW[kind]?.(g, m, tier);
   g.restore();
   // brilhos (raridades altas)
