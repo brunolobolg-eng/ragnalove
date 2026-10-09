@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { FxKit } from './kit/FxKit';
 import type { Ribbon } from './kit/Ribbons';
+import { C_SHADOW_DARK } from './ShadowFX';
 
 /** Arco de ataque: a fita varre a frente do herói e deixa um rastro curto que some sozinho. */
 export interface ArcOpts {
@@ -20,6 +21,8 @@ export interface ArcOpts {
   color: number[];
   /** redemoinho de partículas acompanhando o arco (tufão) */
   swirl: boolean;
+  /** fumaça escura saindo do arco (sombra do Assassino) */
+  smoke?: boolean;
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -64,6 +67,12 @@ export class ArcFX {
       const s = this.t / this.o.sweep;
       const p = this.at(s);
       this.ribbon?.push(p);
+      if (this.o.smoke) {
+        this.kit.particles.smoke.emit({
+          pos: p, posJitter: 0.2, vel: new THREE.Vector3(0, 0.6, 0), velJitter: 0.5,
+          life: 0.8, size: 0.2, sizeEnd: 0.75, color: C_SHADOW_DARK, alpha: 0.5, drag: 2, count: 2,
+        });
+      }
       if (this.o.swirl) {
         const P = this.kit.particles;
         const v = this.at(s).sub(this.center).setY(0).normalize();

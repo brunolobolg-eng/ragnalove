@@ -5,6 +5,8 @@ import type { ParticleLayer } from '../fx/Particles';
 import type { SceneryHandle } from './BridgeScenery';
 import { buildCityGate } from './CityGate';
 import { softCircle } from '../textures';
+import { instanceProps } from './props';
+import { KITS, type BiomeKit } from './biomeKits';
 
 /**
  * Cenário genérico por bioma (floresta, planície, deserto, montanha, cinzas).
@@ -24,6 +26,10 @@ interface Palette {
   waterEmissive: number;
   lava?: boolean;
   snow?: boolean;
+  /** Manchas de vento no chão: [clara, escura]. */
+  drift?: [string, string];
+  /** Rajadas finas no chão: [clara, escura]. */
+  streak?: [string, string];
 }
 
 const PAL: Record<Biome, Palette> = {
@@ -36,6 +42,7 @@ const PAL: Record<Biome, Palette> = {
     leaf: [0x3e8a36, 0x4f9e40, 0x357a30, 0x68b44a],
     water: 0x1e3a3a,
     waterEmissive: 0x061212,
+    drift: ['#7fa35a', '#2b4a22'],
   },
   plains: {
     ground: ['#6e9444', '#789c4a', '#66883e', '#84a452'],
@@ -46,6 +53,7 @@ const PAL: Record<Biome, Palette> = {
     leaf: [0x4e9a3c, 0x62ac46, 0x44883a, 0x7cbc52],
     water: 0x2a3a40,
     waterEmissive: 0x080e10,
+    drift: ['#f6f4d6', '#6a7a3a'],
   },
   desert: {
     ground: ['#c4a274', '#ceac7c', '#b8986c', '#d6b686'],
@@ -56,16 +64,21 @@ const PAL: Record<Biome, Palette> = {
     leaf: [0x5e7a3a, 0x6c8a44, 0x4e6a30],
     water: 0x2e6a70,
     waterEmissive: 0x0a1c1e,
+    drift: ['#f6e2b4', '#a57a44'],
+    streak: ['#fbe9bc', '#d6ae70'],
   },
   mountain: {
-    ground: ['#a2abb8', '#aeb6c2', '#98a0ae', '#bac2ce'],
-    groundDetail: ['#dfe6f0', '#6e7682', '#c8d2de', '#7a828e'],
+    // base um tom mais fria e escura: as luzes da neve e as sombras longas passam a aparecer
+    ground: ['#8e9ab0', '#9aa6ba', '#8592a8', '#a6b2c6'],
+    groundDetail: ['#eef4fb', '#c4d2e4', '#dde8f4', '#b3c2d8'],
     outer: ['#9ca4b0', '#a8b0bc', '#929aa6'],
     rock: [0x6a6e78, 0x5a5e68, 0x7a7e88],
     trunk: 0x3e3024,
     leaf: [0x2a4a3a, 0x325444, 0x243e32],
     water: 0x223244,
     waterEmissive: 0x060a10,
+    drift: ['#f4f9ff', '#606e98'],
+    streak: ['#f7fbff', '#c9d8ea'],
     snow: true,
   },
   ash: {
@@ -77,6 +90,8 @@ const PAL: Record<Biome, Palette> = {
     leaf: [0x3a2a22, 0x2e221c],
     water: 0xff5a1a,
     waterEmissive: 0xff4a10,
+    drift: ['#6a5c56', '#1c1412'],
+    streak: ['#4a3a34', '#2a201c'],
     lava: true,
   },
 };
@@ -95,6 +110,13 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   /** Escala das quantidades de decoração com o tamanho do mapa (os antigos tinham 15 × 13). */
   const areaK = (W * H) / (15 * 13);
   const edgeK = (W + H) / 28;
+  /** Kit de peças da ambientação (pacotes, cores, sombra de contato, luz quente, névoa). */
+  const kit: BiomeKit = KITS[biome];
+  const tintOfPath = (path: string) =>
+    kit.rock.includes(path) ? kit.rockTint
+      : kit.ridge.includes(path) || kit.peak.includes(path) || kit.towers.includes(path) || (kit.trees ?? []).includes(path) ? kit.ridgeTint
+      : Object.values(kit.camp).includes(path) ? kit.campTint
+      : { color: 0xffffff, amount: 0 };
 
   // ---------------- Chão ----------------
   const outerTex = groundTexture(P, 256, 256, 4, rnd, true);
@@ -119,7 +141,38 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   const put = (kind: string, x: number, z: number, s: number, rot = rnd() * Math.PI * 2, sy = s) => {
     (place[kind] ??= []).push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot), new THREE.Vector3(s, sy, s)));
   };
-  const treeKind = biome === 'mountain' ? 'pineSnow' : biome === 'forest' ? (rnd() < 0.5 ? 'pine' : 'oak') : biome === 'ash' ? 'deadTree' : 'oak';
+  // Peças em GLB do kit (cada uma com a cor da ambientação) + sombra de contato sob cada uma
+  const glb: Record<string, THREE.Matrix4[]> = {};
+  const warm: THREE.Vector3[] = [];
+  const contact: THREE.Matrix4[] = [];
+  const glbPut = (path: string, x: number, z: number, s: number, rot = rnd() * Math.PI * 2, sy = s) => {
+    (glb[path] ??= []).push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot), new THREE.Vector3(s, sy, s)));
+    contact.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0.015, z), new THREE.Quaternion(), new THREE.Vector3(s * 1.15, 1, s * 1.15)));
+  };
+  const pick = <T,>(list: T[]): T => list[Math.floor(rnd() * list.length)];
+  /** Árvore procedural da decoração (pinheiro, carvalho, cacto, morta...); sem kit, usa a de reserva. */
+  const procTree = (fallback: string) => (kit.ringTree.length ? pick(kit.ringTree) : fallback);
+  /** Grupo de peças espalhadas num raio (uma crista, um morro, um paredão). */
+  const cluster = (cx: number, cz: number, n: number, radius: number, s0: number, s1: number, list: string[]) => {
+    for (let i = 0; i < n; i++) {
+      const a = rnd() * Math.PI * 2;
+      const d = Math.sqrt(rnd()) * radius;
+      glbPut(pick(list), cx + Math.cos(a) * d, cz + Math.sin(a) * d, s0 + rnd() * (s1 - s0));
+    }
+  };
+  /** Acampamento abandonado com as peças do kit: barraca, fogueira acesa, barril, caixa, carroça, bandeira e cama. */
+  const camp = (cx: number, cz: number) => {
+    const c = kit.camp;
+    glbPut(c.tent, cx, cz, 1.05, rnd() * Math.PI * 2);
+    glbPut(c.fire, cx + 1.2, cz + 0.7, 0.95);
+    warm.push(new THREE.Vector3(cx + 1.2, 0, cz + 0.7));
+    glbPut(c.barrel, cx - 1.0, cz - 0.8, 1.0);
+    glbPut(c.crate, cx - 1.3, cz + 1.0, 0.95);
+    glbPut(c.bed, cx + 0.2, cz - 1.2, 0.95, rnd() * Math.PI * 2);
+    glbPut(c.cart, cx - 2.1, cz - 2.0, 1.0);
+    glbPut(c.flag, cx + 0.9, cz - 1.7, 1.0);
+    glbPut(c.sign, cx - 0.3, cz + 1.8, 1.0);
+  };
   for (const pr of zone.props) {
     const x = X(pr.x) + (rnd() - 0.5) * 0.12;
     const z = Z(pr.y) + (rnd() - 0.5) * 0.12;
@@ -128,10 +181,12 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   function putProp(kind: PropKind, x: number, z: number): void {
     switch (kind) {
       case 'tree':
-        put(biome === 'forest' ? (rnd() < 0.55 ? 'pine' : 'oak') : treeKind, x, z, 0.85 + rnd() * 0.3);
+        if (kit.trees && rnd() < 0.5) glbPut(pick(kit.trees), x, z, 0.85 + rnd() * 0.3);
+        else put(procTree(biome === 'mountain' ? 'pineSnow' : 'oak'), x, z, 0.85 + rnd() * 0.3);
         break;
       case 'rock':
-        put('rock', x, z, 0.8 + rnd() * 0.35, undefined, 0.7 + rnd() * 0.5);
+        // pedras e paredes do mapa: tamanhos variados para não virarem um bloco repetido
+        glbPut(pick(kit.rock), x, z, 0.9 + rnd() * 0.6);
         break;
       case 'cactus':
         put('cactus', x, z, 0.85 + rnd() * 0.25);
@@ -140,38 +195,61 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
         put('ruin', x, z, 0.95 + rnd() * 0.15);
         break;
       case 'stump':
-        put('deadTree', x, z, 0.75 + rnd() * 0.3);
+        if (kit.stump) glbPut(kit.stump, x, z, 0.8 + rnd() * 0.25);
+        else put('deadTree', x, z, 0.75 + rnd() * 0.3);
         break;
       case 'tent':
-        put('tent', x, z, 1, Math.floor(rnd() * 4) * (Math.PI / 2));
+        glbPut(kit.camp.tent, x, z, 1, Math.floor(rnd() * 4) * (Math.PI / 2));
         break;
       case 'rubble':
-        put('rubble', x, z, 0.9 + rnd() * 0.2);
+        glbPut(pick(kit.rock), x, z, 0.6 + rnd() * 0.3);
         break;
       case 'barrels':
-        put('barrels', x, z, 1);
+        glbPut(kit.camp.barrel, x, z, 0.95 + rnd() * 0.15);
         break;
       case 'wall':
-        put('block', x, z, 1, 0);
+        // paredes '#': afloramento de duas peças do kit (o tile continua bloqueado no jogo)
+        glbPut(pick(kit.rock), x - 0.12, z + 0.08, 0.8 + rnd() * 0.15);
+        glbPut(pick(kit.rock), x + 0.14, z - 0.1, 0.6 + rnd() * 0.2);
         break;
       case 'cityWall':
         break; // muralha da cidade: construída inteira em CityGate
       case 'palm':
         put('palm', x, z, 0.95 + rnd() * 0.3);
         break;
+      case 'lantern':
+        glbPut('town/lantern', x, z, 1);
+        warm.push(new THREE.Vector3(x, 0, z));
+        break;
+      case 'cart':
+        glbPut(kit.camp.cart, x, z, 1);
+        break;
+      case 'brazier':
+        glbPut(kit.camp.fire, x, z, 0.9);
+        warm.push(new THREE.Vector3(x, 0, z));
+        break;
+      case 'parapet':
+        glbPut(pick(kit.rock), x, z, 0.7);
+        break;
       default:
-        put('rock', x, z, 0.8);
+        glbPut(pick(kit.rock), x, z, 0.8);
     }
   }
-  // Decoração fora do tabuleiro: laterais e fundo (a frente fica livre para a câmera).
-  const decoKinds: Record<Biome, string[]> = {
-    forest: ['pine', 'pine', 'oak', 'oak', 'oak', 'bush', 'bush', 'rock', 'flowers'],
-    plains: ['oak', 'oak', 'bush', 'bush', 'rock', 'flowers', 'flowers', 'rubble'],
-    desert: ['rock', 'rock', 'cactus', 'cactus', 'ruin'],
-    mountain: ['pineSnow', 'pineSnow', 'rock', 'rock', 'rock'],
-    ash: ['rock', 'rock', 'deadTree', 'rubble'],
-  };
-  const decoN = Math.round((biome === 'forest' || biome === 'plains' ? 260 : 170) * edgeK);
+  // Cordilheira do fundo, picos, torres/ruínas, encostas laterais e acampamentos: tudo do kit do bioma
+  if (kit.ridge.length) {
+    for (let x = -W / 2 - 10; x <= W / 2 + 10; x += 4.2) cluster(x + (rnd() - 0.5) * 2, -H / 2 - 8 - rnd() * 3, 3 + Math.floor(rnd() * 2), 1.4, 2.2, 3.4, kit.ridge);
+    for (let x = -W / 2 - 6; x <= W / 2 + 6; x += 7) cluster(x + rnd() * 2, -H / 2 - 15 - rnd() * 2, 3, 2, 3.6, 5.2, kit.peak);
+    kit.towers.forEach((t, i) => glbPut(t, (i === 0 ? -1 : 1) * (W / 4), -H / 2 - 16, 1.6));
+    for (let z = -H / 2 - 6; z <= H / 2 + 2; z += 4.6) {
+      cluster(-W / 2 - 7 - rnd() * 2, z, 3, 1.5, 1.6, 2.6, kit.ridge);
+      cluster(W / 2 + 7 + rnd() * 2, z, 3, 1.5, 1.6, 2.6, kit.ridge);
+    }
+    // acampamentos nos flancos, na altura do meio do mapa (aparecem ao afastar a câmera)
+    camp(-W / 2 - 2.4, 4);
+    camp(W / 2 + 2.4, -6);
+  }
+  // Decoração solta em volta do tabuleiro (fora da frente, que fica livre para a câmera)
+  const decoN = Math.round(({ forest: 200, plains: 200, desert: 60, ash: 50, mountain: 26 } as Record<string, number>)[biome] * edgeK);
   for (let i = 0; i < decoN; i++) {
     const side = rnd();
     let x: number;
@@ -186,9 +264,19 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
       x = -W / 2 - 6 + rnd() * (W + 12);
       z = -H / 2 - 1.2 - rnd() * 14;
     }
-    const k = decoKinds[biome][Math.floor(rnd() * decoKinds[biome].length)];
-    const big = k === 'rock' ? 1.1 + rnd() * 1.4 : k === 'flowers' ? 1.2 + rnd() * 0.8 : k === 'bush' ? 1.2 + rnd() * 1.0 : 0.95 + rnd() * 0.75;
-    put(k, x, z, big, undefined, k === 'rock' ? big * (0.6 + rnd() * 0.6) : big);
+    const r = rnd();
+    const big = 0.9 + rnd() * 0.7;
+    if (r < 0.2) glbPut(pick(kit.rock), x, z, big * (0.9 + rnd() * 0.4));
+    else if (r < 0.5) {
+      if (kit.ringTree.length) put(pick(kit.ringTree), x, z, big);
+      else if (kit.trees) glbPut(pick(kit.trees), x, z, big);
+      else glbPut(pick(kit.ridge), x, z, big);
+    } else if (biome === 'forest' || biome === 'plains') {
+      put(pick(['bush', 'bush', 'flowers'] as const), x, z, 1.2 + rnd() * 0.9);
+    } else {
+      const path = pick([kit.camp.barrel, kit.camp.crate, kit.camp.bed, kit.camp.cart, kit.camp.sign]);
+      glbPut(path, x, z, big * 0.9);
+    }
   }
   // Moitas e flores coladas na borda do tabuleiro (moldura viva, como nos mapas de MMO)
   if (biome === 'forest' || biome === 'plains') {
@@ -200,17 +288,41 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     }
     for (let i = 0; i < 18 * edgeK; i++) put(rnd() < 0.6 ? 'bush' : 'flowers', -W / 2 + rnd() * W, -H / 2 - 0.3 - rnd() * 1.2, 0.9 + rnd() * 0.7);
   }
-  // Montanhas: paredões de rocha grandes no fundo
-  if (biome === 'mountain' || biome === 'ash') {
-    const n = Math.round(16 * edgeK);
-    for (let i = 0; i < n; i++) put('rock', -W / 2 - 8 + i * ((W + 16) / (n - 1)) + (rnd() - 0.5), -H / 2 - 7 - rnd() * 5, 3 + rnd() * 2, undefined, 3 + rnd() * 3);
+  // Peças em GLB: uma chamada de desenho por tipo (instanciadas), com geada na neve
+  for (const [path, mats] of Object.entries(glb)) instanceProps(root, path, mats, { tint: tintOfPath(path) });
+  // Sombras de contato: uma mancha escura e suave sob cada peça (uma chamada de desenho para todas)
+  if (contact.length) {
+    const blobs = new THREE.InstancedMesh(
+      new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ map: softCircle(), color: kit.contact, transparent: true, opacity: 0.5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }),
+      contact.length,
+    );
+    contact.forEach((m, i) => blobs.setMatrixAt(i, m));
+    blobs.renderOrder = 1;
+    root.add(blobs);
+  }
+  // Luz quente pontual (lanternas, fogueiras): poça de luz alaranjada no chão + brilho no ar
+  const flames: { m: THREE.MeshBasicMaterial; ph: number }[] = [];
+  for (const p of warm) {
+    const pool = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.2, 4.2).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ map: softCircle(), color: kit.warm, transparent: true, opacity: 0.38, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    pool.position.set(p.x, 0.03, p.z);
+    pool.renderOrder = 2;
+    root.add(pool);
+    flames.push({ m: pool.material as THREE.MeshBasicMaterial, ph: rnd() * Math.PI * 2 });
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: softCircle(), color: kit.warm, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.85 }));
+    sp.position.set(p.x, 1.1, p.z);
+    sp.scale.setScalar(1.8);
+    root.add(sp);
   }
 
-  const kit = propKit(P, biome);
+  const geoKit = propKit(P, biome);
   for (const [kind, mats] of Object.entries(place)) {
-    const geo = kit.geos[kind];
+    const geo = geoKit.geos[kind];
     if (!geo) continue;
-    const im = new THREE.InstancedMesh(geo, kit.material, mats.length);
+    const im = new THREE.InstancedMesh(geo, geoKit.material, mats.length);
     mats.forEach((m, i) => im.setMatrixAt(i, m));
     im.castShadow = true;
     im.receiveShadow = true;
@@ -230,7 +342,10 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   if (puddles.length) {
     const geos = puddles.map((f) => new THREE.CircleGeometry(0.34 + rnd() * 0.16, 12).rotateX(-Math.PI / 2).scale(1.3, 1, 0.9).translate(X(f.x) + (rnd() - 0.5) * 0.3, 0.012, Z(f.y) + (rnd() - 0.5) * 0.3));
     // água parada: céu claro refletido (emissivo) + brilho especular do sol
-    const pm = new THREE.Mesh(mergeGeometries(geos)!, new THREE.MeshPhongMaterial({ color: 0x3e5c5e, emissive: biome === 'forest' ? 0x2a4448 : 0x3a4c58, specular: 0xfff4d8, shininess: 140, transparent: true, opacity: 0.82, polygonOffset: true, polygonOffsetFactor: -1 }));
+    const ice = biome === 'mountain';
+    const pm = new THREE.Mesh(mergeGeometries(geos)!, new THREE.MeshPhongMaterial(ice
+      ? { color: 0xa9c8e6, emissive: 0x2c4a6a, specular: 0xffffff, shininess: 220, transparent: true, opacity: 0.6, polygonOffset: true, polygonOffsetFactor: -1 }
+      : { color: 0x3e5c5e, emissive: biome === 'forest' ? 0x2a4448 : 0x3a4c58, specular: 0xfff4d8, shininess: 140, transparent: true, opacity: 0.82, polygonOffset: true, polygonOffsetFactor: -1 }));
     pm.receiveShadow = true;
     pm.renderOrder = 1;
     root.add(pm);
@@ -307,8 +422,28 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   let t = 0;
   let acc = 0;
   const amb = new THREE.Vector3();
+  // Névoa baixa do bioma (geada, poeira, neblina de campo, fumaça): manchas largas na altura da cintura,
+  // deslizando devagar. Transparente e sem escrever profundidade: velam o fundo sem esconder heróis nem inimigos.
+  const mist: { m: THREE.Mesh; x: number; ph: number }[] = [];
+  if (kit.mist) {
+    for (let i = 0; i < 9; i++) {
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(9 + rnd() * 6, 4 + rnd() * 3).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ map: softCircle(), color: kit.mist.color, transparent: true, opacity: kit.mist.opacity + rnd() * 0.04, depthWrite: false }),
+      );
+      const x = -W / 2 + rnd() * W;
+      m.position.set(x, 0.55 + rnd() * 0.5, -H / 2 + rnd() * H);
+      m.renderOrder = 3;
+      root.add(m);
+      mist.push({ m, x, ph: rnd() * Math.PI * 2 });
+    }
+  }
+
   const update = (dt: number, particles: ParticleLayer) => {
     t += dt;
+    for (const f of mist) f.m.position.x = f.x + Math.sin(t * 0.12 + f.ph) * 1.2;
+    // chama da lanterna/fogueira: a poça de luz treme de leve, em fases diferentes
+    for (const f of flames) f.m.opacity = 0.32 + 0.07 * Math.sin(t * 5.1 + f.ph) + 0.03 * Math.sin(t * 11.3 + f.ph * 2);
     if (liquid) liquid.uniforms.uTime.value = t;
     cityGate.update(dt, particles);
     for (const sh of shafts) (sh.m.material as THREE.MeshBasicMaterial).opacity = sh.base * (0.7 + 0.3 * Math.sin(t * 0.35 + sh.ph));
@@ -366,6 +501,7 @@ function groundTexture(P: Palette, w: number, h: number, detailPer: number, rnd:
   g.fillStyle = (outer ? P.outer : P.ground)[0];
   g.fillRect(0, 0, w, h);
   paintNoise(g, w, h, outer ? P.outer : P.ground, rnd, 90);
+  if (P.drift) paintDrifts(g, w, h, rnd, 60, P.drift);
   if (P === PAL.forest || P === PAL.plains) paintSunDapple(g, w, h, rnd, 10);
   paintDetail(g, w, h, P, rnd, detailPer * 40);
   if (P === PAL.forest || P === PAL.plains) paintFlowers(g, w, h, rnd, 8);
@@ -386,6 +522,7 @@ function boardTexture(P: Palette, zone: ParsedZone, rnd: () => number, areaK = 1
   g.fillStyle = P.ground[0];
   g.fillRect(0, 0, w, h);
   paintNoise(g, w, h, P.ground, rnd, Math.round(420 * areaK));
+  if (P.drift) paintDrifts(g, w, h, rnd, Math.round(90 * areaK), P.drift);
   // leve xadrez para ler a grade (bem sutil, como um chão gasto)
   for (const f of zone.floor) {
     if ((f.x + f.y) % 2) continue;
@@ -393,24 +530,21 @@ function boardTexture(P: Palette, zone: ParsedZone, rnd: () => number, areaK = 1
     g.fillRect(f.x * TILE_PX, f.y * TILE_PX, TILE_PX, TILE_PX);
   }
   const green = P === PAL.forest || P === PAL.plains;
-  if (green) paintSunDapple(g, w, h, rnd, Math.round(40 * areaK));
-  paintDetail(g, w, h, P, rnd, Math.round(900 * areaK));
+  if (green) paintSunDapple(g, w, h, rnd, Math.round(12 * areaK));
+  // deserto: menos pedrinhas (a areia já tem as rajadas); o resto segue a paleta
+  paintDetail(g, w, h, P, rnd, Math.round((P === PAL.desert ? 140 : 900) * areaK));
   // Trilhas de verdade: dos 2 spawns até o portão (caminho mais curto na grade), gastas pela horda
   const routes = zone.spawnPoints.map((sp) => routeToGate(zone, sp));
-  if (green || P === PAL.mountain) {
-    const stone = P === PAL.mountain ? ['#8a93a0', '#7a8290', '#9aa2ae', '#6e7684'] : ['#a8a292', '#968f80', '#b8b2a2', '#8a8474'];
+  if (P === PAL.mountain) {
+    // na neve, a trilha é neve pisoteada (pedras claras e azuladas, quase da cor do chão)
+    const stone = ['#d4deea', '#c2cfdf', '#e2e9f2', '#b8c6d8'];
+    g.globalAlpha = 0.45;
     for (const r of routes) paintCobbleRoute(g, rnd, stone, r);
-  } else {
-    g.globalAlpha = 0.2;
-    for (const r of routes)
-      for (let i = 0; i < r.length; i += 1) {
-        const p = r[i];
-        g.fillStyle = P.groundDetail[2];
-        g.beginPath();
-        g.ellipse((p.x + 0.5) * TILE_PX + (rnd() - 0.5) * 30, (p.y + 0.5) * TILE_PX + (rnd() - 0.5) * 30, 30 + rnd() * 26, 14 + rnd() * 12, rnd() * Math.PI, 0, Math.PI * 2);
-        g.fill();
-      }
     g.globalAlpha = 1;
+  } else {
+    // terra gasta pelos passos da horda: faixa suave da cor da ambientação, sem pontinhos
+    const worn = P === PAL.forest ? '#7d6a3c' : P === PAL.plains ? '#9a8450' : P === PAL.desert ? '#c09460' : '#2e211c';
+    for (const r of routes) paintWornRoute(g, worn, r);
   }
   if (green) paintFlowers(g, w, h, rnd, Math.round(70 * areaK));
   // tipos de chão
@@ -437,7 +571,8 @@ function boardTexture(P: Palette, zone: ParsedZone, rnd: () => number, areaK = 1
         g.stroke();
       }
     } else if (f.ground === 'puddle') {
-      g.fillStyle = 'rgba(30,40,30,0.4)';
+      // na neve, a poça vira gelo (claro e liso); no resto, água parada escura
+      g.fillStyle = P.snow ? 'rgba(170,200,232,0.55)' : 'rgba(30,40,30,0.4)';
       g.beginPath();
       g.ellipse(px + TILE_PX / 2, py + TILE_PX / 2, TILE_PX * 0.5, TILE_PX * 0.36, 0, 0, Math.PI * 2);
       g.fill();
@@ -472,6 +607,52 @@ function boardTexture(P: Palette, zone: ParsedZone, rnd: () => number, areaK = 1
   return t;
 }
 
+/** Terra gasta: degradês suaves ao longo da rota (sem pedrinhas), para ler o caminho da horda. */
+function paintWornRoute(g: CanvasRenderingContext2D, color: string, route: { x: number; y: number }[]): void {
+  for (const p of route) {
+    const cx = (p.x + 0.5) * TILE_PX;
+    const cy = (p.y + 0.5) * TILE_PX;
+    const gr = g.createRadialGradient(cx, cy, 0, cx, cy, TILE_PX * 0.75);
+    gr.addColorStop(0, hexA(color, 0.3));
+    gr.addColorStop(1, hexA(color, 0));
+    g.fillStyle = gr;
+    g.fillRect(cx - TILE_PX, cy - TILE_PX, TILE_PX * 2, TILE_PX * 2);
+  }
+}
+
+/** Cor hex (#rrggbb) com alfa, para os degradês do canvas. */
+function hexA(hex: string, a: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/**
+ * Manchas de vento no chão: acúmulos claros e vales escuros, em degradê suave (neve, areia, musgo, cinza).
+ * Quebram a cor lisa do chão e dão relevo sem geometria extra.
+ */
+function paintDrifts(g: CanvasRenderingContext2D, w: number, h: number, rnd: () => number, n: number, drift: [string, string]): void {
+  for (let i = 0; i < n; i++) {
+    const x = rnd() * w;
+    const y = rnd() * h;
+    const r = 40 + rnd() * 110;
+    const lit = rnd() < 0.6;
+    const col = lit ? drift[0] : drift[1];
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, hexA(col, lit ? 0.22 : 0.2));
+    grd.addColorStop(0.55, hexA(col, lit ? 0.1 : 0.09));
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.save();
+    g.translate(x, y);
+    g.scale(1, 0.5 + rnd() * 0.4);
+    g.translate(-x, -y);
+    g.fillStyle = grd;
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  }
+}
+
 function paintNoise(g: CanvasRenderingContext2D, w: number, h: number, cols: string[], rnd: () => number, n: number): void {
   // manchas suaves (degradê radial) — chão "pintado à mão", sem bordas duras
   for (let i = 0; i < n; i++) {
@@ -497,7 +678,7 @@ function paintSunDapple(g: CanvasRenderingContext2D, w: number, h: number, rnd: 
     const r = 30 + rnd() * 90;
     const warm = rnd() < 0.6;
     const gr = g.createRadialGradient(x, y, 0, x, y, r);
-    gr.addColorStop(0, warm ? 'rgba(255,240,150,0.22)' : 'rgba(20,50,30,0.22)');
+    gr.addColorStop(0, warm ? 'rgba(255,240,150,0.12)' : 'rgba(20,50,30,0.12)');
     gr.addColorStop(1, warm ? 'rgba(255,240,150,0)' : 'rgba(20,50,30,0)');
     g.fillStyle = gr;
     g.fillRect(x - r, y - r, r * 2, r * 2);
@@ -545,11 +726,17 @@ function paintDetail(g: CanvasRenderingContext2D, w: number, h: number, P: Palet
       g.moveTo(x, y);
       for (let s = 0; s < 4; s++) g.lineTo(x + (rnd() - 0.5) * 40, y + (rnd() - 0.5) * 40);
       g.stroke();
-    } else if (P.snow && k < 0.25) {
-      g.fillStyle = '#e8eef6';
+    } else if (P.streak && k < 0.3) {
+      // rajadas de vento (neve, areia): fios finos e claros, todos na mesma direção
+      g.strokeStyle = P.streak[rnd() < 0.5 ? 0 : 1];
+      g.lineWidth = 0.8 + rnd() * 1.6;
+      g.globalAlpha = 0.25 + rnd() * 0.3;
+      const len = 14 + rnd() * 34;
+      const ang = -0.35 + (rnd() - 0.5) * 0.15;
       g.beginPath();
-      g.ellipse(x, y, 8 + rnd() * 16, 5 + rnd() * 9, rnd() * Math.PI, 0, Math.PI * 2);
-      g.fill();
+      g.moveTo(x, y);
+      g.quadraticCurveTo(x + Math.cos(ang) * len * 0.5, y + Math.sin(ang) * len * 0.5 - 2, x + Math.cos(ang) * len, y + Math.sin(ang) * len);
+      g.stroke();
     } else if (k < 0.55 && (P === PAL.forest || P === PAL.plains)) {
       // tufos de grama (com ponta iluminada)
       g.lineWidth = 1.4;
@@ -911,8 +1098,11 @@ function tuftMesh(zone: ParsedZone, P: Palette, biome: Biome, X: (x: number) => 
   const geo =
     biome === 'forest' || biome === 'plains'
       ? tint(new THREE.ConeGeometry(0.05, 0.22, 3).translate(0, 0.11, 0), P.leaf[0], 0.15, 40)
-      : tint(new THREE.DodecahedronGeometry(0.06, 0).translate(0, 0.03, 0), P.rock[0], 0.15, 41);
-  const n = Math.min(Math.round(260 * areaK), floor.length * 2);
+      : biome === 'mountain'
+        ? tint(new THREE.DodecahedronGeometry(0.07, 0).translate(0, 0.03, 0), 0xe2eaf5, 0.05, 41) // pedrinhas de gelo, claras
+        : tint(new THREE.DodecahedronGeometry(0.06, 0).translate(0, 0.03, 0), P.rock[0], 0.15, 41);
+  // neve: poucas pedrinhas (o mapa grande multiplica a quantidade; muitas viram "moedinhas" no chão)
+  const n = Math.min(Math.round((biome === 'mountain' ? 10 : 260) * areaK), floor.length * 2);
   const im = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), n);
   const m = new THREE.Matrix4();
   for (let i = 0; i < n; i++) {

@@ -28,7 +28,11 @@ export const VISUAL_CONFIG = {
   arc: {
     windCleave: { half: 1.15, radius: 2.6, sweep: 0.3, delay: 0.12, height: 0.9, width: 0.3, color: [0.8, 1.5, 1.7], swirl: true },
     windBash: { half: 0.55, radius: 1.6, sweep: 0.2, delay: 0.14, height: 1.1, width: 0.22, color: [0.9, 1.6, 1.8], swirl: true },
-    stab: { half: 0.9, radius: 1.3, sweep: 0.16, delay: 0.08, height: 1.0, width: 0.14, color: [1.5, 0.6, 2.0], swirl: false },
+    stab: { half: 0.9, radius: 1.3, sweep: 0.16, delay: 0.08, height: 1.0, width: 0.14, color: [1.5, 0.6, 2.0], swirl: false, smoke: true },
+    /** Leque de Lâminas do Assassino: arco roxo largo com fumaça de sombra. */
+    shadowFan: { half: 0.75, radius: 2.4, sweep: 0.22, delay: 0.1, height: 1.0, width: 0.26, color: [1.3, 0.45, 2.1], swirl: true, smoke: true },
+    /** Névoa de veneno: intervalo (s) entre as baforadas sobre um inimigo envenenado. */
+    poisonMist: { every: 0.3 },
   },
   unit: { hitFlashTime: 0.22, deathTime: 1.1 },
   /** Planejamento: heróis passeiam em volta do posto (raio em tiles, velocidades em tiles/s, esperas em s). */
@@ -57,7 +61,13 @@ export const VISUAL_CONFIG = {
 
 /** Iluminação/atmosfera por tema de zona (sobrescreve o VISUAL_CONFIG). */
 export const VISUAL_THEMES = {
-  town: {},
+  /** Vila ao entardecer: sol baixo e alaranjado, sombras longas, lanternas quentes. */
+  town: {
+    sun: [-14, 8, 7] as [number, number, number],
+    hemiIntensity: 1.2,
+    moonIntensity: 2.2,
+    light: { sky: 0xffe0b8, ground: 0x5a4a30, sun: 0xffc890 },
+  },
   /** Noite de lua: azul frio no ambiente, fogo quente nos braseiros. */
   bridge: {
     background: 0x05070e,
@@ -67,6 +77,7 @@ export const VISUAL_THEMES = {
     hemiIntensity: 1.3,
     moonIntensity: 1.35,
     light: { sky: 0x8c9cd8, ground: 0x3a3428, sun: 0xc4d2ff },
+    sun: [-10, 9, 8] as [number, number, number],
     bloom: { strength: 0.6, radius: 0.45, threshold: 0.82 },
     // mesma inclinação da câmera padrão, deslocada ~1,5 tile para o sul: mostra a muralha atrás da party
     camera: { fov: 32, height: 21, distance: 16.2, lookZ: 1.4 },
@@ -77,9 +88,11 @@ export const VISUAL_THEMES = {
     fog: { near: 24, far: 50 },
     exposure: 1.12,
     envIntensity: 0.12,
-    hemiIntensity: 1.25,
-    moonIntensity: 2.1,
-    light: { sky: 0xe4f4ff, ground: 0x4e5a30, sun: 0xfff0c8 },
+    hemiIntensity: 1.0,
+    moonIntensity: 2.6,
+    // sol verde-dourado filtrado pelas copas: sombras de folhagem e o céu tingido de verde
+    light: { sky: 0xd8f2e0, ground: 0x3e5a2c, sun: 0xffe6b0 },
+    sun: [-12, 10, 7] as [number, number, number],
     bloom: { strength: 0.42, radius: 0.5, threshold: 0.9 },
     camera: { fov: 32, height: 18.5, distance: 17.5, lookZ: 0.4 },
   },
@@ -89,9 +102,11 @@ export const VISUAL_THEMES = {
     fog: { near: 26, far: 52 },
     exposure: 1.04,
     envIntensity: 0.12,
-    hemiIntensity: 1.3,
-    moonIntensity: 2.0,
-    light: { sky: 0xe8f2ff, ground: 0x5a5a36, sun: 0xfff2d0 },
+    hemiIntensity: 1.1,
+    moonIntensity: 2.5,
+    // campos abertos no fim da tarde: sol baixo e dourado, sombras compridas das pedras e dos carrinhos
+    light: { sky: 0xf2eedb, ground: 0x6b6a3a, sun: 0xffdc9a },
+    sun: [-16, 6.5, 9] as [number, number, number],
     bloom: { strength: 0.4, radius: 0.5, threshold: 0.9 },
     camera: { fov: 32, height: 18.5, distance: 17.5, lookZ: 0.4 },
   },
@@ -101,22 +116,26 @@ export const VISUAL_THEMES = {
     fog: { near: 26, far: 52 },
     exposure: 0.98,
     envIntensity: 0.12,
-    hemiIntensity: 1.0,
-    moonIntensity: 2.3,
-    light: { sky: 0xe8dcc8, ground: 0x7a5a3a, sun: 0xffc98a },
+    hemiIntensity: 0.9,
+    moonIntensity: 2.6,
+    light: { sky: 0xf0dcc0, ground: 0x8a6a40, sun: 0xffd08a },
     sun: [-16, 7.5, 5] as [number, number, number],
     bloom: { strength: 0.42, radius: 0.5, threshold: 0.9 },
     camera: { fov: 32, height: 18.5, distance: 17.5, lookZ: 0.4 },
   },
-  /** Montanha gelada: luz fria e clara. */
+  /**
+   * Montanha gelada: sol frio e BAIXO (sombras longas que desenham o relevo da neve), céu azul-prata
+   * e luz de preenchimento mais fraca para o contraste de luz e sombra aparecer.
+   */
   mountain: {
-    background: 0x44546a,
-    fog: { near: 24, far: 50 },
-    exposure: 1.1,
-    envIntensity: 0.12,
-    hemiIntensity: 1.3,
-    moonIntensity: 1.9,
-    light: { sky: 0xe0ecff, ground: 0x5a6070, sun: 0xfff6ea },
+    background: 0x3a4a66,
+    fog: { near: 26, far: 52 },
+    exposure: 1.12,
+    envIntensity: 0.14,
+    hemiIntensity: 0.72,
+    moonIntensity: 2.9,
+    light: { sky: 0x9fbbe8, ground: 0x3b4862, sun: 0xe2edff },
+    sun: [-15, 8.5, 6] as [number, number, number],
     bloom: { strength: 0.48, radius: 0.5, threshold: 0.88 },
     camera: { fov: 32, height: 18.5, distance: 17.5, lookZ: 0.4 },
   },
@@ -126,9 +145,11 @@ export const VISUAL_THEMES = {
     fog: { near: 22, far: 42 },
     exposure: 1.25,
     envIntensity: 0.1,
-    hemiIntensity: 1.45,
-    moonIntensity: 1.7,
-    light: { sky: 0xd08070, ground: 0x3a1c14, sun: 0xffc090 },
+    hemiIntensity: 1.2,
+    moonIntensity: 1.9,
+    // cinzas e fumaça: luz de trás, atravessando a fumaça, com o céu avermelhado
+    light: { sky: 0xc8705a, ground: 0x3a1e16, sun: 0xff9a60 },
+    sun: [4, 7, -14] as [number, number, number],
     bloom: { strength: 0.6, radius: 0.55, threshold: 0.82 },
     camera: { fov: 32, height: 18.5, distance: 17.5, lookZ: 0.4 },
   },
@@ -240,7 +261,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6a',
+  version: 'v0.6g',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,

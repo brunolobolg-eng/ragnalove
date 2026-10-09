@@ -70,3 +70,37 @@ export function placeProp(parent: THREE.Object3D, path: string, x: number, z: nu
     });
   return holder;
 }
+
+export interface InstanceOpts {
+  /** Cor que a peça puxa (geada, areia, musgo...) e quanto dela entra (0 = cor original). */
+  tint?: { color: number; amount: number };
+}
+
+/**
+ * Desenha muitas cópias de uma peça com UMA chamada de desenho por malha (InstancedMesh).
+ * `mats` são as matrizes de cada cópia no mundo; a peça é lida uma vez e fica em cache.
+ */
+export function instanceProps(parent: THREE.Object3D, path: string, mats: THREE.Matrix4[], o: InstanceOpts = {}): void {
+  if (!mats.length) return;
+  load(path)
+    .then((src) => {
+      src.updateWorldMatrix(true, true);
+      const invRoot = new THREE.Matrix4().copy(src.matrixWorld).invert();
+      src.traverse((n) => {
+        const m = n as THREE.Mesh;
+        if (!m.isMesh) return;
+        // a malha vai para o espaço da peça (sem a transformação da raiz do GLB)
+        const geo = m.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(invRoot, m.matrixWorld));
+        const mat = (Array.isArray(m.material) ? m.material[0] : m.material).clone() as THREE.MeshStandardMaterial;
+        if (o.tint?.amount) mat.color.lerp(new THREE.Color(o.tint.color), o.tint.amount);
+        const im = new THREE.InstancedMesh(geo, mat, mats.length);
+        mats.forEach((mx, i) => im.setMatrixAt(i, mx));
+        im.castShadow = true;
+        im.receiveShadow = true;
+        parent.add(im);
+      });
+    })
+    .catch(() => {
+      /* peça ausente: o cenário segue sem ela */
+    });
+}

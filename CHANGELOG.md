@@ -2,6 +2,36 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-08 — v0.6g
+- Todos os biomas refeitos com kit próprio de ambientação (`src/render/scenery/biomeKits.ts`): cada mapa tem as suas pedras, cordilheira, acampamento, cor de sombra, luz quente e névoa. Nada de geleira fora da neve.
+- Floresta: musgo nas pedras, faixa de árvores grandes no fundo e nas laterais, acampamento de caçadores, névoa verde-cinza.
+- Campos: pedras de campo em tom de terra, colinas verdes ao fundo, carroças e feno, sol baixo de fim de tarde.
+- Deserto: arenito nas paredes, mesas de pedra e torres em ruína, cactos, acampamento nômade, sombras duras e rajadas de areia.
+- Cinzas: basalto escuro, serra vulcânica com torre queimada, acampamento em ruínas, luz de trás pela fumaça.
+- Sol e sombra por ambientação (floresta filtrada, campos dourados, deserto duro, cinzas contraluz, ponte e vila noturnas e de pôr do sol).
+- Trilha da horda: terra gasta contínua (sem moedinhas), exceto na neve.
+- Sombras de contato, luz quente e névoa agora são de cada bioma, não mais só da neve.
+
+## 2026-10-08 — v0.6f
+- Mapa de neve: os blocos bege de muro (tiles `#`, ao lado do portão) viraram afloramentos de rocha com geada, parte da cordilheira. O tile continua bloqueado no jogo; só o visual mudou.
+
+## 2026-10-08 — v0.6e
+- Mapa de neve, cordilheira: grupos de rochas altas em fileira atrás do mapa, uma segunda fileira de picos mais altos com duas torres de vigia da castle, e encostas de rochas nos dois lados, com um vale livre entre o mapa e as serras.
+- Acampamentos nos flancos (barraca, fogueira acesa, barril, caixa, carroça, bandeira, cama de palha e placa), visíveis ao afastar a câmera. Não aparecem na vista padrão, que enquadra só o tabuleiro.
+- Menos pedrinhas soltas no chão (eram centenas, pareciam moedinhas).
+
+## 2026-10-08 — v0.6d
+- Mapa de neve, projeto de luz: sol frio e baixo (sombras longas que desenham o relevo), luz de preenchimento mais fraca e base da neve mais fria, para o contraste de luz e sombra aparecer. Sombras de contato embaixo de cada peça. Poças de luz quente tremeluzindo nas lanternas e fogueiras. Névoa baixa deslizando devagar. Paredes da cordilheira maiores e mais baixas, com rochas da pasta town. Trilha com neve pisoteada mais suave e menos pedrinhas no chão.
+- Visualização: o mapa agora é conferido pelo caminho normal do jogo (com HUD e pós-processamento), não só pelo render direto.
+
+## 2026-10-08 — v0.6c
+- Mapa de neve (Garganta de Ferrugem), primeira etapa do visual: rochas, árvores e acampamentos vindos dos pacotes de cenário (castle, nature, survival, town) em vez das pedras procedurais, desenhados em instâncias com geada. Chão com acúmulos de neve e rajadas de vento. Poças viram gelo. A trilha da horda vira neve pisoteada. Lanternas e fogueiras com brilho quente. Barris, tendas, toras e rodas que pareciam discos escuros saíram do conjunto.
+- Ainda não é o acabamento final: as paredes de rocha continuam densas e a luz ainda é chapada. Próxima etapa, se aprovada: luz e sombras do cenário e variação das paredes.
+
+## 2026-10-08 — v0.6b
+- Assassino com tema de sombra e veneno: a Execução deixa um rastro roxo com fumaça escura até o alvo; o Leque de Lâminas solta um arco roxo com fumaça de sombra; o Golpe Furtivo ganha fumaça no impacto.
+- Veneno visível: inimigo envenenado solta névoa escura com fagulhas esverdeadas enquanto o veneno dura (só visual, lê a simulação).
+
 ## 2026-10-08 — v0.6a
 - Bongun: corpo não sobe mais no ar durante golpe, dano e morte. O clipe do cultista dobrava a coluna e levantava as pernas (no bongun as coxas são filhas da coluna); agora coluna base, quadril e pernas ficam na pose de descanso nessas ações, e o tronco de cima, a cabeça e os braços continuam animados.
 - Bongun com vida em repouso: respiração no peito, olhar que varre e braços que balançam de leve (loop suave), sem perder a flutuação.
