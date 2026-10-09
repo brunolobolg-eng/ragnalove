@@ -89,7 +89,8 @@ export class AssassinStrikeFX implements OneShotFx {
     // a adaga sai da mão do lado do movimento; o golpe pega o peito do alvo
     this.hand = attacker.clone().add(new THREE.Vector3(0, 1.0, 0)).addScaledVector(this.fwd, 0.35).addScaledVector(this.lateral, -0.25);
     this.hit = target.clone().add(new THREE.Vector3(0, 1.0, 0));
-    this.light = new FlickerLight(kit.stage, 0xa050ff, 0, 3.2, 0.25);
+    // luz baixa: acima disso ela estoura o traje escuro do assassino e ele vira amarelo sob o pós-processamento
+    this.light = new FlickerLight(kit.stage, 0xa050ff, 0, 1.8, 0.25);
     this.carve();
   }
 
@@ -113,7 +114,8 @@ export class AssassinStrikeFX implements OneShotFx {
     if (edge) this.ribbons.push(edge);
     for (let i = 0; i < 3; i++) {
       const s = sprite(this.group, 'trace', i === 0 ? WHITE_VIOLET : VIOLET, 0.14 + i * 0.03);
-      this.streaks.push({ sprite: s, from: this.hand.clone(), to: this.hit.clone(), t0: this.cfg.charge + i * 0.02, dur: this.cfg.impactAt - this.cfg.charge - 0.02 });
+      // os riscos saem da frente da mão: começar sobre o corpo do assassino faz o bloom espalhar luz nele
+      this.streaks.push({ sprite: s, from: this.hand.clone().addScaledVector(this.fwd, 0.5), to: this.hit.clone(), t0: this.cfg.charge + i * 0.02, dur: this.cfg.impactAt - this.cfg.charge - 0.02 });
     }
   }
 
@@ -137,11 +139,12 @@ export class AssassinStrikeFX implements OneShotFx {
     this.sprites.push({ s: this.arcDark, t0: this.cfg.impactAt, life: 0.44, scale0: size * 0.84, scale1: size * 1.04, fadeOut: true });
 
     // estrela de impacto e flash branco-violeta
-    const star = sprite(this.group, 'impact', WHITE_VIOLET.clone().multiplyScalar(0.7), 1.25);
+    const star = sprite(this.group, 'impact', WHITE_VIOLET.clone().multiplyScalar(0.4), 0.95);
     star.position.copy(hit);
     star.material.rotation = Math.random() * Math.PI;
-    this.sprites.push({ s: star, t0: this.cfg.impactAt, life: 0.26, scale0: 1.0, scale1: 1.5, fadeOut: true });
-    this.flashes.push(new Flash(this.group, hit, WHITE_VIOLET.clone().multiplyScalar(0.6), 1.3, 0.2));
+    this.sprites.push({ s: star, t0: this.cfg.impactAt, life: 0.22, scale0: 0.9, scale1: 1.2, fadeOut: true });
+    // flash curto e discreto: um flash grande vira névoa branca sobre a arena inteira
+    this.flashes.push(new Flash(this.group, hit, WHITE_VIOLET.clone().multiplyScalar(0.35), 0.8, 0.16));
 
     // lâminas espectrais: três fitas curtas que voltam ao alvo de ângulos diferentes
     for (let i = 0; i < 3; i++) {
@@ -152,12 +155,13 @@ export class AssassinStrikeFX implements OneShotFx {
     }
 
     // anel de choque no chão e poça de energia que fica
-    this.kit.decals.spawn({ kind: 'ring', pos: hit.clone().setY(0.05), size: 0.4, sizeEnd: 3.4, color: VIOLET.clone().multiplyScalar(1.2), life: 0.45, additive: true, fadeIn: 0.01, fadeOut: 0.8 });
-    this.kit.decals.spawn({ kind: 'aoe', pos: hit.clone().setY(0.04), size: 1.2, color: DEEP.clone().multiplyScalar(0.8), life: 0.9, additive: true, fadeIn: 0.02, fadeOut: 0.7, opacity: 0.75 });
+    // anel e poça mais contidos: somados em HDR cobriam a arena com névoa branca
+    this.kit.decals.spawn({ kind: 'ring', pos: hit.clone().setY(0.05), size: 0.4, sizeEnd: 2.6, color: VIOLET.clone().multiplyScalar(0.6), life: 0.45, additive: true, fadeIn: 0.01, fadeOut: 0.8 });
+    this.kit.decals.spawn({ kind: 'aoe', pos: hit.clone().setY(0.04), size: 1.2, color: DEEP.clone().multiplyScalar(0.5), life: 0.9, additive: true, fadeIn: 0.02, fadeOut: 0.7, opacity: 0.6 });
 
     // faíscas radiais e brilho, e fumaça escura abrindo
     P.spark.emit({ pos: hit, posJitter: 0.1, vel: new THREE.Vector3(0, 0, 0), velJitter: 5.5, life: 0.55, size: 0.16, sizeEnd: 0.02, color: WHITE_VIOLET, colorEnd: DEEP, gravity: 0, drag: 3.2, count: 40 });
-    P.glow.emit({ pos: hit, posJitter: 0.2, vel: new THREE.Vector3(0, 0.4, 0), velJitter: 2.2, life: 0.7, size: 0.35, sizeEnd: 0.05, color: VIOLET, colorEnd: DARK, drag: 2.4, count: 18 });
+    P.glow.emit({ pos: hit, posJitter: 0.2, vel: new THREE.Vector3(0, 0.4, 0), velJitter: 2.2, life: 0.7, size: 0.22, sizeEnd: 0.05, color: VIOLET, colorEnd: DARK, drag: 2.4, count: 12 });
     P.smoke.emit({ pos: hit.clone().setY(0.2), posJitter: 0.5, vel: new THREE.Vector3(0, 0.5, 0), velJitter: 1.6, life: 1.0, size: 0.5, sizeEnd: 1.3, color: DARK, alpha: 0.6, drag: 2.2, count: 7, spin: 1.2 });
 
     // distorção e impacto de tela
@@ -179,9 +183,9 @@ export class AssassinStrikeFX implements OneShotFx {
     if (t < cfg.charge) {
       const k = t / cfg.charge;
       if (this.gather) {
-        this.gather.scale.setScalar(0.4 + 0.9 * k);
+        this.gather.scale.setScalar(0.25 + 0.4 * k);
         this.gather.material.rotation += dt * 9;
-        this.gather.material.opacity = 0.4 + 0.6 * k;
+        this.gather.material.opacity = 0.25 + 0.4 * k;
       }
       for (let i = 0; i < 4; i++) {
         const a = Math.random() * Math.PI * 2;
@@ -191,7 +195,7 @@ export class AssassinStrikeFX implements OneShotFx {
       }
       P.smoke.emit({ pos: this.hand.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.1, 0, (Math.random() - 0.5) * 1.1)), vel: new THREE.Vector3(), velJitter: 0.2, life: 0.4, size: 0.22, sizeEnd: 0.05, color: DARK, alpha: 0.4, drag: 1.5, count: 1 });
       this.light.set(this.hand);
-      this.light.update(dt, 0.35 * k);
+      this.light.update(dt, 0.12 * k);
     }
 
     // 2. investida
@@ -204,17 +208,18 @@ export class AssassinStrikeFX implements OneShotFx {
       const p = this.hand.clone().lerp(this.hit, e);
       // a lâmina descreve um arco: a curva vem do lado da mão
       p.addScaledVector(this.lateral, Math.sin(Math.PI * s) * -0.5);
-      if (e > 0.2) for (const r of this.ribbons) r.push(p);
+      if (e > 0.35) for (const r of this.ribbons) r.push(p);
       P.smoke.emit({ pos: p, posJitter: 0.1, vel: new THREE.Vector3(0, 0.3, 0), life: 0.45, size: 0.2, sizeEnd: 0.6, color: DARK, alpha: 0.4, count: 2 });
-      this.light.set(p);
-      this.light.update(dt, 0.5);
+      // a luz fica à frente da lâmina, longe do corpo do assassino (perto dele, estoura o traje)
+      this.light.set(p.clone().addScaledVector(this.fwd, 0.6));
+      this.light.update(dt, 0.1);
     }
 
     // 3. impacto
     if (t >= cfg.impactAt && !this.impacted) {
       this.strike();
       for (const r of this.ribbons) r.stop();
-      this.light.update(dt, 0.9);
+      this.light.update(dt, 0.25);
     }
     for (const f of this.flashes) f.update(dt);
     if (this.impacted && t >= cfg.impactAt + 0.25) this.light.update(dt, 0);

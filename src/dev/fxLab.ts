@@ -1,6 +1,7 @@
 /**
  * Lab de efeitos (dev): o golpe de uma habilidade com o Stage e o kit reais do jogo, um assassino de verdade
- * e um inimigo à frente. Parâmetros: ?at=<segundos> (avança até esse instante e congela), ?fwd=<x,y> (direção).
+ * e um inimigo à frente. Parâmetros: ?at=<segundos> (avança até esse instante e congela), ?fwd=<x,y> (direção),
+ * ?nofx=1 (esconde o efeito), ?nolight=1 (desliga só a luz do efeito; para diagnosticar tons e halos).
  * Não entra no build do jogo.
  */
 import * as THREE from 'three';
@@ -55,6 +56,10 @@ async function main(): Promise<void> {
   const fx = new AssassinStrikeFX(attacker, target, fwd, kit);
   stage.scene.add(fx.group);
   (window as unknown as { __fx?: unknown }).__fx = fx;
+  // ?nofx=1: esconde o efeito (mostra só a iluminação base dos modelos, para comparar)
+  if (q.has('nofx')) fx.group.visible = false;
+  // ?nolight=1: desliga só a luz do efeito (mesmo diagnóstico, isolando a iluminação)
+  if (q.has('nolight')) (fx as unknown as { light: { update: () => void } }).light.update = () => {};
   assassin.attack();
   dummy.hit();
 

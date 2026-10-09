@@ -28,9 +28,9 @@ export const VISUAL_CONFIG = {
   /** Golpe Furtivo do Assassino: carga → investida → impacto → dissipação (tempos em s, tamanhos em unidades do mundo). */
   strike: {
     /** carga: a energia converge para a mão com a adaga */
-    charge: 0.2,
-    /** instante do golpe (o alvo reage aqui, como a investida) */
-    impactAt: 0.22,
+    charge: 0.12,
+    /** instante do golpe (o alvo reage aqui; a investida dura o intervalo entre carga e golpe, ~0,18 s) */
+    impactAt: 0.3,
     /** duração total do efeito (s) */
     life: 1.1,
     /** largura do arco de corte no impacto */
@@ -38,7 +38,7 @@ export const VISUAL_CONFIG = {
     /** tremor, empurrão de câmera, aberração e hit-stop no impacto */
     shake: 0.16,
     kick: 0.16,
-    aberrate: 0.01,
+    aberrate: 0.005,
     hitStop: 0.09,
   },
   arc: {
@@ -283,7 +283,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6o',
+  version: 'v0.6p',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,

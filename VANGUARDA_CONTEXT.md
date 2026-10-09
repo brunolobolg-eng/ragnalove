@@ -8,7 +8,7 @@
 - **Vanguarda (ROguard)**: RPG tático de fantasia medieval, campanha longa + modo Survival.
 - **Plataforma**: web (Vite) + desktop (Electron, `electron/`). Dono não é programador: respostas em pt-BR, diretas.
 - **Tecnologia**: TypeScript, Three.js + three.quarks (VFX), simulação determinística própria (10 ticks/s, sem engine de combate externa).
-- **Estado**: `v0.6o` (`MENU_VISUAL.version` em `src/config/visualConfig.ts`; esquema `0.5a…0.5z`, depois `0.6a`; bump a cada entrega). Branch `main`, commits por lote.
+- **Estado**: `v0.6p` (`MENU_VISUAL.version` em `src/config/visualConfig.ts`; esquema `0.5a…0.5z`, depois `0.6a`; bump a cada entrega). Branch `main`, commits por lote.
 
 ## Core Design
 
