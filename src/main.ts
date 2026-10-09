@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { DEFAULT_SETUP, GAME_CONFIG, ZONE_STATE, applyZone, barriersAround, barriersShield, type PartySetup, type WaveOptions } from './config/gameConfig';
 import { parseZone, type ZoneDef } from './config/zones';
 import { TEST_ZONE, TEST_ZONE_ID } from './dev/DevLab/skillArenaZone';
+import { warmFxTextures } from './render/fx/kit/vfxTextures';
 import { ACTS, EVENTS, REGION_BY_ID, NODE_LABEL, type NodeType } from './config/world';
 import {
   HEROES,
@@ -273,6 +274,7 @@ const C_HANDLE = new THREE.Color(1.4, 1.2, 0.5);
 
 const stage = new Stage(document.getElementById('app')!, GAME_CONFIG.board.width, GAME_CONFIG.board.height);
 const view = new GameView(stage);
+void warmFxTextures(); // texturas dos efeitos carregam já no menu (sem quadro vazio no primeiro golpe)
 view.onBossDeath = (kind) => onFinalBossDeath(kind);
 // Toda mudança nas Configurações vale na hora (sem reiniciar).
 let lastVsync = settings.value.video.vsync;
@@ -2218,7 +2220,7 @@ if (desktopBalance)
 // No build de produção o Vite troca `import.meta.env.DEV` por `false`, este bloco
 // é eliminado e o módulo de debug não entra no pacote da Steam.
 if (import.meta.env.DEV) {
-  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic }; // inspeção no console (dev)
+  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close() }; // inspeção no console (dev)
   void import('./debug/DebugPanel').then(({ installDebug }) => installDebug(hudRoot, devApi(), (h, t, fn) => panels.addButton(h, t, fn)));}
 
 // ---------- Dev Lab (F8): só com devtools (dev ou devtools.txt no executável) ----------

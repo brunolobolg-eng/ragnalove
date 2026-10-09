@@ -28,6 +28,28 @@ const loader = new THREE.TextureLoader();
 const cache = new Map<string, THREE.Texture>();
 
 /** Textura do pacote de efeitos (carrega na primeira chamada; a mesma instância depois). */
+/** Todas as texturas de efeito (para aquecer o cache antes do primeiro uso). */
+const FX_NAMES: FxTextureName[] = [
+  'flame_atlas', 'smoke_atlas', 'flame_strip', 'spark', 'impact', 'glow', 'flash', 'orb', 'soul', 'halo',
+  'slash', 'twirl', 'trace', 'ribbon', 'noise',
+  'decal_scorch', 'decal_frost', 'decal_crack', 'decal_runesFire', 'decal_runesFrost', 'decal_ring', 'decal_glow', 'decal_aoe', 'decal_disc',
+];
+
+/**
+ * Carrega todas as texturas de efeito antes do primeiro uso: sem isso, o primeiro golpe de cada tipo
+ * desenha a sprite sem imagem (um quadro vazio). Resolve quando todas já têm imagem.
+ */
+export function warmFxTextures(): Promise<void> {
+  const textures = FX_NAMES.map((n) => fxTexture(n));
+  return new Promise((resolve) => {
+    const tick = (): void => {
+      if (textures.every((t) => t.image)) resolve();
+      else setTimeout(tick, 30);
+    };
+    tick();
+  });
+}
+
 export function fxTexture(name: FxTextureName): THREE.Texture {
   let t = cache.get(name);
   if (!t) {

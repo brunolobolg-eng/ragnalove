@@ -2,6 +2,19 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-09 — v0.6p
+- Golpe Furtivo, ajuste de qualidade: a investida agora dura cerca de 0,18 s (antes era quase instantânea); o golpe cai em 0,30 s (`VISUAL_CONFIG.strike`).
+- Corrigido o brilho amarelo que tomava o assassino: a luz do efeito foi reduzida e posicionada longe do corpo, e os riscos da investida saem da frente da mão.
+- Névoa do impacto contida: flash, estrela, anel de choque e poça de energia ficaram menores e menos intensos.
+- Espiral da carga menor e mais transparente, para não cobrir o assassino; aberração de cor reduzida no impacto.
+- Dev: `fxlab.html?nofx=1` e `?nolight=1` para isolar a origem de tons e halos.
+
+## 2026-10-09 — v0.6o
+- Golpe Furtivo do Assassino com efeito próprio em quatro fases (`src/render/fx/StrikeFX.ts`): carga (energia violeta converge para a mão, runas no chão, fumaça escura girando), investida (fita violeta e branca, riscos de velocidade, rastro de sombra), impacto (arco de corte crescente com contorno escuro, estrela, flash, lâminas espectrais que voltam ao alvo, anel de choque, faíscas radiais, tremor, aberração e hit-stop) e dissipação (poça de energia no chão, fumaça e brasas). O alvo reage no instante do impacto (`VISUAL_CONFIG.strike`).
+- Texturas de efeito carregam no início do jogo (antes, o primeiro uso de cada uma desenhava um quadro vazio).
+- Dev: `fxlab.html` (lab de efeitos com o Stage e o kit reais) e `window.__vg.closeMenu()` para testes de batalha.
+- Limitações: o pós-processamento ainda não tem distorção espacial de verdade (usa aberração de cor); as texturas são estáticas (sem flipbook de impacto).
+
 ## 2026-10-09 — v0.6n
 - Espada do Guerreiro: a configuração de jogo agora põe o punho no centro da palma (antes ficava atrás do pulso, e a lâmina parecia atravessar a mão) e inclina a lâmina para a frente (-120°), em vez de descê-la colada na coxa.
 - Limitação conhecida: o modelo simplificado quase não dobra os dedos (a luva se mexe pouco), então a pegada depende do ângulo e da posição da espada. Dedos de verdade pedem um modelo com os dedos preservados.
