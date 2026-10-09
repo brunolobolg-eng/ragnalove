@@ -6,7 +6,8 @@
  */
 import * as THREE from 'three';
 import { loadMonsterModels } from '../render/units/model/glbMonsters';
-import { ModelUnitView } from '../render/units/model/ModelUnitView';
+import { ModelUnitView, MODELS } from '../render/units/model/ModelUnitView';
+import type { WeaponAttach } from '../render/units/model/weapons';
 
 const q = new URLSearchParams(location.search);
 const N = Number(q.get('n') ?? 120);
@@ -47,6 +48,9 @@ const out = document.getElementById('bench')!;
 
 async function main(): Promise<void> {
   await loadMonsterModels();
+  // armas de teste no guerreiro: ?weapons=sword:hand.R,shield:hand.L (só para conferir o visual)
+  const wq = q.get('weapons');
+  if (wq) MODELS.warrior.weapons = wq.split(',').map((x) => { const [type, bone] = x.split(':'); return { type: type as WeaponAttach['type'], bone, accent: 0xffd67a }; });
   const cols = Math.ceil(Math.sqrt(N * 1.6));
   for (let i = 0; i < N; i++) {
     const hero = i < HERO_N;

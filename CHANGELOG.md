@@ -2,6 +2,10 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-09 — v0.6h
+- Armas novas no módulo de armas (espada longa, espada de duas mãos e escudo redondo com aro de aço e emblema), prontas para prender em qualquer herói. Ainda não estão ligadas a nenhum herói: o guerreiro atual já traz espada e escudo no próprio modelo.
+- Bancada de desempenho aceita armas de teste (`?weapons=sword:hand.R,shield:hand.L`) para conferir o visual.
+
 ## 2026-10-08 — v0.6g
 - Todos os biomas refeitos com kit próprio de ambientação (`src/render/scenery/biomeKits.ts`): cada mapa tem as suas pedras, cordilheira, acampamento, cor de sombra, luz quente e névoa. Nada de geleira fora da neve.
 - Floresta: musgo nas pedras, faixa de árvores grandes no fundo e nas laterais, acampamento de caçadores, névoa verde-cinza.
