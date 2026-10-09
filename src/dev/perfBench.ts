@@ -40,8 +40,9 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI /
 ground.receiveShadow = true;
 scene.add(ground);
 const camera = new THREE.PerspectiveCamera(40, 960 / 540, 0.1, 200);
-camera.position.set(0, CAM, CAM * 0.82);
-camera.lookAt(0, Number(q.get('look') ?? 0), 0);
+const LX = Number(q.get('lx') ?? 0); // deslocamento horizontal da câmera (ex.: lx=-0.25 aproxima a mão direita)
+camera.position.set(LX, CAM, CAM * 0.82);
+camera.lookAt(LX, Number(q.get('look') ?? 0), 0);
 
 const views: ModelUnitView[] = [];
 const out = document.getElementById('bench')!;
@@ -50,7 +51,7 @@ async function main(): Promise<void> {
   await loadMonsterModels();
   // armas de teste no guerreiro: ?weapons=sword:hand.R,shield:hand.L (só para conferir o visual)
   const wq = q.get('weapons');
-  if (wq) MODELS.warrior.weapons = wq.split(',').map((x) => { const [type, bone, tilt, py] = x.split(':'); return { type: type as WeaponAttach['type'], bone, accent: 0xffd67a, tilt: tilt ? Number(tilt) : undefined, pos: py !== undefined ? [0, Number(py), 0] : undefined }; });
+  if (wq) MODELS.warrior.weapons = wq.split(',').map((x) => { const [type, bone, tilt, py, pz] = x.split(':'); return { type: type as WeaponAttach['type'], bone, accent: 0xffd67a, tilt: tilt ? Number(tilt) : undefined, pos: py !== undefined ? [0, Number(py), Number(pz ?? 0)] : undefined }; });
   const cols = Math.ceil(Math.sqrt(N * 1.6));
   for (let i = 0; i < N; i++) {
     const hero = i < HERO_N;

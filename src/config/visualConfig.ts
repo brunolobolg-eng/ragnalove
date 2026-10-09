@@ -183,8 +183,8 @@ export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   // Guerreiro (modelo 3D do dono, 2,4 MB): espada e escudo presos nas mãos; animações pelo bind do arquivo
   warrior: {
     file: 'models/guerreiro.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorRig', bind: 'ibm',
-    // espada na mão direita (lâmina para cima, saindo do punho) e escudo na esquerda
-    weapons: [{ type: 'sword', bone: 'RightHand', accent: 0xffd67a, tilt: -90 }, { type: 'shield', bone: 'LeftHand', accent: 0xffd67a }],
+    // espada na mão direita: punho no centro da palma, lâmina inclinada para a frente (-120°); escudo na esquerda
+    weapons: [{ type: 'sword', bone: 'RightHand', accent: 0xffd67a, tilt: -120, pos: [0, 0.07, 0] }, { type: 'shield', bone: 'LeftHand', accent: 0xffd67a }],
   },
   // Cléria (arte do jogador → 3D): cajado com cristal e livro; animações da Maga
   mage: { file: 'models/cleria.glb', height: 1.9, walkRate: 1, ghost: [0.55, 0.8, 1.6], clips: 'mage' },
@@ -267,7 +267,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6m',
+  version: 'v0.6n',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,

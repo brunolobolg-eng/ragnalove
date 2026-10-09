@@ -2,6 +2,11 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-09 — v0.6n
+- Espada do Guerreiro: a configuração de jogo agora põe o punho no centro da palma (antes ficava atrás do pulso, e a lâmina parecia atravessar a mão) e inclina a lâmina para a frente (-120°), em vez de descê-la colada na coxa.
+- Limitação conhecida: o modelo simplificado quase não dobra os dedos (a luva se mexe pouco), então a pegada depende do ângulo e da posição da espada. Dedos de verdade pedem um modelo com os dedos preservados.
+- Bancada: `&lx=` desloca a câmera horizontalmente (para close-ups da mão); `&weapons=tipo:osso:graus:y:z` aceita posição Z.
+
 ## 2026-10-09 — v0.6m
 - Ícones de habilidade: os 51 da folha "Pacote 01" (Mago 14, Guerreiro 9, Arqueira 13, Feiticeira 5, Bruxa 5, Assassino 5) substituem os antigos. Recortados por `scripts/build_skill_icons.py` em `public/icons/skills/pacote-01/`; o mapa `SKILL_ART` aponta para eles. Os ícones antigos continuam em `public/icons/skills` como reserva.
 

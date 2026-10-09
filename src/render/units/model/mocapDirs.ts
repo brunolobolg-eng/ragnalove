@@ -37,7 +37,7 @@ const PARENT: Record<string, string> = {
 /** Ossos cuja direção é copiada para o alvo (os que têm filho ou eixo de pé no rig de referência). */
 const AIMED = Object.keys(MOCAP_REF_DIR);
 
-/** Dedos da mão direita fechados em volta do cabo (graus de flexão por falange; o sinal vem do teste). */
+/** Dedos da mão direita dobrados em volta do cabo (graus por falange). */
 const FIST_RIGHT: Record<string, JointPose> = (() => {
   const out: Record<string, JointPose> = {};
   const curl: Record<string, number[]> = {
