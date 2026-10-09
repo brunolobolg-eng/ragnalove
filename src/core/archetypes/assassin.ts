@@ -77,7 +77,7 @@ function backstab(unit: Unit, sim: Simulation, force: boolean): boolean {
   if (!target) return false;
   unit.facing = { x: Math.sign(target.x - unit.x), y: Math.sign(target.y - unit.y) };
   const isCrit = sim.chance(critOf(unit));
-  sim.emit({ type: 'bash', unitId: unit.id, targetId: target.id, x: target.x, y: target.y });
+  sim.emit({ type: 'bash', unitId: unit.id, targetId: target.id, x: target.x, y: target.y, crit: isCrit });
   sim.damage(target, CFG.backstab.damage * SKILL_NUM.backstab(Math.max(1, lvOf(unit.stats?.skills, 'backstab'))).dmgMult * pw(unit) * (isCrit ? unit.stats?.critDamage ?? 1.5 : 1), 'blade', unit.id, isCrit);
   poison(unit, sim, target);
   unit.cooldowns.backstab = sim.tick + cd(unit, CFG.backstab.cooldownTicks);

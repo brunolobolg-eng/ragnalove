@@ -143,7 +143,7 @@ function arrowRain(unit: Unit, sim: Simulation, force: boolean): boolean {
   if (!best || best.n < (force ? 1 : CFG.rain.minTargets)) return false;
   const c = { x: best.c.x, y: best.c.y };
   unit.facing = { x: Math.sign(c.x - unit.x), y: Math.sign(c.y - unit.y) };
-  sim.emit({ type: 'rain', unitId: unit.id, x: c.x, y: c.y, radius: rad });
+  sim.emit({ type: 'rain', unitId: unit.id, x: c.x, y: c.y, radius: rad, fire: lvOf(s?.skills, 'fireRain') > 0 });
   for (const e of sim.enemiesWithin(c, rad)) sim.damage(e, s?.rainDamage ?? CFG.rain.damage, 'rain', unit.id);
   const lvFire = lvOf(s?.skills, 'fireRain');
   if (lvFire) {

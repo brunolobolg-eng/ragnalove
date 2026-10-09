@@ -64,7 +64,7 @@ function thunderstorm(unit: Unit, sim: Simulation, force: boolean): boolean {
   }
   if (!targets.length) return false;
   targets = targets.slice(0, n.strikes);
-  sim.emit({ type: 'storm', unitId: unit.id, strikes: targets.map((t) => ({ x: t.x, y: t.y })) });
+  sim.emit({ type: 'storm', unitId: unit.id, strikes: targets.map((t) => ({ x: t.x, y: t.y })), ability: 'thunderstorm' });
   for (const t of targets) {
     const at = { x: t.x, y: t.y };
     sim.damage(t, n.damage * dm(unit), 'storm', unit.id);
@@ -176,7 +176,7 @@ function judgment(unit: Unit, sim: Simulation, force: boolean): boolean {
   if (best.c < (force ? 1 : 3)) return false;
   const c = { x: best.e.x, y: best.e.y };
   const cross = [c, ...[1, 2].flatMap((k) => [{ x: c.x + k, y: c.y }, { x: c.x - k, y: c.y }, { x: c.x, y: c.y + k }, { x: c.x, y: c.y - k }])];
-  sim.emit({ type: 'storm', unitId: unit.id, strikes: cross.filter((t, i) => i < 5 && sim.board.inBounds(t.x, t.y)) });
+  sim.emit({ type: 'storm', unitId: unit.id, strikes: cross.filter((t, i) => i < 5 && sim.board.inBounds(t.x, t.y)), ability: 'judgment' });
   for (const t of cross) {
     const e = sim.unitAt(t.x, t.y);
     if (!e || e.team !== 'enemy') continue;
