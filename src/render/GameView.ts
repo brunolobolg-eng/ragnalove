@@ -5,6 +5,7 @@ import { BoardView } from './BoardView';
 import { tileToWorld } from './coords';
 import { CLEAVE_IMPACT, CleaveFX } from './fx/CleaveFX';
 import { BASH_IMPACT, BashFX } from './fx/BashFX';
+import { AssassinStrikeFX } from './fx/StrikeFX';
 import { ArcFX, type ArcOpts } from './fx/ArcFX';
 import { PoisonMist, ShadowDashFX } from './fx/ShadowFX';
 import { SpectreFX } from './fx/SpectreFX';
@@ -408,7 +409,7 @@ export class GameView {
     const delay = new Map<number, number>();
     for (const e of events) {
       if (e.type === 'bolt') delay.set(e.targetId, FrostBoltFX.impactDelay(this.boltFrom(e), tileToWorld(e.to.x, e.to.y, undefined, 0.6)));
-      else if (e.type === 'bash') delay.set(e.targetId, BASH_IMPACT);
+      else if (e.type === 'bash') delay.set(e.targetId, this.sim.units.get(e.unitId)?.kind === 'assassin' ? VISUAL_CONFIG.strike.impactAt : BASH_IMPACT);
       else if (e.type === 'meteor') {
         for (const u of this.sim.units.values()) if (u.team === 'party' && Math.max(Math.abs(u.x - e.x), Math.abs(u.y - e.y)) <= e.radius) delay.set(u.id, 0.28);
       }
@@ -573,6 +574,19 @@ export class GameView {
           // Investida: golpe pesado sincronizado com a descida da espada
           const w = this.units.get(e.unitId);
           const u = this.sim.units.get(e.unitId);
+          // Golpe Furtivo do Assassino (mesmo evento, golpe básico): carga, investida, impacto e dissipação próprios
+          if (u?.kind === 'assassin') {
+            if (w && u) {
+              w.setFacing(u.facing.x, u.facing.y, true);
+              w.attack();
+            }
+            const from = w ? w.root.position.clone() : tileToWorld(e.x, e.y);
+            const fx = new AssassinStrikeFX(from, tileToWorld(e.x, e.y), new THREE.Vector3(u.facing.x, 0, u.facing.y), this.kit);
+            this.world.add(fx.group);
+            this.oneShots.push(fx);
+            this.spectre(e.unitId, 0.6);
+            break;
+          }
           if (w && u) {
             w.setFacing(u.facing.x, u.facing.y, true);
             if (w instanceof ModelUnitView) w.attack('heavy');

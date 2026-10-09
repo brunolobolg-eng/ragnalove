@@ -2,6 +2,12 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-09 — v0.6o
+- Golpe Furtivo do Assassino com efeito próprio em quatro fases (`src/render/fx/StrikeFX.ts`): carga (energia violeta converge para a mão, runas no chão, fumaça escura girando), investida (fita violeta e branca, riscos de velocidade, rastro de sombra), impacto (arco de corte crescente com contorno escuro, estrela, flash, lâminas espectrais que voltam ao alvo, anel de choque, faíscas radiais, tremor, aberração e hit-stop) e dissipação (poça de energia no chão, fumaça e brasas). O alvo reage no instante do impacto (`VISUAL_CONFIG.strike`).
+- Texturas de efeito carregam no início do jogo (antes, o primeiro uso de cada uma desenhava um quadro vazio).
+- Dev: `fxlab.html` (lab de efeitos com o Stage e o kit reais) e `window.__vg.closeMenu()` para testes de batalha.
+- Limitações: o pós-processamento ainda não tem distorção espacial de verdade (usa aberração de cor); as texturas são estáticas (sem flipbook de impacto).
+
 ## 2026-10-09 — v0.6n
 - Espada do Guerreiro: a configuração de jogo agora põe o punho no centro da palma (antes ficava atrás do pulso, e a lâmina parecia atravessar a mão) e inclina a lâmina para a frente (-120°), em vez de descê-la colada na coxa.
 - Limitação conhecida: o modelo simplificado quase não dobra os dedos (a luva se mexe pouco), então a pegada depende do ângulo e da posição da espada. Dedos de verdade pedem um modelo com os dedos preservados.

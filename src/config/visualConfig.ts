@@ -25,6 +25,22 @@ export const VISUAL_CONFIG = {
    * Arcos de ataque corpo a corpo (ArcFX): tufão do Guerreiro e rastro do Assassino.
    * half = meia abertura (rad), radius = alcance visual, sweep/delay = tempo (s), height = altura da fita (m).
    */
+  /** Golpe Furtivo do Assassino: carga → investida → impacto → dissipação (tempos em s, tamanhos em unidades do mundo). */
+  strike: {
+    /** carga: a energia converge para a mão com a adaga */
+    charge: 0.2,
+    /** instante do golpe (o alvo reage aqui, como a investida) */
+    impactAt: 0.22,
+    /** duração total do efeito (s) */
+    life: 1.1,
+    /** largura do arco de corte no impacto */
+    slashSize: 3.2,
+    /** tremor, empurrão de câmera, aberração e hit-stop no impacto */
+    shake: 0.16,
+    kick: 0.16,
+    aberrate: 0.01,
+    hitStop: 0.09,
+  },
   arc: {
     windCleave: { half: 1.15, radius: 2.6, sweep: 0.3, delay: 0.12, height: 0.9, width: 0.3, color: [0.8, 1.5, 1.7], swirl: true },
     windBash: { half: 0.55, radius: 1.6, sweep: 0.2, delay: 0.14, height: 1.1, width: 0.22, color: [0.9, 1.6, 1.8], swirl: true },
@@ -267,7 +283,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6n',
+  version: 'v0.6o',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
