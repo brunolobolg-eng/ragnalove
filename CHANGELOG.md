@@ -2,6 +2,11 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-09 — v0.6j
+- Animações novas do Guerreiro, feitas por direção de membro (cada braço e perna aponta para um lugar do corpo, e o pé fica no chão em cada quadro): parado com respiração e olhar, andar com passada e giro de tronco, golpe de espada em corte horizontal, investida pesada com espada por cima da cabeça, grito/escudo erguido (habilidades de apoio), dano com recuo e queda de costas.
+- A postura de guarda com escudo à frente e espada erguida agora vem da própria animação, não de um ajuste fixo no descanso.
+- Bancada de desempenho: `?kind=warrior&sheet=walk` mostra uma folha de contato do clipe (oito instantes lado a lado); `&at=1.1` congela o clipe num instante.
+
 ## 2026-10-09 — v0.6i
 - Guerreiro novo (`guerreiro.glb`, de 67 MB para 2,4 MB): substitui o `eliana.glb`. Textura 1024 px dentro do arquivo, mesmo esqueleto Mixamo de 61 ossos. O arquivo original sai do repositório (continua no histórico da `main`).
 - Guerreiro com espada na mão direita (lâmina para cima) e escudo na esquerda, na postura de guarda (braços descidos).

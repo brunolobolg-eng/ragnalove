@@ -167,7 +167,7 @@ export interface MonsterModelVisual {
   /** Heróis: cor do espectro ao usar habilidade. */
   ghost?: [number, number, number];
   /** Usa as animações do personagem do jogo (o GLB traz só malha + esqueleto com os mesmos nomes de ossos). */
-  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'cultistBind';
+  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig';
   /** Flutuação: o corpo fica elevado este tanto (unidades do modelo) e não usa o passo de caminhada. */
   hover?: number;
   /** Pose de descanso: 'ibm' = a do próprio arquivo (matrizes de bind); padrão = a dos nós do GLB. */
@@ -182,7 +182,7 @@ export interface MonsterModelVisual {
 export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   // Guerreiro (modelo 3D do dono, 2,4 MB): espada e escudo presos nas mãos; animações pelo bind do arquivo
   warrior: {
-    file: 'models/guerreiro.glb', height: 2.0, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'cultistBind', bind: 'ibm',
+    file: 'models/guerreiro.glb', height: 2.0, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorRig', bind: 'ibm',
     // espada na mão direita (lâmina para cima, saindo do punho) e escudo na esquerda
     weapons: [{ type: 'sword', bone: 'RightHand', accent: 0xffd67a, tilt: -90 }, { type: 'shield', bone: 'LeftHand', accent: 0xffd67a }],
   },
@@ -267,7 +267,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6i',
+  version: 'v0.6j',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,

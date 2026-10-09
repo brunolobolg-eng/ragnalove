@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HERO_MODELS, MONSTER_MODELS } from '../../../config/visualConfig';
 import { archerClips, fitHips, gruntClips, hoverClips, mageClips, warriorClips, type ClipName } from './anims';
 import { ualMixamoClips } from './ualMixamo';
+import { warriorRigClips } from './warriorAnims';
 import { MIXAMO_CULTIST_REST } from './mixamoRest';
 
 /** Escala UAL->cultista pela altura (modelo nativo 1.82m, personagem UAL ~1.75m). */
@@ -80,61 +81,6 @@ function retargetWorld(c: THREE.AnimationClip, bones: BoneDef[]): THREE.Animatio
   return new THREE.AnimationClip(c.name, c.duration, [...newTracks, ...hips]);
 }
 
-/** Rebase local (experimento): L_destino = restB × inv(restC) × L_origem. Delta zero = pose de descanso do destino. */
-function rebaseLocal(c: THREE.AnimationClip, bones: BoneDef[]): THREE.AnimationClip {
-  const restB = new Map(bones.map((b) => [b.name, b.rest ? new THREE.Quaternion(...b.rest) : new THREE.Quaternion()]));
-  const out: THREE.KeyframeTrack[] = [];
-  const q = new THREE.Quaternion();
-  for (const t of c.tracks) {
-    const n = t.name.slice(0, -'.quaternion'.length);
-    const rb = restB.get(n);
-    if (!(t instanceof THREE.QuaternionKeyframeTrack) || !rb) { out.push(t); continue; }
-    const rc = MIXAMO_CULTIST_REST[n] ? new THREE.Quaternion(...MIXAMO_CULTIST_REST[n]) : new THREE.Quaternion();
-    const base = rb.clone().multiply(rc.invert());
-    const v = Array.from(t.values);
-    const vals: number[] = [];
-    for (let i = 0; i < v.length; i += 4) {
-      q.set(v[i], v[i + 1], v[i + 2], v[i + 3]);
-      const r = base.clone().multiply(q);
-      vals.push(r.x, r.y, r.z, r.w);
-    }
-    out.push(new THREE.QuaternionKeyframeTrack(t.name, Array.from(t.times), vals));
-  }
-  return new THREE.AnimationClip(c.name, c.duration, out);
-}
-
-/** Braços do bind em T-pose descem para a frente do corpo (postura de guarda) — graus no eixo Z do ombro. */
-const ARMS_GUARD_DEG = -100;
-
-/**
- * Baixa os braços T-pose do rig para a postura de guarda: gira o braço no espaço do ombro (eixo Z).
- * Aplicado à esquerda de cada chave, então o movimento do clipe continua por cima.
- */
-function armsDown(clips: Record<ClipName, THREE.AnimationClip>, deg: number): Record<ClipName, THREE.AnimationClip> {
-  const rad = (deg * Math.PI) / 180;
-  const out = {} as Record<ClipName, THREE.AnimationClip>;
-  const a = new THREE.Quaternion();
-  const q = new THREE.Quaternion();
-  for (const name of CLIP_NAMES) {
-    const c = clips[name];
-    const tracks = c.tracks.map((t) => {
-      const bone = t.name.slice(0, t.name.lastIndexOf('.'));
-      if (!(t instanceof THREE.QuaternionKeyframeTrack) || (bone !== 'LeftArm' && bone !== 'RightArm')) return t;
-      a.setFromAxisAngle(new THREE.Vector3(0, 0, 1), bone === 'LeftArm' ? rad : -rad);
-      const v = Array.from(t.values);
-      const vals: number[] = [];
-      for (let i = 0; i < v.length; i += 4) {
-        q.set(v[i], v[i + 1], v[i + 2], v[i + 3]);
-        const r = a.clone().multiply(q);
-        vals.push(r.x, r.y, r.z, r.w);
-      }
-      return new THREE.QuaternionKeyframeTrack(t.name, Array.from(t.times), vals);
-    });
-    out[name] = new THREE.AnimationClip(c.name, c.duration, tracks);
-  }
-  return out;
-}
-
 /** Índice da última chave com tempo ≤ `time` (para amostrar a trilha da origem). */
 function sampleIndex(ts: number[], time: number): number {
   let lo = 0;
@@ -147,17 +93,10 @@ function sampleIndex(ts: number[], time: number): number {
   return lo;
 }
 
-/**
- * Clipes UAL no rig Mixamo. 'world' mantém a pose de descanso do destino quando ele já é um rig Mixamo
- * (bongun). 'local' (rebase) é para o descanso vindo das matrizes de bind em T-pose: delta zero = pose de
- * bind, então o personagem nunca desmonta mesmo com braços em outro ângulo.
- */
-function cultistClips(bones: BoneDef[], mode: 'world' | 'local' = 'world'): Record<ClipName, THREE.AnimationClip> {
+/** Clipes UAL retargetados no rig Mixamo do cultista (bongun). Para o Guerreiro, ver warriorAnims.ts. */
+function cultistClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
   const raw = ualMixamoClips();
-  const fit = (c: THREE.AnimationClip): THREE.AnimationClip => {
-    const hipsFit = fitHips(c, bones, 'Hips', CULTIST_HIPS_SCALE);
-    return mode === 'local' ? rebaseLocal(hipsFit, bones) : retargetWorld(hipsFit, bones);
-  };
+  const fit = (c: THREE.AnimationClip): THREE.AnimationClip => retargetWorld(fitHips(c, bones, 'Hips', CULTIST_HIPS_SCALE), bones);
   return {
     idle: fit(raw.idle),
     walk: fit(raw.walk),
@@ -179,7 +118,7 @@ const GAME_CLIPS = {
   zombieBrute: (b: BoneDef[]) => gruntClips(b, 'brute'),
   brute: (b: BoneDef[]) => gruntClips(b, 'brute'),
   cultist: cultistClips,
-  cultistBind: (b: BoneDef[]) => armsDown(hoverClips(cultistClips(b, 'local'), b, 0), ARMS_GUARD_DEG),
+  warriorRig: warriorRigClips,
 };
 
 /** Textura alternativa no mesmo atlas: herda orientação, espaço de cor e filtros da textura do GLB. */

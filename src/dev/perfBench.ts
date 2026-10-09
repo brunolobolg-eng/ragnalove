@@ -54,17 +54,33 @@ async function main(): Promise<void> {
   const cols = Math.ceil(Math.sqrt(N * 1.6));
   for (let i = 0; i < N; i++) {
     const hero = i < HERO_N;
-    const kind = hero ? HEROES[i % HEROES.length] : KINDS[i % KINDS.length];
+    // ?kind=warrior: todas as unidades iguais (folha de contato de animação)
+    const kind = hero ? ((q.get('kind') as typeof HEROES[number] | null) ?? HEROES[i % HEROES.length]) : KINDS[i % KINDS.length];
     const v = new ModelUnitView(kind, hero ? 'party' : 'enemy');
     const cx = (i % cols) - cols / 2;
     const cz = Math.floor(i / cols) - cols / 2;
-    v.root.position.set(cx * 0.9, 0, cz * 0.9);
+    // folha de contato: unidades lado a lado, sem sobrepor
+    if (q.get('sheet')) v.root.position.set((i - N / 2) * 1.7, 0, 0);
+    else v.root.position.set(cx * 0.9, 0, cz * 0.9);
     v.setFacing(q.get('fx') !== null ? Number(q.get('fx')) : Math.sin(i), q.get('fz') !== null ? Number(q.get('fz')) : Math.cos(i), true);
     scene.add(v.root);
     views.push(v);
   }
   // pose de bind sem animação (diagnóstico): para o misturador e volta os ossos ao descanso
   if (q.get('bindtest')) for (const v of views as unknown as { mixer: THREE.AnimationMixer; mesh: THREE.SkinnedMesh }[]) { v.mixer.stopAllAction(); v.mesh.skeleton.pose(); }
+  // ?sheet=walk: cada unidade mostra o clipe num instante diferente (folha de contato), pose congelada
+  const sheet = q.get('sheet');
+  if (sheet) {
+    views.forEach((v, i) => {
+      const vv = v as unknown as { mixer: THREE.AnimationMixer; actions: Record<string, THREE.AnimationAction> };
+      const a = vv.actions[sheet];
+      vv.mixer.stopAllAction();
+      a.reset().play();
+      // ?at=1.1 congela todas no mesmo instante (em segundos); sem ele, a folha espalha o clipe
+      a.time = q.get('at') !== null ? Number(q.get('at')) : (i / views.length) * a.getClip().duration;
+      vv.mixer.update(0);
+    });
+  }
   if (q.get('act') === 'attack') for (const v of views) v.attack('swing');
   if (q.get('act') === 'death') for (const v of views) v.die();
   const qCam = camera.quaternion;
@@ -79,7 +95,7 @@ async function main(): Promise<void> {
     const t0 = performance.now();
     for (const v of views) {
       v.root.position.x += Math.sin(f * 0.05 + v.root.position.z) * 0.0015;
-      if (!q.get('bindtest')) v.update(dt, (f % 40) / 40, 1, qCam);
+      if (!q.get('bindtest') && !sheet) v.update(dt, (f % 40) / 40, 1, qCam);
     }
     if (q.get('trace') && views.length === 1) {
       // rastro por quadro: altura do pé esquerdo e do quadril (depuração de animação)
