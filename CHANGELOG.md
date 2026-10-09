@@ -2,6 +2,13 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-09 — v0.6k
+- Guerreiro: as animações de parado, andar, dano, habilidade e morte agora vêm de captura de movimento real (UAL), copiada por direção de cada membro para o rig do modelo. Antes eram poses desenhadas à mão, que pareciam de boneco.
+- Golpe e investida: tronco, pernas e escudo vêm da captura; o braço da espada segue uma linha de tempo própria (corte horizontal e espada por cima da cabeça).
+- Espada: o punho agora fica no centro da palma (antes ficava atrás do pulso) e os dedos fecham em volta do cabo.
+- Tamanho: o guerreiro passou de ~3,9 para ~1,9 de altura, igual aos outros heróis. A escala usava só a metade de cima do modelo, por causa do ajuste de bind.
+- Ferramentas: `scripts/buildMocapRefDirs.cjs` gera a tabela de direções de referência; a bancada tem `&sheet=` (folha de contato) e a medida de altura renderizada.
+
 ## 2026-10-09 — v0.6j
 - Animações novas do Guerreiro, feitas por direção de membro (cada braço e perna aponta para um lugar do corpo, e o pé fica no chão em cada quadro): parado com respiração e olhar, andar com passada e giro de tronco, golpe de espada em corte horizontal, investida pesada com espada por cima da cabeça, grito/escudo erguido (habilidades de apoio), dano com recuo e queda de costas.
 - A postura de guarda com escudo à frente e espada erguida agora vem da própria animação, não de um ajuste fixo no descanso.

@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   await loadMonsterModels();
   // armas de teste no guerreiro: ?weapons=sword:hand.R,shield:hand.L (só para conferir o visual)
   const wq = q.get('weapons');
-  if (wq) MODELS.warrior.weapons = wq.split(',').map((x) => { const [type, bone, tilt] = x.split(':'); return { type: type as WeaponAttach['type'], bone, accent: 0xffd67a, tilt: tilt ? Number(tilt) : undefined }; });
+  if (wq) MODELS.warrior.weapons = wq.split(',').map((x) => { const [type, bone, tilt, py] = x.split(':'); return { type: type as WeaponAttach['type'], bone, accent: 0xffd67a, tilt: tilt ? Number(tilt) : undefined, pos: py !== undefined ? [0, Number(py), 0] : undefined }; });
   const cols = Math.ceil(Math.sqrt(N * 1.6));
   for (let i = 0; i < N; i++) {
     const hero = i < HERO_N;
@@ -134,6 +134,21 @@ async function main(): Promise<void> {
       return Math.round(p.y * 1000) / 1000;
     };
     const pick = (...n: string[]) => n.map((x) => wy(x)).find((y) => y !== null) ?? null;
+    // altura renderizada (vértices já com a pose atual): compara o tamanho dos heróis
+    {
+      const mesh = v0.mesh as THREE.SkinnedMesh;
+      mesh.updateMatrixWorld(true);
+      const pos = mesh.geometry.getAttribute('position');
+      const tmp = new THREE.Vector3();
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (let k = 0; k < pos.count; k++) {
+        mesh.getVertexPosition(k, tmp).applyMatrix4(mesh.matrixWorld);
+        lo = Math.min(lo, tmp.y);
+        hi = Math.max(hi, tmp.y);
+      }
+      (window as unknown as Record<string, unknown>).__size = { lo: +lo.toFixed(3), hi: +hi.toFixed(3), altura: +(hi - lo).toFixed(3) };
+    }
     (window as unknown as Record<string, unknown>).__box = { leftFootY: pick('LeftFoot', 'foot.L', 'Foot_L'), rightFootY: pick('RightFoot', 'foot.R', 'Foot_R'), hipsY: pick('Hips', 'hips', 'Hips_'), headY: pick('Head'), spineY: pick('Spine1'), leftKneeY: pick('LeftLeg'), leftThighY: pick('LeftUpLeg') };
     const geo = v0.mesh.geometry;
     const mat = v0.mesh.material as THREE.MeshToonMaterial;

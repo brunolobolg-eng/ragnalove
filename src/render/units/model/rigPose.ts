@@ -16,12 +16,14 @@ import type { BoneDef } from './ModelBuilder';
 export type V3 = [number, number, number];
 
 /**
- * Pose de um osso. `aim`: direção (corpo) do osso até o filho principal, relativa ao movimento do pai.
+ * Pose de um osso. `aim`: direção (corpo) do osso até o filho principal, em coordenadas do corpo.
  * `twist`: giro em torno dessa direção, em graus. Osso sem `aim` fica no descanso, seguindo o pai.
  */
 export interface JointPose {
   aim?: V3;
   twist?: number;
+  /** rotação local extra (graus, XYZ) em cima do descanso: dedos fechados, punho */
+  rot?: V3;
 }
 
 export interface PoseKey {
@@ -64,18 +66,6 @@ const PRIMARY_CHILD: Record<string, string> = {
   LeftLeg: 'LeftFoot',
   RightUpLeg: 'RightLeg',
   RightLeg: 'RightFoot',
-};
-
-/**
- * Braço e coxa herdam o movimento do tronco (coluna para o braço, quadril para a perna): um giro ou
- * inclinação da coluna leva as mãos e os pés junto. Os demais segmentos (coluna, antebraço, canela, pé)
- * usam a direção absoluta do corpo, sem acumular o movimento do pai.
- */
-const CARRY: Record<string, string> = {
-  LeftArm: 'Spine2',
-  RightArm: 'Spine2',
-  LeftUpLeg: 'Hips',
-  RightUpLeg: 'Hips',
 };
 
 const FEET = ['LeftFoot', 'RightFoot'];
@@ -145,11 +135,10 @@ function solve(rig: Rig, joints: Record<string, JointPose>, hips: V3): { local: 
     // rotação do osso no mundo: descanso sobre o pai já animado
     const w = pq.clone().multiply(n.rest);
     const jp = joints[n.name];
+    if (jp?.rot) w.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(jp.rot[0] * D, jp.rot[1] * D, jp.rot[2] * D)));
     if (jp?.aim && n.dirL) {
-      // braço e coxa levam o movimento do tronco desde o descanso; o resto é direção absoluta
-      const carrySrc = CARRY[n.name] ? rig.nodes.get(CARRY[n.name]) : undefined;
-      const rel = carrySrc ? worldQ.get(carrySrc.name)!.clone().multiply(carrySrc.restW.clone().invert()) : new THREE.Quaternion();
-      const target = new THREE.Vector3(...jp.aim).normalize().applyQuaternion(rel);
+      // direção absoluta no corpo (a captura já traz o movimento do tronco em cada membro)
+      const target = new THREE.Vector3(...jp.aim).normalize();
       const now = n.dirL.clone().applyQuaternion(w);
       w.premultiply(new THREE.Quaternion().setFromUnitVectors(now, target));
       if (jp.twist) w.premultiply(new THREE.Quaternion().setFromAxisAngle(target, jp.twist * D));
@@ -183,15 +172,4 @@ export function poseClip(name: string, duration: number, keys: PoseKey[], rig: R
   const out: THREE.KeyframeTrack[] = rig.order.map((n) => new THREE.QuaternionKeyframeTrack(`${n.name}.quaternion`, times, tracks.get(n.name)!));
   out.push(new THREE.VectorKeyframeTrack(`${root.name}.position`, times, hipsValues));
   return new THREE.AnimationClip(name, duration, out);
-}
-
-/** Direção normalizada a partir de componentes livres (X lado, Y cima, Z frente). */
-export function dir(x: number, y: number, z: number): V3 {
-  const l = Math.hypot(x, y, z) || 1;
-  return [x / l, y / l, z / l];
-}
-
-/** Perna: ângulo de balanço a partir da vertical (positivo = para frente). */
-export function legDir(swingDeg: number): V3 {
-  return dir(0, -Math.cos(swingDeg * D), Math.sin(swingDeg * D));
 }

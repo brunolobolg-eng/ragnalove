@@ -16,6 +16,8 @@ export interface WeaponAttach {
   tilt?: number;
   /** tamanho da arma (1 = padrão) */
   scale?: number;
+  /** posição no osso da mão (x, y, z); padrão: um pouco para dentro da palma (y = -0.035) */
+  pos?: [number, number, number];
 }
 
 function toon(color: number, emissive = 0x000000, emissiveIntensity = 0): THREE.MeshToonMaterial {
@@ -197,8 +199,8 @@ export function attachWeapon(bones: Map<string, THREE.Bone>, w: WeaponAttach): T
       : dagger(accent);
   if (w.tilt) mesh.rotation.x = (w.tilt * Math.PI) / 180;
   if (w.scale) mesh.scale.setScalar(w.scale);
-  // um pouco para dentro da palma
-  mesh.position.y -= 0.035;
+  // padrão: um pouco para dentro da palma
+  mesh.position.set(...(w.pos ?? [0, -0.035, 0]));
   mesh.traverse((o) => ((o as THREE.Mesh).castShadow = true));
   b.add(mesh);
   return mesh;

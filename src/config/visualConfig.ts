@@ -175,14 +175,14 @@ export interface MonsterModelVisual {
   /** Variantes de cor: texturas alternativas no mesmo atlas do GLB (cada inimigo sorteia uma, ou a original). */
   skins?: string[];
   /** Armas presas nos ossos da mão (para modelos que vêm de mãos vazias); accent = cor do brilho. */
-  weapons?: { type: 'bow' | 'dagger' | 'axe' | 'sword' | 'greatsword' | 'shield'; bone: string; accent?: number; tilt?: number; scale?: number }[];
+  weapons?: { type: 'bow' | 'dagger' | 'axe' | 'sword' | 'greatsword' | 'shield'; bone: string; accent?: number; tilt?: number; scale?: number; pos?: [number, number, number] }[];
 }
 
 /** Heróis avançados (GLB com o mesmo esqueleto padrão). Até carregar, usam o modelo de uma classe parecida. */
 export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   // Guerreiro (modelo 3D do dono, 2,4 MB): espada e escudo presos nas mãos; animações pelo bind do arquivo
   warrior: {
-    file: 'models/guerreiro.glb', height: 2.0, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorRig', bind: 'ibm',
+    file: 'models/guerreiro.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorRig', bind: 'ibm',
     // espada na mão direita (lâmina para cima, saindo do punho) e escudo na esquerda
     weapons: [{ type: 'sword', bone: 'RightHand', accent: 0xffd67a, tilt: -90 }, { type: 'shield', bone: 'LeftHand', accent: 0xffd67a }],
   },
@@ -267,7 +267,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6j',
+  version: 'v0.6k',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,

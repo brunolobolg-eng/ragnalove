@@ -233,7 +233,10 @@ function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.Animation
       }));
   const map = (mesh.material as THREE.MeshStandardMaterial).map ?? undefined;
   const inverses = mesh.skeleton.boneInverses.map((m: THREE.Matrix4) => m.clone());
-  const model: BuiltModel = { geometry, bones, glows: [], height: geometry.boundingBox!.max.y, map, inverses };
+  // altura = extensão completa quando o bind sobe o corpo (o topo sozinho deixaria a escala inflada)
+  const bb = geometry.boundingBox!;
+  const height = bindFromFile ? bb.max.y - bb.min.y : bb.max.y;
+  const model: BuiltModel = { geometry, bones, glows: [], height, map, inverses };
   if (gameClips) {
     // bind lateral (braço de lado) não combina com clipe procedural: pendura e
     // deriva as inversas (as do arquivo valiam para o bind antigo; sem elas, o
