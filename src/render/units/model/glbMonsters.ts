@@ -18,34 +18,146 @@ interface LoadedGlb {
 }
 
 /**
- * Moveset UAL com retargeting para o rig Mixamo embutido (cultista). Os clipes são absolutos sobre a
- * pose de descanso do cultista: cada osso é rebaseado para o descanso do modelo (rot = descanso_novo × inv(descanso_cultista) × clipe),
- * assim outro rig Mixamo (ex.: bongun) recebe a mesma animação sem pernas/pés tortos. No cultista é identidade.
+ * Retarget no ESPAÇO DO MUNDO (rig Mixamo de origem = cultista, com a mesma hierarquia de ossos do destino).
+ * Para cada osso: quanto ele girou em relação ao descanso da origem (no mundo) é aplicado ao descanso do
+ * destino (no mundo); depois volta para a rotação local do osso pai do destino. Assim um rig com outras
+ * proporções de descanso (braço, antebraço, coluna) recebe o movimento sem girar o corpo inteiro.
  */
-function rebaseRest(c: THREE.AnimationClip, bones: BoneDef[]): THREE.AnimationClip {
-  const restOf = new Map(bones.map((b) => [b.name, b.rest]));
-  const tracks = c.tracks.map((t) => {
-    if (!(t instanceof THREE.QuaternionKeyframeTrack)) return t;
-    const bone = t.name.slice(0, -'.quaternion'.length);
-    const rb = restOf.get(bone);
-    const rs = MIXAMO_CULTIST_REST[bone];
-    if (!rb || !rs) return t;
-    const qb = new THREE.Quaternion(...rb);
-    const qsInv = new THREE.Quaternion(...rs).invert();
-    const v = t.values.slice();
-    const q = new THREE.Quaternion();
-    for (let i = 0; i < v.length; i += 4) {
-      q.set(v[i], v[i + 1], v[i + 2], v[i + 3]).premultiply(qsInv).premultiply(qb);
-      v[i] = q.x; v[i + 1] = q.y; v[i + 2] = q.z; v[i + 3] = q.w;
+function retargetWorld(c: THREE.AnimationClip, bones: BoneDef[]): THREE.AnimationClip {
+  const order = bones.map((b) => b.name);
+  const parentOf = new Map(bones.map((b) => [b.name, b.parent]));
+  const restB = new Map(bones.map((b) => [b.name, b.rest ? new THREE.Quaternion(...b.rest) : new THREE.Quaternion()]));
+  const restC = new Map(order.map((n) => [n, MIXAMO_CULTIST_REST[n] ? new THREE.Quaternion(...MIXAMO_CULTIST_REST[n]) : new THREE.Quaternion()]));
+  // rotação de descanso no mundo (origem e destino), pais antes dos filhos
+  const worldB = new Map<string, THREE.Quaternion>();
+  const worldC = new Map<string, THREE.Quaternion>();
+  const worldOf = (n: string, rest: Map<string, THREE.Quaternion>, memo: Map<string, THREE.Quaternion>): THREE.Quaternion => {
+    const got = memo.get(n);
+    if (got) return got;
+    const p = parentOf.get(n);
+    const w = (p ? worldOf(p, rest, memo).clone() : new THREE.Quaternion()).multiply(rest.get(n) ?? new THREE.Quaternion());
+    memo.set(n, w);
+    return w;
+  };
+  for (const n of order) { worldOf(n, restB, worldB); worldOf(n, restC, worldC); }
+  // trilhas de rotação da origem, por osso
+  const tracks = new Map<string, THREE.QuaternionKeyframeTrack>();
+  for (const t of c.tracks) if (t instanceof THREE.QuaternionKeyframeTrack) tracks.set(t.name.slice(0, -'.quaternion'.length), t);
+  const times = [...new Set([...tracks.values()].flatMap((t) => Array.from(t.times)))].sort((x, y) => x - y);
+  const valuesOut = new Map(order.map((n) => [n, [] as number[]]));
+  const qc = new THREE.Quaternion();
+  for (const time of times) {
+    // rotação local da origem neste instante (osso sem trilha = descanso da origem)
+    const local = new Map<string, THREE.Quaternion>();
+    for (const n of order) {
+      const t = tracks.get(n);
+      if (t) {
+        const i = Math.max(0, Math.min(t.times.length - 1, sampleIndex(Array.from(t.times), time)));
+        const v = t.values;
+        const j = i * 4;
+        local.set(n, new THREE.Quaternion(v[j], v[j + 1], v[j + 2], v[j + 3]));
+      } else local.set(n, MIXAMO_CULTIST_REST[n] ? new THREE.Quaternion(...MIXAMO_CULTIST_REST[n]) : new THREE.Quaternion());
     }
-    return new THREE.QuaternionKeyframeTrack(t.name, t.times.slice(), v);
-  });
-  return new THREE.AnimationClip(c.name, c.duration, tracks);
+    // mundo da origem (animado) e do destino (animado) em ordem hierárquica
+    const wC = new Map<string, THREE.Quaternion>();
+    const wB = new Map<string, THREE.Quaternion>();
+    for (const n of order) {
+      const p = parentOf.get(n);
+      const wcNow = (p ? wC.get(p)!.clone() : new THREE.Quaternion()).multiply(local.get(n)!);
+      wC.set(n, wcNow);
+      // delta no mundo = (mundo origem agora) × inv(mundo origem descanso); aplicado ao descanso do destino
+      const delta = wcNow.clone().multiply(qc.copy(worldC.get(n)!).invert());
+      const wbNow = delta.multiply(worldB.get(n)!.clone());
+      wB.set(n, wbNow);
+      const parentB = p ? wB.get(p)!.clone() : new THREE.Quaternion();
+      const localB = parentB.invert().multiply(wbNow);
+      const out = valuesOut.get(n)!;
+      out.push(localB.x, localB.y, localB.z, localB.w);
+    }
+  }
+  const newTracks = order.map((n) => new THREE.QuaternionKeyframeTrack(`${n}.quaternion`, times, valuesOut.get(n)!));
+  const hips = c.tracks.filter((t) => !(t instanceof THREE.QuaternionKeyframeTrack));
+  return new THREE.AnimationClip(c.name, c.duration, [...newTracks, ...hips]);
 }
 
-function cultistClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
+/** Rebase local (experimento): L_destino = restB × inv(restC) × L_origem. Delta zero = pose de descanso do destino. */
+function rebaseLocal(c: THREE.AnimationClip, bones: BoneDef[]): THREE.AnimationClip {
+  const restB = new Map(bones.map((b) => [b.name, b.rest ? new THREE.Quaternion(...b.rest) : new THREE.Quaternion()]));
+  const out: THREE.KeyframeTrack[] = [];
+  const q = new THREE.Quaternion();
+  for (const t of c.tracks) {
+    const n = t.name.slice(0, -'.quaternion'.length);
+    const rb = restB.get(n);
+    if (!(t instanceof THREE.QuaternionKeyframeTrack) || !rb) { out.push(t); continue; }
+    const rc = MIXAMO_CULTIST_REST[n] ? new THREE.Quaternion(...MIXAMO_CULTIST_REST[n]) : new THREE.Quaternion();
+    const base = rb.clone().multiply(rc.invert());
+    const v = Array.from(t.values);
+    const vals: number[] = [];
+    for (let i = 0; i < v.length; i += 4) {
+      q.set(v[i], v[i + 1], v[i + 2], v[i + 3]);
+      const r = base.clone().multiply(q);
+      vals.push(r.x, r.y, r.z, r.w);
+    }
+    out.push(new THREE.QuaternionKeyframeTrack(t.name, Array.from(t.times), vals));
+  }
+  return new THREE.AnimationClip(c.name, c.duration, out);
+}
+
+/** Braços do bind em T-pose descem para a frente do corpo (postura de guarda) — graus no eixo Z do ombro. */
+const ARMS_GUARD_DEG = -100;
+
+/**
+ * Baixa os braços T-pose do rig para a postura de guarda: gira o braço no espaço do ombro (eixo Z).
+ * Aplicado à esquerda de cada chave, então o movimento do clipe continua por cima.
+ */
+function armsDown(clips: Record<ClipName, THREE.AnimationClip>, deg: number): Record<ClipName, THREE.AnimationClip> {
+  const rad = (deg * Math.PI) / 180;
+  const out = {} as Record<ClipName, THREE.AnimationClip>;
+  const a = new THREE.Quaternion();
+  const q = new THREE.Quaternion();
+  for (const name of CLIP_NAMES) {
+    const c = clips[name];
+    const tracks = c.tracks.map((t) => {
+      const bone = t.name.slice(0, t.name.lastIndexOf('.'));
+      if (!(t instanceof THREE.QuaternionKeyframeTrack) || (bone !== 'LeftArm' && bone !== 'RightArm')) return t;
+      a.setFromAxisAngle(new THREE.Vector3(0, 0, 1), bone === 'LeftArm' ? rad : -rad);
+      const v = Array.from(t.values);
+      const vals: number[] = [];
+      for (let i = 0; i < v.length; i += 4) {
+        q.set(v[i], v[i + 1], v[i + 2], v[i + 3]);
+        const r = a.clone().multiply(q);
+        vals.push(r.x, r.y, r.z, r.w);
+      }
+      return new THREE.QuaternionKeyframeTrack(t.name, Array.from(t.times), vals);
+    });
+    out[name] = new THREE.AnimationClip(c.name, c.duration, tracks);
+  }
+  return out;
+}
+
+/** Índice da última chave com tempo ≤ `time` (para amostrar a trilha da origem). */
+function sampleIndex(ts: number[], time: number): number {
+  let lo = 0;
+  let hi = ts.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (ts[mid] <= time + 1e-6) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
+/**
+ * Clipes UAL no rig Mixamo. 'world' mantém a pose de descanso do destino quando ele já é um rig Mixamo
+ * (bongun). 'local' (rebase) é para o descanso vindo das matrizes de bind em T-pose: delta zero = pose de
+ * bind, então o personagem nunca desmonta mesmo com braços em outro ângulo.
+ */
+function cultistClips(bones: BoneDef[], mode: 'world' | 'local' = 'world'): Record<ClipName, THREE.AnimationClip> {
   const raw = ualMixamoClips();
-  const fit = (c: THREE.AnimationClip): THREE.AnimationClip => rebaseRest(fitHips(c, bones, 'Hips', CULTIST_HIPS_SCALE), bones);
+  const fit = (c: THREE.AnimationClip): THREE.AnimationClip => {
+    const hipsFit = fitHips(c, bones, 'Hips', CULTIST_HIPS_SCALE);
+    return mode === 'local' ? rebaseLocal(hipsFit, bones) : retargetWorld(hipsFit, bones);
+  };
   return {
     idle: fit(raw.idle),
     walk: fit(raw.walk),
@@ -67,6 +179,7 @@ const GAME_CLIPS = {
   zombieBrute: (b: BoneDef[]) => gruntClips(b, 'brute'),
   brute: (b: BoneDef[]) => gruntClips(b, 'brute'),
   cultist: cultistClips,
+  cultistBind: (b: BoneDef[]) => armsDown(hoverClips(cultistClips(b, 'local'), b, 0), ARMS_GUARD_DEG),
 };
 
 /** Textura alternativa no mesmo atlas: herda orientação, espaço de cor e filtros da textura do GLB. */
@@ -122,7 +235,33 @@ export function hangArms(bones: BoneDef[]): boolean {
  * no formato dos modelos do jogo: geometria skinada + lista de ossos + clipes por nome.
  * Modelos com textura (cor por vértice branca) levam a textura junto.
  */
-function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }, gameClips?: keyof typeof GAME_CLIPS): LoadedGlb {
+/**
+ * Pose de descanso a partir das matrizes de bind do próprio arquivo: a posição de cada osso é a inversa
+ * da sua matriz de bind (no espaço da malha). Usa-se quando a pose dos nós do GLB não bate com a malha.
+ */
+function bonesFromBind(skel: THREE.Skeleton, boneName: (b: THREE.Object3D) => string): BoneDef[] {
+  const bind = skel.boneInverses.map((m) => m.clone().invert());
+  const parentIdx = skel.bones.map((b) => skel.bones.indexOf(b.parent as THREE.Bone));
+  // o bind do arquivo pode deixar o quadril na origem (pernas abaixo do chão): sobe o esqueleto
+  // inteiro para os tornozelos/pés tocarem y = 0. A malha acompanha (skinning = bind × inversa).
+  let lowest = Infinity;
+  skel.bones.forEach((b, i) => {
+    if (/foot|toe|ankle/i.test(b.name)) lowest = Math.min(lowest, bind[i].elements[13]);
+  });
+  const lift = Number.isFinite(lowest) ? -lowest : 0;
+  return skel.bones.map((b, i) => {
+    const p = parentIdx[i];
+    const local = p >= 0 ? bind[p].clone().invert().multiply(bind[i]) : bind[i].clone();
+    const pos = new THREE.Vector3();
+    const q = new THREE.Quaternion();
+    const sc = new THREE.Vector3();
+    local.decompose(pos, q, sc);
+    if (p < 0) pos.y += lift;
+    return { name: boneName(b), parent: p >= 0 ? boneName(skel.bones[p]) : undefined, pos: [pos.x, pos.y, pos.z], rest: [q.x, q.y, q.z, q.w] };
+  });
+}
+
+function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }, gameClips?: keyof typeof GAME_CLIPS, bindFromFile = false): LoadedGlb {
   const found: THREE.SkinnedMesh[] = [];
   gltf.scene.traverse((o: THREE.Object3D) => {
     if ((o as THREE.SkinnedMesh).isSkinnedMesh) found.push(o as THREE.SkinnedMesh);
@@ -144,13 +283,15 @@ function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.Animation
 
   // o GLTFLoader tira o "." dos nomes (upperArm.L → upperArmL); o nome original vem nos extras do nó
   const boneName = (b: THREE.Object3D) => (b.userData.name as string | undefined) ?? b.name;
-  const bones: BoneDef[] = mesh.skeleton.bones.map((b: THREE.Bone) => ({
-    name: boneName(b),
-    parent: (b.parent as THREE.Bone | null)?.isBone ? boneName(b.parent!) : undefined,
-    pos: [b.position.x, b.position.y, b.position.z],
-    // descanso rotacionado (rigs Mixamo/V2Fun): sem ele o bind desmonta
-    rest: [b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w],
-  }));
+  const bones: BoneDef[] = bindFromFile
+    ? bonesFromBind(mesh.skeleton, boneName)
+    : mesh.skeleton.bones.map((b: THREE.Bone) => ({
+        name: boneName(b),
+        parent: (b.parent as THREE.Bone | null)?.isBone ? boneName(b.parent!) : undefined,
+        pos: [b.position.x, b.position.y, b.position.z],
+        // descanso rotacionado (rigs Mixamo/V2Fun): sem ele o bind desmonta
+        rest: [b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w],
+      }));
   const map = (mesh.material as THREE.MeshStandardMaterial).map ?? undefined;
   const inverses = mesh.skeleton.boneInverses.map((m: THREE.Matrix4) => m.clone());
   const model: BuiltModel = { geometry, bones, glows: [], height: geometry.boundingBox!.max.y, map, inverses };
@@ -207,8 +348,8 @@ export async function loadMonsterModels(onLoaded?: (kind: string) => void): Prom
     Object.entries({ ...MONSTER_MODELS, ...HERO_MODELS }).map(async ([kind, v]) => {
       try {
         // mesmo arquivo com animações diferentes (zumbi comum/rápido/pesado) = entradas separadas no cache
-        const key = `${v.file}|${v.clips ?? ''}`;
-        if (!files.has(key)) files.set(key, loader.loadAsync(v.file).then((g: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }) => toBuiltModel(g, v.clips)));
+        const key = `${v.file}|${v.clips ?? ''}|${v.bind ?? ''}`;
+        if (!files.has(key)) files.set(key, loader.loadAsync(v.file).then((g: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }) => toBuiltModel(g, v.clips, v.bind === 'ibm')));
         const { model, clips: baseClips } = await files.get(key)!;
         // flutuação: o andar vira o balanço elevado (cópia: o arquivo pode ser compartilhado por outros tipos)
         const clips = v.hover ? hoverClips(baseClips, model.bones, v.hover) : baseClips;

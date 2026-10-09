@@ -2,6 +2,13 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-09 — v0.6i
+- Guerreiro novo (`guerreiro.glb`, de 67 MB para 2,4 MB): substitui o `eliana.glb`. Textura 1024 px dentro do arquivo, mesmo esqueleto Mixamo de 61 ossos. O arquivo original sai do repositório (continua no histórico da `main`).
+- Guerreiro com espada na mão direita (lâmina para cima) e escudo na esquerda, na postura de guarda (braços descidos).
+- Animação do guerreiro: repouso com balanço suave, golpe, dano e morte pelo mesmo sistema de flutuação dos demais (com pés no chão). Os clipes UAL, do jeito que estavam, desmontavam o modelo porque o descanso do guerreiro é em T-pose.
+- Correção: o descanso vindo das matrizes de bind do arquivo deixava o quadril na origem e as pernas abaixo do chão; agora o esqueleto sobe para os pés tocarem o chão.
+- Pendente: versão de 19 mil triângulos (hoje 38 mil) precisa de simplificação que respeite as costuras de textura, senão a textura embaralha.
+
 ## 2026-10-09 — v0.6h
 - Armas novas no módulo de armas (espada longa, espada de duas mãos e escudo redondo com aro de aço e emblema), prontas para prender em qualquer herói. Ainda não estão ligadas a nenhum herói: o guerreiro atual já traz espada e escudo no próprio modelo.
 - Bancada de desempenho aceita armas de teste (`?weapons=sword:hand.R,shield:hand.L`) para conferir o visual.

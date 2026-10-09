@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   await loadMonsterModels();
   // armas de teste no guerreiro: ?weapons=sword:hand.R,shield:hand.L (só para conferir o visual)
   const wq = q.get('weapons');
-  if (wq) MODELS.warrior.weapons = wq.split(',').map((x) => { const [type, bone] = x.split(':'); return { type: type as WeaponAttach['type'], bone, accent: 0xffd67a }; });
+  if (wq) MODELS.warrior.weapons = wq.split(',').map((x) => { const [type, bone, tilt] = x.split(':'); return { type: type as WeaponAttach['type'], bone, accent: 0xffd67a, tilt: tilt ? Number(tilt) : undefined }; });
   const cols = Math.ceil(Math.sqrt(N * 1.6));
   for (let i = 0; i < N; i++) {
     const hero = i < HERO_N;
@@ -59,10 +59,12 @@ async function main(): Promise<void> {
     const cx = (i % cols) - cols / 2;
     const cz = Math.floor(i / cols) - cols / 2;
     v.root.position.set(cx * 0.9, 0, cz * 0.9);
-    v.setFacing(Math.sin(i), Math.cos(i), true);
+    v.setFacing(q.get('fx') !== null ? Number(q.get('fx')) : Math.sin(i), q.get('fz') !== null ? Number(q.get('fz')) : Math.cos(i), true);
     scene.add(v.root);
     views.push(v);
   }
+  // pose de bind sem animação (diagnóstico): para o misturador e volta os ossos ao descanso
+  if (q.get('bindtest')) for (const v of views as unknown as { mixer: THREE.AnimationMixer; mesh: THREE.SkinnedMesh }[]) { v.mixer.stopAllAction(); v.mesh.skeleton.pose(); }
   if (q.get('act') === 'attack') for (const v of views) v.attack('swing');
   if (q.get('act') === 'death') for (const v of views) v.die();
   const qCam = camera.quaternion;
@@ -77,7 +79,7 @@ async function main(): Promise<void> {
     const t0 = performance.now();
     for (const v of views) {
       v.root.position.x += Math.sin(f * 0.05 + v.root.position.z) * 0.0015;
-      v.update(dt, (f % 40) / 40, 1, qCam);
+      if (!q.get('bindtest')) v.update(dt, (f % 40) / 40, 1, qCam);
     }
     if (q.get('trace') && views.length === 1) {
       // rastro por quadro: altura do pé esquerdo e do quadril (depuração de animação)
@@ -119,6 +121,16 @@ async function main(): Promise<void> {
     (window as unknown as Record<string, unknown>).__box = { leftFootY: pick('LeftFoot', 'foot.L', 'Foot_L'), rightFootY: pick('RightFoot', 'foot.R', 'Foot_R'), hipsY: pick('Hips', 'hips', 'Hips_'), headY: pick('Head'), spineY: pick('Spine1'), leftKneeY: pick('LeftLeg'), leftThighY: pick('LeftUpLeg') };
     const geo = v0.mesh.geometry;
     const mat = v0.mesh.material as THREE.MeshToonMaterial;
+    // diagnóstico do bind: pose de descanso × inversa do bind (identidade = malha no lugar certo)
+    {
+      const sk = v0.mesh.skeleton;
+      const bi = sk.bones.findIndex((b) => b.name === 'Hips');
+      if (bi >= 0) {
+        sk.bones[bi].updateMatrixWorld(true);
+        const prod = new THREE.Matrix4().multiplyMatrices(sk.bones[bi].matrixWorld, sk.boneInverses[bi]);
+        (window as unknown as Record<string, unknown>).__bind = { hipsProd: Array.from(prod.elements).map((x) => +x.toFixed(2)), hipsWorldPos: sk.bones[bi].getWorldPosition(new THREE.Vector3()).toArray().map((x) => +x.toFixed(2)), inverseHipsPos: new THREE.Vector3().setFromMatrixPosition(sk.boneInverses[bi].clone().invert()).toArray().map((x) => +x.toFixed(2)) };
+      }
+    }
     (window as unknown as Record<string, unknown>).__mat = { attrs: Object.keys(geo.attributes), vertexColors: mat.vertexColors, hasMap: !!mat.map };
   }
   const n = Math.max(1, samples.length);
