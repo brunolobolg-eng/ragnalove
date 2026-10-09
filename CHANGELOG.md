@@ -2,6 +2,9 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-09 — v0.6m
+- Ícones de habilidade: os 51 da folha "Pacote 01" (Mago 14, Guerreiro 9, Arqueira 13, Feiticeira 5, Bruxa 5, Assassino 5) substituem os antigos. Recortados por `scripts/build_skill_icons.py` em `public/icons/skills/pacote-01/`; o mapa `SKILL_ART` aponta para eles. Os ícones antigos continuam em `public/icons/skills` como reserva.
+
 ## 2026-10-09 — v0.6l
 - Ícones de equipamento novos: a folha do dono (14 tipos × 6 raridades) foi recortada por `scripts/build_item_art.py` e virou `public/sprites/item_art.webp`. Espada, machado, cajado, arco, adaga, livro, peitoral, capa, elmo, anel, brinco, amuleto, cinto e botas agora usam a arte nova; a moldura colorida continua vindo do código.
 - Escudo, talismã, lança, túnica, colete e bracelete ainda não têm arte nova: continuam com a arte antiga (`public/sprites/item_icons.png`, reduzido a esses seis tipos).

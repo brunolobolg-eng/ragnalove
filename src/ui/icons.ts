@@ -720,33 +720,33 @@ Object.assign(SKILL_ICONS, {
 });
 
 /**
- * Arte nova das habilidades (folhas de ícones do dono, recortadas em public/icons/skills).
- * O catálogo completo, com os ícones guardados para habilidades futuras, está em
- * public/icons/skills/catalogo.json (8 classes × 20 + as cartas do Clérigo).
+ * Arte das habilidades: Pacote 01 (folha de habilidades do dono, recortada por scripts/build_skill_icons.py
+ * em public/icons/skills/pacote-01). Os ícones antigos de cada classe seguem em public/icons/skills como reserva
+ * para habilidades futuras (catalogo.json).
  */
 export const SKILL_ART: Record<string, string> = {
-  // Guerreiro
-  bash: 'guerreiro/investida', cleave: 'guerreiro/redemoinho', ironSkin: 'guerreiro/pele-de-pedra', fury: 'guerreiro/furia',
-  battleBreath: 'guerreiro/vontade-de-ferro', shatter: 'guerreiro/rompimento', taunt: 'guerreiro/provocacao',
-  shockwave: 'guerreiro/ataque-pesado', shieldWall: 'guerreiro/escudo-de-ferro',
   // Mago (Cléria): Arcana (dano) e Divina (cura)
-  frostBolt: 'mago/rajada-de-gelo', fireBarrier: 'mago/bola-de-fogo', meditation: 'clerigo/meditacao', frostNova: 'mago/nova-de-gelo',
-  doubleBarrier: 'mago/amplificar', arcaneShield: 'mago/campo-de-forca', thunderstorm: 'mago/tempestade-arcana',
-  combustion: 'mago/explosao-de-magia', judgment: 'clerigo/explosao-divina',
-  heal: 'clerigo/cura', sanctuary: 'clerigo/santuario', holyShield: 'clerigo/escudo-sagrado', blessing: 'clerigo/bencao', healGift: 'clerigo/dom-da-cura',
+  frostBolt: 'pacote-01/frostBolt', fireBarrier: 'pacote-01/fireBarrier', meditation: 'pacote-01/meditation', frostNova: 'pacote-01/frostNova',
+  doubleBarrier: 'pacote-01/doubleBarrier', arcaneShield: 'pacote-01/arcaneShield', thunderstorm: 'pacote-01/thunderstorm', combustion: 'pacote-01/combustion',
+  judgment: 'pacote-01/judgment', heal: 'pacote-01/heal', sanctuary: 'pacote-01/sanctuary', holyShield: 'pacote-01/holyShield',
+  blessing: 'pacote-01/blessing', healGift: 'pacote-01/healGift',
+  // Guerreiro
+  bash: 'pacote-01/bash', cleave: 'pacote-01/cleave', ironSkin: 'pacote-01/ironSkin', fury: 'pacote-01/fury',
+  battleBreath: 'pacote-01/battleBreath', shatter: 'pacote-01/shatter', taunt: 'pacote-01/taunt', shockwave: 'pacote-01/shockwave',
+  shieldWall: 'pacote-01/shieldWall',
   // Arqueira: Tiro e Armadilhas
-  preciseShot: 'arqueiro/tiro-preciso', arrowRain: 'arqueiro/tempestade-de-flechas', eagleEye: 'arqueiro/deteccao',
-  piercing: 'arqueiro/tiro-poderoso', volley: 'arqueiro/disparo-rapido', doubleShot: 'arqueiro/tiro-triplo',
-  fireRain: 'arqueiro/flecha-de-fogo', hunterFocus: 'arqueiro/precisao-mortal', snareTrap: 'arqueiro/armadilha',
-  landMine: 'arqueiro/explosao-de-flechas', freezingTrap: 'arqueiro/flecha-congelante', claymore: 'professor/instalar-armadilha', trapMaster: 'arqueiro/cacador',
+  preciseShot: 'pacote-01/preciseShot', arrowRain: 'pacote-01/arrowRain', eagleEye: 'pacote-01/eagleEye', piercing: 'pacote-01/piercing',
+  volley: 'pacote-01/volley', doubleShot: 'pacote-01/doubleShot', hunterFocus: 'pacote-01/hunterFocus', fireRain: 'pacote-01/fireRain',
+  snareTrap: 'pacote-01/snareTrap', landMine: 'pacote-01/landMine', freezingTrap: 'pacote-01/freezingTrap', claymore: 'pacote-01/claymore',
+  trapMaster: 'pacote-01/trapMaster',
   // Feiticeira
-  arcaneOrb: 'professor/ataque-magico', meteorStrike: 'professor/meteoro', arcaneFlow: 'professor/ciclo-arcano',
-  chainLightning: 'professor/raio', meteorShower: 'mago/chuva-de-meteoros',
+  arcaneOrb: 'pacote-01/arcaneOrb', meteorStrike: 'pacote-01/meteorStrike', arcaneFlow: 'pacote-01/arcaneFlow', chainLightning: 'pacote-01/chainLightning',
+  meteorShower: 'pacote-01/meteorShower',
   // Bruxa
-  lifeDrain: 'professor/dreno-de-mana', curse: 'professor/veneno', darkPact: 'mago/mana-sanguinea',
-  shadowSwarm: 'professor/explosao-arcana', soulHarvest: 'mago/desintegracao',
+  lifeDrain: 'pacote-01/lifeDrain', curse: 'pacote-01/curse', darkPact: 'pacote-01/darkPact', shadowSwarm: 'pacote-01/shadowSwarm',
+  soulHarvest: 'pacote-01/soulHarvest',
   // Assassino
-  backstab: 'ladrao/ataque-furtivo', bladeFan: 'ladrao/chuva-de-adagas', shadowStep: 'ladrao/passo-sombrio',
-  poisonBlades: 'ladrao/veneno', execute: 'ladrao/sombra-mortal',
+  backstab: 'pacote-01/backstab', bladeFan: 'pacote-01/bladeFan', shadowStep: 'pacote-01/shadowStep', poisonBlades: 'pacote-01/poisonBlades',
+  execute: 'pacote-01/execute',
 };
 for (const [id, file] of Object.entries(SKILL_ART)) SKILL_ICONS[id] = () => `icons/skills/${file}.webp`;
