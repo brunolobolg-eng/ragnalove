@@ -7,6 +7,8 @@
  * Entra no build: o jogo final usa estes valores.
  */
 export const BALANCE_OVERRIDES: Record<string, unknown> = {
+  "game/archetypes/archer/rain/radius": 2,
+  "game/archetypes/archer/rain/range": 8,
   "game/archetypes/warrior/cleave/halfAngleDeg": 125,
   "game/archetypes/warrior/cleave/range": 3,
   "game/combatAI/heroes/archer/maxCombatMoveDistance": 2.5,
