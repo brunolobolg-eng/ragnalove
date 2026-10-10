@@ -123,7 +123,8 @@ export const ACTS: ActDef[] = [
     hpMult: 1.6,
     dmgMult: 1.35,
     nodes: [
-      { region: 'rootVale', options: ['horde', 'event'] },
+      // mini-chefe goblin (líder da tribo) na entrada do ato: só a opção de elite aqui é o líder
+      { region: 'rootVale', options: ['horde', 'elite', 'event'], elite: 'goblinLeader' },
       { region: 'dryCrossing', options: ['elite', 'horde'], elite: 'goblinImp' },
       // mini-chefe dino (desert: amarelo e vermelho); só aqui, para não encher o ato de dinos
       { region: 'redDunes', options: ['elite', 'horde', 'event', 'survival'], elite: 'dinoBoss' },

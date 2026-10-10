@@ -33,6 +33,7 @@ const KIND_LABEL: Record<string, string> = {
   goblinImp: 'Krexx pequeno',
   dinoBoss: 'Dino (mini-chefe)',
   goblinWarlord: 'Krexx retorcido',
+  goblinLeader: 'Líder goblin (mini-chefe)',
 };
 const AGGRO_TYPES = ['city', 'tauntable', 'bypass', 'heavy', 'hunter'];
 const AGGRO_LABEL: Record<string, string> = { city: 'cidade', tauntable: 'cidade (provocável)', bypass: 'ignora heróis', heavy: 'pesado (quebra)', hunter: 'caçador' };

@@ -2,6 +2,12 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.6y
+- Líder goblin: novo mini-chefe (modelo do dono, `goblin leader.glb`, 67 MB), otimizado para 2,5 MB (49 mil vértices, 40 mil triângulos, textura WebP de 1024 px). Altura de 2,8 m, aura âmbar.
+- Aparece na entrada do Ato II (Vale das Raízes): a opção de elite desse nó é o líder. Tem 130 de vida, bate 10 e conta como chefe (drop garantido, sobe o nível da party).
+- Animações: o conjunto do guerreiro, com a pose de descanso do arquivo (`bind: 'ibm'`). O conjunto do cultista achatou a figura na vitrine. Sem recolor: a cor do modelo original vale em todas as zonas.
+- Pendências: o arquivo tem 17% dos vértices presos a ossos distantes (aceitável, abaixo do alerta de 20%); a cena dentro do jogo ainda não foi capturada, só a vitrine.
+
 ## 2026-10-10 — v0.6x
 - Raydric: novo inimigo pesado de pedra e cristal (modelo do dono, `raydric.glb`, 65 MB), otimizado para 2,5 MB (48 mil vértices, 39 mil triângulos, textura WebP de 1024 px).
 - Aparece nas misturas pesadas das ruínas do Ato II (Dunas Vermelhas e Ruínas Solares) e das Cinzas (Pico das Cinzas). Tem 110 de vida, anda mais devagar que o brutamonte e bate um pouco mais forte.
