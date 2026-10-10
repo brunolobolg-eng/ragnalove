@@ -48,3 +48,15 @@ modelos_pesados_originais.zip  Originais ANTES da simplificacao (de 7 a 20 MB ca
                             ): cultist.glb, goblin_warlord.glb, assassin_dk.glb, liria.glb.
                             Os arquivos do jogo em public/models/ sao versoes simplificadas (~1,5 a 4 MB).
                             Para refazer: gltf-transform simplify <original> <saida> --ratio 0.02 --error 0.9
+
+ADICIONADOS EM 2026-10 (originais dos monstros pesados)
+-------------------------------------------------------
+dino_original.zip   dino.glb original (Blender 4.2): 330 mil vertices, textura PNG de 8192 px, 62 MB.
+                    -> public/models/dino.glb (2,7 MB): 56 mil vertices, textura WebP de 1024 px, pes no chao,
+                    pose de bind do arquivo, movimentos do cultista. Para refazer: simplificar a malha
+                    (gltf-transform simplify --ratio 0.10 --error 0.01), textura WebP de 1024 px, tirar os pesos
+                    extras (JOINTS_1/2 e WEIGHTS_1/2), tirar a animacao "Armature" e subir o no raiz para os
+                    pes ficarem em y = 0.
+bongun_original.zip bongun.glb original, que estava na raiz do projeto (Blender 4.2): 295 mil vertices,
+                    textura PNG de 7,7 MB, 37 MB. -> public/models/bongun.glb (2 MB): 21 mil vertices, textura
+                    WebP. E o mesmo modelo do necromante.
