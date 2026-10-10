@@ -568,3 +568,14 @@ export const POSTFX: {
   blendSeconds: 1.2,
   bossKinds: ['boss', 'boss2', 'orcboss'],
 };
+
+/**
+ * Muralha do Guerreiro (habilidade Muralha): arte do kit de muros do dono (public/sprites/guerreiro/muralha/).
+ * `width` = largura de cada bloco em tiles (1 tile = 1 unidade); a altura segue a proporção da imagem.
+ */
+export const SHIELD_WALL_VISUAL = {
+  segment: 'sprites/guerreiro/muralha/segmento.webp',
+  rubble: 'sprites/guerreiro/muralha/escombro.webp',
+  width: 1.2,
+  rubbleWidth: 0.8,
+} as const;
