@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { WARLOCK_NEW_FX as K } from '../../../config/fx/warlockNew';
 import { Flash, FlickerLight, Timeline, type FxKit, type OneShotFx } from '../kit/FxKit';
 import { disposeFxGroup, flatPlane, fxSprite, jaggedPath } from '../kit/Shapes';
-import { APICE_FRAMES, apiceImage, radialMask, type FxTextureName } from '../kit/vfxTextures';
+import { poolTexture, runeRingTexture, shardGeometry, softDiscTexture } from '../kit/procedural';
+import type { FxTextureName } from '../kit/vfxTextures';
 
 /**
  * Efeitos das seis magias novas da Bruxa (Cárcere Etéreo, Eco da Alma, Névoa Gélida, Geada Negra, Lodaçal Abissal,
@@ -38,6 +39,7 @@ const ECHO_BURST = rgb(K.color.echoBurst);
 const ECHO_RING = rgb(K.color.echoRing);
 const ECHO_FLARE = rgb(K.color.echoFlare);
 const APEX = rgb(K.color.apex);
+const APEX_CORE = rgb(K.color.apexCore);
 const CHILL_GLOW = rgb(K.color.chillGlow, 0.5);
 
 // vetores de trabalho: só para uso imediato (nada guarda referência a eles)
@@ -588,31 +590,16 @@ export class MarshFX implements OneShotFx {
   }
 }
 
-/** Plano deitado no chão: a malha, o material (para o alfa) e a proporção da imagem (para não esticar). */
+/** Plano no chão (aditivo, ou mistura normal no núcleo escuro): a malha e o material (para o alfa). */
 interface Flat {
   mesh: THREE.Mesh;
   mat: THREE.MeshBasicMaterial;
-  aspect: number;
 }
 
-/** Sprite de pé e a proporção da imagem (a altura muda, a largura acompanha). */
-interface Upright {
-  s: THREE.Sprite;
-  aspect: number;
-}
-
-/** Proporção (largura/altura) de uma textura já carregada; 1 enquanto não carregou. */
-function aspectOf(tex: THREE.Texture): number {
-  const im = tex.image as { width?: number; height?: number } | undefined;
-  return im?.width && im.height ? im.width / im.height : 1;
-}
-
-/** Arte do Ápice deitada no chão (aditiva, tingida pela cor da magia). Começa invisível. */
-function flatArt(parent: THREE.Object3D, name: string, width: number, renderOrder: number): Flat {
-  const map = apiceImage(name);
-  const aspect = aspectOf(map);
-  const mesh = flatPlane(parent, map, width, aspect, { y: K.groundLift, opacity: 0, renderOrder, color: APEX, alphaMap: radialMask() });
-  return { mesh, mat: mesh.material as THREE.MeshBasicMaterial, aspect };
+/** Plano no chão com a textura dada (quadrada). */
+function flatArt(parent: THREE.Object3D, map: THREE.Texture, width: number, renderOrder: number, o: { dark?: boolean; color?: THREE.Color } = {}): Flat {
+  const mesh = flatPlane(parent, map, width, 1, { y: K.groundLift, opacity: 0, renderOrder, color: o.color ?? APEX, dark: o.dark });
+  return { mesh, mat: mesh.material as THREE.MeshBasicMaterial };
 }
 
 /** Põe o plano no chão, no ponto (x, z), com a largura, o alfa e o giro dados (alfa 0 = escondido). */
@@ -620,21 +607,21 @@ function showFlat(f: Flat, x: number, z: number, width: number, opacity: number,
   f.mesh.visible = opacity > 0.001;
   f.mesh.position.set(x, K.groundLift, z);
   f.mesh.rotation.set(-Math.PI / 2, 0, angle);
-  f.mesh.scale.set(width, width / f.aspect, 1);
+  f.mesh.scale.set(width, width, 1);
   f.mat.opacity = opacity;
 }
 
-/** Arte do Ápice como sprite de pé (sempre de frente para a câmera). `anchorBottom`: a base fica no chão. */
-function uprightArt(parent: THREE.Object3D, name: string, anchorBottom: boolean): Upright {
-  const map = apiceImage(name);
-  const s = fxSprite(parent, 'glow', APEX, 1, { map, opacity: 0, anchorBottom });
-  return { s, aspect: aspectOf(map) };
+let spikeGeo: THREE.BufferGeometry | undefined;
+/** Espinho: cone com a base no chão (a altura é a escala Y). */
+function spikeGeometry(): THREE.BufferGeometry {
+  spikeGeo ??= new THREE.ConeGeometry(0.5, 1, 5).translate(0, 0.5, 0);
+  return spikeGeo;
 }
 
 /**
- * Ápice Sombrio (buff da própria Bruxa), com a arte do dono (folha de magia negra). Abertura: oito quadros de um círculo
- * de veneno que se forma no chão. Depois, o círculo, a névoa e o anel de runas ficam embaixo dela; espinhos sobem em
- * volta, faces espectrais e pedras orbitam a cintura. Ao acabar (`ticks`), tudo converge para o peito e some.
+ * Ápice Sombrio (buff da própria Bruxa), tudo desenhado por código: poça de veneno com núcleo escuro, anel de runas
+ * girando, espinhos de energia que sobem em volta e cristais violeta orbitando a cintura. Ao acabar (`ticks`),
+ * tudo converge para o peito e some.
  */
 export class ApexFX implements OneShotFx {
   readonly group = new THREE.Group();
@@ -644,13 +631,13 @@ export class ApexFX implements OneShotFx {
   private endAt: number;
   private readonly life: number;
   private readonly last = new THREE.Vector3();
-  private readonly frames: Flat[] = [];
+  private readonly core: Flat;
   private readonly floor: Flat;
-  private readonly fog: Flat;
-  private readonly ring: Flat;
-  private readonly spikes: Upright[] = [];
-  private readonly faces: Upright[] = [];
-  private readonly stones: Upright[] = [];
+  private readonly rune: Flat;
+  private readonly spikeMat: THREE.MeshLambertMaterial;
+  private readonly spikes: THREE.Mesh[] = [];
+  private readonly crystalMat: THREE.MeshLambertMaterial;
+  private readonly crystals: THREE.Mesh[] = [];
 
   /** `at`: posição da Bruxa (segue); `start`: posição quando o buff chegou; `ticks`: duração do buff. */
   constructor(
@@ -663,13 +650,21 @@ export class ApexFX implements OneShotFx {
     this.life = ticks / K.ticksPerSecond;
     this.endAt = this.life;
     this.last.copy(start);
-    for (const name of APICE_FRAMES) this.frames.push(flatArt(this.group, name, A.floorWidth, 6));
-    this.floor = flatArt(this.group, 'completo', A.floorWidth, 6);
-    this.fog = flatArt(this.group, 'nevoa', A.fogWidth, 7);
-    this.ring = flatArt(this.group, 'anel', A.ringWidth, 8);
-    for (let i = 0; i < A.spikes; i++) this.spikes.push(uprightArt(this.group, 'espinhos', true));
-    for (let i = 0; i < A.faces; i++) this.faces.push(uprightArt(this.group, 'faces', false));
-    for (let i = 0; i < A.stones; i++) this.stones.push(uprightArt(this.group, 'pedras', false));
+    this.core = flatArt(this.group, softDiscTexture(), A.coreWidth, 5, { dark: true, color: APEX_CORE });
+    this.floor = flatArt(this.group, poolTexture(), A.floorWidth, 6);
+    this.rune = flatArt(this.group, runeRingTexture(), A.runeWidth, 8);
+    this.spikeMat = new THREE.MeshLambertMaterial({ color: 0x1e0c33, emissive: APEX, flatShading: true, transparent: true, opacity: 0 });
+    for (let i = 0; i < A.spikes; i++) {
+      const m = new THREE.Mesh(spikeGeometry(), this.spikeMat);
+      this.group.add(m);
+      this.spikes.push(m);
+    }
+    this.crystalMat = new THREE.MeshLambertMaterial({ color: 0x2a1446, emissive: APEX, emissiveIntensity: A.crystalGlow, flatShading: true, transparent: true, opacity: 0 });
+    for (let i = 0; i < A.crystals; i++) {
+      const m = new THREE.Mesh(shardGeometry(i + 11, 1.5), this.crystalMat);
+      this.group.add(m);
+      this.crystals.push(m);
+    }
   }
 
   update(dt: number): void {
@@ -689,57 +684,38 @@ export class ApexFX implements OneShotFx {
     const live = 1 - ending;
     const base = this.last;
 
-    // abertura: os quadros se acendem em sequência (cross-fade) e apagam logo depois que o círculo assenta
-    const frameAt = clamp01(t / A.introDur) * (this.frames.length - 1);
-    const introOut = 1 - clamp01((t - A.introDur) / A.introFade);
-    this.frames.forEach((f, i) => {
-      const w = clamp01(1 - Math.abs(frameAt - i)) * introOut * live;
-      showFlat(f, base.x, base.z, A.floorWidth, A.floorAlpha * w);
-    });
-
-    // o círculo cheio assenta (cresce até o tamanho final); a névoa e o anel entram junto
-    const settle = clamp01((t - (A.introDur - A.grow * 0.5)) / A.grow);
+    // a poça e o núcleo escuro crescem do centro; o anel de runas gira no sentido contrário
+    const settle = clamp01(t / A.grow);
     const pulse = 1 + A.floorPulse * Math.sin(t * A.floorPulseSpeed);
-    showFlat(this.floor, base.x, base.z, A.floorWidth * (0.6 + 0.4 * easeOut(settle)) * pulse, A.floorAlpha * settle * live);
-    const breath = 1 + A.fogBreath * Math.sin(t * A.fogBreathSpeed);
-    showFlat(this.fog, base.x, base.z, A.fogWidth * breath, A.fogAlpha * settle * live, t * A.fogSpin);
-    showFlat(this.ring, base.x, base.z, A.ringWidth * easeOut(settle), A.ringAlpha * settle * live, -t * A.ringSpin);
+    showFlat(this.core, base.x, base.z, A.coreWidth * easeOut(settle), A.coreAlpha * settle * live);
+    showFlat(this.floor, base.x, base.z, A.floorWidth * (0.55 + 0.45 * easeOut(settle)) * pulse, A.floorAlpha * settle * live, t * A.floorSpin);
+    showFlat(this.rune, base.x, base.z, A.runeWidth * easeOut(settle), A.runeAlpha * settle * live, -t * A.runeSpin);
 
-    // espinhos sobem do chão logo depois da abertura e pulsam em alturas diferentes
-    const spikeRise = clamp01((t - A.introDur) / A.grow);
-    this.spikes.forEach((sp, i) => {
+    // espinhos sobem depois da poça, pulsando em alturas diferentes
+    this.spikeMat.opacity = live;
+    this.spikes.forEach((m, i) => {
+      const rise = clamp01((t - A.spikeDelay - i * A.spikeStagger) / A.grow);
       const ang = (i / this.spikes.length) * Math.PI * 2;
       const beat = 0.8 + 0.2 * Math.sin((t * Math.PI * 2) / A.spikePeriod + i);
       const r = A.spikeRadius * live;
-      const h = A.spikeHeight * spikeRise * beat * live;
-      sp.s.position.set(base.x + Math.cos(ang) * r, K.groundLift, base.z + Math.sin(ang) * r);
-      sp.s.scale.set(A.spikeWidth, Math.max(K.minLength, h), 1);
-      sp.s.material.opacity = A.spikeAlpha * spikeRise * live;
+      const h = A.spikeHeight * rise * beat * live;
+      m.position.set(base.x + Math.cos(ang) * r, K.groundLift, base.z + Math.sin(ang) * r);
+      m.scale.set(A.spikeWidth, Math.max(K.minLength, h), A.spikeWidth);
+      m.visible = h > K.minLength;
     });
 
-    // faces espectrais sobem em ciclos, girando em volta dela; no fim convergem para o peito
-    const faceRise = clamp01((t - (A.introDur + A.faceDelay)) / A.grow);
-    this.faces.forEach((f, i) => {
-      const ph = (t / A.facePeriod + i / this.faces.length) % 1;
-      const ang = (i / this.faces.length) * Math.PI * 2 + t * A.faceOrbit;
-      const yFree = ph * A.faceRise;
+    // cristais orbitam a cintura, balançando de leve; no fim voltam ao peito
+    const crystalRise = clamp01((t - A.crystalDelay) / A.grow);
+    this.crystalMat.opacity = crystalRise * live;
+    this.crystals.forEach((m, i) => {
+      const ang = (i / this.crystals.length) * Math.PI * 2 + t * A.crystalOrbit;
+      const yFree = A.crystalHeight + Math.sin(t * A.crystalBobSpeed + i) * A.crystalBob;
       const y = yFree + (K.body.chest - yFree) * ending;
-      const r = A.faceRadius * live;
-      f.s.position.set(base.x + Math.cos(ang) * r, y, base.z + Math.sin(ang) * r);
-      f.s.scale.set(A.faceSize * f.aspect, A.faceSize, 1);
-      f.s.material.opacity = A.faceAlpha * faceRise * Math.sin(Math.PI * ph) * live;
-    });
-
-    // pedras orbitam a cintura, balançando de leve; no fim voltam ao peito
-    const stoneRise = clamp01((t - (A.introDur + A.stoneDelay)) / A.grow);
-    this.stones.forEach((st, i) => {
-      const ang = (i / this.stones.length) * Math.PI * 2 + t * A.stoneOrbit;
-      const yFree = A.stoneHeight + Math.sin(t * A.stoneBobSpeed + i) * A.stoneBob;
-      const y = yFree + (K.body.chest - yFree) * ending;
-      const r = A.stoneRadius * live;
-      st.s.position.set(base.x + Math.cos(ang) * r, y, base.z + Math.sin(ang) * r);
-      st.s.scale.set(A.stoneSize * st.aspect, A.stoneSize, 1);
-      st.s.material.opacity = A.stoneAlpha * stoneRise * live;
+      const r = A.crystalRadius * live;
+      const s = A.crystalSize * crystalRise * live;
+      m.position.set(base.x + Math.cos(ang) * r, y, base.z + Math.sin(ang) * r);
+      m.rotation.y = t * 0.8 + i;
+      m.scale.set(s, s, s);
     });
 
     if (ending < 1) {

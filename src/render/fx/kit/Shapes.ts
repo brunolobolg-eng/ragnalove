@@ -55,16 +55,15 @@ const FLAT = new THREE.PlaneGeometry(1, 1);
  * Imagem deitada no chão (aditiva), vista pela câmera alta: círculos de runas, névoas, o próprio solo do efeito.
  * `width` em metros; a altura vem de `aspect` (largura/altura da imagem). `angle` gira no plano do chão.
  */
-export function flatPlane(parent: THREE.Object3D, map: THREE.Texture, width: number, aspect: number, o: { y?: number; opacity?: number; angle?: number; renderOrder?: number; color?: THREE.Color; alphaMap?: THREE.Texture } = {}): THREE.Mesh {
+export function flatPlane(parent: THREE.Object3D, map: THREE.Texture, width: number, aspect: number, o: { y?: number; opacity?: number; angle?: number; renderOrder?: number; color?: THREE.Color; dark?: boolean } = {}): THREE.Mesh {
   const mat = new THREE.MeshBasicMaterial({
     map,
     transparent: true,
-    blending: THREE.AdditiveBlending,
+    blending: o.dark ? THREE.NormalBlending : THREE.AdditiveBlending,
     depthWrite: false,
     depthTest: false,
     color: o.color ?? 0xffffff,
     opacity: o.opacity ?? 1,
-    ...(o.alphaMap ? { alphaMap: o.alphaMap } : {}),
   });
   const m = new THREE.Mesh(FLAT, mat);
   m.rotation.set(-Math.PI / 2, 0, o.angle ?? 0);

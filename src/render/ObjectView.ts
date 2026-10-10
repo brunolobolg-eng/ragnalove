@@ -5,7 +5,7 @@ import { OBJECT_RULES } from '../core/sim/objects';
 import { tileToWorld } from './coords';
 import type { ParticleLayer } from './fx/Particles';
 import { softCircle } from './textures';
-import { SHIELD_WALL_VISUAL } from '../config/visualConfig';
+import { buildWallBlock } from './wallBlock';
 
 /**
  * Objetos interativos do mapa — só visual. Lê o estado autoritativo (`sim.objects`) e reage aos
@@ -223,52 +223,16 @@ function flame(g: THREE.Group, y: number, size: number): { glow: THREE.Sprite; l
   return { glow, light };
 }
 
-/** Texturas de arte (kit de muros do dono): uma por caminho, carregada na primeira vez. */
-const artLoader = new THREE.TextureLoader();
-const artCache = new Map<string, THREE.Texture>();
-const artTexture = (path: string): THREE.Texture => {
-  let t = artCache.get(path);
-  if (!t) {
-    t = artLoader.load(path);
-    t.colorSpace = THREE.SRGBColorSpace;
-    artCache.set(path, t);
-  }
-  return t;
-};
-
-/**
- * Sprite de pé (base no chão) com a arte dada, `width` em tiles. A altura segue a proporção da imagem: `fit()`
- * ajusta quando a imagem já carregou (devolve false antes disso).
- */
-function artSprite(path: string, width: number): { sprite: THREE.Sprite; fit: () => boolean } {
-  const map = artTexture(path);
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false }));
-  sprite.center.set(0.5, 0);
-  const fit = (): boolean => {
-    const im = map.image as { width?: number; height?: number } | undefined;
-    if (!im?.width || !im.height) return false;
-    sprite.scale.set(width, (width * im.height) / im.width, 1);
-    return true;
-  };
-  return { sprite, fit };
-}
-
 const BUILDERS: Record<MapObject['type'], Builder> = {
   shieldWall(p) {
-    // muralha de pedra com bandeira e filete dourado (arte do kit de muros); quebrada, vira escombro
-    const seg = artSprite(SHIELD_WALL_VISUAL.segment, SHIELD_WALL_VISUAL.width);
-    const rubble = artSprite(SHIELD_WALL_VISUAL.rubble, SHIELD_WALL_VISUAL.rubbleWidth);
-    rubble.sprite.visible = false;
-    p.group.add(seg.sprite, rubble.sprite);
-    // cada arte tem a sua proporção: a altura é ajustada assim que as imagens carregam
-    let fitted = false;
-    p.tick = () => {
-      if (!fitted) fitted = seg.fit() && rubble.fit();
-    };
+    // bloco de pedra com friso dourado e bandeira azul (geometria de código); quebrado, vira monte de pedras
+    const { intact, rubble } = buildWallBlock(p.group);
+    shadow(intact);
+    shadow(rubble);
     p.apply = (s) => {
       if (s !== 'broken') return;
-      seg.sprite.visible = false;
-      rubble.sprite.visible = true;
+      intact.visible = false;
+      rubble.visible = true;
     };
   },
   cart(p) {

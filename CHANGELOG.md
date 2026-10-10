@@ -2,6 +2,12 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.7d
+- Arte em PNG saiu das duas habilidades. Ápice Sombrio (Bruxa) e Muralha (Guerreiro) são agora geometria e textura desenhadas por código, no estilo da referência (energia azul, cristais, lascas de pedra e poça de veneno).
+- Ápice: poça de veneno com núcleo escuro, anel de runas girando, espinhos de energia que sobem em volta e cristais violeta na cintura. Converge para o peito no fim, como antes.
+- Muralha: cada bloco é de pedra com friso dourado, pilares com pontas e bandeira azul. Ao brotar, dois anéis de energia azul se expandem, rachaduras de luz aparecem no chão e pedras de cantaria e cristais azuis saem pela borda. Quebrada, vira monte de pedras.
+- Pendente: sombra de contato e variação de peças na linha da muralha; brilho mais forte nos espinhos do Ápice.
+
 ## 2026-10-10 — v0.7c
 - Ápice Sombrio (buff da Bruxa) refeito com a arte do dono (folha de magia negra). Abertura: um círculo de veneno se forma no chão em oito quadros; depois o círculo cheio, a névoa e o anel de runas ficam embaixo dela, espinhos sobem em volta, faces espectrais e pedras orbitam a cintura. No fim, tudo converge para o peito e some.
 - Só visual: o buff continua sendo o mesmo (dano próprio da Bruxa, mesmos números). A folha de referência pinta área de veneno com dano e lentidão nos inimigos; isso ainda não existe no jogo e depende de decisão do dono.
