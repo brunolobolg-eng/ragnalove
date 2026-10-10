@@ -2,6 +2,14 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.8a
+- Florestas (tema `forest`: Bosque Torto, Floresta dos Sussurros, Clareira do Corvo, Vale das Raízes) com o kit packtextura: chão pintado com grama, sombra sob as copas, trilha de terra da entrada até o portão, raízes e poças. Árvores, rochas, troncos e arbustos do pacote, desenhados instanciados.
+- Ponte de Valdrec: deque e praça com a pedra azul e os paralelepípedos do pacote, com mapa de normais (relevo sob a luz). Ruínas e pedras dentro do rio, em tiles de água: não andam nem bloqueiam nada.
+- Grade, caminhos e regras não mudaram; só a apresentação. Módulo novo `src/render/scenery/packKit.ts` (carrega o GLB do kit, as texturas e o chão pintado).
+- Assets: `public/models/packtextura/` (GLB de peças) e `public/textures/packtextura/` (cores em WebP e os mapas de normais da pedra).
+- Removidas `bridgeDeckTexture` e `plazaTexture` (sem uso).
+- Pendente: ainda não está no nível AAA. As árvores são estilizadas e pouco variadas; falta variação de cor nas copas, mais detalhe no chão da floresta (sem mapa de normais) e iluminação de cena. A ponte segue escura à noite, com poucos pontos de interesse dentro do enquadramento.
+
 ## 2026-10-10 — v0.7h
 - Aura dos chefes refeita: o casco deixa de recortar em labaredas secas e vira um halo suave na silhueta, com fiapos animados (ruído) e miolo na cor da magia (HDR, brilha no bloom). Chefes ganham um anel de energia no chão que gira e respira.
 - Números da aura em `AURA_VISUAL` (`visualConfig.ts`).

@@ -79,57 +79,6 @@ function moss(g: CanvasRenderingContext2D, x: number, y: number, rad: number): v
   g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
 }
 
-/** Lajes da ponte: 128 px por tile, fileiras desencontradas. Textura cobre 4×4 tiles. */
-export function bridgeDeckTexture(): THREE.CanvasTexture {
-  const S = 512;
-  const [c, g] = canvas(S, S);
-  const r = rng(71);
-  g.fillStyle = '#2b2e35'; // rejunte
-  g.fillRect(0, 0, S, S);
-  const cols = ['#6c727c', '#656b75', '#737984', '#5f646d', '#6a6f77', '#777b82'];
-  const rowH = 64;
-  for (let row = 0; row < S / rowH; row++) {
-    let x = row % 2 ? -48 : 0;
-    while (x < S) {
-      const w = 80 + Math.floor(r() * 3) * 24;
-      stone(g, x + 2, row * rowH + 2, w - 4, rowH - 4, pick(r, cols), r);
-      if (x + w > S) stone(g, x + 2 - S, row * rowH + 2, w - 4, rowH - 4, pick(r, cols), r); // costura
-      x += w;
-    }
-  }
-  for (let i = 0; i < 14; i++) crack(g, r() * S, r() * S, 20 + r() * 40, r);
-  for (let i = 0; i < 10; i++) moss(g, r() * S, r() * S, 10 + r() * 22);
-  // desgaste central (trilha mais clara por onde todo mundo passa)
-  const wear = g.createLinearGradient(0, 0, S, 0);
-  wear.addColorStop(0, 'rgba(0,0,0,0.12)');
-  wear.addColorStop(0.5, 'rgba(255,255,255,0.05)');
-  wear.addColorStop(1, 'rgba(0,0,0,0.12)');
-  g.fillStyle = wear;
-  g.fillRect(0, 0, S, S);
-  return finish(c);
-}
-
-/** Calçamento da praça: paralelepípedos menores e mais quentes. */
-export function plazaTexture(): THREE.CanvasTexture {
-  const S = 512;
-  const [c, g] = canvas(S, S);
-  const r = rng(133);
-  g.fillStyle = '#2e2a26';
-  g.fillRect(0, 0, S, S);
-  const cols = ['#7c7266', '#857a6c', '#71685d', '#8b8172', '#766d61'];
-  const s = 32;
-  for (let y = 0; y < S; y += s) {
-    const off = (y / s) % 2 ? s / 2 : 0;
-    for (let x = -s; x < S + s; x += s) {
-      const jx = (r() - 0.5) * 3;
-      const jy = (r() - 0.5) * 3;
-      stone(g, x + off + 2 + jx, y + 2 + jy, s - 4, s - 4, pick(r, cols), r, 7);
-    }
-  }
-  for (let i = 0; i < 8; i++) moss(g, r() * S, r() * S, 8 + r() * 16);
-  return finish(c);
-}
-
 /** Blocos grandes de muralha/parapeito (cinza frio), 256 px ≈ 2 m. */
 export function wallBlockTexture(seed = 9): THREE.CanvasTexture {
   const S = 256;
