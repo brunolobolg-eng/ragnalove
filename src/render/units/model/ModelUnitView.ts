@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { VISUAL_CONFIG } from '../../../config/visualConfig';
+import { AURA_VISUAL, VISUAL_CONFIG } from '../../../config/visualConfig';
+import { energyRingTexture } from '../../fx/kit/procedural';
+import { flatPlane } from '../../fx/kit/Shapes';
 import { GAME_CONFIG } from '../../../config/gameConfig';
 import { facingToYaw } from '../../coords';
 import { softCircle } from '../../textures';
@@ -101,6 +103,8 @@ export class ModelUnitView {
   private readonly mesh: THREE.SkinnedMesh;
   private readonly spectre?: THREE.SkinnedMesh;
   private readonly spectreMat?: ReturnType<typeof createSpectreMaterial>;
+  /** Anel de energia sob os pés (só chefes com aura). */
+  private readonly auraRing?: THREE.Mesh;
   private readonly mixer: THREE.AnimationMixer;
   private readonly actions: Record<ClipName, THREE.AnimationAction>;
   private current: THREE.AnimationAction;
@@ -175,6 +179,10 @@ export class ModelUnitView {
       this.spectre.renderOrder = 6;
       this.materials.push(this.spectreMat);
       this.model.add(this.spectre);
+      // chefes: anel de energia no chão, girando sob os pés (o mesmo traço das magias)
+      if (team === 'enemy' && GAME_CONFIG.bossKinds.includes(kind)) {
+        this.auraRing = flatPlane(this.root, energyRingTexture(), AURA_VISUAL.ringWidth, 1, { y: 0.02, opacity: 0, color: spectreColor, renderOrder: 4 });
+      }
     }
     for (const g of model.glows) {
       const m = createGlowMaterial(this.u, g.color);
@@ -376,13 +384,18 @@ export class ModelUnitView {
       ghost = a < 0.45 ? (a / 0.45) * 0.6 : a < 0.65 ? 0.6 + ((a - 0.45) / 0.2) * 0.4 : Math.max(0, 1 - (a - 0.65) / 0.35);
       if (this.actionT >= this.actionDur) this.actionT = -1;
     }
-    if (this.def.aura && this.team === 'enemy') ghost = 0.4 + Math.sin(this.time * 3) * 0.12; // aura do chefe
+    if (this.def.aura && this.team === 'enemy') ghost = AURA_VISUAL.intensity + Math.sin(this.time * AURA_VISUAL.pulseSpeed) * 0.05; // aura do chefe
     if (this.spectre && this.spectreMat) {
       this.spectre.visible = ghost > 0.01;
       const U = this.spectreMat.userData;
       U.intensity.value = ghost * (this.team === 'party' ? 0.6 : 1);
       U.grow.value = 0.03 + ghost * 0.06;
       U.time.value = this.time;
+    }
+    if (this.auraRing) {
+      this.auraRing.visible = ghost > 0.01;
+      this.auraRing.rotation.set(-Math.PI / 2, 0, this.time * AURA_VISUAL.ringSpin);
+      (this.auraRing.material as THREE.MeshBasicMaterial).opacity = AURA_VISUAL.ringAlpha * (1 + AURA_VISUAL.pulse * Math.sin(this.time * AURA_VISUAL.pulseSpeed));
     }
 
     // Tintas: dano (clareia), queimadura (laranja), alma (ciano), nível (dourado)
@@ -429,6 +442,7 @@ export class ModelUnitView {
     for (const m of this.materials) m.dispose();
     this.mesh.skeleton.dispose();
     this.contact.material.dispose(); // (a geometria é compartilhada entre as unidades)
+    (this.auraRing?.material as THREE.Material | undefined)?.dispose();
     for (const g of [this.hpBar, ...this.weapons])
       g.traverse((o) => {
         if (o instanceof THREE.Mesh) {

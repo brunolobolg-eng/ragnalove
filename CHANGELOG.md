@@ -2,6 +2,37 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.7h
+- Aura dos chefes refeita: o casco deixa de recortar em labaredas secas e vira um halo suave na silhueta, com fiapos animados (ruído) e miolo na cor da magia (HDR, brilha no bloom). Chefes ganham um anel de energia no chão que gira e respira.
+- Números da aura em `AURA_VISUAL` (`visualConfig.ts`).
+- Krexx retorcido (Orc Warlord): sai do caminho de esqueleto automático e passa a usar o mesmo caminho do líder goblin (esqueleto do arquivo, clipes do guerreiro).
+- GLB com matrizes de bind inversas zeradas (caso do Krexx) recebem as matrizes pela pose de descanso. GLB sem normais ganham normais lisas por posição (sem lascas). Pesos de pele que não somam 1 são normalizados.
+- Pendente: o Krexx retorcido ainda se deforma nas animações (braços abertos, em T), o que pede revisão do rig. A aura melhorou, mas precisa de nova rodada de ajuste com a cena em movimento.
+
+## 2026-10-10 — v0.7g
+- Verso das cartas volta a mostrar o logo do ROguard (`emblem.png`), no lugar do recorte da arte de referência que trazia o texto "Aurenthal".
+- Removido `public/cards/brasao_dragao.webp`, que deixou de ser usado.
+
+## 2026-10-10 — v0.7f
+- Cartas com a nova estética: o verso já mostra a raridade antes de revelar. Normal dourada e parada; Mini-Boss com borda azul pulsando; MVP com borda vermelha pulsando e brasão com brilho de fogo.
+- Brilho só nas raras: a carta normal não brilha em azul nem em vermelho.
+- Verso com o brasão do dragão (recorte da arte de referência, `public/cards/brasao_dragao.webp`).
+- Moldura da frente com ornamentos em SVG (pontas e gemas na cor da raridade).
+- Cores: azul para Mini-Boss, vermelho para MVP (antes roxo e dourado).
+- Pendente: a arte dos monstros continua a mesma (só a moldura e o verso mudaram); ornamentos mais detalhados que a referência.
+
+## 2026-10-10 — v0.7e
+- Muralha do Guerreiro refeita com o kit de castelo do dono (`fortress.glb`, em `public/models/`). Cada bloco é um trecho do muro reto de 2 m, reduzido a 1 tile, orientado conforme a linha (horizontal ou vertical). Quebrado, troca pela barricada danificada do mesmo kit.
+- O kit é estático (sem esqueleto e sem animação, cor por vértice, 2 mil vértices): auditoria sem problemas de tamanho (0,14 MB).
+- Os anéis de energia, rachaduras e cristais da subida continuam por código.
+- Pendente: o trecho de 2 m reduzido a 1 tile fica comprimido (merlões finos); a barricada quebrada lê como cerca de madeira, não como muro desmontado. Avaliar trecho de 2 tiles e escombro de pedra do kit.
+
+## 2026-10-10 — v0.7d
+- Arte em PNG saiu das duas habilidades. Ápice Sombrio (Bruxa) e Muralha (Guerreiro) são agora geometria e textura desenhadas por código, no estilo da referência (energia azul, cristais, lascas de pedra e poça de veneno).
+- Ápice: poça de veneno com núcleo escuro, anel de runas girando, espinhos de energia que sobem em volta e cristais violeta na cintura. Converge para o peito no fim, como antes.
+- Muralha: cada bloco é de pedra com friso dourado, pilares com pontas e bandeira azul. Ao brotar, dois anéis de energia azul se expandem, rachaduras de luz aparecem no chão e pedras de cantaria e cristais azuis saem pela borda. Quebrada, vira monte de pedras.
+- Pendente: sombra de contato e variação de peças na linha da muralha; brilho mais forte nos espinhos do Ápice.
+
 ## 2026-10-10 — v0.7c
 - Ápice Sombrio (buff da Bruxa) refeito com a arte do dono (folha de magia negra). Abertura: um círculo de veneno se forma no chão em oito quadros; depois o círculo cheio, a névoa e o anel de runas ficam embaixo dela, espinhos sobem em volta, faces espectrais e pedras orbitam a cintura. No fim, tudo converge para o peito e some.
 - Só visual: o buff continua sendo o mesmo (dano próprio da Bruxa, mesmos números). A folha de referência pinta área de veneno com dano e lentidão nos inimigos; isso ainda não existe no jogo e depende de decisão do dono.

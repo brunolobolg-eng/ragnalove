@@ -83,17 +83,34 @@ export function createSpectreMaterial(color: THREE.Color): THREE.MeshBasicMateri
       )
       .replace('#include <project_vertex>', '#include <project_vertex>\nvN = normalize(normalMatrix * objectNormal);\nvV = -mvPosition.xyz;');
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uIntensity;\nuniform vec3 uGhost;\nuniform float uTime;\nvarying vec3 vN;\nvarying vec3 vV;\nvarying float vH;')
+      .replace(
+        '#include <common>',
+        `#include <common>
+uniform float uIntensity;
+uniform vec3 uGhost;
+uniform float uTime;
+varying vec3 vN;
+varying vec3 vV;
+varying float vH;
+float aHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float aNoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(aHash(i), aHash(i + vec2(1.0, 0.0)), f.x), mix(aHash(i + vec2(0.0, 1.0)), aHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}`,
+      )
       .replace(
         'vec4 diffuseColor = vec4( diffuse, opacity );',
         `float f = 1.0 - abs(dot(normalize(vN), normalize(vV)));
-         // cor sem estourar (o tom do herói, no máximo 1) e dois tons: miolo cheio + borda externa clara
-         vec3 base = uGhost / max(1.0, max(uGhost.r, max(uGhost.g, uGhost.b)));
-         vec3 col = mix(base * 0.85, mix(base, vec3(1.0), 0.6), step(0.72, f));
-         // labaredas subindo recortadas a seco (traço de anime, sem degradê)
-         float tongue = step(0.22, fract(vH * 7.0 - uTime * 1.6 + sin(vH * 31.0) * 0.15));
-         // só a faixa da silhueta: as costas do casco por trás de braços/cabelo (de frente pra câmera) não pintam o corpo
-         float a = clamp(uIntensity * 1.5, 0.0, 0.9) * mix(0.55, 1.0, tongue) * step(0.6, f);
+         // halo suave: forte na silhueta e apagado sobre o corpo (sem recorte seco)
+         float rim = smoothstep(0.2, 1.0, f);
+         // fiapos fluidos subindo pelo corpo (ruído de valor animado, sem degrau)
+         float w = aNoise(vec2(vH * 2.4 - uTime * 1.4, f * 3.0 + uTime * 0.35));
+         // miolo na cor da magia (HDR, brilha no bloom) e borda quente quase branca
+         vec3 hot = mix(uGhost, vec3(1.0), 0.4);
+         vec3 col = mix(uGhost * 0.5, hot, rim) * (0.8 + 0.4 * w);
+         float a = clamp(uIntensity, 0.0, 1.0) * rim * (0.3 + 0.7 * w);
          vec4 diffuseColor = vec4(col, a);`,
       );
   };

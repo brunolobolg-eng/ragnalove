@@ -262,6 +262,8 @@ const RAYDRIC_THEME_COLORS: Record<string, string[]> = {
 };
 /** Machado de batalha do orc: mão direita, cabo inclinado 35° para baixo, brilho do gume avermelhado. */
 const ORC_AXE = { type: 'axe' as const, bone: 'hand.R', accent: 0xff7040, tilt: 35, scale: 1.35 };
+/** Machado do Krexx: o arquivo do goblin usa os nomes do rig Mixamo (RightHand). */
+const KREXX_AXE = { type: 'axe' as const, bone: 'RightHand', accent: 0xff7040, tilt: 35, scale: 1.2 };
 export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   // Ato I — ratos
   rat: { file: 'models/rato.glb', height: 1.45, walkRate: 1.3, },
@@ -301,6 +303,8 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   // Mini-chefe goblin (líder da tribo, tipo próprio 'goblinLeader'): modelo do dono de 67 MB otimizado para 2,5 MB, sem recolor.
   // Clipes do guerreiro: o do cultista achata a figura (testado na vitrine). Pose de descanso = bind do arquivo; aura âmbar como o dino-chefe.
   goblinLeader: { file: 'models/goblin_leader.glb', height: 2.8, walkRate: 0.9, clips: 'warriorRig', bind: 'ibm', aura: [1.2, 0.8, 0.2] },
+  // Krexx retorcido (mini-chefe do Passo Gélido): mesmo arquivo do Krexx pequeno, pelo caminho do líder goblin (esqueleto do arquivo)
+  goblinWarlord: { file: 'models/goblin_warlord.glb', height: 2.9, walkRate: 0.8, clips: 'warriorRig', bind: 'ibm', aura: [1.6, 0.15, 0.4], weapons: [KREXX_AXE] },
 };
 
 /**
@@ -345,7 +349,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.7c',
+  version: 'v0.7h',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
@@ -568,3 +572,17 @@ export const POSTFX: {
   blendSeconds: 1.2,
   bossKinds: ['boss', 'boss2', 'orcboss'],
 };
+
+
+/**
+ * Aura de chefes e monstros de elite: halo animado na silhueta + anel de energia no chão (só chefes).
+ * `intensity` = força do halo (0–1); `pulse` = quanto o anel respira; `ringWidth` em metros.
+ */
+export const AURA_VISUAL = {
+  intensity: 0.6,
+  pulse: 0.2,
+  pulseSpeed: 2.4,
+  ringWidth: 2.6,
+  ringAlpha: 0.5,
+  ringSpin: 0.4,
+} as const;

@@ -4,7 +4,8 @@ import type { Vec2 } from '../../../core/grid/types';
 import { tileToWorld } from '../../coords';
 import { Flash, Timeline, type FxKit, type OneShotFx } from '../kit/FxKit';
 import type { Ribbon } from '../kit/Ribbons';
-import { disposeFxGroup, fxSprite } from '../kit/Shapes';
+import { disposeFxGroup, flatPlane, fxSprite } from '../kit/Shapes';
+import { crackTexture, energyRingTexture, shardGeometry } from '../kit/procedural';
 import { VFX } from '../kit/vfxSettings';
 import { fxTexture } from '../kit/vfxTextures';
 import { BASH_IMPACT } from '../BashFX';
@@ -822,18 +823,18 @@ export class WarriorTauntFX implements OneShotFx {
 
 // ---------------------------------------------------------------- Muralha
 
-/** Caixa unitária compartilhada pelas pedras da muralha (escalada por pedra). Geometria única: nunca é disposta. */
-const STONE_BOX = new THREE.BoxGeometry(1, 1, 1);
-
 /**
- * Muralha: em cada bloco, pedras saindo do chão pela borda (sobem, param e afundam) e uma nuvem de poeira.
- * O bloco em si é desenhado pelo ObjectView, que continua recebendo o evento no GameView.
+ * Muralha: a base de cada bloco racha (luz azul no chão), dois anéis de energia se expandem e pedras de cantaria e
+ * cristais azuis brotam pela borda. Tudo é geometria e textura de código; o bloco em si fica no ObjectView/wallBlock.ts.
  */
 export class WallRiseFX implements OneShotFx {
   readonly group = new THREE.Group();
   done = false;
   private t = 0;
-  private readonly slabs: { m: THREE.Mesh; t0: number; top: number; size: THREE.Vector3 }[] = [];
+  private readonly pieces: { m: THREE.Mesh; t0: number; top: number; size: number }[] = [];
+  private readonly rings: { m: THREE.Mesh; mat: THREE.MeshBasicMaterial; t0: number }[] = [];
+  private readonly crack: THREE.Mesh;
+  private readonly crackMat: THREE.MeshBasicMaterial;
 
   constructor(base: THREE.Vector3, kit: FxKit) {
     const c = C.wall;
@@ -851,34 +852,34 @@ export class WallRiseFX implements OneShotFx {
       count: c.dust,
       spin: 1,
     });
-    kit.decals.spawn({
-      kind: 'ring',
-      pos: base.clone().setY(C.groundY + 0.01),
-      size: c.ringSize,
-      sizeEnd: c.ringEnd,
-      color: rgb(c.ringColor),
-      life: c.ringLife,
-      additive: false,
-      fadeIn: 0.01,
-      fadeOut: 0.7,
-    });
-    // um material por efeito (liberado no fim); a geometria é a caixa compartilhada
-    const mat = new THREE.MeshLambertMaterial({ color: rgb(c.slabColor) });
-    for (let i = 0; i < c.slabs; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const m = new THREE.Mesh(STONE_BOX, mat);
-      // as pedras saem pela borda do bloco, não por dentro dele
-      m.position.set(base.x + Math.cos(a) * c.edge, -0.25, base.z + Math.sin(a) * c.edge);
-      m.rotation.set((Math.random() - 0.5) * 0.5, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.5);
+    this.crack = flatPlane(this.group, crackTexture(), c.crackSize, 1, { y: c.groundLift, opacity: 0, color: rgb(c.crackColor), renderOrder: 7 });
+    this.crack.position.x = base.x;
+    this.crack.position.z = base.z;
+    this.crackMat = this.crack.material as THREE.MeshBasicMaterial;
+    for (let i = 0; i < c.rings; i++) {
+      const m = flatPlane(this.group, energyRingTexture(), 1, 1, { y: c.groundLift, opacity: 0, color: rgb(c.ringColor), renderOrder: 8 });
+      m.position.x = base.x;
+      m.position.z = base.z;
       m.visible = false;
-      this.group.add(m);
-      this.slabs.push({
-        m,
-        t0: i * c.slabStagger,
-        top: pick(c.slabTop),
-        size: new THREE.Vector3(pick(c.slabW), pick(c.slabH), pick(c.slabD)),
-      });
+      this.rings.push({ m, mat: m.material as THREE.MeshBasicMaterial, t0: i * c.ringDelay });
     }
+    const stoneMat = new THREE.MeshLambertMaterial({ color: rgb(c.stoneColor), flatShading: true });
+    const crystalMat = new THREE.MeshLambertMaterial({ color: 0x1d3a6e, emissive: rgb(c.ringColor, c.crystalGlow), flatShading: true });
+    let n = 0;
+    const launch = (count: number, mat: THREE.Material, seed: number, width: readonly [number, number], lift: readonly [number, number], stretch: number): void => {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const m = new THREE.Mesh(shardGeometry(seed + i, stretch), mat);
+        m.position.set(base.x + Math.cos(a) * c.edge, c.groundLift, base.z + Math.sin(a) * c.edge);
+        m.rotation.set((Math.random() - 0.5) * 0.5, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.5);
+        m.visible = false;
+        this.group.add(m);
+        this.pieces.push({ m, t0: n * c.stagger, top: pick(lift), size: pick(width) });
+        n++;
+      }
+    };
+    launch(c.stones, stoneMat, 101, c.stoneSize, c.stoneHeight, c.stoneStretch);
+    launch(c.crystals, crystalMat, 201, c.crystalSize, c.crystalHeight, c.crystalStretch);
   }
 
   update(dt: number): void {
@@ -886,22 +887,38 @@ export class WallRiseFX implements OneShotFx {
     this.t += dt;
     const c = C.wall;
     const t = this.t;
-    for (const s of this.slabs) {
-      const k = (t - s.t0) / c.slabRise;
+    for (const s of this.pieces) {
+      const k = (t - s.t0) / c.rise;
       if (k < 0) continue;
       s.m.visible = true;
       const up = 1 - Math.pow(1 - Math.min(1, k), 3); // sobe depressa e desacelera no topo
-      const out = Math.max(0, (t - s.t0 - c.slabRise - c.slabHold) / c.slabShrink); // 0 → 1: encolhe e afunda
+      const out = Math.max(0, (t - s.t0 - c.rise - c.hold) / c.shrink); // 0 → 1: encolhe e afunda
       const f = Math.max(0, 1 - out);
-      s.m.position.y = -0.25 + (s.top + 0.25) * up - out * 0.25;
-      s.m.scale.set(s.size.x * f, s.size.y * f, s.size.z * f);
+      s.m.position.y = c.groundLift + s.top * up * f;
+      s.m.scale.setScalar(s.size * f);
     }
+    for (const r of this.rings) {
+      const u = (t - r.t0) / c.ringLife;
+      if (u < 0) continue;
+      if (u >= 1) {
+        r.m.visible = false;
+        continue;
+      }
+      r.m.visible = true;
+      const sc = c.ringStart + (c.ringEnd - c.ringStart) * (1 - Math.pow(1 - u, 3));
+      r.m.scale.set(sc, sc, 1);
+      r.mat.opacity = c.ringAlpha * (1 - u);
+    }
+    const cu = Math.min(1, t / c.crackLife);
+    const cs = c.crackSize * (0.6 + 0.4 * (1 - Math.pow(1 - cu, 3)));
+    this.crack.scale.set(cs, cs, 1);
+    this.crackMat.opacity = c.crackAlpha * Math.min(1, t / 0.08) * (1 - cu);
     if (t >= c.life) this.dispose();
   }
 
   private dispose(): void {
     if (this.done) return;
     this.done = true;
-    disposeFxGroup(this.group); // libera o material das pedras; a caixa compartilhada fica
+    disposeFxGroup(this.group); // libera os materiais; as formas e texturas ficam no cache
   }
 }

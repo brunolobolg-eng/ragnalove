@@ -62,8 +62,10 @@ export const WARLOCK_NEW_FX = {
     echoRing: [0.5, 0.3, 0.8],
     /** flare do eco dobrado (aditivo, pequeno) */
     echoFlare: [0.8, 0.5, 1.0],
-    /** tinta da arte do Ápice (1 = cor original da folha; acima de 1 = brilho extra, entra no bloom) */
-    apex: [1, 0.9, 1.15],
+    /** cor do Ápice (HDR: acima de 1 brilha no bloom): espinhos, cristais e o brilho da poça */
+    apex: [0.55, 0.18, 1.0],
+    /** núcleo escuro embaixo da poça (mistura normal) */
+    apexCore: [0.12, 0.02, 0.2],
     /** contorno de gelo do inimigo gelado (aditivo, multiplicado por 0,5) */
     chillGlow: [0.5, 0.9, 1.2],
   },
@@ -295,58 +297,43 @@ export const WARLOCK_NEW_FX = {
   },
 
   /**
-   * Ápice Sombrio (buff da própria Bruxa), com a arte do dono: abertura em 8 quadros de um círculo de veneno que se
-   * forma no chão; depois o círculo, a névoa e o anel de runas embaixo dela, espinhos que sobem em volta, faces
-   * espectrais e pedras que orbitam a cintura. Ao acabar (`ticks`), tudo converge para o peito dela e some.
+   * Ápice Sombrio (buff da própria Bruxa), tudo desenhado por código: poça de veneno com núcleo escuro, anel de runas
+   * girando, espinhos de energia que sobem em volta e cristais violeta orbitando a cintura. Ao acabar (`ticks`), tudo
+   * converge para o peito dela e some.
    */
   apex: {
-    /** abertura: 8 quadros da arte (o círculo se forma), em cross-fade; duração (s) */
-    introDur: 0.9,
-    /** o último quadro some nesta janela depois da abertura (s) */
-    introFade: 0.3,
-    /** entrada das camadas (s); cada grupo entra com o atraso dele */
-    grow: 0.35,
-    /** círculo de veneno no chão (arte completa): largura (m), alfa, pulso (amplitude e velocidade) */
-    floorWidth: 4.4,
-    floorAlpha: 0.7,
-    floorPulse: 0.12,
+    /** entrada da poça e do anel (s); largura final da poça (m), alfa, pulso (amplitude e velocidade) e giro (rad/s) */
+    grow: 0.5,
+    floorWidth: 4.2,
+    floorAlpha: 0.75,
+    floorPulse: 0.1,
     floorPulseSpeed: 2.2,
-    /** névoa no chão: largura (m), alfa, respiração (amplitude e velocidade) e giro (rad/s) */
-    fogWidth: 3.8,
-    fogAlpha: 0.5,
-    fogBreath: 0.05,
-    fogBreathSpeed: 1.3,
-    fogSpin: 0.1,
-    /** anel de runas no chão, girando no sentido contrário: largura (m), alfa, giro (rad/s) */
-    ringWidth: 2.5,
-    ringAlpha: 0.95,
-    ringSpin: 0.5,
-    /** espinhos de energia: quantidade, raio, largura, altura máxima (m), alfa, período de pulsação (s) */
-    spikes: 4,
-    spikeRadius: 1.3,
-    spikeWidth: 1.3,
-    spikeHeight: 2.3,
-    spikeAlpha: 0.85,
+    floorSpin: 0.08,
+    /** núcleo escuro (mistura normal) sob a poça: largura (m) e alfa */
+    coreWidth: 2.6,
+    coreAlpha: 0.95,
+    /** anel de runas: largura (m), alfa e giro (rad/s, no sentido contrário à poça) */
+    runeWidth: 2.7,
+    runeAlpha: 0.95,
+    runeSpin: 0.45,
+    /** espinhos de energia: quantidade, raio, largura da base (m), altura máxima (m), período de pulsação (s), atraso (s) e intervalo entre eles (s) */
+    spikes: 5,
+    spikeRadius: 1.2,
+    spikeWidth: 0.26,
+    spikeHeight: 2.1,
     spikePeriod: 2.8,
-    /** faces espectrais: quantidade, raio da órbita, tamanho, alfa, ciclo de subida (s), altura da subida (m), atraso (s), giro da órbita (rad/s) */
-    faces: 3,
-    faceRadius: 1.15,
-    faceSize: 1.2,
-    faceAlpha: 0.95,
-    facePeriod: 2.6,
-    faceRise: 2.2,
-    faceDelay: 0.2,
-    faceOrbit: 0.35,
-    /** pedras da cintura: quantidade, raio da órbita, tamanho, altura, alfa, giro (rad/s), balanço (m e velocidade), atraso (s) */
-    stones: 3,
-    stoneRadius: 1.1,
-    stoneSize: 0.8,
-    stoneHeight: 0.85,
-    stoneAlpha: 0.95,
-    stoneOrbit: 0.6,
-    stoneBob: 0.08,
-    stoneBobSpeed: 1.7,
-    stoneDelay: 0.4,
+    spikeDelay: 0.2,
+    spikeStagger: 0.05,
+    /** cristais violeta na cintura: quantidade, raio da órbita, tamanho, altura, órbita (rad/s), balanço (m e velocidade), atraso (s) e brilho */
+    crystals: 4,
+    crystalRadius: 0.95,
+    crystalSize: 0.34,
+    crystalHeight: 0.9,
+    crystalOrbit: 0.6,
+    crystalBob: 0.08,
+    crystalBobSpeed: 1.7,
+    crystalDelay: 0.4,
+    crystalGlow: 0.8,
     /** convergência no fim: o corpo do efeito volta ao peito nos últimos `converge` s */
     converge: 0.8,
     /** fumaça violeta nos pés: partículas por segundo, tamanho, vida, alfa */

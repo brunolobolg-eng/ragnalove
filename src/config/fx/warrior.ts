@@ -265,31 +265,44 @@ export const WARRIOR_FX = {
 
   /** Muralha: em cada bloco, pedras saindo do chão pela borda, poeira e anel de poeira. O bloco em si é do ObjectView. */
   wall: {
-    /** pedras por bloco e atraso entre elas (s) */
-    slabs: 3,
-    slabStagger: 0.03,
-    /** tamanho das pedras (w, h, d) — faixas de sorteio */
-    slabW: [0.2, 0.32],
-    slabH: [0.14, 0.24],
-    slabD: [0.14, 0.24],
-    /** altura final (centro da pedra acima do chão) — faixa de sorteio */
-    slabTop: [0.12, 0.3],
-    /** distância do centro do bloco até a borda onde as pedras saem (lado do bloco) */
+    /** duração total do efeito (s) e altura da base sobre o chão */
+    life: 0.9,
+    groundLift: 0.03,
+    /** distância do centro do bloco até a borda de onde saem as peças (m) */
     edge: 0.42,
-    /** tempo de subida, pausa no topo e tempo de encolher/afundar (s) */
-    slabRise: 0.3,
-    slabHold: 0.15,
-    slabShrink: 0.2,
-    slabColor: [0.55, 0.46, 0.36],
-    /** poeira na base e anel de poeira */
+    /** subida das peças, pausa no topo, encolher e atraso entre elas (s) */
+    rise: 0.3,
+    hold: 0.15,
+    shrink: 0.2,
+    stagger: 0.03,
+    /** pedras de cantaria (cinza, sem brilho): quantidade, tamanho (faixa), altura da subida (faixa), alongamento e cor */
+    stones: 4,
+    stoneSize: [0.16, 0.28],
+    stoneHeight: [0.08, 0.2],
+    stoneStretch: 0.6,
+    stoneColor: [0.55, 0.52, 0.48],
+    /** cristais azuis que brotam junto: quantidade, tamanho, altura (faixas), alongamento e brilho (emissivo) */
+    crystals: 3,
+    crystalSize: [0.12, 0.2],
+    crystalHeight: [0.25, 0.5],
+    crystalStretch: 1.7,
+    crystalGlow: 0.5,
+    /** anéis de energia azul que se expandem da base: quantidade, atraso entre eles (s), tamanho inicial e final (m), vida (s), alfa e cor (HDR) */
+    rings: 2,
+    ringDelay: 0.12,
+    ringStart: 0.5,
+    ringEnd: 2.4,
+    ringLife: 0.6,
+    ringAlpha: 0.9,
+    ringColor: [0.5, 1.0, 1.6],
+    /** rachadura de luz no chão: tamanho (m), vida (s), alfa e cor (HDR) */
+    crackSize: 1.5,
+    crackLife: 0.9,
+    crackAlpha: 0.8,
+    crackColor: [0.4, 0.8, 1.2],
+    /** poeira na base: quantidade e cor */
     dust: 5,
     dustColor: [0.5, 0.45, 0.38],
-    ringColor: [0.5, 0.42, 0.32],
-    ringSize: 0.3,
-    ringEnd: 1.0,
-    ringLife: 0.5,
-    /** duração total do efeito (s) */
-    life: 0.7,
   },
 
   /** Duração de cada demonstração na vitrine de efeitos (s): só para o botão de tempo da vitrine. */

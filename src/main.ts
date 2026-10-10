@@ -3,6 +3,7 @@ import { DEFAULT_SETUP, GAME_CONFIG, ZONE_STATE, applyZone, barriersAround, barr
 import { parseZone, type ZoneDef } from './config/zones';
 import { TEST_ZONE, TEST_ZONE_ID } from './dev/DevLab/skillArenaZone';
 import { warmFxTextures } from './render/fx/kit/vfxTextures';
+import { loadFortress } from './render/scenery/fortress';
 import { ACTS, EVENTS, REGION_BY_ID, NODE_LABEL, type NodeType } from './config/world';
 import {
   HEROES,
@@ -274,6 +275,7 @@ const C_HANDLE = new THREE.Color(1.4, 1.2, 0.5);
 
 const stage = new Stage(document.getElementById('app')!, GAME_CONFIG.board.width, GAME_CONFIG.board.height);
 const view = new GameView(stage);
+void loadFortress(); // kit de muralha do dono (fortress.glb)
 void warmFxTextures(); // texturas dos efeitos carregam já no menu (sem quadro vazio no primeiro golpe)
 view.onBossDeath = (kind) => onFinalBossDeath(kind);
 // Toda mudança nas Configurações vale na hora (sem reiniciar).
@@ -282,7 +284,6 @@ let lastVsync = settings.value.video.vsync;
 void loadBossModel().catch((err) => console.warn('Chefe GLB indisponível, usando o Colosso procedural.', err));
 // Krexx: mini-chefe goblin em duas formas (pequeno na Travessia Seca, retorcido no Passo Gélido)
 void loadHumanoidBoss('models/goblin_warlord.glb', 'goblinImp', { height: 1.35, walkRate: 1.3, castClip: krexxCastClip() }).catch((err) => console.warn('Krexx pequeno indisponível.', err));
-void loadHumanoidBoss('models/goblin_warlord.glb', 'goblinWarlord', { height: 2.9, walkRate: 0.8, aura: [1.6, 0.15, 0.4], weapons: [{ type: 'axe', bone: 'foreArm.R', accent: 0xff7040, tilt: 35, scale: 1.2 }], castClip: krexxCastClip() }).catch((err) => console.warn('Krexx retorcido indisponível.', err));
 // Monstros dos Atos I e II e classes avançadas (GLB já riggados). Heróis: refaz retratos ao carregar.
 void loadMonsterModels((kind) => {
   try {

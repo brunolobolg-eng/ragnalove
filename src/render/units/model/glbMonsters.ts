@@ -200,6 +200,54 @@ function bonesFromBind(skel: THREE.Skeleton, boneName: (b: THREE.Object3D) => st
   });
 }
 
+/**
+ * Normais lisas por posição: média das faces que tocam cada ponto (sem costura nas quinas). Sem isso, um GLB sem
+ * normais sai facetado e o casco da aura (que cresce pela normal) vira lascas.
+ */
+function weldedNormals(g: THREE.BufferGeometry): THREE.BufferAttribute {
+  const pos = g.attributes.position;
+  const idx = g.index;
+  const n = idx ? idx.count : pos.count;
+  const key = (i: number) => `${pos.getX(i).toFixed(4)},${pos.getY(i).toFixed(4)},${pos.getZ(i).toFixed(4)}`;
+  const acc = new Map<string, THREE.Vector3>();
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  for (let t = 0; t + 2 < n; t += 3) {
+    const i0 = idx ? idx.getX(t) : t;
+    const i1 = idx ? idx.getX(t + 1) : t + 1;
+    const i2 = idx ? idx.getX(t + 2) : t + 2;
+    a.fromBufferAttribute(pos, i0);
+    b.fromBufferAttribute(pos, i1);
+    c.fromBufferAttribute(pos, i2);
+    const face = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a)); // ponderada pela área
+    for (const i of [i0, i1, i2]) {
+      const k = key(i);
+      acc.set(k, (acc.get(k) ?? new THREE.Vector3()).add(face));
+    }
+  }
+  const out = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const v = acc.get(key(i)) ?? new THREE.Vector3(0, 1, 0);
+    const l = v.length() || 1;
+    out[i * 3] = v.x / l;
+    out[i * 3 + 1] = v.y / l;
+    out[i * 3 + 2] = v.z / l;
+  }
+  return new THREE.BufferAttribute(out, 3);
+}
+
+/** Pesos de pele que não somam 1 (o arquivo cortou influências) deformam as juntas: normaliza por vértice. */
+function normalizeSkinWeights(g: THREE.BufferGeometry): void {
+  const w = g.getAttribute('skinWeight') as THREE.BufferAttribute | undefined;
+  if (!w) return;
+  for (let i = 0; i < w.count; i++) {
+    const s = w.getX(i) + w.getY(i) + w.getZ(i) + w.getW(i);
+    if (s > 0 && Math.abs(s - 1) > 1e-4) w.setXYZW(i, w.getX(i) / s, w.getY(i) / s, w.getZ(i) / s, w.getW(i) / s);
+  }
+  w.needsUpdate = true;
+}
+
 function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }, gameClips?: keyof typeof GAME_CLIPS, bindFromFile = false): LoadedGlb {
   const found: THREE.SkinnedMesh[] = [];
   gltf.scene.traverse((o: THREE.Object3D) => {
@@ -207,6 +255,12 @@ function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.Animation
   });
   const mesh = found[0];
   if (!mesh) throw new Error('GLB sem SkinnedMesh');
+  // alguns GLBs trazem as matrizes de bind inversas zeradas (acessor sem dados): a malha explode nas animações.
+  // Recalcula pela pose de descanso dos ossos (é o bind que o arquivo deveria ter guardado).
+  if (mesh.skeleton.boneInverses.some((m: THREE.Matrix4) => m.elements.every((v) => v === 0))) {
+    gltf.scene.updateMatrixWorld(true);
+    mesh.skeleton.calculateInverses();
+  }
   const src = mesh.geometry;
   const geometry = new THREE.BufferGeometry();
   for (const k of ['position', 'normal', 'color', 'uv', 'skinIndex', 'skinWeight']) {
@@ -214,8 +268,9 @@ function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.Animation
     if (a) geometry.setAttribute(k, a.clone());
   }
   if (src.index) geometry.setIndex(src.index.clone());
-  // GLBs de IA às vezes vêm sem normais: calcula antes do contorno (senão o load quebra e cai no fallback)
-  if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();
+  // sem normais no arquivo: normais lisas por posição (não por face), para o sombreado e para o casco da aura
+  if (!geometry.getAttribute('normal')) geometry.setAttribute('normal', weldedNormals(geometry));
+  normalizeSkinWeights(geometry);
   geometry.setAttribute('aSmoothNormal', geometry.getAttribute('normal').clone());
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
