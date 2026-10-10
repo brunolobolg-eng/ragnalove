@@ -2,6 +2,12 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.6t
+- Dino (`public/models/dino.glb`): modelo novo otimizado de 62 MB para 2,7 MB (malha de 330 mil para 56 mil vértices, textura de 8192 px para WebP de 1024 px, animação embutida e influências extras removidas). Pés no chão e pose de descanso do próprio arquivo (matrizes de bind).
+- Dino com os movimentos do cultista (parado, andar, ataque, dano e morte), pelo mesmo conjunto da UAL que o bongun usa. O andar fica discreto, porque o conjunto foi feito para corpos humanoides.
+- Registrado em `MONSTER_MODELS` como `dino`, mas ainda não aparece no jogo: falta decidir em qual ato e função ele entra (`ACT_MONSTERS`).
+- Nenhuma regra de combate mudou.
+
 ## 2026-10-10 — v0.6s
 - Subida de nível refeita com a arte de referência "LEVEL UP": um feixe de luz com a base em anel sobe do chão, as asas se abrem atrás do herói, um círculo de runas gira no chão e uma auréola aparece sobre a cabeça. Na explosão há clarão, raios e faíscas; penas e brilhos caem depois.
 - Cada classe sobe na sua cor (a cor de destaque do herói): Guerreiro laranja-avermelhado, Mago azul, Arqueira verde, Feiticeira roxa, Bruxa rosa e Assassino dourado. O texto NÍVEL também sai nessa cor.

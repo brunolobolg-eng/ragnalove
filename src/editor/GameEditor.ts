@@ -30,6 +30,7 @@ const KIND_LABEL: Record<string, string> = {
   boss2: 'Chefe Ato II',
   orcboss: 'Chefe Ato III',
   goblinImp: 'Krexx pequeno',
+  dinoBoss: 'Dino (mini-chefe)',
   goblinWarlord: 'Krexx retorcido',
 };
 const AGGRO_TYPES = ['city', 'tauntable', 'bypass', 'heavy', 'hunter'];

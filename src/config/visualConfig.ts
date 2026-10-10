@@ -213,6 +213,8 @@ export const HERO_MODELS: Record<string, MonsterModelVisual> = {
 };
 /** Zumbi do Ato III: coveiro, afogado, pesteado, luto e cinzas (além da cor original do modelo). */
 const ZOMBIE_SKINS = ['coveiro', 'afogado', 'pesteado', 'luto', 'cinzas'].map((n) => `models/zombie_${n}.jpg`);
+/** Dino do Ato II: cinco cores (o corpo azul vira verde, vermelho, gelo, violeta e areia), como os zumbis. */
+const DINO_SKINS = ['musgo', 'magma', 'gelo', 'sombra', 'areia'].map((n) => `models/dino_${n}.webp`);
 /** Machado de batalha do orc: mão direita, cabo inclinado 35° para baixo, brilho do gume avermelhado. */
 const ORC_AXE = { type: 'axe' as const, bone: 'hand.R', accent: 0xff7040, tilt: 35, scale: 1.35 };
 export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
@@ -239,6 +241,14 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   // Ato III — orc guerreiro chibi (V2Fun): golpe de machado por cima vem do próprio GLB, o resto é do brutamonte
   orcWarrior: { file: 'models/orc.glb', height: 2.3, walkRate: 0.85, clips: 'brute', aura: [0.9, 0.3, 1.8], weapons: [ORC_AXE] },
   orcLord: { file: 'models/orc.glb', height: 3.3, walkRate: 0.9, clips: 'brute', aura: [1.6, 0.15, 0.4], weapons: [ORC_AXE] },
+  // Dino (família do Ato II): esqueleto de 57 ossos no padrão do cultista; pose de descanso = bind do arquivo;
+  // movimentos da UAL (como o cultista). Grunt/corredor/brutamonte/necromante e mini-chefe (dinoBoss).
+  dino: { file: 'models/dino.glb', height: 1.8, walkRate: 1.2, clips: 'cultist', bind: 'ibm', skins: DINO_SKINS },
+  dinoRunner: { file: 'models/dino.glb', height: 1.5, walkRate: 2.2, clips: 'cultist', bind: 'ibm', skins: DINO_SKINS },
+  dinoBrute: { file: 'models/dino.glb', height: 2.3, walkRate: 0.85, clips: 'cultist', bind: 'ibm', skins: DINO_SKINS },
+  dinoNecro: { file: 'models/dino.glb', height: 1.7, walkRate: 1.2, clips: 'cultist', bind: 'ibm', aura: [0.7, 0.2, 1.6] },
+  // Mini-chefe (tipo próprio de inimigo, como o Krexx): dino maior, com aura âmbar
+  dinoBoss: { file: 'models/dino.glb', height: 2.6, walkRate: 0.9, clips: 'cultist', bind: 'ibm', aura: [1.2, 0.8, 0.2] },
 };
 
 /**
@@ -283,7 +293,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6s',
+  version: 'v0.6t',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
