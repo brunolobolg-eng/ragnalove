@@ -186,6 +186,8 @@ export interface MonsterModelVisual {
   clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig';
   /** Flutuação: o corpo fica elevado este tanto (unidades do modelo) e não usa o passo de caminhada. */
   hover?: number;
+  /** Respiração no ar: o corpo sobe e desce `amp` metros em `period` segundos; a sombra de contato acompanha. */
+  float?: { amp: number; period: number };
   /** Pose de descanso: 'ibm' = a do próprio arquivo (matrizes de bind); padrão = a dos nós do GLB. */
   bind?: 'ibm';
   /** Variantes de cor: texturas alternativas no mesmo atlas do GLB (cada inimigo sorteia uma, ou a original). */
@@ -279,8 +281,9 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   zombie: { file: 'models/zombie.glb', height: 1.6, walkRate: 1.3, clips: 'zombie', skins: ZOMBIE_SKINS },
   zombieRunner: { file: 'models/zombie.glb', height: 1.35, walkRate: 2.4, clips: 'zombieRunner', skins: ZOMBIE_SKINS },
   zombieBrute: { file: 'models/zombie.glb', height: 2.0, walkRate: 0.85, clips: 'zombieBrute', skins: ZOMBIE_SKINS },
-  // Bongun (necromante): não anda, flutua rente ao chão. `hover` = elevação do corpo em unidades do modelo
-  zombieNecro: { file: 'models/bongun.glb', height: 1.7, walkRate: 1.2, clips: 'cultist', hover: 0.08, aura: [0.7, 0.2, 1.6] },
+  // Bongun (necromante): não anda, flutua. `hover` = altura-base do corpo (unidades do modelo); `float` = sobe e desce
+  // 9 cm em torno dela a cada 2,6 s (os pés ficam ~32 cm do chão, então há folga), com a sombra de contato respirando junto.
+  zombieNecro: { file: 'models/bongun.glb', height: 1.7, walkRate: 1.2, clips: 'cultist', hover: 0.08, float: { amp: 0.09, period: 2.6 }, aura: [0.7, 0.2, 1.6] },
   // Ato III — orc guerreiro chibi (V2Fun): golpe de machado por cima vem do próprio GLB, o resto é do brutamonte
   orcWarrior: { file: 'models/orc.glb', height: 2.3, walkRate: 0.85, clips: 'brute', aura: [0.9, 0.3, 1.8], weapons: [ORC_AXE] },
   orcLord: { file: 'models/orc.glb', height: 3.3, walkRate: 0.9, clips: 'brute', aura: [1.6, 0.15, 0.4], weapons: [ORC_AXE] },
@@ -342,7 +345,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6z',
+  version: 'v0.7b',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,

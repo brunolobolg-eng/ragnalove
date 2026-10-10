@@ -9,7 +9,6 @@ import {
   CARD_CATALOG,
   MINIBOSSES,
   NORMALS,
-  cardArt,
   cardBonusFor,
   cardSlots,
   equipCard,
@@ -21,6 +20,7 @@ import {
   type CardRarity,
 } from '../core/progression/cards';
 import type { HeroKind } from '../core/progression/skills';
+import { cardArtHtml } from './CardFace';
 import { ATTR_LABEL } from '../core/progression/attributes';
 
 export interface CollectionCallbacks {
@@ -114,7 +114,7 @@ export class Collection {
           <span class="sk-bank">Runs vencidas: <b>${this.runsWon}</b> · Slots: <b>${list.length}/${slots}</b></span></div>
         <p class="hint">Bônus atual de ${HERO_NAME[this.hero]}: <b>${bonusTxt}</b> <small>(vale a partir da próxima jornada)</small></p>
         <h4>Equipada — clique para remover</h4>
-        <div class="build-row">${list.length ? list.map((id, i) => `<button class="mini-card" data-c="unequip" data-i="${i}" title="${bonusText(this.hero, id)} — clique para remover"><img src="${cardArt(id)}" alt=""><small>${CARD_BY_ID[id]?.name}</small></button>`).join('') : '<div class="empty">Nenhuma carta equipada</div>'}</div>
+        <div class="build-row">${list.length ? list.map((id, i) => `<button class="mini-card" data-c="unequip" data-i="${i}" title="${bonusText(this.hero, id)} — clique para remover">${cardArtHtml(id, 'mc-art')}<small>${CARD_BY_ID[id]?.name}</small></button>`).join('') : '<div class="empty">Nenhuma carta equipada</div>'}</div>
         <h4>Fusão <small>(3 iguais → 1 Normal diferente · 10 Normais → 1 Mini-Boss)</small></h4>
         <div class="acts"><button class="big-act" data-c="fuse10"${freeNormals >= 10 ? '' : ' disabled'} title="Consome 10 Normais livres">🎁 Fundir 10 Normais <span class="tag">${freeNormals}/10</span></button></div>
         <h4>Coleção (${ownedKinds}/${CARD_CATALOG.length})</h4>
@@ -125,7 +125,7 @@ export class Collection {
             const free = freeCopies(this.cards, d.id);
             const r = RARITY[d.rarity];
             return `<div class="icard${owned ? '' : ' missing'}" style="--rc:${r.color}" title="${d.name} · ${r.label} · ${bonusText(this.hero, d.id)}${d.affinity.includes(this.hero) ? '' : ' — sem afinidade (metade)'}">
-              <img class="ic" src="${cardArt(d.id)}" alt=""><span>${r.label}</span><b>×${owned}</b>
+              ${cardArtHtml(d.id, 'ic-art')}<span>${r.label}</span><b>×${owned}</b>
               ${owned ? `<button class="price" data-c="equip" data-id="${d.id}"${free > 0 && list.length < slots ? '' : ' disabled'}>Equipar</button>` : ''}
               ${d.rarity === 'normal' && free >= 3 ? `<button class="price sell" data-c="fuse3" data-id="${d.id}">Fundir 3</button>` : ''}</div>`;
           })

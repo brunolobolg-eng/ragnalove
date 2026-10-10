@@ -95,6 +95,24 @@ export const NORMALS = CARD_CATALOG.filter((c) => c.rarity === 'normal');
 export const MINIBOSSES = CARD_CATALOG.filter((c) => c.rarity === 'miniboss');
 export const MVPS = CARD_CATALOG.filter((c) => c.rarity === 'mvp');
 export const cardArt = (id: string): string => `sprites/cards/${CARD_BY_ID[id]?.art ?? id}.jpg`;
+/**
+ * Recorte da arte (fração da imagem original de 192×256). A arte traz pintados a moldura e a faixa do nome;
+ * a interface corta isso e desenha a moldura e o nome iguais em todas as cartas. Dado, não número mágico:
+ * ajuste aqui se uma arte nova tiver outra margem.
+ */
+export const CARD_ART_WINDOW = { x: 0.085, y: 0.05, w: 0.83, h: 0.74 } as const;
+
+const RARITY_RANK: Record<CardRarity, number> = { normal: 0, miniboss: 1, mvp: 2 };
+
+/**
+ * Ordem de revelação do pacote: Normais primeiro e a MVP por último (o suspense cresce até a raridade).
+ * Estável dentro da mesma raridade (mantém a ordem em que saíram).
+ */
+export const revealOrder = (ids: string[]): string[] =>
+  ids
+    .map((id, i) => ({ id, i, rank: RARITY_RANK[CARD_BY_ID[id]?.rarity ?? 'normal'] }))
+    .sort((a, b) => a.rank - b.rank || a.i - b.i)
+    .map((x) => x.id);
 
 /** Slots por runs vencidas: 2/run até 20 (run 10), +1/run até 30 (run 20+). */
 export function cardSlots(runsWon: number): number {

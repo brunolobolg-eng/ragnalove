@@ -404,7 +404,8 @@ const HOVER_SWAY: Record<string, (w: number) => Euler3> = {
 /** Flutuação em repouso e no andar: o corpo fica erguido em `lift` e tem um balanço suave (sem pés no chão). */
 export function hoverWalk(bones: BoneDef[], lift: number, duration = 2.4): THREE.AnimationClip {
   const hips = bones.find((b) => /^hips$/i.test(b.name))!;
-  const N = 16;
+  // 32 quadros por ciclo: o balanço das juntas fica liso (sem facetas de interpolação linear)
+  const N = 32;
   const times = Array.from({ length: N + 1 }, (_, i) => (i / N) * duration);
   const tracks: THREE.KeyframeTrack[] = [];
   const e = new THREE.Euler();
@@ -423,8 +424,9 @@ export function hoverWalk(bones: BoneDef[], lift: number, duration = 2.4): THREE
     }
     tracks.push(new THREE.QuaternionKeyframeTrack(`${b.name}.quaternion`, times, values));
   }
+  // a altura da flutuação (subir e descer) vem da unidade (`ModelDef.float`), não do clipe
   const values: number[] = [];
-  for (const t of times) values.push(hips.pos[0], hips.pos[1] + lift + 0.012 * Math.sin((2 * Math.PI * t) / duration), hips.pos[2]);
+  for (let i = 0; i < times.length; i++) values.push(hips.pos[0], hips.pos[1] + lift, hips.pos[2]);
   tracks.push(new THREE.VectorKeyframeTrack(`${hips.name}.position`, times, values));
   return new THREE.AnimationClip('hover', duration, tracks);
 }

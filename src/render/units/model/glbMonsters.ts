@@ -300,6 +300,7 @@ export async function loadMonsterModels(onLoaded?: (kind: string) => void): Prom
           clips: () => clips,
           scale: v.height / model.height,
           walkRate: v.walkRate,
+          float: v.float,
           aura: v.aura ? new THREE.Color(...v.aura) : undefined,
           ghost: v.ghost ? new THREE.Color(...v.ghost) : undefined,
           weapons: v.weapons,

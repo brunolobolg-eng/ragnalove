@@ -2,6 +2,19 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.7b
+- Pacote de cartas com abertura interativa (estilo Hearthstone): o pacote fica selado, o jogador arrasta o topo (ou toca) para rasgar, as cinco cartas saem viradas para baixo e são reveladas uma a uma, ou todas de uma vez.
+- Cada raridade tem a sua reação: Normal com brilho e moeda; Mini-Boss com aura roxa e faíscas; MVP com clarão, raios, faíscas douradas e a faixa "VOCÊ ENCONTROU ...". A MVP sai por último.
+- Cartas recortadas direito: a arte traz moldura e faixa do nome pintadas, e a interface agora corta isso e desenha a moldura e o nome iguais em todas as cartas (a janela de recorte fica em `CARD_ART_WINDOW`).
+- A coleção e as cartas equipadas também usam a arte recortada (antes a arte inteira era esmagada num quadrado).
+- Sons da abertura: rasgo, moeda (Normal), gota (Mini-Boss) e fanfarra (MVP).
+- Checagem nova (cardCheck): ordem de revelação e janela de recorte.
+
+## 2026-10-10 — v0.7a
+- Bongun (necromante) flutua de verdade: o corpo sobe e desce 9 cm em torno da altura-base a cada 2,6 s (antes era um balanço de 1 cm, quase imperceptível, em posição fixa). A sombra de contato encolhe e clareia quando ele sobe e volta ao normal quando desce.
+- O balanço vem da unidade (`float` no registro dos modelos), então vale também nas ações no ar (golpe, conjuração, dano).
+- Balanço das juntas em 32 quadros por ciclo, sem facetas.
+
 ## 2026-10-10 — v0.6z
 - Magias prontas disparam no seu tick, sem prioridade entre elas. Antes, cada classe escolhia uma magia por tick pela ordem da IA e as demais esperavam; agora duas ou mais prontas no mesmo tick saem juntas, com uma só animação de conjuração e os efeitos de todas.
 - Vale para as seis classes. Exceção: o golpe corpo a corpo do Guerreiro continua um por vez (a animação e a posição dependem dele); as magias runicas e os buffs dele disparam em paralelo.

@@ -21,6 +21,8 @@ export interface ModelDef {
   walkRate: number;
   /** Armas presas nos ossos (modelos importados que vêm de mãos vazias). */
   weapons?: WeaponAttach[];
+  /** Flutuação: sobe e desce `amp` metros em `period` segundos (a sombra de contato acompanha). */
+  float?: { amp: number; period: number };
 }
 
 export const MODELS: Record<string, ModelDef> = {
@@ -115,6 +117,8 @@ export class ModelUnitView {
   private readonly castsShadow: boolean;
   private readonly def: ModelDef;
   private time = Math.random() * 10;
+  /** Flutuação do corpo (só modelos com `float`): sobe e desce em torno da altura-base do clipe. */
+  private readonly float?: { amp: number; period: number };
   private yaw = 0;
   private targetYaw = 0;
   private flash = 0;
@@ -137,6 +141,7 @@ export class ModelUnitView {
     readonly team: 'party' | 'enemy',
   ) {
     this.def = MODELS[kind];
+    this.float = this.def.float;
     const { model, clips } = assets(kind);
     this.hpVisible = team === 'party';
     this.u = createUnitUniforms();
@@ -305,6 +310,13 @@ export class ModelUnitView {
 
   update(dt: number, moveT: number, hpFrac: number, camQuat: THREE.Quaternion): void {
     this.time += dt;
+    if (this.float && this.dyingT < 0) {
+      // respiração no ar: -1..1 do seno; a sombra de contato encolhe e clareia quando o corpo sobe
+      const k = Math.sin((2 * Math.PI * this.time) / this.float.period);
+      this.model.position.y = this.float.amp * k;
+      this.contact.scale.set(0.6 * (1 - 0.14 * k), 1, 0.45 * (1 - 0.14 * k));
+      this.contact.material.opacity = 0.38 - 0.1 * k;
+    }
     // Virar suave para a direção da grade (caminho mais curto no círculo)
     let d = this.targetYaw - this.yaw;
     d = Math.atan2(Math.sin(d), Math.cos(d));
