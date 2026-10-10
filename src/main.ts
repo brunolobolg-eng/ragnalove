@@ -500,7 +500,7 @@ const collection = new Collection({
   },
   onUi: ui,
 });
-const cardPack = new CardPack();
+const cardPack = new CardPack((n) => audio.sfx(n));
 function openCollection(): void {
   const meta = loadMetaStats();
   openCardsRef = meta.collection ?? emptyCollection();

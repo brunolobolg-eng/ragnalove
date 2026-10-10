@@ -1,6 +1,7 @@
 // Checagem do sistema de cartas: catálogo, pacote, fusão, slots, afinidade,
 // equipamento, coleção/save e bônus no heroStats. Sem DOM, sem run, sem save.
 import {
+  CARD_ART_WINDOW,
   CARD_BY_ID,
   CARD_CATALOG,
   MINIBOSSES,
@@ -16,6 +17,7 @@ import {
   fuseBulk,
   fuseTriple,
   migrateCollection,
+  revealOrder,
   rollPack,
   unequipCard,
 } from '../src/core/progression/cards';
@@ -126,6 +128,19 @@ check(`raridades: ${NORMALS.length}N/${MINIBOSSES.length}MB/${MVPS.length}MVP`, 
   check('save antigo sem coleção migra vazio', Object.keys(migrated.owned).length === 0);
   const migrated2 = migrateCollection({ owned: { poring: 2 }, equipped: { mage: ['poring'] } });
   check('coleção existente preservada', migrated2.owned.poring === 2 && migrated2.equipped.mage?.[0] === 'poring');
+
+  // revelação: Normais primeiro, MVP por último; a ordem dentro da mesma raridade é a que saiu
+  const pack = ['baphomet', 'poring', 'orc_hero', 'wolf', 'garm'];
+  const ordem = revealOrder(pack);
+  const ranks = ordem.map((id) => ({ normal: 0, miniboss: 1, mvp: 2 })[CARD_BY_ID[id].rarity]);
+  check('revelação: raridade sobe (Normal → Mini-Boss → MVP)', ranks.every((r, i) => i === 0 || r >= ranks[i - 1]), `ordem ${ordem.join(',')}`);
+  check('revelação: MVP por último', ordem[ordem.length - 1] === 'baphomet', `último ${ordem[ordem.length - 1]}`);
+  check('revelação: mesma raridade mantém a ordem', ordem.indexOf('poring') < ordem.indexOf('wolf'), `ordem ${ordem.join(',')}`);
+  check('revelação: não perde nem inventa carta', ordem.length === pack.length && pack.every((id) => ordem.includes(id)));
+  // recorte da arte: a janela fica dentro da imagem (moldura e faixa do nome ficam de fora)
+  const { x, y, w, h } = CARD_ART_WINDOW;
+  check('recorte da arte dentro da imagem', x >= 0 && y >= 0 && x + w <= 1 && y + h <= 1 && w > 0 && h > 0, JSON.stringify(CARD_ART_WINDOW));
+  check('recorte tira a faixa do nome (fundo da janela acima de 0,8 da altura)', y + h <= 0.8, `fundo ${(y + h).toFixed(2)}`);
 }
 
 if (failures) {
