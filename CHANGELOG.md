@@ -2,6 +2,13 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.6w
+- Bruxa: modelo novo do dono (`bruxa.glb`, 62 MB) otimizado para 2,3 MB (47 mil vértices, 39 mil triângulos, textura WebP de 1024 px). Continua no mesmo registro `warlock`.
+- Animações: como na feiticeira, o arquivo traz uma única animação travada (em degrau), então a bruxa usa o conjunto de clipes do guerreiro com a pose de descanso do arquivo (`bind: 'ibm'`). O conjunto do cultista deixou a figura achatada no teste.
+- As sete animações do modelo antigo da bruxa saem junto com o arquivo antigo.
+- Pele sem redistribuição por proximidade (a versão redistribuída deformou braços e cabelo no teste).
+- Pendências: o golpe usa a animação de espada do guerreiro, e as bordas do cabelo e da capa aparecem levemente serrilhadas em movimento.
+
 ## 2026-10-10 — v0.6v
 - Feiticeira: modelo novo da maga (`maga.glb`, 61 MB) otimizado para 2,3 MB (47 mil vértices, 39 mil triângulos, textura WebP de 1024 px). Continua no mesmo registro `sorcerer`.
 - Animações: o arquivo trazia uma única animação travada (em degrau), então a feiticeira usa o conjunto de clipes do guerreiro, que serve ao mesmo esqueleto Mixamo de 61 ossos, com a pose de descanso do arquivo (`bind: 'ibm'`). O conjunto do cultista deixava a figura achatada no teste.

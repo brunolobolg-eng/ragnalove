@@ -216,7 +216,9 @@ export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   // Feiticeira: modelo da maga (2,3 MB, 47 mil vértices, textura 1024 px). Sem animações próprias: usa o conjunto do
   // guerreiro (mesmo esqueleto Mixamo de 61 ossos) com a pose de descanso do arquivo. O conjunto do cultista deixa a figura achatada.
   sorcerer: { file: 'models/sorcerer.glb', height: 1.75, walkRate: 1, ghost: [1.2, 0.55, 1.8], clips: 'warriorRig', bind: 'ibm' },
-  warlock: { file: 'models/warlock.glb', height: 1.75, walkRate: 1, ghost: [1.6, 0.25, 0.6] },
+  // Bruxa: modelo novo (2,3 MB, 47 mil vértices, textura WebP de 1024 px, sem redistribuir pesos). Sem animações próprias:
+  // usa o conjunto do guerreiro com a pose de descanso do arquivo (o conjunto do cultista deixa a figura achatada).
+  warlock: { file: 'models/warlock.glb', height: 1.75, walkRate: 1, ghost: [1.6, 0.25, 0.6], clips: 'warriorRig', bind: 'ibm' },
   // Cavaleiro sombrio (modelo do V2Fun no esqueleto padrão): animações de golpe do Guerreiro (corpo a corpo)
   assassin: { file: 'models/assassin_dk.glb', height: 1.9, walkRate: 1.05, ghost: [1.6, 1.3, 0.3], clips: 'warrior', weapons: [{ type: 'dagger', bone: 'hand.R', accent: 0xc070ff }, { type: 'dagger', bone: 'hand.L', accent: 0xc070ff }] },
 };
@@ -320,7 +322,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6v',
+  version: 'v0.6w',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
