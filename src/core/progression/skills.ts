@@ -69,6 +69,13 @@ export type SkillId =
   | 'darkPact'
   | 'shadowSwarm'
   | 'soulHarvest'
+  // Bruxa — magias novas (lançadas na hora; só a recarga limita)
+  | 'etherealCage'
+  | 'soulEcho'
+  | 'frostMist'
+  | 'blackFrost'
+  | 'abyssMarsh'
+  | 'darkApex'
   // Assassino
   | 'backstab'
   | 'bladeFan'
@@ -197,6 +204,22 @@ export const SKILL_NUM = {
   darkPact: (lv: number) => ({ dmg: 0.04 * lv }),
   shadowSwarm: (lv: number) => ({ targets: 2 + lv, dot: 3 + 1.5 * lv, ticks: 40 + 6 * lv, cooldown: 90 - 5 * lv }),
   soulHarvest: (lv: number) => ({ heal: 2 + lv, soulChance: 0.08 * lv }),
+  /** Névoa Gélida: área no chão (raio 3→5), pulso de gelo a cada 1 s; cada pulso deixa o inimigo gelado. */
+  frostMist: (lv: number) => ({ radius: lv >= 5 ? 5 : lv >= 3 ? 4 : 3, pulse: 2 + lv, ticks: 100 + 75 * (lv - 1), range: 6, cooldown: 90 - 5 * (lv - 1) }),
+  /** Cárcere Etéreo: prende um inimigo (não chefe) em cristal; chance de falhar até o nível 2. Preso só recebe dano de sombra. */
+  etherealCage: (lv: number) => ({ chance: Math.min(0.9, 0.5 + 0.1 * (lv - 1)), ticks: 100 + 20 * (lv - 1), range: 6, cooldown: 150 - 10 * (lv - 1) }),
+  /** Eco da Alma: 2 batidas de sombra no alvo e na área (raio 1→2); dobra contra inimigos presos. */
+  soulEcho: (lv: number) => ({ damage: 10 + 3 * lv, radius: lv >= 4 ? 2 : 1, blows: 2, cagedMult: 2, range: 6, cooldown: 70 - 4 * (lv - 1) }),
+  /** Geada Negra: dano de gelo instantâneo na área (raio 3→5); mais dano nos inimigos gelados. */
+  blackFrost: (lv: number) => ({ damage: 12 + 4 * lv, radius: lv >= 5 ? 5 : lv >= 3 ? 4 : 3, chillMult: 1.4 + 0.075 * (lv - 1), range: 6, cooldown: 70 - 4 * (lv - 1) }),
+  /** Lodaçal Abissal: lentidão e vulnerabilidade sobem com a Inteligência (teto em `slowCap` e `curseCap`). */
+  abyssMarsh: (lv: number) => ({
+    slow: 2.0 + 0.25 * (lv - 1), slowPerInt: 0.01, slowCap: 3.5,
+    curse: 0.15 + 0.03 * (lv - 1), cursePerInt: 0.002, curseCap: 0.3,
+    ticks: 300, range: 6, cooldown: 70 - 4 * (lv - 1),
+  }),
+  /** Ápice Sombrio: a Bruxa ganha `amp` no dano de sombra, maldição e gelo (não gasta a ação). `range`: só ativa com inimigo perto. */
+  darkApex: (lv: number) => ({ amp: 0.15 + 0.02 * (lv - 1), ticks: 300 + 30 * (lv - 1), range: 6, cooldown: 600 - 40 * (lv - 1) }),
   backstab: (lv: number) => ({ dmgMult: 1 + 0.12 * (lv - 1) }),
   bladeFan: (lv: number) => ({ dmgMult: 1 + 0.1 * (lv - 1) }),
   shadowStep: (lv: number) => ({ dodge: 0.02 * lv, crit: 0.02 * lv }),
@@ -452,6 +475,37 @@ export const SKILLS: SkillDef[] = [
     requires: [{ id: 'lifeDrain', level: 4 }, { id: 'shadowSwarm', level: 2 }], start: 0,
     desc: 'Passiva: inimigos mortos pela Bruxa curam a party e podem render almas extras.',
     effect: (lv) => `+${N.soulHarvest(lv).heal} HP para a party · ${pct(N.soulHarvest(lv).soulChance)} de alma extra`,
+  },
+  {
+    id: 'frostMist', hero: 'warlock', name: 'Névoa Gélida', tier: 1, col: 3, kind: 'active', maxLevel: 5, requires: [], start: 0,
+    desc: 'Névoa de gelo no chão: dano contínuo e Frio (mais lenta e mais vulnerável).',
+    effect: (lv) => { const n = N.frostMist(lv); return `Raio ${n.radius} · dano ${n.pulse} por segundo · Frio · ${sec(n.ticks)} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'etherealCage', hero: 'warlock', name: 'Cárcere Etéreo', tier: 1, col: 4, kind: 'active', maxLevel: 5, requires: [], start: 0,
+    desc: 'Prende um inimigo em cristal: ele fica parado e só recebe dano de sombra.',
+    effect: (lv) => { const n = N.etherealCage(lv); return `Chance ${pct(n.chance)} · prende ${sec(n.ticks)} · alcance ${n.range} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'abyssMarsh', hero: 'warlock', name: 'Lodaçal Abissal', tier: 2, col: 2, kind: 'active', maxLevel: 5, requires: [{ id: 'curse', level: 2 }], start: 0,
+    desc: 'Raízes prendem um inimigo: ele anda mais devagar e recebe mais dano por 30 s.',
+    effect: (lv) => { const n = N.abyssMarsh(lv); return `Lento ×${n.slow.toFixed(2)} · +${pct(n.curse)} de dano recebido (sobe com Inteligência) · ${sec(n.ticks)} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'blackFrost', hero: 'warlock', name: 'Geada Negra', tier: 2, col: 3, kind: 'active', maxLevel: 5, requires: [{ id: 'frostMist', level: 2 }], start: 0,
+    desc: 'Gelo negro na área. Mais dano nos inimigos com Frio.',
+    effect: (lv) => { const n = N.blackFrost(lv); return `Dano ${n.damage} em área (raio ${n.radius}) · ×${n.chillMult.toFixed(2)} contra inimigos com Frio · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'soulEcho', hero: 'warlock', name: 'Eco da Alma', tier: 2, col: 4, kind: 'active', maxLevel: 5, requires: [{ id: 'etherealCage', level: 2 }], start: 0,
+    desc: 'Duas batidas de sombra no inimigo e na área. Dobra o dano contra inimigos presos.',
+    effect: (lv) => { const n = N.soulEcho(lv); return `2 golpes de ${n.damage} de sombra · área ${n.radius * 2 + 1}×${n.radius * 2 + 1} · ×${n.cagedMult} contra presos · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'darkApex', hero: 'warlock', name: 'Ápice Sombrio', tier: 3, col: 3, kind: 'active', maxLevel: 5,
+    requires: [{ id: 'blackFrost', level: 2 }, { id: 'soulEcho', level: 2 }], start: 0,
+    desc: 'A Bruxa se maximiza: mais dano de sombra, gelo e maldição por um tempo.',
+    effect: (lv) => { const n = N.darkApex(lv); return `Dano de sombra, gelo e maldição +${pct(n.amp)} por ${sec(n.ticks)} · recarga ${sec(n.cooldown)}`; },
   },
   // ---------------- Assassino ----------------
   {

@@ -436,6 +436,8 @@ export const GAME_CONFIG = {
       hp: 85,
       drain: { range: 5, damage: 8, cooldownTicks: 17 },
       curse: { range: 6, radius: 1, damage: 4, durationTicks: 60, cooldownTicks: 90, minTargets: 2 },
+      /** Frio (Névoa Gélida): inimigo gelado anda mais devagar, ataca/conjura mais devagar e recebe mais dano. */
+      chill: { moveMult: 1.6, attackMult: 1.3, dmgTakenAmp: 0.1, durationTicks: 20 },
     },
     /** Assassino: corpo a corpo letal (Destreza). */
     assassin: {

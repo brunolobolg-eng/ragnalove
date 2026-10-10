@@ -62,6 +62,13 @@ export interface Unit {
   /** Amaldiçoado (Bruxa) até este tick: recebe `curseAmp` a mais de dano. */
   cursedUntil?: number;
   curseAmp?: number;
+  /** Preso em cristal (Cárcere Etéreo, só inimigos) até este tick: só recebe dano de sombra. */
+  cagedUntil?: number;
+  /** Gelado (Névoa Gélida) até este tick: passos, ataques e conjurações mais lentos; recebe mais dano. */
+  chilledUntil?: number;
+  /** Ápice Sombrio (só a Bruxa) até este tick: o dano de sombra, maldição e gelo dela sai com `apexAmp` a mais. */
+  apexUntil?: number;
+  apexAmp?: number;
   /** Limite da Morte (Guerreiro) até este tick: recebe `markAmp` a mais e devolve `markReflect` do dano a quem bateu. */
   markedUntil?: number;
   markAmp?: number;
@@ -145,7 +152,25 @@ export interface MapObject {
 
 export type DamageSource = 'burn' | 'cleave' | 'melee' | 'bolt' | 'bash' | 'debug' | 'nova' | 'storm' | 'shock' | 'combust' | 'arrow' | 'rain' | 'pierce' | 'spell' | 'meteor' | 'oil' | 'ruin' | 'trap' | 'arcane' | 'shadow' | 'blade' | 'poison' | 'curse' | 'execute'
   // Guerreiro (Cavaleiro Rúnico): Lâmina Encantada (bônus mágico), Onda Sônica, Cem Lanças, Cortador de Vento, dano devolvido
-  | 'enchant' | 'wave' | 'spear' | 'wind' | 'reflect';
+  | 'enchant' | 'wave' | 'spear' | 'wind' | 'reflect'
+  // Bruxa (magias novas): gelo (Névoa Gélida, Geada Negra) — nunca critica
+  | 'frost';
+
+/** Névoa Gélida (Bruxa): área no chão que pulsa dano de gelo nos inimigos dentro. Fora do sistema de hazards. */
+export interface FrostMist {
+  id: number;
+  ownerId: number;
+  x: number;
+  y: number;
+  radius: number;
+  startTick: number;
+  /** Último tick (inclusive) em que a névoa ainda pulsa. */
+  untilTick: number;
+  /** Dano de cada pulso (já com o poder da Bruxa). */
+  pulse: number;
+  /** Duração do Frio aplicado a cada pulso. */
+  chillTicks: number;
+}
 
 export interface AreaEffect {
   id: number;
@@ -174,7 +199,8 @@ export type SimEvent =
   | { type: 'bolt'; unitId: number; targetId: number; from: Vec2; to: Vec2 }
   /** `crit`: golpe crítico (só apresentação: o efeito pode ser mais forte) */
   | { type: 'bash'; unitId: number; targetId: number; x: number; y: number; crit?: boolean }
-  | { type: 'avoid'; unitId: number; how: 'dodge' | 'block' | 'deflect' | 'shield' }
+  /** `cage`: o dano foi descartado porque o alvo está preso no Cárcere Etéreo (só dano de sombra passa). */
+  | { type: 'avoid'; unitId: number; how: 'dodge' | 'block' | 'deflect' | 'shield' | 'cage' }
   | { type: 'exp'; x: number; y: number; amount: number }
   | { type: 'zeni'; x: number; y: number; amount: number }
   | { type: 'levelup'; unitId: number; level: number }
@@ -234,7 +260,21 @@ export type SimEvent =
   /** Execução do Assassino. */
   | { type: 'execute'; unitId: number; targetId: number; x: number; y: number }
   /** Unidade provocada (aggro trocou para `targetId`). */
-  | { type: 'aggro'; unitId: number; targetId: number; ticks: number };
+  | { type: 'aggro'; unitId: number; targetId: number; ticks: number }
+  /** Bruxa — Cárcere Etéreo: prende `targetId` por `ticks` (x/y = do alvo). `ok`=false: a chance falhou. */
+  | { type: 'etherealCage'; unitId: number; targetId: number; x: number; y: number; ticks: number; ok: boolean }
+  /** Bruxa — Eco da Alma: duas batidas de sombra em `targetIds` (alvo + área de `radius`). `doubled`: algum alvo estava preso. */
+  | { type: 'soulEcho'; unitId: number; targetId: number; x: number; y: number; radius: number; targetIds: number[]; doubled: boolean }
+  /** Bruxa — Névoa Gélida: área no chão (x/y = centro) por `ticks`. */
+  | { type: 'frostMist'; unitId: number; x: number; y: number; radius: number; ticks: number }
+  /** Inimigo `unitId` ficou gelado por `ticks` (só na transição: quem já estava gelado não gera de novo). */
+  | { type: 'chill'; unitId: number; ticks: number }
+  /** Bruxa — Geada Negra: área instantânea (x/y = centro). `chilled`: quantos alvos estavam gelados. */
+  | { type: 'blackFrost'; unitId: number; x: number; y: number; radius: number; targetIds: number[]; chilled: number }
+  /** Bruxa — Lodaçal Abissal: lentidão `slowMult` e vulnerabilidade `curseAmp` em `targetId` por `ticks`. */
+  | { type: 'abyssMarsh'; unitId: number; targetId: number; ticks: number; slowMult: number; curseAmp: number }
+  /** Bruxa — Ápice Sombrio: a própria Bruxa ganha `amp` no dano de sombra, maldição e gelo por `ticks`. */
+  | { type: 'darkApex'; unitId: number; ticks: number; amp: number };
 
 /**
  * WAVE_RESULT: relatório da noite montado pela simulação (camada autoritativa).

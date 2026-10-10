@@ -57,6 +57,7 @@ export const SOURCE_LABEL: Record<DamageSource, string> = {
   wind: 'Cortador de Vento',
   reflect: 'Limite da Morte (devolvido)',
   burn: 'Queimadura',
+  frost: 'Gelo',
   cleave: 'Golpe em Área',
   melee: 'Corpo a corpo',
   bolt: 'Projéteis',
