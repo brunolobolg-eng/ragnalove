@@ -5,6 +5,8 @@ import * as THREE from 'three';
  * `scripts/build_kenney_fx.py` em `public/fx/kenney/`. Todas são brancas com a forma no alfa —
  * a cor vem do efeito (partícula, material ou decalque). Fogo e fumaça são atlas 4×4
  * (quadro = idade da partícula). Cada arquivo é carregado uma vez e reaproveitado.
+ * Os `lu_*` são da subida de nível: recortes da arte de referência do dono, também brancos com a forma no
+ * alfa (`scripts/build_levelup_fx.py` em `public/fx/levelup/`).
  */
 export type FxTextureName =
   | 'flame_atlas'
@@ -22,6 +24,8 @@ export type FxTextureName =
   | 'trace'
   | 'ribbon'
   | 'noise'
+  | 'lu_wing' | 'lu_wing_r' | 'lu_beam' | 'lu_ring' | 'lu_halo' | 'lu_star' | 'lu_flare' | 'lu_streak'
+  | 'lu_feather_a' | 'lu_feather_b' | 'lu_feather_c' | 'lu_feather_d'
   | `decal_${DecalKind}`;
 
 const loader = new THREE.TextureLoader();
@@ -33,6 +37,8 @@ const FX_NAMES: FxTextureName[] = [
   'flame_atlas', 'smoke_atlas', 'flame_strip', 'spark', 'impact', 'glow', 'flash', 'orb', 'soul', 'halo',
   'slash', 'twirl', 'trace', 'ribbon', 'noise',
   'decal_scorch', 'decal_frost', 'decal_crack', 'decal_runesFire', 'decal_runesFrost', 'decal_ring', 'decal_glow', 'decal_aoe', 'decal_disc',
+  'lu_wing', 'lu_wing_r', 'lu_beam', 'lu_ring', 'lu_halo', 'lu_star', 'lu_flare', 'lu_streak',
+  'lu_feather_a', 'lu_feather_b', 'lu_feather_c', 'lu_feather_d',
 ];
 
 /**
@@ -53,7 +59,7 @@ export function warmFxTextures(): Promise<void> {
 export function fxTexture(name: FxTextureName): THREE.Texture {
   let t = cache.get(name);
   if (!t) {
-    t = loader.load(`fx/kenney/${name}.png`);
+    t = loader.load(`fx/${name.startsWith('lu_') ? 'levelup' : 'kenney'}/${name}.png`);
     t.name = name;
     cache.set(name, t);
   }
