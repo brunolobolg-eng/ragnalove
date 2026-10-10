@@ -1,69 +1,73 @@
 /**
- * Subida de nível: explosão divina com um anjo branco que aparece, se mostra e some em luz (inspirado no efeito de
- * nível do Ragnarok). Tempos em segundos; tamanhos em unidades do mundo; cores HDR (acima de 1 vira brilho).
- * Só apresentação: não mexe em nível, EXP ou atributos.
+ * Subida de nível, no estilo da arte de referência "LEVEL UP": feixe de luz com a base em anel, asas que se abrem
+ * atrás do herói, círculo de runas no chão, auréola sobre a cabeça, explosão com clarão e penas caindo.
+ * Os sprites vêm de `public/fx/levelup/` (scripts/build_levelup_fx.py). A cor é a da classe do herói.
+ * Tempos em segundos; tamanhos em unidades do mundo. Só apresentação: não mexe em nível, EXP ou atributos.
  */
 export const LEVELUP_FX = {
   /** duração total do efeito (s) */
-  life: 2.4,
-  /** consagração: anel de luz no chão que se fecha sobre o herói */
-  consecration: { radius: 1.3, grow: 0.6, life: 0.4, color: [1.1, 1.0, 0.8] },
-  /** coluna de luz branca-dourada que sobe do herói */
-  column: { height: 3.2, width: 0.7, life: 1.4, color: [0.7, 0.62, 0.45] },
-  /** anjo branco: textura procedural (asas, auréola, túnica, braços abertos) */
-  angel: {
-    /** resolução da textura desenhada em canvas (gerada uma vez) */
-    textureSize: 384,
-    /** penas de cada asa */
-    feathers: 9,
-    /** tamanho na tela (unidades do mundo) e cor da luz */
-    size: 2.2,
-    /** cor abaixo do limiar do bloom: o anjo fica branco sem virar nuvem */
-    color: [0.88, 0.86, 0.78],
-    /** brilho externo das penas e do centro da textura (menor = menos halo) */
-    glowBlur: 0.012,
-    centerGlow: 0.12,
-    /** entrada: começa em inAt e leva inTime para ficar inteiro */
-    inAt: 0.3,
-    inTime: 0.22,
-    /** altura do centro do anjo: sobe de y0 até y1 */
-    y0: 1.5,
-    y1: 2.3,
-    /** até quando ele fica se mostrando, e quanto tempo leva para sumir subindo */
-    holdUntil: 1.45,
-    fadeTime: 0.7,
-    /** bater de asas: frequência (ciclos/s) e amplitude da largura */
-    flapRate: 1.6,
-    flapAmp: 0.04,
+  life: 2.6,
+  /** cor de um herói sem cor de classe (nunca acontece hoje, mas o efeito não pode quebrar) */
+  defaultColor: 0xffd04a,
+  /** miolo quase branco: quanto da cor da classe se mistura com branco (0 = só a cor, 1 = branco) */
+  hotMix: 0.7,
+  /** círculo de runas no chão: começa menor, cresce, gira e some */
+  ground: { size: 2.6, start: 0.5, inTime: 0.35, spin: 0.9, holdUntil: 1.7, fadeTime: 0.7 },
+  /** feixe de luz do chão ao alto (a base em anel fica no chão) */
+  beam: { height: 3.4, width: 1.5, inTime: 0.45, holdUntil: 1.5, fadeTime: 0.7 },
+  /** asas: abrem a partir do centro do herói, batem devagar e somem */
+  wings: {
+    /** altura do centro das asas e tamanho do sprite */
+    y: 1.9,
+    width: 1.9,
+    height: 2.7,
+    /** distância do centro do herói até o centro de cada asa */
+    offset: 0.55,
+    openAt: 0.2,
+    openTime: 0.45,
+    holdUntil: 1.6,
+    fadeTime: 0.6,
+    flapRate: 1.4,
+    flapAmp: 0.035,
   },
-  /** explosão divina: acontece quando o anjo está se mostrando */
+  /** auréola inclinada sobre a cabeça */
+  halo: { y: 2.9, rise: 0.2, width: 1.7, inAt: 0.4, inTime: 0.3, holdUntil: 1.7, fadeTime: 0.6 },
+  /** explosão: acontece quando o feixe e as asas já estão de pé */
   burst: {
     at: 0.55,
-    ring: { radius: 3.2, color: [1.0, 0.95, 0.75], life: 0.6 },
-    halo: { size0: 0.5, size1: 1.7, life: 0.5, color: [0.6, 0.56, 0.46], height: 1.6 },
+    /** anel de choque no chão */
+    ring: { radius: 2.6, life: 0.6 },
+    /** estrela de clarão no centro do herói */
+    flare: { y: 1.4, size0: 0.4, size1: 1.3, life: 0.35 },
+    /** risco horizontal de lente */
+    streak: { width: 3.0, height: 0.4, life: 0.4 },
     /** raios de luz saindo do centro em todas as direções */
-    rays: { count: 10, reach: 2.4, life: 0.45, width: 0.08, length: 0.9, color: [1.0, 0.95, 0.8] },
+    rays: { count: 10, reach: 2.4, life: 0.45, width: 0.08, length: 0.9 },
     /** faíscas radiais */
-    sparks: { count: 24, speed: 3.0, color: [1.1, 1.0, 0.85], colorEnd: [1.0, 0.7, 0.3] },
+    sparks: { count: 24, speed: 3.0 },
     /** clarão pequeno (não pode lavar a arena nem o herói) */
-    flash: { size: 1.2, life: 0.16, color: [0.3, 0.27, 0.2] },
+    /** cor do clarão = cor da classe × tint (pequeno: não pode apagar o herói) */
+    flash: { size: 1.2, life: 0.16, y: 1.4, tint: 0.2 },
     /** tremor e empurrão de câmera leves */
     shake: 0.06,
     kick: 0.05,
   },
-  /** penas douradas caindo sobre o herói */
+  /** penas que caem sobre o herói (reaproveitadas de um pool de sprites) */
   feathers: {
     start: 0.6,
-    end: 2.0,
-    perSec: 18,
-    height: 3.3,
-    spread: 1.6,
-    life: 1.6,
-    size: 0.12,
-    gravity: 0.7,
-    color: [1.0, 0.97, 0.9],
-    colorEnd: [1.0, 0.8, 0.45],
+    end: 1.9,
+    perSec: 8,
+    pool: 16,
+    height: 3.2,
+    spread: 1.0,
+    life: 1.5,
+    size: 0.42,
+    fall: 0.6,
+    sway: 0.15,
+    spin: 1.2,
   },
-  /** texto do nível (o mesmo que o caso padrão do GameView usava) */
-  text: { color: '#ffd84a', size: 0.46, life: 1.6, rise: 0.9, height: 3.8 },
+  /** brilhos de estrela ao redor do feixe, um por vez, em instantes fixos */
+  glints: { times: [0.9, 1.2, 1.55, 1.9], height: [1.2, 2.2, 1.7, 2.6], size: 0.55, life: 0.5, offsetX: 0.9 },
+  /** texto do nível (a cor do texto é a da classe) */
+  text: { size: 0.46, life: 1.6, rise: 0.9, height: 3.8 },
 } as const;

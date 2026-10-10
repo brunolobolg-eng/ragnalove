@@ -2,6 +2,14 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.6s
+- Subida de nível refeita com a arte de referência "LEVEL UP": um feixe de luz com a base em anel sobe do chão, as asas se abrem atrás do herói, um círculo de runas gira no chão e uma auréola aparece sobre a cabeça. Na explosão há clarão, raios e faíscas; penas e brilhos caem depois.
+- Cada classe sobe na sua cor (a cor de destaque do herói): Guerreiro laranja-avermelhado, Mago azul, Arqueira verde, Feiticeira roxa, Bruxa rosa e Assassino dourado. O texto NÍVEL também sai nessa cor.
+- Os desenhos são recortes da própria arte de referência (`public/fx/levelup/`, feitos por `scripts/build_levelup_fx.py`). O anjo desenhado em código saiu.
+- Números em `src/config/fx/levelup.ts`; a cor de cada classe vem de `src/config/heroes.ts`.
+- Vitrine: uma subida de nível por classe.
+- Limite: os recortes da referência são pequenos (cerca de 50 a 130 px no original), então ampliados ficam um pouco macios. Uma folha em resolução maior melhora o resultado sem mudar o código.
+
 ## 2026-10-10 — v0.6r
 - Subida de nível: explosão divina. Primeiro, um anel de luz no chão e uma coluna dourada; depois um anjo branco se mostra acima do herói, bate as asas e some subindo em luz. A explosão solta raios e faíscas, e penas douradas caem sobre o herói. O texto NÍVEL continua.
 - Feiticeira (arcana): Orbe Arcano (ataque básico), Meteoro (runa no chão, queda com rastro, cratera), Corrente Elétrica (elos entre os inimigos) e acerto crítico; com nível 5, a corrente tem mais elos.
