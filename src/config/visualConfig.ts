@@ -239,6 +239,8 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   // Ato III — orc guerreiro chibi (V2Fun): golpe de machado por cima vem do próprio GLB, o resto é do brutamonte
   orcWarrior: { file: 'models/orc.glb', height: 2.3, walkRate: 0.85, clips: 'brute', aura: [0.9, 0.3, 1.8], weapons: [ORC_AXE] },
   orcLord: { file: 'models/orc.glb', height: 3.3, walkRate: 0.9, clips: 'brute', aura: [1.6, 0.15, 0.4], weapons: [ORC_AXE] },
+  // Dino (variedade em teste): esqueleto de 57 ossos no padrão do cultista; movimentos vêm da UAL (como o cultista)
+  dino: { file: 'models/dino.glb', height: 1.8, walkRate: 1, clips: 'cultist' },
 };
 
 /**
