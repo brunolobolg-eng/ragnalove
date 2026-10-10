@@ -292,9 +292,9 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   dinoNecro: { file: 'models/dino.glb', height: 1.7, walkRate: 1.2, clips: 'cultist', bind: 'ibm', aura: [0.7, 0.2, 1.6], ...DINO_COLORS },
   // Mini-chefe (tipo próprio de inimigo, como o Krexx): dino maior, com aura âmbar; mesma regra de cor por tema
   dinoBoss: { file: 'models/dino.glb', height: 2.6, walkRate: 0.9, clips: 'cultist', bind: 'ibm', aura: [1.2, 0.8, 0.2], ...DINO_COLORS },
-  // Raydric (tipo 'raydric' da simulação, pesado comum): modelo novo de pedra com 57 ossos do cultista; pose de descanso =
+  // Raydric (tipo 'raydric' da simulação, pesado comum): modelo de pedra com 57 ossos; clipes do guerreiro (o do cultista achata a figura); pose de descanso =
   // bind do arquivo. Altura 2,3 m (malha de 1,87 unidades, escala 1,23×). walkRate 0,75 = 0,85 do brutamonte × 10/12 ticks.
-  raydric: { file: 'models/raydric.glb', height: 2.3, walkRate: 0.75, clips: 'cultist', bind: 'ibm', skins: RAYDRIC_SKINS, skinNames: RAYDRIC_SKIN_NAMES, themeColors: RAYDRIC_THEME_COLORS },
+  raydric: { file: 'models/raydric.glb', height: 2.3, walkRate: 0.75, clips: 'warriorRig', bind: 'ibm', skins: RAYDRIC_SKINS, skinNames: RAYDRIC_SKIN_NAMES, themeColors: RAYDRIC_THEME_COLORS },
 };
 
 /**
@@ -339,7 +339,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6w',
+  version: 'v0.6x',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
