@@ -62,12 +62,8 @@ export const WARLOCK_NEW_FX = {
     echoRing: [0.5, 0.3, 0.8],
     /** flare do eco dobrado (aditivo, pequeno) */
     echoFlare: [0.8, 0.5, 1.0],
-    /** pilar do ápice: violeta, aditivo */
-    apex: [0.45, 0.2, 0.8],
-    /** pilar do ápice: corpo escuro por dentro (mistura normal) */
-    apexDark: [0.1, 0.02, 0.16],
-    /** motes da aura do ápice (aditivo) */
-    apexMote: [0.5, 0.25, 0.8],
+    /** tinta da arte do Ápice (1 = cor original da folha; acima de 1 = brilho extra, entra no bloom) */
+    apex: [1, 0.9, 1.15],
     /** contorno de gelo do inimigo gelado (aditivo, multiplicado por 0,5) */
     chillGlow: [0.5, 0.9, 1.2],
   },
@@ -299,38 +295,62 @@ export const WARLOCK_NEW_FX = {
   },
 
   /**
-   * Ápice Sombrio (buff da própria Bruxa): pilar violeta, anel de runas no chão, aura de motes girando em volta dela.
-   * Ao acabar (`ticks`), os motes voltam ao peito dela e somem.
+   * Ápice Sombrio (buff da própria Bruxa), com a arte do dono: abertura em 8 quadros de um círculo de veneno que se
+   * forma no chão; depois o círculo, a névoa e o anel de runas embaixo dela, espinhos que sobem em volta, faces
+   * espectrais e pedras que orbitam a cintura. Ao acabar (`ticks`), tudo converge para o peito dela e some.
    */
   apex: {
-    /** pilar: altura, largura, tempo de crescimento (s), transparência e pulso (amplitude e velocidade) */
-    pillarHeight: 2.4,
-    pillarWidth: 0.9,
-    pillarGrow: 0.3,
-    pillarAlpha: 0.7,
-    pillarPulse: 0.2,
-    pillarPulseSpeed: 2.5,
-    /** corpo escuro do pilar (mistura normal) */
-    darkWidth: 0.6,
-    darkAlpha: 0.6,
-    /** anel de runas (groundCircle): raio, vida (s), fração inicial do tamanho */
-    ringRadius: 1.1,
-    ringLife: 1.4,
-    ringGrow: 0.6,
-    /** motes da aura: quantidade, tamanho, raio, altura baixa e alta (sobem com o tempo), giro e balanço */
-    motes: 6,
-    moteSize: 0.22,
-    moteAlpha: 0.9,
-    moteRadius: 0.9,
-    moteHeightLow: 0.4,
-    moteHeightHigh: 1.2,
-    moteSpin: 1.2,
-    moteBob: 0.1,
-    /** entrada dos motes (s) e tempo para voltarem ao peito no fim (s) */
-    moteFadeIn: 0.3,
+    /** abertura: 8 quadros da arte (o círculo se forma), em cross-fade; duração (s) */
+    introDur: 0.9,
+    /** o último quadro some nesta janela depois da abertura (s) */
+    introFade: 0.3,
+    /** entrada das camadas (s); cada grupo entra com o atraso dele */
+    grow: 0.35,
+    /** círculo de veneno no chão (arte completa): largura (m), alfa, pulso (amplitude e velocidade) */
+    floorWidth: 4.4,
+    floorAlpha: 0.7,
+    floorPulse: 0.12,
+    floorPulseSpeed: 2.2,
+    /** névoa no chão: largura (m), alfa, respiração (amplitude e velocidade) e giro (rad/s) */
+    fogWidth: 3.8,
+    fogAlpha: 0.5,
+    fogBreath: 0.05,
+    fogBreathSpeed: 1.3,
+    fogSpin: 0.1,
+    /** anel de runas no chão, girando no sentido contrário: largura (m), alfa, giro (rad/s) */
+    ringWidth: 2.5,
+    ringAlpha: 0.95,
+    ringSpin: 0.5,
+    /** espinhos de energia: quantidade, raio, largura, altura máxima (m), alfa, período de pulsação (s) */
+    spikes: 4,
+    spikeRadius: 1.3,
+    spikeWidth: 1.3,
+    spikeHeight: 2.3,
+    spikeAlpha: 0.85,
+    spikePeriod: 2.8,
+    /** faces espectrais: quantidade, raio da órbita, tamanho, alfa, ciclo de subida (s), altura da subida (m), atraso (s), giro da órbita (rad/s) */
+    faces: 3,
+    faceRadius: 1.15,
+    faceSize: 1.2,
+    faceAlpha: 0.95,
+    facePeriod: 2.6,
+    faceRise: 2.2,
+    faceDelay: 0.2,
+    faceOrbit: 0.35,
+    /** pedras da cintura: quantidade, raio da órbita, tamanho, altura, alfa, giro (rad/s), balanço (m e velocidade), atraso (s) */
+    stones: 3,
+    stoneRadius: 1.1,
+    stoneSize: 0.8,
+    stoneHeight: 0.85,
+    stoneAlpha: 0.95,
+    stoneOrbit: 0.6,
+    stoneBob: 0.08,
+    stoneBobSpeed: 1.7,
+    stoneDelay: 0.4,
+    /** convergência no fim: o corpo do efeito volta ao peito nos últimos `converge` s */
     converge: 0.8,
     /** fumaça violeta nos pés: partículas por segundo, tamanho, vida, alfa */
-    vaporRate: 5,
+    vaporRate: 4,
     vaporSize: 0.2,
     vaporSizeEnd: 0.5,
     vaporLife: 0.8,

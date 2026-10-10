@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { WARLOCK_NEW_FX as K } from '../../../config/fx/warlockNew';
 import { Flash, FlickerLight, Timeline, type FxKit, type OneShotFx } from '../kit/FxKit';
-import { disposeFxGroup, fxSprite, groundCircle, jaggedPath } from '../kit/Shapes';
-import type { FxTextureName } from '../kit/vfxTextures';
+import { disposeFxGroup, flatPlane, fxSprite, jaggedPath } from '../kit/Shapes';
+import { APICE_FRAMES, apiceImage, radialMask, type FxTextureName } from '../kit/vfxTextures';
 
 /**
  * Efeitos das seis magias novas da Bruxa (Cárcere Etéreo, Eco da Alma, Névoa Gélida, Geada Negra, Lodaçal Abissal,
@@ -38,8 +38,6 @@ const ECHO_BURST = rgb(K.color.echoBurst);
 const ECHO_RING = rgb(K.color.echoRing);
 const ECHO_FLARE = rgb(K.color.echoFlare);
 const APEX = rgb(K.color.apex);
-const APEX_DARK = rgb(K.color.apexDark);
-const APEX_MOTE = rgb(K.color.apexMote);
 const CHILL_GLOW = rgb(K.color.chillGlow, 0.5);
 
 // vetores de trabalho: só para uso imediato (nada guarda referência a eles)
@@ -590,9 +588,53 @@ export class MarshFX implements OneShotFx {
   }
 }
 
+/** Plano deitado no chão: a malha, o material (para o alfa) e a proporção da imagem (para não esticar). */
+interface Flat {
+  mesh: THREE.Mesh;
+  mat: THREE.MeshBasicMaterial;
+  aspect: number;
+}
+
+/** Sprite de pé e a proporção da imagem (a altura muda, a largura acompanha). */
+interface Upright {
+  s: THREE.Sprite;
+  aspect: number;
+}
+
+/** Proporção (largura/altura) de uma textura já carregada; 1 enquanto não carregou. */
+function aspectOf(tex: THREE.Texture): number {
+  const im = tex.image as { width?: number; height?: number } | undefined;
+  return im?.width && im.height ? im.width / im.height : 1;
+}
+
+/** Arte do Ápice deitada no chão (aditiva, tingida pela cor da magia). Começa invisível. */
+function flatArt(parent: THREE.Object3D, name: string, width: number, renderOrder: number): Flat {
+  const map = apiceImage(name);
+  const aspect = aspectOf(map);
+  const mesh = flatPlane(parent, map, width, aspect, { y: K.groundLift, opacity: 0, renderOrder, color: APEX, alphaMap: radialMask() });
+  return { mesh, mat: mesh.material as THREE.MeshBasicMaterial, aspect };
+}
+
+/** Põe o plano no chão, no ponto (x, z), com a largura, o alfa e o giro dados (alfa 0 = escondido). */
+function showFlat(f: Flat, x: number, z: number, width: number, opacity: number, angle = 0): void {
+  f.mesh.visible = opacity > 0.001;
+  f.mesh.position.set(x, K.groundLift, z);
+  f.mesh.rotation.set(-Math.PI / 2, 0, angle);
+  f.mesh.scale.set(width, width / f.aspect, 1);
+  f.mat.opacity = opacity;
+}
+
+/** Arte do Ápice como sprite de pé (sempre de frente para a câmera). `anchorBottom`: a base fica no chão. */
+function uprightArt(parent: THREE.Object3D, name: string, anchorBottom: boolean): Upright {
+  const map = apiceImage(name);
+  const s = fxSprite(parent, 'glow', APEX, 1, { map, opacity: 0, anchorBottom });
+  return { s, aspect: aspectOf(map) };
+}
+
 /**
- * Ápice Sombrio (buff da própria Bruxa): pilar violeta com corpo escuro, anel de runas no chão e uma aura de motes
- * girando em volta dela. Ao acabar, os motes voltam ao peito e somem.
+ * Ápice Sombrio (buff da própria Bruxa), com a arte do dono (folha de magia negra). Abertura: oito quadros de um círculo
+ * de veneno que se forma no chão. Depois, o círculo, a névoa e o anel de runas ficam embaixo dela; espinhos sobem em
+ * volta, faces espectrais e pedras orbitam a cintura. Ao acabar (`ticks`), tudo converge para o peito e some.
  */
 export class ApexFX implements OneShotFx {
   readonly group = new THREE.Group();
@@ -602,9 +644,13 @@ export class ApexFX implements OneShotFx {
   private endAt: number;
   private readonly life: number;
   private readonly last = new THREE.Vector3();
-  private readonly pillar: THREE.Sprite;
-  private readonly dark: THREE.Sprite;
-  private readonly motes: { s: THREE.Sprite; ang: number; ph: number }[] = [];
+  private readonly frames: Flat[] = [];
+  private readonly floor: Flat;
+  private readonly fog: Flat;
+  private readonly ring: Flat;
+  private readonly spikes: Upright[] = [];
+  private readonly faces: Upright[] = [];
+  private readonly stones: Upright[] = [];
 
   /** `at`: posição da Bruxa (segue); `start`: posição quando o buff chegou; `ticks`: duração do buff. */
   constructor(
@@ -617,12 +663,13 @@ export class ApexFX implements OneShotFx {
     this.life = ticks / K.ticksPerSecond;
     this.endAt = this.life;
     this.last.copy(start);
-    this.dark = fxSprite(this.group, 'trace', APEX_DARK, 1, { dark: true, opacity: 0 });
-    this.pillar = fxSprite(this.group, 'trace', APEX, 1, { opacity: 0 });
-    for (let i = 0; i < A.motes; i++) {
-      this.motes.push({ s: fxSprite(this.group, 'soul', APEX_MOTE, A.moteSize, { opacity: 0 }), ang: (i / A.motes) * Math.PI * 2, ph: i * 0.9 });
-    }
-    groundCircle(kit, start, { radius: A.ringRadius, color: APEX, life: A.ringLife, kind: 'runesFire', grow: A.ringGrow });
+    for (const name of APICE_FRAMES) this.frames.push(flatArt(this.group, name, A.floorWidth, 6));
+    this.floor = flatArt(this.group, 'completo', A.floorWidth, 6);
+    this.fog = flatArt(this.group, 'nevoa', A.fogWidth, 7);
+    this.ring = flatArt(this.group, 'anel', A.ringWidth, 8);
+    for (let i = 0; i < A.spikes; i++) this.spikes.push(uprightArt(this.group, 'espinhos', true));
+    for (let i = 0; i < A.faces; i++) this.faces.push(uprightArt(this.group, 'faces', false));
+    for (let i = 0; i < A.stones; i++) this.stones.push(uprightArt(this.group, 'pedras', false));
   }
 
   update(dt: number): void {
@@ -639,27 +686,62 @@ export class ApexFX implements OneShotFx {
       if (this.missing > 0.5 && this.endAt > t) this.endAt = t;
     }
     const ending = clamp01((t - (this.endAt - A.converge)) / A.converge);
-    const appear = clamp01(t / A.pillarGrow);
-    const h = A.pillarHeight * easeOut(appear);
-    const pulse = 1 + A.pillarPulse * Math.sin(t * A.pillarPulseSpeed);
+    const live = 1 - ending;
     const base = this.last;
-    this.pillar.position.set(base.x, h / 2, base.z);
-    this.pillar.scale.set(A.pillarWidth * pulse, Math.max(K.minLength, h), 1);
-    this.pillar.material.opacity = A.pillarAlpha * appear * (1 - ending);
-    this.dark.position.copy(this.pillar.position);
-    this.dark.scale.set(A.darkWidth * pulse, Math.max(K.minLength, h), 1);
-    this.dark.material.opacity = A.darkAlpha * appear * (1 - ending);
-    const mid = (A.moteHeightLow + A.moteHeightHigh) / 2;
-    const amp = (A.moteHeightHigh - A.moteHeightLow) / 2;
-    const r = A.moteRadius * (1 - ending);
-    for (const m of this.motes) {
-      const ang = m.ang + t * A.moteSpin;
-      const yFree = mid + Math.sin(t * A.moteBob * 20 + m.ph) * amp;
+
+    // abertura: os quadros se acendem em sequência (cross-fade) e apagam logo depois que o círculo assenta
+    const frameAt = clamp01(t / A.introDur) * (this.frames.length - 1);
+    const introOut = 1 - clamp01((t - A.introDur) / A.introFade);
+    this.frames.forEach((f, i) => {
+      const w = clamp01(1 - Math.abs(frameAt - i)) * introOut * live;
+      showFlat(f, base.x, base.z, A.floorWidth, A.floorAlpha * w);
+    });
+
+    // o círculo cheio assenta (cresce até o tamanho final); a névoa e o anel entram junto
+    const settle = clamp01((t - (A.introDur - A.grow * 0.5)) / A.grow);
+    const pulse = 1 + A.floorPulse * Math.sin(t * A.floorPulseSpeed);
+    showFlat(this.floor, base.x, base.z, A.floorWidth * (0.6 + 0.4 * easeOut(settle)) * pulse, A.floorAlpha * settle * live);
+    const breath = 1 + A.fogBreath * Math.sin(t * A.fogBreathSpeed);
+    showFlat(this.fog, base.x, base.z, A.fogWidth * breath, A.fogAlpha * settle * live, t * A.fogSpin);
+    showFlat(this.ring, base.x, base.z, A.ringWidth * easeOut(settle), A.ringAlpha * settle * live, -t * A.ringSpin);
+
+    // espinhos sobem do chão logo depois da abertura e pulsam em alturas diferentes
+    const spikeRise = clamp01((t - A.introDur) / A.grow);
+    this.spikes.forEach((sp, i) => {
+      const ang = (i / this.spikes.length) * Math.PI * 2;
+      const beat = 0.8 + 0.2 * Math.sin((t * Math.PI * 2) / A.spikePeriod + i);
+      const r = A.spikeRadius * live;
+      const h = A.spikeHeight * spikeRise * beat * live;
+      sp.s.position.set(base.x + Math.cos(ang) * r, K.groundLift, base.z + Math.sin(ang) * r);
+      sp.s.scale.set(A.spikeWidth, Math.max(K.minLength, h), 1);
+      sp.s.material.opacity = A.spikeAlpha * spikeRise * live;
+    });
+
+    // faces espectrais sobem em ciclos, girando em volta dela; no fim convergem para o peito
+    const faceRise = clamp01((t - (A.introDur + A.faceDelay)) / A.grow);
+    this.faces.forEach((f, i) => {
+      const ph = (t / A.facePeriod + i / this.faces.length) % 1;
+      const ang = (i / this.faces.length) * Math.PI * 2 + t * A.faceOrbit;
+      const yFree = ph * A.faceRise;
       const y = yFree + (K.body.chest - yFree) * ending;
-      m.s.position.set(base.x + Math.cos(ang) * r, y, base.z + Math.sin(ang) * r);
-      m.s.material.opacity = A.moteAlpha * clamp01(t / A.moteFadeIn) * (1 - ending);
-      m.s.material.rotation += dt * A.moteSpin;
-    }
+      const r = A.faceRadius * live;
+      f.s.position.set(base.x + Math.cos(ang) * r, y, base.z + Math.sin(ang) * r);
+      f.s.scale.set(A.faceSize * f.aspect, A.faceSize, 1);
+      f.s.material.opacity = A.faceAlpha * faceRise * Math.sin(Math.PI * ph) * live;
+    });
+
+    // pedras orbitam a cintura, balançando de leve; no fim voltam ao peito
+    const stoneRise = clamp01((t - (A.introDur + A.stoneDelay)) / A.grow);
+    this.stones.forEach((st, i) => {
+      const ang = (i / this.stones.length) * Math.PI * 2 + t * A.stoneOrbit;
+      const yFree = A.stoneHeight + Math.sin(t * A.stoneBobSpeed + i) * A.stoneBob;
+      const y = yFree + (K.body.chest - yFree) * ending;
+      const r = A.stoneRadius * live;
+      st.s.position.set(base.x + Math.cos(ang) * r, y, base.z + Math.sin(ang) * r);
+      st.s.scale.set(A.stoneSize * st.aspect, A.stoneSize, 1);
+      st.s.material.opacity = A.stoneAlpha * stoneRise * live;
+    });
+
     if (ending < 1) {
       this.kit.particles.smoke.emit({ pos: base.clone().setY(0.2), posJitter: 0.35, vel: tmpVel.set(0, 0.3, 0), velJitter: 0.2, life: A.vaporLife, size: A.vaporSize, sizeEnd: A.vaporSizeEnd, color: VAPOR, colorEnd: FROST_DARK, alpha: A.vaporAlpha * (1 - ending), count: A.vaporRate * dt * (1 - ending) });
     }

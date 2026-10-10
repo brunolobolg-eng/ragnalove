@@ -15,12 +15,16 @@ export interface SpriteOpts {
   opacity?: number;
   rot?: number;
   renderOrder?: number;
+  /** textura própria (arte de um efeito que não é do kit); sem ela, usa `tex` */
+  map?: THREE.Texture;
+  /** ancoragem da sprite: (0.5, 0) = a base fica na posição (espinhos e objetos de pé) */
+  anchorBottom?: boolean;
 }
 
 /** Sprite de textura do Kenney com cor HDR (acima de 1 vira brilho no bloom). */
 export function fxSprite(parent: THREE.Object3D, tex: FxTextureName, color: THREE.Color, size: number, o: SpriteOpts = {}): THREE.Sprite {
   const mat = new THREE.SpriteMaterial({
-    map: fxTexture(tex),
+    map: o.map ?? fxTexture(tex),
     color: color.clone(),
     transparent: true,
     blending: o.dark ? THREE.NormalBlending : THREE.AdditiveBlending,
@@ -31,6 +35,7 @@ export function fxSprite(parent: THREE.Object3D, tex: FxTextureName, color: THRE
   });
   const s = new THREE.Sprite(mat);
   s.scale.setScalar(size);
+  if (o.anchorBottom) s.center.set(0.5, 0);
   s.renderOrder = o.renderOrder ?? (o.dark ? 8 : 9);
   parent.add(s);
   return s;
@@ -41,6 +46,33 @@ export function screenAngle(cam: THREE.Camera, a: THREE.Vector3, b: THREE.Vector
   const pa = a.clone().project(cam);
   const pb = b.clone().project(cam);
   return Math.atan2(pb.y - pa.y, pb.x - pa.x);
+}
+
+/** Plano único compartilhado: cada círculo/névoa deitado no chão é só uma escala desta malha. */
+const FLAT = new THREE.PlaneGeometry(1, 1);
+
+/**
+ * Imagem deitada no chão (aditiva), vista pela câmera alta: círculos de runas, névoas, o próprio solo do efeito.
+ * `width` em metros; a altura vem de `aspect` (largura/altura da imagem). `angle` gira no plano do chão.
+ */
+export function flatPlane(parent: THREE.Object3D, map: THREE.Texture, width: number, aspect: number, o: { y?: number; opacity?: number; angle?: number; renderOrder?: number; color?: THREE.Color; alphaMap?: THREE.Texture } = {}): THREE.Mesh {
+  const mat = new THREE.MeshBasicMaterial({
+    map,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    depthTest: false,
+    color: o.color ?? 0xffffff,
+    opacity: o.opacity ?? 1,
+    ...(o.alphaMap ? { alphaMap: o.alphaMap } : {}),
+  });
+  const m = new THREE.Mesh(FLAT, mat);
+  m.rotation.set(-Math.PI / 2, 0, o.angle ?? 0);
+  m.scale.set(width, width / aspect, 1);
+  m.position.y = o.y ?? 0.03;
+  m.renderOrder = o.renderOrder ?? 7;
+  parent.add(m);
+  return m;
 }
 
 /** Remove o grupo de um efeito e libera os materiais dos sprites (as texturas ficam no cache). */
