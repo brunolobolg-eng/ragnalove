@@ -1,11 +1,13 @@
-import type { SimEvent } from '../../../core/sim/types';
+import type { DamageSource, SimEvent } from '../../../core/sim/types';
 import type { Vec2 } from '../../../core/grid/types';
 import { makeObject } from '../../../core/sim/objects';
 import { WARRIOR_FX } from '../../../config/fx/warrior';
+import { WARRIOR_RUNIC_FX as R } from '../../../config/fx/warriorRunic';
 import { BASH_IMPACT } from '../BashFX';
 import { CLEAVE_IMPACT } from '../CleaveFX';
 import type { CombatVisualCtx, VisualUnit } from './CombatVisualCtx';
 import type { DemoEntry, DemoStep } from './demos';
+import { handleWarriorRunic } from './warriorRunic';
 import { WallRiseFX, WarriorBashFX, WarriorCleaveFX, WarriorFuryFX, WarriorShockFX, WarriorTauntFX } from './warriorFx';
 
 const C = WARRIOR_FX;
@@ -21,9 +23,10 @@ function stepTowards(from: { x: number; z: number }, to: { x: number; z: number 
 }
 
 /**
- * Visual do Guerreiro: Investida (ataque básico), Golpe em Área, Onda de Choque, Fúria, Provocar e Muralha.
- * Retorna true quando assume o evento (o GameView então não desenha o caso padrão). Replica o que importava do
- * caso padrão: virar para o alvo, animação (golpe pesado ou corte), espectro e texto flutuante.
+ * Visual do Guerreiro: Investida (ataque básico), Golpe em Área, Onda de Choque, Fúria, Provocar e Muralha,
+ * além do Cavaleiro Rúnico (ver warriorRunic.ts). Retorna true quando assume o evento (o GameView então não desenha
+ * o caso padrão). Replica o que importava do caso padrão: virar para o alvo, animação (golpe pesado ou corte),
+ * espectro e texto flutuante.
  */
 export function handleWarrior(e: SimEvent, c: CombatVisualCtx): boolean {
   switch (e.type) {
@@ -81,6 +84,14 @@ export function handleWarrior(e: SimEvent, c: CombatVisualCtx): boolean {
       if (e.object.type === 'shieldWall') c.add(new WallRiseFX(c.tile(e.object.x, e.object.y), c.kit));
       return false;
     }
+    // Cavaleiro Rúnico (habilidades do Guerreiro) e o dano devolvido pelo Limite da Morte
+    case 'enchantBlade':
+    case 'sonicWave':
+    case 'deathBound':
+    case 'hundredSpear':
+    case 'windCutter':
+    case 'damage':
+      return handleWarriorRunic(e, c);
     default:
       return false;
   }
@@ -96,7 +107,7 @@ for (let x = 1; x <= 4; x++) {
 }
 
 /** Dano de demonstração: a vitrine usa o evento de dano para o recuo do alvo, como o GameView faz. */
-const hurt = (unitId: number, amount: number, source: 'bash' | 'cleave' | 'shock', sourceId: number): SimEvent => ({
+const hurt = (unitId: number, amount: number, source: DamageSource, sourceId: number): SimEvent => ({
   type: 'damage',
   unitId,
   amount,
@@ -180,5 +191,94 @@ export const WARRIOR_DEMOS: DemoEntry[] = [
           e: { type: 'objectSpawn', object: makeObject(900 + i, { type: 'shieldWall', x: 2, y: -2 + i }) },
         }),
       ),
+  },
+  // ----- Cavaleiro Rúnico. Os danos entram no mesmo instante que o jogo os aplica (o GameView não os adia para estes
+  // efeitos), então a vitrine mostra o que o jogo mostra hoje.
+  {
+    cls: 'warrior',
+    id: 'enchant',
+    label: 'Lâmina Encantada: brilho azul na arma e runas no chão enquanto dura (ignição ao ligar)',
+    span: R.demo.enchant,
+    steps: (ids) => [{ at: 0, e: { type: 'enchantBlade', unitId: ids.caster, ticks: R.demo.enchantTicks } }],
+  },
+  {
+    cls: 'warrior',
+    id: 'sonic',
+    label: 'Onda Sônica: crescente azul até o alvo e estilhaço no impacto',
+    span: R.demo.sonic,
+    steps: (ids) => [
+      { at: 0, e: { type: 'sonicWave', unitId: ids.caster, targetId: ids.t1, fromX: 0, fromY: 0, x: 3, y: 0 } },
+      { at: 0, e: hurt(ids.t1, 17, 'wave', ids.caster) },
+    ],
+  },
+  {
+    cls: 'warrior',
+    id: 'deathbound',
+    label: 'Limite da Morte: runas carmesim sob o alvo marcado; o dano devolvido volta ao herói como faísca',
+    span: R.demo.death,
+    steps: (ids) => [
+      { at: 0, e: { type: 'deathBound', unitId: ids.caster, targetId: ids.t1, x: 3, y: 0, ticks: R.demo.deathTicks } },
+      // na simulação, o dano devolvido sai antes do golpe no alvo marcado
+      { at: 1.2, e: { type: 'damage', unitId: ids.caster, amount: 3, source: 'reflect' } },
+      { at: 1.2, e: hurt(ids.t1, 24, 'bash', ids.caster) },
+    ],
+  },
+  {
+    cls: 'warrior',
+    id: 'spear',
+    label: 'Cem Lanças: lanças douradas caindo em sequência sobre o alvo e os vizinhos',
+    span: R.demo.spear,
+    steps: (ids) => {
+      const hits = 4;
+      const steps: DemoStep[] = [
+        {
+          at: 0,
+          e: {
+            type: 'hundredSpear',
+            unitId: ids.caster,
+            targetId: ids.t1,
+            x: 3,
+            y: 0,
+            hits,
+            radius: 1,
+            tiles: [
+              { x: 3, y: 0 },
+              { x: 3, y: 1 },
+            ],
+          },
+        },
+      ];
+      for (let k = 0; k < hits; k++) {
+        steps.push({ at: 0, e: hurt(ids.t1, 8, 'spear', ids.caster) }, { at: 0, e: hurt(ids.t2, 8, 'spear', ids.caster) });
+      }
+      return steps;
+    },
+  },
+  {
+    cls: 'warrior',
+    id: 'wind',
+    label: 'Cortador de Vento: anel verde-água girando em volta do herói e rajadas em cada inimigo (raio 4 só na vitrine)',
+    span: R.demo.wind,
+    steps: (ids) => [
+      {
+        at: 0,
+        e: {
+          type: 'windCutter',
+          unitId: ids.caster,
+          x: 0,
+          y: 0,
+          radius: 4,
+          tiles: [
+            { x: 3, y: 0 },
+            { x: 3, y: 1 },
+            { x: 4, y: -1 },
+          ],
+          hits: 3,
+        },
+      },
+      { at: 0, e: hurt(ids.t1, 10, 'wind', ids.caster) },
+      { at: 0, e: hurt(ids.t2, 10, 'wind', ids.caster) },
+      { at: 0, e: hurt(ids.t3, 10, 'wind', ids.caster) },
+    ],
   },
 ];

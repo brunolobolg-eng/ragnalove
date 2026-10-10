@@ -29,7 +29,7 @@ const C = WARRIOR_FX;
 const UP = new THREE.Vector3(0, 1, 0);
 
 /** Cor HDR a partir da tupla de configuração; `k` multiplica (ex.: VFX.flash para flashes e anéis). */
-const rgb = (c: Rgb, k = 1): THREE.Color => new THREE.Color(c[0] * k, c[1] * k, c[2] * k);
+export const rgb = (c: Rgb, k = 1): THREE.Color => new THREE.Color(c[0] * k, c[1] * k, c[2] * k);
 
 /** Sorteio dentro de uma faixa [min, max]. */
 const pick = (r: readonly [number, number]): number => r[0] + (r[1] - r[0]) * Math.random();
@@ -53,14 +53,14 @@ function quad(a: THREE.Vector3, c: THREE.Vector3, b: THREE.Vector3, s: number, o
 }
 
 /** Sprite de vida curta: cresce de `from` a `to` e some (estrela de impacto, clarões de grito). */
-interface Pop {
+export interface Pop {
   s: THREE.Sprite;
   t0: number;
   life: number;
   from: number;
   to: number;
 }
-function updatePops(pops: Pop[], t: number): void {
+export function updatePops(pops: Pop[], t: number): void {
   for (const p of pops) {
     if (!p.s.visible) continue;
     const k = (t - p.t0) / p.life;

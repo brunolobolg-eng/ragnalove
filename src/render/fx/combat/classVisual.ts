@@ -53,6 +53,12 @@ export function classVisual(e: SimEvent, c: CombatVisualCtx): boolean {
   if (e.type === 'combust') return handleShared(e, c);
   // objetos criados em batalha (Muralha do Guerreiro): o handler decide se é parede
   if (e.type === 'objectSpawn') return handleWarrior(e, c);
+  // dano devolvido pelo Limite da Morte: não tem sourceId (sem autor de classe), então vai direto ao Guerreiro.
+  // Nos danos a classe só adiciona impacto: o caso padrão do GameView (número, reação) continua
+  if (e.type === 'damage' && e.source === 'reflect') {
+    handleWarrior(e, c);
+    return false;
+  }
   const id = casterOf(e);
   if (id === undefined) return false;
   const kind = c.kindOf(id);
