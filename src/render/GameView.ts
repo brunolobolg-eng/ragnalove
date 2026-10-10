@@ -25,6 +25,7 @@ import { LootFX } from './fx/LootFX';
 import { MeteorFX, ShadowBoltFX, StompFX, telegraph, ArrowFX, FocusFX, FuryFX, NovaFX, PierceFX, RainFX, ShockwaveFX, StormFX, TauntFX, combustBurst, focusTick, frostTick, furyTick, healTick, refineAuraTick, refineRing, holyBurst, sanctuaryDecal, shieldBurst, trapBlast } from './fx/SkillFX';
 import { RARITY_INFO } from '../core/progression/equipment';
 import { GAME_CONFIG } from '../config/gameConfig';
+import { WARLOCK_NEW_FX } from '../config/fx/warlockNew';
 import type { Stage } from './Stage';
 import { createUnitView, type AnyUnitView } from './units/createUnitView';
 import { ModelUnitView } from './units/model/ModelUnitView';
@@ -424,6 +425,9 @@ export class GameView {
         }
       }
       else if (e.type === 'shadowBolt') delay.set(e.targetId, ShadowBoltFX.impactDelay(tileToWorld(e.from.x, e.from.y, undefined, 1.0), tileToWorld(e.to.x, e.to.y, undefined, 0.9)));
+      // Bruxa: o número do dano do Eco e da Geada Negra só aparece na batida (o efeito leva esse tempo para chegar)
+      else if (e.type === 'soulEcho') for (const id of e.targetIds) delay.set(id, WARLOCK_NEW_FX.echo.blowAt);
+      else if (e.type === 'blackFrost') for (const id of e.targetIds) delay.set(id, WARLOCK_NEW_FX.blackFrost.spikeAt);
       else if (e.type === 'arrow') delay.set(e.targetId, ArrowFX.impactDelay(this.bowTip(e.unitId, e.from), tileToWorld(e.to.x, e.to.y, undefined, 0.6)));
       else if (e.type === 'melee') delay.set(e.targetId, MELEE_IMPACT);
       else if (e.type === 'execute') delay.set(e.targetId, EXECUTE_IMPACT);
@@ -614,7 +618,7 @@ export class GameView {
         }
         case 'avoid': {
           const v = this.units.get(e.unitId);
-          if (v) this.float(e.how === 'dodge' ? 'Esquiva!' : e.how === 'deflect' ? 'Desviado!' : e.how === 'shield' ? 'Absorvido!' : 'Bloqueio!', v.root.position.clone().setY(1.9), e.how === 'deflect' ? '#f0d49a' : '#bfe6ff', 0.26);
+          if (v) this.float(e.how === 'dodge' ? 'Esquiva!' : e.how === 'deflect' ? 'Desviado!' : e.how === 'shield' ? 'Absorvido!' : e.how === 'cage' ? 'Preso!' : 'Bloqueio!', v.root.position.clone().setY(1.9), e.how === 'deflect' ? '#f0d49a' : '#bfe6ff', 0.26);
           break;
         }
         case 'cityHit': {

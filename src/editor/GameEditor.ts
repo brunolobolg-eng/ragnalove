@@ -24,6 +24,7 @@ const KIND_LABEL: Record<string, string> = {
   grunt: 'Comum',
   runner: 'Rápido',
   brute: 'Pesado',
+  raydric: 'Raydric (pesado)',
   necro: 'Necromante',
   elite: 'Elite',
   boss: 'Chefe Ato I',

@@ -49,6 +49,8 @@ export function classVisual(e: SimEvent, c: CombatVisualCtx): boolean {
   if (e.type === 'trapSet' || e.type === 'trapTrigger') return handleArcher(e, c);
   // subida de nível: efeito divino do próprio herói, seja qual for a classe
   if (e.type === 'levelup') return handleLevelUp(e, c);
+  // Frio: o evento é do inimigo gelado (não tem autor), então o contorno de gelo vai ao handler da Bruxa
+  if (e.type === 'chill') return handleWarlock(e, c);
   // efeitos sem autor de classe (combustão)
   if (e.type === 'combust') return handleShared(e, c);
   // objetos criados em batalha (Muralha do Guerreiro): o handler decide se é parede

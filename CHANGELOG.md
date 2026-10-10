@@ -2,6 +2,13 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.6x
+- Raydric: novo inimigo pesado de pedra e cristal (modelo do dono, `raydric.glb`, 65 MB), otimizado para 2,5 MB (48 mil vértices, 39 mil triângulos, textura WebP de 1024 px).
+- Aparece nas misturas pesadas das ruínas do Ato II (Dunas Vermelhas e Ruínas Solares) e das Cinzas (Pico das Cinzas). Tem 110 de vida, anda mais devagar que o brutamonte e bate um pouco mais forte.
+- Altura de 2,3 m; cores por zona (deserto, gelo, grama e sombra), na mesma regra do dino.
+- Animações: o conjunto do guerreiro, com a pose de descanso do arquivo (`bind: 'ibm'`). O conjunto do cultista deixou a figura amassada no teste.
+- Pendências: o golpe usa a animação de espada do guerreiro; a cor original de pedra não entra em nenhuma zona.
+
 ## 2026-10-10 — v0.6w
 - Bruxa: modelo novo do dono (`bruxa.glb`, 62 MB) otimizado para 2,3 MB (47 mil vértices, 39 mil triângulos, textura WebP de 1024 px). Continua no mesmo registro `warlock`.
 - Animações: como na feiticeira, o arquivo traz uma única animação travada (em degrau), então a bruxa usa o conjunto de clipes do guerreiro com a pose de descanso do arquivo (`bind: 'ibm'`). O conjunto do cultista deixou a figura achatada no teste.

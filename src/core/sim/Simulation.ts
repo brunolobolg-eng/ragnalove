@@ -11,7 +11,7 @@ import { expToNext, starterWeapon, type WaveResult } from '../progression/profil
 /** Sem loadout (testes/sandbox): herói com a arma inicial. */
 const defaultGear = (kind: string) => gearBonus([starterWeapon(kind)]);
 import { Rng } from './rng';
-import type { AreaEffect, CombatMoveStats, DamageSource, MapObject, Sanctuary, SimEvent, SimPhase, Trap, TrapKind, Unit, WaveReport } from './types';
+import type { AreaEffect, CombatMoveStats, DamageSource, FrostMist, MapObject, Sanctuary, SimEvent, SimPhase, Trap, TrapKind, Unit, WaveReport } from './types';
 import { SKILL_NUM, lvOf, startingSkills, type HeroKind } from '../progression/skills';
 import { lockedSkillKeys } from '../progression/skillSlots';
 import { neutralMods, testRangeMult, type SimMods } from './RangeSystem';
@@ -58,14 +58,18 @@ export interface SimOptions {
 }
 
 /** Eventos que contam como uso de habilidade no relatório. */
-const SKILL_EVENTS = new Set<SimEvent['type']>(['cast', 'cleave', 'bash', 'bolt', 'arrow', 'rain', 'pierce', 'nova', 'storm', 'taunt', 'shockwave', 'fury', 'focus', 'enchantBlade', 'sonicWave', 'deathBound', 'hundredSpear', 'windCutter']);
+const SKILL_EVENTS = new Set<SimEvent['type']>(['cast', 'cleave', 'bash', 'bolt', 'arrow', 'rain', 'pierce', 'nova', 'storm', 'taunt', 'shockwave', 'fury', 'focus', 'enchantBlade', 'sonicWave', 'deathBound', 'hundredSpear', 'windCutter', 'etherealCage', 'soulEcho', 'frostMist', 'blackFrost', 'abyssMarsh', 'darkApex']);
 const PROJECTILES = new Set<DamageSource>(['bolt', 'arrow', 'pierce', 'spell']);
 
 /** O que cada herói traz da progressão para a onda. */
 /** Dano contínuo/ambiental: nunca é crítico. */
-const NO_CRIT = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'debug', 'curse', 'combust', 'enchant', 'reflect']);
+const NO_CRIT = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'debug', 'curse', 'combust', 'enchant', 'reflect', 'frost']);
+/** Fontes que o Ápice Sombrio (Bruxa) amplia. */
+const APEX_SOURCES = new Set<DamageSource>(['shadow', 'curse', 'frost']);
+/** Máximo de Névoas Gélidas ativas por Bruxa (a nova substitui a mais antiga). */
+const MIST_MAX_PER_OWNER = 2;
 /** Dano contínuo (não é golpe direto): não dispara o Limite da Morte nem devolve dano. */
-const CONTINUOUS = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'combust', 'curse']);
+const CONTINUOUS = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'combust', 'curse', 'frost']);
 
 export interface HeroLoadout {
   stats: HeroStats;
@@ -149,6 +153,9 @@ export class Simulation {
   /** Santuários ativos (Cléria, especialização Divina). */
   readonly sanctuaries: Sanctuary[] = [];
   private nextTrapId = 1;
+  /** Névoas Gélidas (Bruxa) ativas. Lista própria: não usa o sistema de hazards (não muda o caminho da horda). */
+  readonly frostMists: FrostMist[] = [];
+  private nextMistId = 1;
   /** Ids dos objetos criados na onda começam aqui (não colidem com os do mapa). */
   private nextObjectId = 10000;
 
@@ -527,6 +534,11 @@ export class Simulation {
   damage(u: Unit, amount: number, source: DamageSource, sourceId?: number, crit?: boolean): void {
     if (!u.alive) return;
     if (u.team === 'party' && this.cheats.invincible) return;
+    // Cárcere Etéreo: preso em cristal só recebe dano de sombra (o resto é descartado, sem efeito colateral)
+    if (u.team === 'enemy' && (u.cagedUntil ?? 0) > this.tick && source !== 'shadow') {
+      this.emit({ type: 'avoid', unitId: u.id, how: 'cage' });
+      return;
+    }
     if (u.team === 'party' && u.stats) amount = Math.max(1, Math.round(amount * u.stats.damageTakenMult * 10) / 10);
     // Tempestade de areia: o vento desvia parte dos projéteis
     if (PROJECTILES.has(source) && this.stormActive && this.combatRng.next() < GAME_CONFIG.biome.sandstorm.deflectChance) {
@@ -554,10 +566,15 @@ export class Simulation {
     if (u.team === 'enemy' && (u.cursedUntil ?? 0) > this.tick) amount *= 1 + (u.curseAmp ?? 0);
     // Limite da Morte (Guerreiro): o marcado recebe mais dano (a devolução sai depois, sobre o dano final)
     if (u.team === 'enemy' && (u.markedUntil ?? 0) > this.tick) amount *= 1 + (u.markAmp ?? 0);
+    // Frio (Névoa Gélida / Geada Negra): o gelado recebe mais dano de qualquer fonte
+    // Frio: +dano recebido de qualquer fonte, exceto gelo (a Geada Negra já tem o próprio bônus contra gelados)
+    if (u.team === 'enemy' && (u.chilledUntil ?? 0) > this.tick && source !== 'frost') amount *= 1 + GAME_CONFIG.archetypes.warlock.chill.dmgTakenAmp;
     // Bênção: quem ataca abençoado causa mais dano
     if (u.team === 'enemy' && sourceId !== undefined) {
       const a = this.units.get(sourceId);
       if (a && (a.blessUntil ?? 0) > this.tick) amount *= 1 + (a.blessAmp ?? 0);
+      // Ápice Sombrio (Bruxa): o dano de sombra, maldição e gelo dela sai mais forte
+      if (a?.kind === 'warlock' && (a.apexUntil ?? 0) > this.tick && APEX_SOURCES.has(source)) amount *= 1 + (a.apexAmp ?? 0);
     }
     // Escudo Sagrado: absorve o dano antes da vida
     if (u.team === 'party' && (u.shield ?? 0) > 0 && (u.shieldUntil ?? 0) > this.tick) {
@@ -741,8 +758,54 @@ export class Simulation {
   /** Amaldiçoa: dano recebido +amp até o fim. */
   curse(u: Unit, amp: number, ticks: number): void {
     if (!u.alive) return;
+    // amplificador vencido não pode sobreviver à nova maldição (igual ao mark())
+    if ((u.cursedUntil ?? 0) <= this.tick) u.curseAmp = 0;
     u.cursedUntil = Math.max(u.cursedUntil ?? 0, this.tick + ticks);
     u.curseAmp = Math.max(u.curseAmp ?? 0, amp);
+  }
+
+  /**
+   * Lentidão (armadilha à parte): vale o MAIOR multiplicador ativo. Uma lentidão mais fraca não
+   * sobrescreve a mais forte; uma mais forte substitui e passa a valer pela própria duração.
+   */
+  applySlow(u: Unit, mult: number, ticks: number): void {
+    if (!u.alive) return;
+    const active = (u.slowUntil ?? 0) > this.tick;
+    const cur = active ? (u.slowMult ?? 1) : 0;
+    if (active && mult < cur) return;
+    if (active && mult === cur) {
+      u.slowUntil = Math.max(u.slowUntil ?? 0, this.tick + ticks);
+      return;
+    }
+    u.slowMult = mult;
+    u.slowUntil = this.tick + ticks;
+  }
+
+  /** Cárcere Etéreo: prende o inimigo por `ticks` (fica atordoado e só recebe dano de sombra). */
+  cage(u: Unit, ticks: number): void {
+    if (!u.alive) return;
+    u.cagedUntil = Math.max(u.cagedUntil ?? 0, this.tick + ticks);
+    this.stun(u, ticks);
+  }
+
+  /** Frio: `ticks` a partir de agora. O evento `chill` sai só na transição (quem já estava gelado não gera de novo). */
+  chill(u: Unit, ticks: number): void {
+    if (!u.alive) return;
+    if ((u.chilledUntil ?? 0) <= this.tick) this.emit({ type: 'chill', unitId: u.id, ticks });
+    u.chilledUntil = Math.max(u.chilledUntil ?? 0, this.tick + ticks);
+  }
+
+  /**
+   * Névoa Gélida (Bruxa): cria a névoa no ponto `at`. Cada Bruxa tem no máximo `MIST_MAX_PER_OWNER`;
+   * se já tem, a mais antiga dela sai (a nova substitui). `pulse` = dano de cada pulso (já com o poder).
+   */
+  addFrostMist(owner: Unit, at: Vec2, radius: number, ticks: number, pulse: number, chillTicks: number): void {
+    const mine = this.frostMists.filter((m) => m.ownerId === owner.id);
+    while (mine.length >= MIST_MAX_PER_OWNER) {
+      const old = mine.shift()!;
+      this.frostMists.splice(this.frostMists.indexOf(old), 1);
+    }
+    this.frostMists.push({ id: this.nextMistId++, ownerId: owner.id, x: at.x, y: at.y, radius, startTick: this.tick, untilTick: this.tick + ticks, pulse, chillTicks });
   }
 
   private tickDots(): void {
@@ -752,6 +815,25 @@ export class Simulation {
       if (!u.dots?.length) continue;
       u.dots = u.dots.filter((d) => d.until > this.tick);
       for (const d of [...u.dots]) if (u.alive) this.damage(u, d.perPulse, d.source, d.ownerId);
+    }
+  }
+
+  /**
+   * Névoas Gélidas: a cada `dot.intervalTicks` (1 s), pulso de gelo em quem está dentro e Frio nele.
+   * Pulso não é crítico. Ordem: dano, depois Frio (quem sai da névoa continua gelado pelo tempo do Frio).
+   */
+  private tickFrostMists(): void {
+    if (!this.frostMists.length) return;
+    for (let i = this.frostMists.length - 1; i >= 0; i--) if (this.tick > this.frostMists[i].untilTick) this.frostMists.splice(i, 1);
+    const iv = GAME_CONFIG.dot.intervalTicks;
+    for (const m of [...this.frostMists]) {
+      const el = this.tick - m.startTick;
+      if (el <= 0 || el % iv !== 0) continue;
+      for (const e of this.enemiesWithin(m, m.radius)) {
+        if (!e.alive) continue;
+        this.damage(e, m.pulse, 'frost', m.ownerId);
+        if (e.alive) this.chill(e, m.chillTicks);
+      }
     }
   }
 
@@ -1138,6 +1220,7 @@ export class Simulation {
 
     this.applyBurn();
     this.tickDots();
+    this.tickFrostMists();
     this.landMeteors();
     this.updateEnemies();
     this.cleanupDead();
@@ -1510,7 +1593,7 @@ export class Simulation {
         u.facing = { x: Math.sign(o.x - u.x), y: Math.sign(o.y - u.y) };
         this.emit({ type: 'melee', unitId: u.id, targetId: -o.id });
         this.damageObject(o, trample ? o.hp : g.damage * GAME_CONFIG.wave.dmgMult * (u.dmgScale ?? 1), u.id);
-        u.nextActTick = this.tick + g.attackTicks;
+        u.nextActTick = this.tick + this.enemyInterval(u, g.attackTicks);
         continue;
       }
       // herói no caminho: bate (sem perseguir). "bypass" nunca bate: contorna ou espera.
@@ -1614,11 +1697,16 @@ export class Simulation {
     return target;
   }
 
+  /** Intervalo de ataque/conjuração do inimigo: gelado (Frio) espera `attackMult` vezes mais. */
+  private enemyInterval(u: Unit, ticks: number): number {
+    return (u.chilledUntil ?? 0) > this.tick ? Math.round(ticks * GAME_CONFIG.archetypes.warlock.chill.attackMult) : ticks;
+  }
+
   private enemyAttack(u: Unit, target: Unit, g: ReturnType<typeof enemyStats>): void {
     u.facing = { x: Math.sign(target.x - u.x), y: Math.sign(target.y - u.y) };
     this.damage(target, g.damage * GAME_CONFIG.wave.dmgMult * (u.dmgScale ?? 1), 'melee', u.id);
     this.emit({ type: 'melee', unitId: u.id, targetId: target.id });
-    u.nextActTick = this.tick + g.attackTicks;
+    u.nextActTick = this.tick + this.enemyInterval(u, g.attackTicks);
   }
 
   private moveEnemy(u: Unit, d: Vec2, g: ReturnType<typeof enemyStats>): void {
@@ -1633,7 +1721,9 @@ export class Simulation {
     // lama/raízes atrasam o passo
     const base = isDiagonal(d) ? Math.round(g.moveTicks * 1.4) : g.moveTicks;
     const slowed = (u.slowUntil ?? 0) > this.tick ? (u.slowMult ?? 1) : 1;
-    u.moveTicks = Math.max(1, Math.round(base * this.board.slowAt(u.x, u.y) * slowed));
+    // Frio: cada passo custa `moveMult` vezes mais
+    const chilled = (u.chilledUntil ?? 0) > this.tick ? GAME_CONFIG.archetypes.warlock.chill.moveMult : 1;
+    u.moveTicks = Math.max(1, Math.round(base * this.board.slowAt(u.x, u.y) * slowed * chilled));
     u.nextActTick = this.tick + u.moveTicks;
     this.emit({ type: 'move', unitId: u.id });
     if (this.traps.length) this.triggerTrap(u);
@@ -1691,8 +1781,9 @@ export class Simulation {
           this.emit({ type: 'telegraph', unitId: u.id, x, y, radius: sp.radius ?? 1, ticks });
         }
       }
-      u.cooldowns[sp.id] = this.tick + sp.cooldownTicks;
-      u.nextActTick = this.tick + Math.max(6, enemyStats(u.kind).attackTicks);
+      // Frio: o intervalo entre conjurações (e até a próxima ação) também fica `attackMult` vezes maior
+      u.cooldowns[sp.id] = this.tick + this.enemyInterval(u, sp.cooldownTicks);
+      u.nextActTick = this.tick + this.enemyInterval(u, Math.max(6, enemyStats(u.kind).attackTicks));
       return true;
     }
     return false;
