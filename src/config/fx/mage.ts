@@ -304,12 +304,12 @@ export const MAGE_FX = {
     /** instante do disparo em cada aliado (s) */
     burstAt: 0.15,
     /** estrela de luz no peito: ganho, tamanhos inicial e final, vida (s), giro (rad/s) e opacidade */
-    starGain: 0.9,
+    starGain: 0.6,
     starSize0: 0.8,
     starSize1: 1.8,
     starLife: 0.5,
     starSpin: 2.5,
-    starAlpha: 0.9,
+    starAlpha: 0.75,
     /** giro dourado em volta do peito: ganho, tamanhos, vida, giro e opacidade */
     swirlGain: 0.9,
     swirlSize0: 0.9,
@@ -350,7 +350,7 @@ export const MAGE_FX = {
     /** instante do acerto (s): igual ao STORM_IMPACT do GameView */
     impactAt: 0.3,
     /** altura de onde a coluna cai (unidades), e quando começa a cair (s) */
-    fallHeight: 9,
+    fallHeight: 6,
     fallStart: 0.04,
     /** comprimento da coluna (unidades), quanto tempo ela fica de pé depois do acerto (s) e a entrada dela */
     beamLength: 12,
@@ -360,7 +360,7 @@ export const MAGE_FX = {
     outerWidth: 0.9,
     coreWidth: 0.32,
     outerGain: 0.75,
-    coreGain: 0.8,
+    coreGain: 0.55,
     outerAlpha: 0.9,
     /** aviso no chão: anel escuro (contraste) e anel dourado que se fecham até o ponto do acerto */
     sigilDarkStart: 2.1,
@@ -378,8 +378,8 @@ export const MAGE_FX = {
     /** luz do centro: intensidade (máx. 0,3), alcance, tremulação, altura e tempo de apagar (s) */
     light: { intensity: 0.25, distance: 4, flicker: 0.2, height: 1.8, time: 0.45 },
     /** estrela de impacto no centro: tamanho, ganho, altura, vida (s), crescimento e giro */
-    starSize: 1.3,
-    starGain: 0.5,
+    starSize: 1.0,
+    starGain: 0.3,
     starHeight: 1.0,
     starLife: 0.3,
     starGrow0: 0.8,

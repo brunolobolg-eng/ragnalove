@@ -236,7 +236,7 @@ export class ArcherRainFX implements OneShotFx {
     this.center = center.clone().setY(0);
     const strikeAt = RainFX.IMPACT;
     this.endAt = strikeAt + (fire ? K.emberSec + 0.1 : K.tailSec);
-    kit.decals.spawn({ kind: 'aoe', pos: this.center.clone().setY(0.03), size: this.radius * 2 * 0.9, sizeEnd: this.radius * 2, color: rgb(K.marker), life: K.markerLife, additive: true, fadeIn: 0.12, fadeOut: 0.55, spin: 0.6, opacity: K.markerOpacity });
+    kit.decals.spawn({ kind: 'aoe', pos: this.center.clone().setY(0.03), size: this.radius * 2 * 0.9, sizeEnd: this.radius * 2, color: rgb(fire ? K.markerFire : K.marker), life: K.markerLife, additive: true, fadeIn: 0.12, fadeOut: 0.55, spin: 0.6, opacity: K.markerOpacity });
     const streakColor = fire ? rgb(K.fireCore) : rgb(K.core);
     for (let i = 0; i < K.arrows; i++) {
       const r = this.radius * 0.95 * Math.sqrt(Math.random());
@@ -710,7 +710,7 @@ export class ArcherTrapFX implements OneShotFx {
     // explosão: flash pequeno, anel grande, coluna de fogo e fumaça
     this.flashes.push(new Flash(this.group, c.clone().setY(0.5), rgb(K.flashColor), K.flashSize + K.flashSizePerRadius * R, K.flashLife));
     this.kit.decals.spawn({ kind: 'ring', pos: c.clone().setY(0.05), size: 0.5, sizeEnd: R * K.ringGrow, color: rgb(K.ringColor, 0.6), life: 0.5, additive: true, fadeIn: 0.01, fadeOut: 0.7 });
-    P.fire.emit({ pos: c.clone().setY(0.2), posJitter: R * 0.4, vel: RISE_FIRE, velJitter: 2.2, life: 0.65, size: 0.6, sizeEnd: 0.12, color: rgb(K.fireColor), colorEnd: rgb(K.fireEnd), count: K.fire });
+    P.fire.emit({ pos: c.clone().setY(0.2), posJitter: R * 0.4, vel: RISE_FIRE, velJitter: 2.2, life: K.fireLife, size: K.fireSize, sizeEnd: K.fireSizeEnd, color: rgb(K.fireColor), colorEnd: rgb(K.fireEnd), count: K.fire });
     this.kit.decals.spawn({ kind: 'scorch', pos: c.clone().setY(0.03), size: (R * 2 + 1.2) * 1.05, color: new THREE.Color(1, 1, 1), life: K.scorchLife, fadeIn: 0.02, fadeOut: 0.3, dissolve: true, opacity: 0.85 });
     this.tl.at(0.1, () => P.smoke.emit({ pos: c.clone().setY(0.4), posJitter: R * 0.5, vel: UP, velJitter: 0.9, life: 1.4, size: 0.6, sizeEnd: 1.5, color: rgb(K.smokeColor), alpha: 0.55, count: K.smoke, spin: 0.8 }));
     this.o.shake(K.shake);

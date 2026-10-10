@@ -13,11 +13,11 @@ export const ARCHER_FX = {
     /** altura do arco da trajetória (no meio do voo) */
     arc: 0.12,
     /** núcleo do risco: verde-amarelado quase branco */
-    core: [1.9, 2.5, 1.3],
+    core: [1.1, 1.5, 0.8],
     /** cabeça luminosa da flecha */
-    head: [1.5, 2.3, 1.1],
+    head: [1.0, 1.4, 0.7],
     /** rastro em fita (fino, curto) */
-    trail: [0.8, 1.5, 0.6],
+    trail: [0.6, 1.0, 0.5],
     /** espessura e comprimento do risco */
     width: 0.1,
     length: 0.55,
@@ -84,6 +84,8 @@ export const ARCHER_FX = {
     sparkEnd: [0.6, 0.9, 0.4],
     /** marca de área no chão (anel rúnico): cor, opacidade (baixa: é só uma marca) e duração */
     marker: [0.35, 0.8, 0.35],
+    /** na Chuva Incendiária, a marca fica em brasa */
+    markerFire: [1.4, 0.7, 0.25],
     markerOpacity: 0.6,
     markerLife: 1.0,
     /** estrela de impacto em cada ponto de queda (pequena) */
@@ -231,9 +233,9 @@ export const ARCHER_FX = {
     },
     /** Mina Terrestre: bola de fogo, anel de choque, estilhaços e marca de queimado */
     mine: {
-      flashColor: [3.0, 1.9, 0.8],
-      flashSize: 1.1,
-      flashSizePerRadius: 0.8,
+      flashColor: [2.2, 1.4, 0.6],
+      flashSize: 0.7,
+      flashSizePerRadius: 0.4,
       flashLife: 0.16,
       fire: 18,
       fireColor: [3.0, 1.4, 0.3],
@@ -257,7 +259,7 @@ export const ARCHER_FX = {
     freeze: {
       /** marca de geada no chão (decalque que se desfaz) */
       frostLife: 3,
-      frostOpacity: 0.85,
+      frostOpacity: 0.5,
       ringColor: [0.9, 1.6, 2.4],
       ringGrow: 2.2,
       /** cristais em anel: quantidade, raio, altura (mínima e máxima) e espessura */
@@ -295,16 +297,19 @@ export const ARCHER_FX = {
       crescentGrow: 2.4,
       crescentColor: [3.0, 1.4, 0.35],
       crescentFadeSec: 0.4,
-      flashColor: [2.4, 1.6, 0.8],
-      flashSize: 1.4,
-      flashSizePerRadius: 1,
+      flashColor: [1.5, 1.0, 0.5],
+      flashSize: 0.5,
+      flashSizePerRadius: 0.3,
       flashLife: 0.2,
       ringColor: [2.2, 1.0, 0.3],
       ringGrow: 1.8,
-      /** coluna de fogo para cima */
+      /** coluna de fogo para cima: quantidade, cor, tamanho inicial e final e vida */
       fire: 26,
       fireColor: [3.0, 1.5, 0.3],
       fireEnd: [0.5, 0.1, 0.0],
+      fireSize: 0.45,
+      fireSizeEnd: 0.1,
+      fireLife: 0.65,
       smoke: 10,
       smokeColor: [0.18, 0.15, 0.13],
       scorchLife: 5,
@@ -313,8 +318,8 @@ export const ARCHER_FX = {
       lifeSec: 1.2,
       /** luz de apoio (só se a explosão ficar longe da arqueira: a luz estoura o traje dela) */
       lightColor: 0xff7a2a,
-      lightIntensity: 0.22,
-      lightDistance: 3.2,
+      lightIntensity: 0.1,
+      lightDistance: 2.4,
       lightMinDist: 2.5,
     },
   },

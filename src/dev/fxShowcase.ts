@@ -116,6 +116,10 @@ async function main(): Promise<void> {
     if (!d) return false;
     for (const fx of oneShots) fx.group.removeFromParent();
     oneShots.length = 0;
+    // marcas no chão, partículas e fitas da demonstração anterior não podem contaminar a próxima
+    decals.clear();
+    particles.clear();
+    ribbons.clear();
     setup(d.cls);
     current = d;
     t = 0;
