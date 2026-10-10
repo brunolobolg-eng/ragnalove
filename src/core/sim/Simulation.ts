@@ -567,7 +567,8 @@ export class Simulation {
     // Limite da Morte (Guerreiro): o marcado recebe mais dano (a devolução sai depois, sobre o dano final)
     if (u.team === 'enemy' && (u.markedUntil ?? 0) > this.tick) amount *= 1 + (u.markAmp ?? 0);
     // Frio (Névoa Gélida / Geada Negra): o gelado recebe mais dano de qualquer fonte
-    if (u.team === 'enemy' && (u.chilledUntil ?? 0) > this.tick) amount *= 1 + GAME_CONFIG.archetypes.warlock.chill.dmgTakenAmp;
+    // Frio: +dano recebido de qualquer fonte, exceto gelo (a Geada Negra já tem o próprio bônus contra gelados)
+    if (u.team === 'enemy' && (u.chilledUntil ?? 0) > this.tick && source !== 'frost') amount *= 1 + GAME_CONFIG.archetypes.warlock.chill.dmgTakenAmp;
     // Bênção: quem ataca abençoado causa mais dano
     if (u.team === 'enemy' && sourceId !== undefined) {
       const a = this.units.get(sourceId);
