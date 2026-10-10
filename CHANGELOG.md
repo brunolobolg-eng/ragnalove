@@ -2,6 +2,12 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.7c
+- Ápice Sombrio (buff da Bruxa) refeito com a arte do dono (folha de magia negra). Abertura: um círculo de veneno se forma no chão em oito quadros; depois o círculo cheio, a névoa e o anel de runas ficam embaixo dela, espinhos sobem em volta, faces espectrais e pedras orbitam a cintura. No fim, tudo converge para o peito e some.
+- Só visual: o buff continua sendo o mesmo (dano próprio da Bruxa, mesmos números). A folha de referência pinta área de veneno com dano e lentidão nos inimigos; isso ainda não existe no jogo e depende de decisão do dono.
+- Efeitos de chão com máscara radial: a arte não mostra mais a borda retangular da folha.
+- Sprites novas em `public/sprites/bruxa/apice/`. Os planos do chão (`flatPlane`) aceitam tinta e máscara próprias, e as sprites de pé podem ancorar na base.
+
 ## 2026-10-10 — v0.7b
 - Pacote de cartas com abertura interativa (estilo Hearthstone): o pacote fica selado, o jogador arrasta o topo (ou toca) para rasgar, as cinco cartas saem viradas para baixo e são reveladas uma a uma, ou todas de uma vez.
 - Cada raridade tem a sua reação: Normal com brilho e moeda; Mini-Boss com aura roxa e faíscas; MVP com clarão, raios, faíscas douradas e a faixa "VOCÊ ENCONTROU ...". A MVP sai por último.

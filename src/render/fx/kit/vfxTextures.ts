@@ -31,8 +31,7 @@ export type FxTextureName =
 const loader = new THREE.TextureLoader();
 const cache = new Map<string, THREE.Texture>();
 
-/** Textura do pacote de efeitos (carrega na primeira chamada; a mesma instância depois). */
-/** Todas as texturas de efeito (para aquecer o cache antes do primeiro uso). */
+/** Todas as texturas de efeito do pacote (para aquecer o cache antes do primeiro uso). */
 const FX_NAMES: FxTextureName[] = [
   'flame_atlas', 'smoke_atlas', 'flame_strip', 'spark', 'impact', 'glow', 'flash', 'orb', 'soul', 'halo',
   'slash', 'twirl', 'trace', 'ribbon', 'noise',
@@ -42,11 +41,56 @@ const FX_NAMES: FxTextureName[] = [
 ];
 
 /**
+ * Arte própria do dono (sprites de efeito que não são do Kenney): carregada por caminho, uma vez, como as
+ * demais. O Ápice Sombrio usa a folha de magia negra em public/sprites/bruxa/apice/.
+ */
+const urlCache = new Map<string, THREE.Texture>();
+export function fxImage(path: string): THREE.Texture {
+  let t = urlCache.get(path);
+  if (!t) {
+    t = loader.load(path);
+    t.name = path;
+    urlCache.set(path, t);
+  }
+  return t;
+}
+
+let radial: THREE.Texture | undefined;
+/**
+ * Máscara radial (centro cheio, borda apagada) para as artes de chão: as folhas do dono têm um fundo quase invisível
+ * que, em aditivo, desenha uma borda retangular em volta do efeito. Uma só textura, compartilhada.
+ */
+export function radialMask(): THREE.Texture {
+  if (!radial) {
+    const c = document.createElement('canvas');
+    c.width = 128;
+    c.height = 128;
+    const g = c.getContext('2d');
+    if (g) {
+      const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+      grad.addColorStop(0, '#fff');
+      grad.addColorStop(0.75, '#fff');
+      grad.addColorStop(1, '#000');
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 128, 128);
+    }
+    radial = new THREE.CanvasTexture(c);
+  }
+  return radial;
+}
+
+/** Quadros da abertura do Ápice (o círculo que se forma), em ordem. */
+export const APICE_FRAMES = ['quadro_1', 'quadro_2', 'quadro_3', 'quadro_4', 'quadro_5', 'quadro_6', 'quadro_7', 'quadro_8'];
+/** Arte do Ápice Sombrio (recortada da folha de magia negra). */
+export const APICE_IMAGES = ['completo', 'anel', 'nevoa', 'espinhos', 'faces', 'pedras', ...APICE_FRAMES];
+export const apiceImage = (name: string): THREE.Texture => fxImage(`sprites/bruxa/apice/${name}.webp`);
+
+/**
  * Carrega todas as texturas de efeito antes do primeiro uso: sem isso, o primeiro golpe de cada tipo
  * desenha a sprite sem imagem (um quadro vazio). Resolve quando todas já têm imagem.
  */
 export function warmFxTextures(): Promise<void> {
-  const textures = FX_NAMES.map((n) => fxTexture(n));
+  const textures = [...FX_NAMES.map((n) => fxTexture(n)), ...APICE_IMAGES.map((n) => apiceImage(n))];
   return new Promise((resolve) => {
     const tick = (): void => {
       if (textures.every((t) => t.image)) resolve();
@@ -56,6 +100,7 @@ export function warmFxTextures(): Promise<void> {
   });
 }
 
+/** Textura do pacote de efeitos (carrega na primeira chamada; a mesma instância depois). */
 export function fxTexture(name: FxTextureName): THREE.Texture {
   let t = cache.get(name);
   if (!t) {
