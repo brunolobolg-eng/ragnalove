@@ -318,7 +318,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6t',
+  version: 'v0.6u',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
@@ -400,6 +400,13 @@ export const CHARSELECT_ART = {
   cards: {
     warrior: 'sprites/cs/card_warrior.jpg', mage: 'sprites/cs/card_mage.jpg', archer: 'sprites/cs/card_archer.jpg',
     sorcerer: 'sprites/cs/card_sorcerer.jpg', warlock: 'sprites/cs/card_warlock.jpg', assassin: 'sprites/cs/card_assassin.jpg',
+  } as Record<string, string>,
+  /**
+   * Mini clipe em loop no lugar do chibi (painel de detalhes). Aparece por cima da imagem quando carrega;
+   * sem o arquivo, segue a imagem parada. Formato: webm/mp4 em public/clips/.
+   */
+  clips: {
+    warrior: 'clips/guerreiro_golpe.webm',
   } as Record<string, string>,
   /** chibi de corpo inteiro no painel de detalhes (vazio = usa a arte da carta) */
   chibis: {

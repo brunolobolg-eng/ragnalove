@@ -2,6 +2,15 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.6u
+- Cavaleiro Rúnico (teste): cinco habilidades novas do Guerreiro, fora da árvore e liberadas pelo debug e pela Dev Lab. Lâmina Encantada (golpes ganham dano mágico por 5 minutos), Onda Sônica (alvo de 3 a 5 casas), Limite da Morte (marca o inimigo, que recebe mais dano e devolve parte ao herói; não funciona em chefes), Cem Lanças (exige lança) e Cortador de Vento (giro em volta do herói; com lança, alcance maior).
+- Efeitos visuais das cinco, com a paleta da arte de referência. Números em `src/config/fx/warriorRunic.ts`; verificados na vitrine de efeitos.
+- Checagem sem janela das cinco habilidades: `npx tsx scripts/runicCheck.ts` (7 itens).
+- Dinos com cor por zona: gelo azul e branco, deserto amarelo e vermelho, grama verde. O mini-chefe dino entrou como opção de elite nas Dunas Vermelhas.
+- Seleção de personagem: o Guerreiro ganha um mini clipe em loop no lugar do chibi parado (aparece quando o arquivo existe em `public/clips/`).
+- Regra para GLB novo: cor, animações, tamanho e fluidez antes de entrar (`scripts/auditar_glb.cjs`, `scripts/otimizar_glb.mjs`). A bruxinha não entrou no jogo: a rigagem do arquivo prende a malha à cabeça; o original está na branch `fontes`.
+- Pendências: a Onda Sônica só dispara a partir de 3 casas e, com o movimento de combate, costuma sair a 4 e 5; as habilidades rúnicas ficam fora dos slots de Mana até a transformação.
+
 ## 2026-10-10 — v0.6t
 - Dino (`public/models/dino.glb`): modelo novo otimizado de 62 MB para 2,7 MB (malha de 330 mil para 56 mil vértices, textura de 8192 px para WebP de 1024 px, animação embutida e influências extras removidas). Pés no chão e pose de descanso do próprio arquivo (matrizes de bind).
 - Dino com os movimentos do cultista (parado, andar, ataque, dano e morte), pelo mesmo conjunto da UAL que o bongun usa. O andar fica discreto, porque o conjunto foi feito para corpos humanoides.

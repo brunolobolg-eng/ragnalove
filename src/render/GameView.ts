@@ -3,6 +3,7 @@ import type { Simulation } from '../core/sim/Simulation';
 import type { SimEvent } from '../core/sim/types';
 import { classVisual } from './fx/combat/classVisual';
 import { SORCERER_FX } from '../config/fx/sorcerer';
+import { WARRIOR_RUNIC_FX } from '../config/fx/warriorRunic';
 import type { CombatVisualCtx, VisualUnit } from './fx/combat/CombatVisualCtx';
 import { BoardView } from './BoardView';
 import { tileToWorld } from './coords';
@@ -426,6 +427,20 @@ export class GameView {
       else if (e.type === 'arrow') delay.set(e.targetId, ArrowFX.impactDelay(this.bowTip(e.unitId, e.from), tileToWorld(e.to.x, e.to.y, undefined, 0.6)));
       else if (e.type === 'melee') delay.set(e.targetId, MELEE_IMPACT);
       else if (e.type === 'execute') delay.set(e.targetId, EXECUTE_IMPACT);
+      // Cavaleiro Rúnico: o número só aparece quando o efeito chega (a onda voa, a lança cai, o giro passa)
+      else if (e.type === 'sonicWave') delay.set(e.targetId, WARRIOR_RUNIC_FX.sonic.flight);
+      else if (e.type === 'hundredSpear' || e.type === 'windCutter') {
+        const spear = e.type === 'hundredSpear';
+        e.tiles.forEach((t, i) => {
+          for (const u of this.sim.units.values()) {
+            if (u.team !== 'enemy' || u.x !== t.x || u.y !== t.y) continue;
+            const at = spear
+              ? WARRIOR_RUNIC_FX.spear.fall + Math.min(i, WARRIOR_RUNIC_FX.spear.maxTargets - 1) * WARRIOR_RUNIC_FX.spear.interval
+              : WARRIOR_RUNIC_FX.wind.spin * 0.5;
+            delay.set(u.id, at);
+          }
+        });
+      }
       else if (e.type === 'nova' || e.type === 'shockwave') {
         const at = e.type === 'nova' ? NOVA_IMPACT : SHOCKWAVE_IMPACT;
         for (const u of this.sim.units.values()) if (u.team === 'enemy' && Math.max(Math.abs(u.x - e.x), Math.abs(u.y - e.y)) <= e.radius) delay.set(u.id, at);

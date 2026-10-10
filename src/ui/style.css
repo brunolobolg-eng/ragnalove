@@ -1067,6 +1067,9 @@ body.sand-warn #app::after { opacity: 0.12; }
 .cs-skill small { font-size: 11px; color: #a8a8bc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cs-chibi { position: relative; height: 100%; aspect-ratio: 3 / 4; display: flex; align-items: flex-end; justify-content: center; }
 .cs-chibi img { position: relative; z-index: 1; height: 100%; object-fit: contain; animation: cs-float 3s ease-in-out infinite; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--c) 60%, transparent)); }
+/* mini clipe por cima do chibi (só aparece quando carrega; ver CHARSELECT_ART.clips) */
+.cs-clip { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.35s ease; pointer-events: none; }
+.cs-clip.ready { opacity: 1; }
 .cs-chibi-card { position: relative; z-index: 1; width: 80%; height: 90%; border-radius: 50% 50% 8px 8px; background-size: cover; background-position: center top; animation: cs-float 3s ease-in-out infinite; }
 .cs-circle { position: absolute; bottom: -4px; left: 50%; width: 110%; aspect-ratio: 3 / 1; transform: translateX(-50%); border-radius: 50%; border: 2px solid var(--c); box-shadow: 0 0 22px var(--c), inset 0 0 22px var(--c); opacity: 0.55; animation: cs-ring 2.4s ease-in-out infinite; }
 .charselect .cs-actions { z-index: 6; bottom: 22px; }

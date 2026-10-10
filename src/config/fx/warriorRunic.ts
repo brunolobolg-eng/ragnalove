@@ -40,7 +40,7 @@ export const WARRIOR_RUNIC_FX = {
     haloSpeed: 3.0,
     /** runas azuis no chão: giram devagar e seguem o herói */
     runeSize: 1.5,
-    runeOpacity: 0.55,
+    runeOpacity: 0.4,
     runeSpin: 0.5,
     runeFadeIn: 0.4,
     /** esmaece no fim da duração (s) */
