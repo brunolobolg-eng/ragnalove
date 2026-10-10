@@ -2,6 +2,12 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.6v
+- Feiticeira: modelo novo da maga (`maga.glb`, 61 MB) otimizado para 2,3 MB (47 mil vértices, 39 mil triângulos, textura WebP de 1024 px). Continua no mesmo registro `sorcerer`.
+- Animações: o arquivo trazia uma única animação travada (em degrau), então a feiticeira usa o conjunto de clipes do guerreiro, que serve ao mesmo esqueleto Mixamo de 61 ossos, com a pose de descanso do arquivo (`bind: 'ibm'`). O conjunto do cultista deixava a figura achatada no teste.
+- A pele foi testada com a redistribuição de pesos por proximidade e sem ela: a versão sem redistribuição ficou com a silhueta e o cajado intactos, então foi a escolhida.
+- Pendências: o golpe usa a animação de espada do guerreiro (o cajado não é balançado de verdade) e as bordas da capa ainda aparecem levemente serrilhadas em movimento.
+
 ## 2026-10-10 — v0.6u
 - Cavaleiro Rúnico (teste): cinco habilidades novas do Guerreiro, fora da árvore e liberadas pelo debug e pela Dev Lab. Lâmina Encantada (golpes ganham dano mágico por 5 minutos), Onda Sônica (alvo de 3 a 5 casas), Limite da Morte (marca o inimigo, que recebe mais dano e devolve parte ao herói; não funciona em chefes), Cem Lanças (exige lança) e Cortador de Vento (giro em volta do herói; com lança, alcance maior).
 - Efeitos visuais das cinco, com a paleta da arte de referência. Números em `src/config/fx/warriorRunic.ts`; verificados na vitrine de efeitos.
