@@ -189,7 +189,8 @@ export type SimEvent =
   | { type: 'shadowBolt'; unitId: number; targetId: number; from: Vec2; to: Vec2 }
   | { type: 'stomp'; unitId: number; x: number; y: number; radius: number }
   | { type: 'telegraph'; unitId: number; x: number; y: number; radius: number; ticks: number }
-  | { type: 'meteor'; x: number; y: number; radius: number }
+  /** `unitId`: autor do meteoro (só a Feiticeira envia; meteoros do campo não têm autor). Só apresentação. */
+  | { type: 'meteor'; x: number; y: number; radius: number; unitId?: number }
   /** Inimigo alcançou o portão: invadiu a cidade (sai do campo) e descontou `damage` da vida dela. */
   | { type: 'cityHit'; unitId: number; x: number; y: number; damage: number; cityHp: number; cityMaxHp: number }
   /** Objeto do mapa mudou de estado (aceso, derramado, quebrado...) ou levou dano. */

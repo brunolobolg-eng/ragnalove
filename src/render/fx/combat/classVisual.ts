@@ -5,6 +5,10 @@ import { handleArcher, ARCHER_DEMOS } from './archer';
 import { handleAssassin, ASSASSIN_DEMOS } from './assassin';
 import { handleMage, MAGE_DEMOS } from './mage';
 import { handleWarrior, WARRIOR_DEMOS } from './warrior';
+import { handleSorcerer, SORCERER_DEMOS } from './sorcerer';
+import { handleWarlock, WARLOCK_DEMOS } from './warlock';
+import { handleLevelUp, LEVELUP_DEMOS } from './levelUp';
+import { handleShared, SHARED_DEMOS } from './shared';
 
 type Handler = (e: SimEvent, c: CombatVisualCtx) => boolean;
 
@@ -13,10 +17,12 @@ const BY_KIND: Record<string, Handler> = {
   warrior: handleWarrior,
   archer: handleArcher,
   assassin: handleAssassin,
+  sorcerer: handleSorcerer,
+  warlock: handleWarlock,
 };
 
 /** Todas as demonstrações (a vitrine de efeitos lê daqui). */
-export const ALL_DEMOS: DemoEntry[] = [...MAGE_DEMOS, ...WARRIOR_DEMOS, ...ARCHER_DEMOS, ...ASSASSIN_DEMOS];
+export const ALL_DEMOS: DemoEntry[] = [...MAGE_DEMOS, ...WARRIOR_DEMOS, ...ARCHER_DEMOS, ...ASSASSIN_DEMOS, ...SORCERER_DEMOS, ...WARLOCK_DEMOS, ...LEVELUP_DEMOS, ...SHARED_DEMOS];
 
 /** Autor visual do evento: atacante, conjurador ou dono do efeito (nos danos, quem causou). */
 function casterOf(e: SimEvent): number | undefined {
@@ -41,6 +47,10 @@ function casterOf(e: SimEvent): number | undefined {
  */
 export function classVisual(e: SimEvent, c: CombatVisualCtx): boolean {
   if (e.type === 'trapSet' || e.type === 'trapTrigger') return handleArcher(e, c);
+  // subida de nível: efeito divino do próprio herói, seja qual for a classe
+  if (e.type === 'levelup') return handleLevelUp(e, c);
+  // efeitos sem autor de classe (combustão)
+  if (e.type === 'combust') return handleShared(e, c);
   // objetos criados em batalha (Muralha do Guerreiro): o handler decide se é parede
   if (e.type === 'objectSpawn') return handleWarrior(e, c);
   const id = casterOf(e);

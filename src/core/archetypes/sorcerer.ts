@@ -37,7 +37,7 @@ function meteorStrike(unit: Unit, sim: Simulation, force: boolean): boolean {
   centers.forEach((c, i) => {
     const at = { x: c.x, y: c.y };
     const k = i === 0 ? 1 : SKILL_NUM.meteorShower(lvOf(sk, 'meteorShower')).dmgMult;
-    sim.emit({ type: 'meteor', x: at.x, y: at.y, radius: M.radius });
+    sim.emit({ type: 'meteor', unitId: unit.id, x: at.x, y: at.y, radius: M.radius });
     for (const e of sim.enemiesWithin(at, M.radius)) sim.damage(e, dmg * k, 'meteor', unit.id);
   });
   unit.cooldowns.meteorStrike = sim.tick + cd(unit, M.cooldownTicks);
