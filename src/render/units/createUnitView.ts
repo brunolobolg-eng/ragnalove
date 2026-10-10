@@ -21,16 +21,36 @@ function actModel(kind: string, team: 'party' | 'enemy'): string {
   if (team !== 'enemy') return kind;
   const act = DEV_VISUAL.act === undefined ? currentAct() : (DEV_VISUAL.act ?? undefined);
   const alt = act === undefined ? undefined : ACT_MONSTERS[act]?.[kind];
-  return alt && MODELS[alt] ? withSkin(alt) : kind;
+  const model = alt && MODELS[alt] ? alt : kind;
+  // o sorteio de cor passa por todo inimigo com modelo (mini-chefe dino entra direto, sem ato)
+  return MODELS[model] ? withSkin(model) : model;
 }
 
-/** Sorteia a cor do inimigo entre a original e as variantes já carregadas (só visual: a simulação não muda). */
+/**
+ * Sorteia a cor do inimigo (só visual: a simulação não muda). Monstro com `themeColors` (dinos) sorteia
+ * só entre as cores do tema da zona em jogo; os demais, entre a original e as variantes já carregadas.
+ */
 function withSkin(kind: string): string {
   const s = DEV_VISUAL.skin;
   if (s !== undefined) return s > 0 && MODELS[skinKind(kind, s)] ? skinKind(kind, s) : kind;
-  const n = MONSTER_MODELS[kind]?.skins?.length ?? 0;
-  const options = [kind];
-  for (let i = 1; i <= n; i++) if (MODELS[skinKind(kind, i)]) options.push(skinKind(kind, i));
+  const v = MONSTER_MODELS[kind];
+  const options: string[] = [];
+  if (v?.themeColors) {
+    const zone = ZONE_STATE.current;
+    for (const name of v.themeColors[zone.id] ?? v.themeColors[zone.theme] ?? []) {
+      if (name === 'azul') options.push(kind);
+      else {
+        const i = (v.skinNames ?? []).indexOf(name) + 1;
+        if (MODELS[skinKind(kind, i)]) options.push(skinKind(kind, i));
+      }
+    }
+    // a textura do tema ainda não carregou: fica o original (some assim que a variante chega)
+    if (!options.length) options.push(kind);
+  } else {
+    options.push(kind);
+    const n = v?.skins?.length ?? 0;
+    for (let i = 1; i <= n; i++) if (MODELS[skinKind(kind, i)]) options.push(skinKind(kind, i));
+  }
   return options[Math.floor(Math.random() * options.length)];
 }
 

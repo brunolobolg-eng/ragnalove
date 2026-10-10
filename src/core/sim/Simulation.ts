@@ -63,7 +63,9 @@ const PROJECTILES = new Set<DamageSource>(['bolt', 'arrow', 'pierce', 'spell']);
 
 /** O que cada herói traz da progressão para a onda. */
 /** Dano contínuo/ambiental: nunca é crítico. */
-const NO_CRIT = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'debug', 'curse', 'combust']);
+const NO_CRIT = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'debug', 'curse', 'combust', 'enchant', 'reflect']);
+/** Dano contínuo (não é golpe direto): não dispara o Limite da Morte nem devolve dano. */
+const CONTINUOUS = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'combust', 'curse']);
 
 export interface HeroLoadout {
   stats: HeroStats;
@@ -550,6 +552,14 @@ export class Simulation {
     }
     // Maldição (Bruxa): o amaldiçoado sofre mais dano de toda a party
     if (u.team === 'enemy' && (u.cursedUntil ?? 0) > this.tick) amount *= 1 + (u.curseAmp ?? 0);
+    // Limite da Morte (Guerreiro): o marcado recebe mais dano e devolve uma parte a quem bateu (golpe direto)
+    if (u.team === 'enemy' && (u.markedUntil ?? 0) > this.tick) {
+      amount *= 1 + (u.markAmp ?? 0);
+      const attacker = sourceId !== undefined ? this.units.get(sourceId) : undefined;
+      if (attacker && attacker.team === 'party' && attacker.alive && !CONTINUOUS.has(source) && (u.markReflect ?? 0) > 0) {
+        this.damage(attacker, amount * (u.markReflect ?? 0), 'reflect');
+      }
+    }
     // Bênção: quem ataca abençoado causa mais dano
     if (u.team === 'enemy' && sourceId !== undefined) {
       const a = this.units.get(sourceId);
@@ -713,6 +723,14 @@ export class Simulation {
   addDot(u: Unit, perPulse: number, ticks: number, source: DamageSource, ownerId: number): void {
     if (!u.alive || perPulse <= 0) return;
     (u.dots ??= []).push({ perPulse, until: this.tick + ticks, source, ownerId });
+  }
+
+  /** Limite da Morte: marca o inimigo — recebe `amp` a mais de dano e devolve `reflect` do dano a quem bateu. */
+  mark(u: Unit, amp: number, reflect: number, ticks: number): void {
+    if (!u.alive) return;
+    u.markedUntil = Math.max(u.markedUntil ?? 0, this.tick + ticks);
+    u.markAmp = Math.max(u.markAmp ?? 0, amp);
+    u.markReflect = Math.max(u.markReflect ?? 0, reflect);
   }
 
   /** Amaldiçoa: dano recebido +amp até o fim. */

@@ -37,7 +37,7 @@ import { NightReport, type NightReportVM } from './ui/WaveReport';
 import { CHARSELECT_ART, MUSIC, POSTFX, VICTORY_TITLES, VISUAL_CONFIG } from './config/visualConfig';
 import type { PostFxSituation } from './render/fx/kit/PostFX';
 import type { WaveReport } from './core/sim/types';
-import { SKILL_BY_ID, SKILL_NUM, SKILLS, lvOf, type HeroKind, type SkillId } from './core/progression/skills';
+import { RUNIC_SKILLS, SKILL_BY_ID, SKILL_NUM, SKILLS, lvOf, type HeroKind, type SkillId } from './core/progression/skills';
 import { addCards, applyCardLoadout, emptyCollection, migrateCollection, rollPack, type CardCollection } from './core/progression/cards';
 import { CardPack } from './ui/CardPack';
 import { Collection } from './ui/Collection';
@@ -2448,7 +2448,7 @@ function devApi(): DevApi {
         commit();
       },
       unlockTree: (k) => {
-        for (const d of SKILLS) if (d.hero === k) profile.heroes[k].skills[d.id] = d.maxLevel;
+        for (const d of [...SKILLS, ...RUNIC_SKILLS]) if (d.hero === k) profile.heroes[k].skills[d.id] = d.maxLevel;
         commit();
         hud.log(`[debug] Árvore do ${NAME_PT[k]} no máximo.`, 'skill');
       },

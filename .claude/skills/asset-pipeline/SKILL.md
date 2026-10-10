@@ -26,6 +26,22 @@ public/icons/skills/   ícones de habilidade do dono (128 px WebP), por classe: 
 electron/icon.ico (16–256), icon.png, splash_logo.png   ícone do .exe/janela e splash
 ```
 
+## GLB novo: checagem obrigatória (regra do dono)
+Todo `.glb` que entrar no projeto (novo ou substituto) passa por estes quatro pontos antes de ir para `public/models/`:
+1. **Cor**: de onde vem? Cor por vértice (`COLOR_0`), textura (`baseColorTexture`) ou cor chapada. Sem cor = modelo
+   cinza: confirme com o dono.
+2. **Animações**: tem? Quais nomes? Cada clipe precisa de chaves suaves (mediana de pelo menos ~24 chaves por segundo
+   por canal), sem interpolação em degrau (`STEP`) e com a emenda do loop no lugar. Se o arquivo não atende, use o
+   conjunto de clipes do jogo (`clips: 'cultist'`, animações da UAL) com `bind: 'ibm'` quando a pose dos nós divergir
+   do bind (a auditoria avisa).
+3. **Tamanho e otimização**: `node scripts/auditar_glb.cjs arquivo.glb` mostra cor, ossos, animações, pesos e o que
+   ajustar. Meta de personagem: 1,5 a 4 MB, até ~40 mil triângulos, texturas WebP de até 1024 px e no máximo 4 ossos
+   por vértice. Se não estiver nessa meta, otimize com `scripts/otimizar_glb.mjs` (ele mantém os 4 pesos maiores e
+   renormaliza; sem isso a pele encolhe nas juntas e a animação perde fluidez).
+4. **Fluidez é o critério final**: confira quadros seguidos (andando, golpe, magia) no navegador, com screenshot.
+   Movimento travado ou pele deformada não entrega, mesmo com a auditoria limpa.
+Original acima de ~8 MB: guarde zipado na branch `fontes` e não deixe no repositório (ver Regras).
+
 ## Regras
 - **Originais pesados não entram no repo** (GLB de 50–70 MB, PSD, vídeos brutos). Otimize para `public/` e guarde o
   original zipado na branch **`fontes`** (zips < 95 MB cada, com LEIA-ME explicando o que vira o quê).
