@@ -748,6 +748,9 @@ export const SKILL_ART: Record<string, string> = {
   // Bruxa
   lifeDrain: 'pacote-01/lifeDrain', curse: 'pacote-01/curse', darkPact: 'pacote-01/darkPact', shadowSwarm: 'pacote-01/shadowSwarm',
   soulHarvest: 'pacote-01/soulHarvest',
+  // Bruxa (novas magias)
+  frostMist: 'ladrao/cortina-de-fumaca', etherealCage: 'mago/prisao-de-gelo', abyssMarsh: 'ladrao/veneno',
+  blackFrost: 'mago/rajada-de-gelo', soulEcho: 'ladrao/sombra-mortal', darkApex: 'mago/amplificar',
   // Assassino
   backstab: 'pacote-01/backstab', bladeFan: 'pacote-01/bladeFan', shadowStep: 'pacote-01/shadowStep', poisonBlades: 'pacote-01/poisonBlades',
   execute: 'pacote-01/execute',
