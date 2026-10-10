@@ -2,8 +2,8 @@ import * as THREE from 'three';
 
 /**
  * Texturas e formas desenhadas por código, sem arquivo de imagem: anéis de energia, rachaduras, poça de veneno,
- * anel de runas, disco suave, pedras de cantaria, bandeira e cristais. Cada textura é gerada uma vez e reaproveitada.
- * Energia, rachadura e poça são brancas com alfa (aditivas, tingidas pelo material); pedra e bandeira são cores chapadas.
+ * anel de runas, disco suave e cristais. Cada textura é gerada uma vez e reaproveitada. Energia, rachadura e poça são
+ * brancas com alfa (aditivas, tingidas pelo material).
  */
 
 const textures = new Map<string, THREE.Texture>();
@@ -181,53 +181,6 @@ export function softDiscTexture(): THREE.Texture {
     grd.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = grd;
     g.fillRect(0, 0, s, s);
-  });
-}
-
-/** Pedra de cantaria: fiadas irregulares com juntas, sujeira e variação de tom. */
-export function stoneTexture(): THREE.Texture {
-  return paint('stone', 256, (g, s) => {
-    const r = rng(99);
-    g.fillStyle = '#6f6a63';
-    g.fillRect(0, 0, s, s);
-    const rows = 6;
-    const cols = 4;
-    const bh = s / rows;
-    const bw = s / cols;
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const off = (y % 2) * (bw / 2);
-        const v = 80 + Math.floor(r() * 45);
-        g.fillStyle = `rgb(${v},${v - 4},${v - 10})`;
-        g.fillRect(x * bw + off + 2, y * bh + 2, bw - 4, bh - 4);
-      }
-    }
-    for (let i = 0; i < 60; i++) {
-      g.fillStyle = `rgba(0,0,0,${0.05 + r() * 0.1})`;
-      g.fillRect(r() * s, r() * s, 2 + r() * 4, 2 + r() * 4);
-    }
-  });
-}
-
-/** Bandeira azul com friso dourado e estrela de quatro pontas (o mesmo desenho do brasão do jogo). */
-export function bannerTexture(): THREE.Texture {
-  return paint('banner', 256, (g, s) => {
-    g.fillStyle = '#1f3f7a';
-    g.fillRect(0, 0, s, s);
-    g.strokeStyle = '#d6a64a';
-    g.lineWidth = 10;
-    g.strokeRect(8, 8, s - 16, s - 16);
-    const c = s / 2;
-    const R = s * 0.3;
-    const k = s * 0.06;
-    g.fillStyle = '#e8c35a';
-    g.beginPath();
-    g.moveTo(c, c - R);
-    g.quadraticCurveTo(c + k, c - k, c + R, c);
-    g.quadraticCurveTo(c + k, c + k, c, c + R);
-    g.quadraticCurveTo(c - k, c + k, c - R, c);
-    g.quadraticCurveTo(c - k, c - k, c, c - R);
-    g.fill();
   });
 }
 

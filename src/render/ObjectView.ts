@@ -5,7 +5,7 @@ import { OBJECT_RULES } from '../core/sim/objects';
 import { tileToWorld } from './coords';
 import type { ParticleLayer } from './fx/Particles';
 import { softCircle } from './textures';
-import { buildWallBlock } from './wallBlock';
+import { fortressPiece, fortressSize } from './scenery/fortress';
 
 /**
  * Objetos interativos do mapa — só visual. Lê o estado autoritativo (`sim.objects`) e reage aos
@@ -45,7 +45,7 @@ export class ObjectView {
   private readonly highlight: THREE.Mesh[] = [];
   private t = 0;
 
-  constructor(sim: Simulation) {
+  constructor(private readonly sim: Simulation) {
     for (const o of sim.objects.values()) this.build(o);
   }
 
@@ -173,11 +173,20 @@ export class ObjectView {
     }
   }
 
+  /** Muralha em linha vertical (vizinho em y) gira 90°; horizontal (vizinho em x, ou sozinha) fica como está. */
+  private wallRotation(o: MapObject): number {
+    const walls = [...this.sim.objects.values()].filter((w) => w.type === 'shieldWall' && w.id !== o.id);
+    const vertical = walls.some((w) => w.x === o.x && Math.abs(w.y - o.y) === 1);
+    return vertical ? Math.PI / 2 : 0;
+  }
+
   // ---------------- Construção por tipo ----------------
 
   private build(o: MapObject, rise = false): void {
     const g = new THREE.Group();
     g.position.copy(this.center(o));
+    // a muralha gira conforme a linha: vizinhos em y → linha vertical na tela
+    if (o.type === 'shieldWall') g.rotation.y = this.wallRotation(o);
     this.group.add(g);
     const p: Piece = { obj: o, group: g, state: o.state, shake: 0 };
     const b = BUILDERS[o.type];
@@ -225,14 +234,20 @@ function flame(g: THREE.Group, y: number, size: number): { glow: THREE.Sprite; l
 
 const BUILDERS: Record<MapObject['type'], Builder> = {
   shieldWall(p) {
-    // bloco de pedra com friso dourado e bandeira azul (geometria de código); quebrado, vira monte de pedras
-    const { intact, rubble } = buildWallBlock(p.group);
-    shadow(intact);
-    shadow(rubble);
+    // muro de pedra do kit do dono (fortress.glb): cada bloco ocupa 1 tile, então a peça de 2 m é reduzida à metade;
+    // quebrado, troca pela barricada danificada do mesmo kit (também reduzida a 1 tile)
+    const seg = fortressPiece('Wall_Straight_2m');
+    seg.scale.x = 1 / (fortressSize('Wall_Straight_2m').x || 1);
+    const broken = fortressPiece('Barricade_Damaged');
+    broken.scale.x = 1 / (fortressSize('Barricade_Damaged').x || 1);
+    broken.visible = false;
+    p.group.add(seg, broken);
+    shadow(seg);
+    shadow(broken);
     p.apply = (s) => {
       if (s !== 'broken') return;
-      intact.visible = false;
-      rubble.visible = true;
+      seg.visible = false;
+      broken.visible = true;
     };
   },
   cart(p) {

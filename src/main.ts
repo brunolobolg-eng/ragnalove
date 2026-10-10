@@ -3,6 +3,7 @@ import { DEFAULT_SETUP, GAME_CONFIG, ZONE_STATE, applyZone, barriersAround, barr
 import { parseZone, type ZoneDef } from './config/zones';
 import { TEST_ZONE, TEST_ZONE_ID } from './dev/DevLab/skillArenaZone';
 import { warmFxTextures } from './render/fx/kit/vfxTextures';
+import { loadFortress } from './render/scenery/fortress';
 import { ACTS, EVENTS, REGION_BY_ID, NODE_LABEL, type NodeType } from './config/world';
 import {
   HEROES,
@@ -274,6 +275,7 @@ const C_HANDLE = new THREE.Color(1.4, 1.2, 0.5);
 
 const stage = new Stage(document.getElementById('app')!, GAME_CONFIG.board.width, GAME_CONFIG.board.height);
 const view = new GameView(stage);
+void loadFortress(); // kit de muralha do dono (fortress.glb)
 void warmFxTextures(); // texturas dos efeitos carregam já no menu (sem quadro vazio no primeiro golpe)
 view.onBossDeath = (kind) => onFinalBossDeath(kind);
 // Toda mudança nas Configurações vale na hora (sem reiniciar).

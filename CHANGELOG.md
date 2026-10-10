@@ -2,6 +2,12 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.7e
+- Muralha do Guerreiro refeita com o kit de castelo do dono (`fortress.glb`, em `public/models/`). Cada bloco é um trecho do muro reto de 2 m, reduzido a 1 tile, orientado conforme a linha (horizontal ou vertical). Quebrado, troca pela barricada danificada do mesmo kit.
+- O kit é estático (sem esqueleto e sem animação, cor por vértice, 2 mil vértices): auditoria sem problemas de tamanho (0,14 MB).
+- Os anéis de energia, rachaduras e cristais da subida continuam por código.
+- Pendente: o trecho de 2 m reduzido a 1 tile fica comprimido (merlões finos); a barricada quebrada lê como cerca de madeira, não como muro desmontado. Avaliar trecho de 2 tiles e escombro de pedra do kit.
+
 ## 2026-10-10 — v0.7d
 - Arte em PNG saiu das duas habilidades. Ápice Sombrio (Bruxa) e Muralha (Guerreiro) são agora geometria e textura desenhadas por código, no estilo da referência (energia azul, cristais, lascas de pedra e poça de veneno).
 - Ápice: poça de veneno com núcleo escuro, anel de runas girando, espinhos de energia que sobem em volta e cristais violeta na cintura. Converge para o peito no fim, como antes.
