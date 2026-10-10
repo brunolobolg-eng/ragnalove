@@ -2,6 +2,17 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.6q
+- Efeitos de combate por classe: ataques básicos e habilidades do Mago, do Guerreiro, da Arqueira e do Assassino ganham composição própria (preparação, disparo, impacto e dissipação), com identidade pela forma e pelo movimento, não por cor.
+- Ataques básicos leves (um risco e um impacto pequeno); críticos com efeito completo (Golpe Furtivo crítico, flecha dourada com estrela).
+- Mago: Raio Gélido (orbe de gelo), Cura Divina (coluna dourada), Escudo Sagrado (cúpula), Santuário (runas no chão), Bênção, Julgamento Divino (cruz de colunas de luz), Tempestade Elétrica (raios cintilantes), Nova Congelante (anel de gelo).
+- Guerreiro: Investida (lâmina leve), Golpe em Área (varredura do cone e poeira), Onda de Choque, Fúria (chamas e runas), Provocar (pulso e marcas) e Muralha (pedras saindo do chão).
+- Arqueira: flecha leve e crítica, Chuva de Flechas e Chuva Incendiária, Flecha Perfurante, Foco do Caçador e as quatro armadilhas (Armadilha, Mina, Congelante, Claymore), cada uma com o próprio disparo.
+- Assassino: Leque de Lâminas e Execução (sombra, lâmina que cai e selo no chão).
+- Arquitetura: `src/render/fx/combat/` (despachante por classe e contexto de efeitos), `src/render/fx/kit/Shapes.ts` (peças compartilhadas) e números em `src/config/fx/`. Eventos ganham só campos de apresentação (`bash.crit`, `storm.ability`, `rain.fire`); nenhuma regra de combate mudou.
+- Dev: `fxshowcase.html`, vitrine que roda cada habilidade com a classe e os inimigos reais, passo fixo.
+- Conhecido: o brilho (bloom) ainda tinge de dourado a silhueta de personagens de roupa escura durante impactos brilhantes. A luz de vários efeitos antigos (investida, golpe em área, raio, barreira, nova) nunca acendeu, porque a intensidade é zero na criação; decisão pendente.
+
 ## 2026-10-09 — v0.6p
 - Golpe Furtivo, ajuste de qualidade: a investida agora dura cerca de 0,18 s (antes era quase instantânea); o golpe cai em 0,30 s (`VISUAL_CONFIG.strike`).
 - Corrigido o brilho amarelo que tomava o assassino: a luz do efeito foi reduzida e posicionada longe do corpo, e os riscos da investida saem da frente da mão.

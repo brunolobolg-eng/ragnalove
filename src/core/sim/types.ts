@@ -164,7 +164,8 @@ export type SimEvent =
   | { type: 'cleave'; unitId: number; facing: Vec2; tiles: Vec2[]; hitTiles: Vec2[]; hits: number }
   | { type: 'melee'; unitId: number; targetId: number }
   | { type: 'bolt'; unitId: number; targetId: number; from: Vec2; to: Vec2 }
-  | { type: 'bash'; unitId: number; targetId: number; x: number; y: number }
+  /** `crit`: golpe crítico (só apresentação: o efeito pode ser mais forte) */
+  | { type: 'bash'; unitId: number; targetId: number; x: number; y: number; crit?: boolean }
   | { type: 'avoid'; unitId: number; how: 'dodge' | 'block' | 'deflect' | 'shield' }
   | { type: 'exp'; x: number; y: number; amount: number }
   | { type: 'zeni'; x: number; y: number; amount: number }
@@ -173,14 +174,16 @@ export type SimEvent =
   | { type: 'phase'; phase: SimPhase }
   | { type: 'freeze'; unitId: number; ticks: number }
   | { type: 'nova'; unitId: number; x: number; y: number; radius: number }
-  | { type: 'storm'; unitId: number; strikes: Vec2[] }
+  /** `ability`: qual habilidade desenhou os raios (só apresentação) */
+  | { type: 'storm'; unitId: number; strikes: Vec2[]; ability?: 'thunderstorm' | 'judgment' }
   | { type: 'taunt'; unitId: number; radius: number; pulled: number[] }
   | { type: 'shockwave'; unitId: number; x: number; y: number; radius: number }
   | { type: 'fury'; unitId: number; ticks: number }
   | { type: 'heal'; unitId: number; amount: number }
   | { type: 'combust'; x: number; y: number }
   | { type: 'arrow'; unitId: number; targetId: number; from: Vec2; to: Vec2; crit: boolean }
-  | { type: 'rain'; unitId: number; x: number; y: number; radius: number }
+  /** `fire`: Chuva Incendiária (só apresentação) */
+  | { type: 'rain'; unitId: number; x: number; y: number; radius: number; fire?: boolean }
   | { type: 'pierce'; unitId: number; from: Vec2; to: Vec2 }
   | { type: 'focus'; unitId: number; ticks: number }
   | { type: 'shadowBolt'; unitId: number; targetId: number; from: Vec2; to: Vec2 }

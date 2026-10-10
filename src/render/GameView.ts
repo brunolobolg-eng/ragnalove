@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import type { Simulation } from '../core/sim/Simulation';
 import type { SimEvent } from '../core/sim/types';
+import { classVisual } from './fx/combat/classVisual';
+import type { CombatVisualCtx, VisualUnit } from './fx/combat/CombatVisualCtx';
 import { BoardView } from './BoardView';
 import { tileToWorld } from './coords';
 import { CLEAVE_IMPACT, CleaveFX } from './fx/CleaveFX';
 import { BASH_IMPACT, BashFX } from './fx/BashFX';
-import { AssassinStrikeFX } from './fx/StrikeFX';
 import { ArcFX, type ArcOpts } from './fx/ArcFX';
-import { PoisonMist, ShadowDashFX } from './fx/ShadowFX';
+import { PoisonMist } from './fx/ShadowFX';
 import { SpectreFX } from './fx/SpectreFX';
 import { DecalLayer } from './fx/kit/Decals';
 import { RibbonPool } from './fx/kit/Ribbons';
@@ -115,6 +116,8 @@ export class GameView {
   private fading: FireBarrierFX[] = [];
   private flashTiles: { tiles: { x: number; y: number }[]; t: number } | undefined;
   private oneShots: { update(dt: number): void; done: boolean; group: THREE.Group }[] = [];
+  /** contexto dos efeitos por classe (criado no primeiro evento, quando `kit` já existe) */
+  private cfxCache?: CombatVisualCtx;
   private readonly poisonMist = new PoisonMist();
 
   /** Arco de ataque (tufão/rastro) a partir do herói, na direção em que ele está virado (grade y → mundo z). */
@@ -457,6 +460,8 @@ export class GameView {
     const tmp = new THREE.Vector3();
     if (!immediate) events = this.deferImpacts(events);
     for (const e of events) {
+      // efeitos próprios de cada classe (ataque básico e habilidades); se não assumir, segue o caso padrão
+      if (classVisual(e, (this.cfxCache ??= this.makeCombatCtx()))) continue;
       switch (e.type) {
         case 'spawn': {
           const v = this.addUnit(e.unitId);
@@ -518,7 +523,6 @@ export class GameView {
           this.oneShots.push(fx);
           // Guerreiro: tufão de vento varrendo a frente (discreto, junto da lâmina)
           if (u.kind === 'warrior') this.arcFx(w.root.position, e.facing, VISUAL_CONFIG.arc.windCleave);
-          else if (u.kind === 'assassin') this.arcFx(w.root.position, e.facing, VISUAL_CONFIG.arc.shadowFan);
           this.spectre(e.unitId, 0.55);
           break;
         }
@@ -574,19 +578,6 @@ export class GameView {
           // Investida: golpe pesado sincronizado com a descida da espada
           const w = this.units.get(e.unitId);
           const u = this.sim.units.get(e.unitId);
-          // Golpe Furtivo do Assassino (mesmo evento, golpe básico): carga, investida, impacto e dissipação próprios
-          if (u?.kind === 'assassin') {
-            if (w && u) {
-              w.setFacing(u.facing.x, u.facing.y, true);
-              w.attack();
-            }
-            const from = w ? w.root.position.clone() : tileToWorld(e.x, e.y);
-            const fx = new AssassinStrikeFX(from, tileToWorld(e.x, e.y), new THREE.Vector3(u.facing.x, 0, u.facing.y), this.kit);
-            this.world.add(fx.group);
-            this.oneShots.push(fx);
-            this.spectre(e.unitId, 0.6);
-            break;
-          }
           if (w && u) {
             w.setFacing(u.facing.x, u.facing.y, true);
             if (w instanceof ModelUnitView) w.attack('heavy');
@@ -706,21 +697,6 @@ export class GameView {
           for (const u of this.sim.units.values())
             if (u.team === 'enemy' && Math.max(Math.abs(u.x - e.x), Math.abs(u.y - e.y)) <= e.radius)
               this.particles.glow.emit({ pos: tileToWorld(u.x, u.y, undefined, 1.0), posJitter: 0.3, vel: new THREE.Vector3(0, 0.8, 0), velJitter: 0.4, life: 0.9, size: 0.18, sizeEnd: 0.05, color: new THREE.Color(1.4, 0.2, 1.2), colorEnd: new THREE.Color(0.2, 0.0, 0.2), count: 4 });
-          break;
-        }
-        case 'execute': {
-          const v = this.units.get(e.unitId);
-          // Execução: rastro de sombra do assassino até o alvo
-          if (v) {
-            const fx = new ShadowDashFX(v.root.position, tileToWorld(e.x, e.y), this.kit);
-            this.world.add(fx.group);
-            this.oneShots.push(fx);
-          }
-          if (v instanceof ModelUnitView) v.attack('heavy');
-          else v?.attack();
-          this.float('EXECUÇÃO!', tileToWorld(e.x, e.y, undefined, 1.8), '#ffd04a', 0.36, 1.1);
-          this.stage.addShake(0.12);
-          this.kit.hitStop(0.09);
           break;
         }
         case 'objectHit':
@@ -1257,6 +1233,38 @@ export class GameView {
     this.oneShots.push(f);
   }
 
+  /** Ponte entre o GameView e os efeitos de classe (ver `CombatVisualCtx`). */
+  private makeCombatCtx(): CombatVisualCtx {
+    return {
+      kit: this.kit,
+      add: (fx) => {
+        this.world.add(fx.group);
+        this.oneShots.push(fx);
+      },
+      view: (id) => this.units.get(id) as unknown as VisualUnit | undefined,
+      kindOf: (id) => this.kinds.get(id),
+      pos: (id) => this.units.get(id)?.root.position.clone(),
+      tile: (x, y, lift) => tileToWorld(x, y, undefined, lift),
+      staffTip: (id) => this.staffTip(id),
+      bowTip: (id, from) => this.bowTip(id, from),
+      spectre: (id, dur) => this.spectre(id, dur),
+      trapGone: (id) => {
+        const g = this.trapMeshes.get(id);
+        if (!g) return;
+        g.removeFromParent();
+        g.traverse((o: THREE.Object3D) => {
+          const m = o as THREE.Mesh;
+          m.geometry?.dispose();
+          (m.material as THREE.Material | undefined)?.dispose();
+        });
+        this.trapMeshes.delete(id);
+      },
+      float: (text, pos, color, size, life, rise) => this.float(text, pos, color, size, life, rise),
+      shake: (a) => this.stage.addShake(a),
+      kick: (a) => this.stage.kick(a),
+      aberrate: (a) => this.stage.aberrate(a),
+    };
+  }
   private float(text: string, pos: THREE.Vector3, color: string, size = 0.3, life = 0.9, rise = 0.7): void {
     const f = new FloatText(text, pos, color, { size, life, rise });
     this.world.add(f.group);
