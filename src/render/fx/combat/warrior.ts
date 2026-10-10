@@ -218,9 +218,9 @@ export const WARRIOR_DEMOS: DemoEntry[] = [
     span: R.demo.death,
     steps: (ids) => [
       { at: 0, e: { type: 'deathBound', unitId: ids.caster, targetId: ids.t1, x: 3, y: 0, ticks: R.demo.deathTicks } },
-      // na simulação, o dano devolvido sai antes do golpe no alvo marcado
-      { at: 1.2, e: { type: 'damage', unitId: ids.caster, amount: 3, source: 'reflect' } },
+      // na simulação, o dano devolvido sai logo depois do golpe que o alvo marcado levou
       { at: 1.2, e: hurt(ids.t1, 24, 'bash', ids.caster) },
+      { at: 1.2, e: { type: 'damage', unitId: ids.caster, amount: 3, source: 'reflect' } },
     ],
   },
   {
