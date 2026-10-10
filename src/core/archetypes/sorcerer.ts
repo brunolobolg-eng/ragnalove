@@ -89,15 +89,16 @@ const SKILLS: ArchetypeSkill[] = [
 
 /**
  * Feiticeira: dano arcano à distância.
- * Prioridade: Meteoro (grupo denso) → Corrente Elétrica (2+ inimigos) → Orbe Arcano (mais próximo).
+ * Cada uma dispara quando fica pronta (sem prioridade entre elas): Meteoro (grupo denso) → Corrente Elétrica (2+ inimigos) → Orbe Arcano (mais próximo).
  */
 export const sorcerer: Archetype = {
   id: 'sorcerer',
   maxHp: CFG.hp,
   skills: SKILLS,
   update(unit, sim) {
-    if (meteorStrike(unit, sim, false)) return;
-    if (chainLightning(unit, sim, false)) return;
+    // cada magia pronta dispara no seu tick, sem prioridade entre elas
+    meteorStrike(unit, sim, false);
+    chainLightning(unit, sim, false);
     arcaneOrb(unit, sim, false);
   },
 };

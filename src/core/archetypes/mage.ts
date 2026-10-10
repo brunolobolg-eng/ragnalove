@@ -16,9 +16,13 @@ const lvl = (unit: Unit, id: Parameters<typeof lvOf>[1], force: boolean) => (for
 const cdOf = (unit: Unit, t: number) => Math.max(1, Math.round(t * (unit.stats?.cooldownMult ?? 1)));
 const dm = (unit: Unit) => unit.stats?.skillDamageMult ?? 1;
 
-/** Barreiras de Fogo: 3 linhas curtas, cada uma com sua recarga (uma conjuração por tick). */
+/**
+ * Barreiras de Fogo: 3 linhas curtas, cada uma com sua recarga. Cada linha pronta dispara no seu tick;
+ * o CAST do Dev Lab (force) põe uma linha por clique.
+ */
 function fireBarrier(unit: Unit, sim: Simulation, force: boolean): boolean {
   const s = unit.stats;
+  let cast = false;
   for (let b = 0; b < sim.setup.barriers.length; b++) {
     const key = barrierKey(b);
     if (!(force || ready(unit, sim, key))) continue;
@@ -29,9 +33,10 @@ function fireBarrier(unit: Unit, sim: Simulation, force: boolean): boolean {
     unit.facing = { x: Math.sign(plan.x - unit.x), y: Math.sign(plan.y - unit.y) };
     unit.cooldowns[key] = sim.tick + (s?.barrierCooldownTicks ?? CFG.fireBarrier.cooldownTicks);
     sim.emit({ type: 'cast', unitId: unit.id, ability: key });
-    return true;
+    cast = true;
+    if (force) break;
   }
-  return false;
+  return cast;
 }
 
 /** Nova Congelante: inimigos colados ou 2+ por perto. */
@@ -201,7 +206,7 @@ const SKILLS: ArchetypeSkill[] = [
 
 /**
  * Mago (Cléria, maga divina): controle de área + cura OU dano, conforme a especialização.
- * Prioridade: Cura → Escudo Sagrado → Santuário → Bênção (Divina) → Barreira de Fogo →
+ * Cada uma dispara quando fica pronta (sem prioridade entre elas): Cura → Escudo Sagrado → Santuário → Bênção (Divina) → Barreira de Fogo →
  * Nova Congelante → Julgamento → Tempestade (Arcana) → Raio Gélido (ataque básico).
  * Habilidades fora dos slots de Mana nunca são usadas (a simulação as segura).
  */
@@ -210,14 +215,15 @@ export const mage: Archetype = {
   maxHp: CFG.hp,
   skills: SKILLS,
   update(unit, sim) {
-    if (heal(unit, sim, false)) return;
-    if (holyShield(unit, sim, false)) return;
-    if (sanctuary(unit, sim, false)) return;
-    if (blessing(unit, sim, false)) return;
-    if (fireBarrier(unit, sim, false)) return;
-    if (frostNova(unit, sim, false)) return;
-    if (judgment(unit, sim, false)) return;
-    if (thunderstorm(unit, sim, false)) return;
+    // cada habilidade pronta dispara no seu tick, sem prioridade entre elas
+    heal(unit, sim, false);
+    holyShield(unit, sim, false);
+    sanctuary(unit, sim, false);
+    blessing(unit, sim, false);
+    fireBarrier(unit, sim, false);
+    frostNova(unit, sim, false);
+    judgment(unit, sim, false);
+    thunderstorm(unit, sim, false);
     frostBolt(unit, sim, false);
   },
 };

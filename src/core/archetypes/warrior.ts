@@ -261,15 +261,16 @@ export const warrior: Archetype = {
   maxHp: CFG.hp,
   skills: SKILLS,
   update(unit, sim) {
+    // buffs e magias runicas: cada um dispara no seu tick, sem prioridade entre eles
     shieldWall(unit, sim, false);
     fury(unit, sim, false);
-    // buffs/marcas não gastam a ação
     enchantBlade(unit, sim, false);
     deathBound(unit, sim, false);
-    if (shockwave(unit, sim, false)) return;
-    if (windCutter(unit, sim, false)) return;
-    if (hundredSpear(unit, sim, false)) return;
-    if (taunt(unit, sim, false)) return;
+    shockwave(unit, sim, false);
+    windCutter(unit, sim, false);
+    hundredSpear(unit, sim, false);
+    taunt(unit, sim, false);
+    // golpe corpo a corpo: um por vez (a animação e a posição dependem dele)
     const best = bestCone(unit, sim);
     if (best.hits > 0) unit.facing = best.dir;
     const cleaveReady = ready(unit, sim, 'cleave');

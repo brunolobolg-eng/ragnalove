@@ -27,15 +27,16 @@ export const usesSlot = (id: SkillId): boolean => {
 };
 
 /**
- * Habilidades equipadas, na ordem dos slots. `chosen` = escolha do jogador (undefined = automático:
- * primeiro as que o herói já começa sabendo, depois na ordem da árvore). Só as aprendidas contam
- * e o que passar do número de slots fica de fora.
+ * Habilidades equipadas, na ordem dos slots. `chosen` = escolha do jogador. Automático (undefined) = na
+ * ordem em que foram aprendidas: o perfil já começa com as habilidades iniciais, e as novas entram no fim.
+ * Não é prioridade de magia: quem decide o disparo é a recarga, não o número do slot. Só as aprendidas
+ * contam e o que passar do número de slots fica de fora.
  */
 export function equippedSkills(kind: HeroKind, skills: SkillLevels, mana: number, chosen?: SkillId[]): SkillId[] {
   const learned = slotSkills(kind).filter((d) => lvOf(skills, d.id) > 0);
   const order = chosen
     ? chosen.filter((id) => learned.some((d) => d.id === id))
-    : [...learned].sort((a, b) => b.start - a.start).map((d) => d.id);
+    : (Object.keys(skills) as SkillId[]).filter((id) => learned.some((d) => d.id === id));
   return [...new Set(order)].slice(0, slotCount(kind, mana));
 }
 

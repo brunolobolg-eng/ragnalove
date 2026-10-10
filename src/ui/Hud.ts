@@ -261,6 +261,30 @@ export class Hud {
       .join('');
   }
 
+  /**
+   * Prontidão da habilidade (padrão AAA): o ícone sai escuro logo depois de conjurar e clareia conforme a
+   * recarga termina; quando fica pronta, um brilho passa uma vez e o contorno acende. `--light` vai de 0
+   * (escuro, recém-conjurada) a 1 (claro, pronta). Fora da luta (planejamento), tudo aparece claro.
+   */
+  private setReadiness(slot: HTMLElement, cd: number, alive: boolean, running: boolean): void {
+    const ready = running && alive && cd <= 0;
+    const light = !alive ? 0.2 : running && cd > 0 ? Math.round((0.3 + 0.7 * (1 - cd)) * 100) / 100 : 1;
+    if (slot.dataset.light !== String(light)) {
+      slot.dataset.light = String(light);
+      slot.style.setProperty('--light', String(light));
+    }
+    if (ready !== (slot.dataset.ready === '1')) {
+      slot.dataset.ready = ready ? '1' : '0';
+      slot.classList.toggle('ready', ready);
+      if (ready) {
+        slot.classList.remove('pop');
+        void slot.offsetWidth; // reinicia a animação do brilho
+        slot.classList.add('pop');
+        slot.addEventListener('animationend', () => slot.classList.remove('pop'), { once: true });
+      }
+    }
+  }
+
   /** Cache dos `.cd` por contêiner (o DOM dos slots só muda em renderSlots; evita querySelector por frame). */
   private cdCache = new WeakMap<HTMLElement, (HTMLElement | null)[]>();
   private cdOf(parent: HTMLElement, i: number): HTMLElement | null {
@@ -616,7 +640,8 @@ export class Hud {
           const cdEl = this.cdOf(c.parent, c.i);
           const deg = Math.round(c.cd * 360);
           if (cdEl) cdEl.style.background = deg > 0 ? `conic-gradient(rgba(6,9,22,0.75) ${deg}deg, transparent ${deg}deg)` : 'none';
-          (c.parent === el.basic ? el.basic : (el.slots.children[c.i] as HTMLElement))?.classList.toggle('ready', c.cd <= 0 && m.alive && s.phase === 'running');
+          const slot = c.parent === el.basic ? el.basic : (el.slots.children[c.i] as HTMLElement | undefined);
+          if (slot) this.setReadiness(slot, c.cd, m.alive, s.phase === 'running');
         }
       }
     }

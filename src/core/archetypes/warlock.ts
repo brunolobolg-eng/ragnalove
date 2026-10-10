@@ -193,24 +193,24 @@ const SKILLS: ArchetypeSkill[] = [
 ];
 
 /**
- * Bruxa: maldições, gelo, prisão e dreno de vida.
- * Prioridade: Ápice Sombrio (buff, não gasta a ação) → Maldição (grupo) → Cárcere Etéreo (um alvo forte)
- * → Névoa Gélida (área de controle) → Eco da Alma (prende/alvo) → Geada Negra (área, mais forte com Frio)
- * → Lodaçal Abissal → Enxame de Sombras (vários alvos) → Dreno de Vida (mais próximo, cura).
+ * Bruxa: maldições, gelo, prisão e dreno de vida. Cada magia tem a própria recarga e dispara quando fica
+ * pronta, sem prioridade entre elas: Maldição, Cárcere Etéreo, Névoa Gélida, Eco da Alma, Geada Negra,
+ * Lodaçal Abissal, Enxame de Sombras, Dreno de Vida (ataque básico) e Ápice Sombrio (buff).
+ * A ordem da lista só desempata o que resolve no mesmo tick.
  */
 export const warlock: Archetype = {
   id: 'warlock',
   maxHp: CFG.hp,
   skills: SKILLS,
   update(unit, sim) {
-    darkApex(unit, sim, false); // buff: não gasta a ação
-    if (curse(unit, sim, false)) return;
-    if (etherealCage(unit, sim, false)) return;
-    if (frostMist(unit, sim, false)) return;
-    if (soulEcho(unit, sim, false)) return;
-    if (blackFrost(unit, sim, false)) return;
-    if (abyssMarsh(unit, sim, false)) return;
-    if (shadowSwarm(unit, sim, false)) return;
+    darkApex(unit, sim, false);
+    curse(unit, sim, false);
+    etherealCage(unit, sim, false);
+    frostMist(unit, sim, false);
+    soulEcho(unit, sim, false);
+    blackFrost(unit, sim, false);
+    abyssMarsh(unit, sim, false);
+    shadowSwarm(unit, sim, false);
     lifeDrain(unit, sim, false);
   },
 };

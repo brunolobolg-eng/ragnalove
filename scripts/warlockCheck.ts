@@ -651,6 +651,29 @@ item(10, 'Sem as magias novas: nada de novo', (r) => {
   r.check(a.types.has('damage') && a.srcs.has('shadow'), 'a Bruxa básica continua atacando (dano shadow do Dreno)', `tipos: ${[...a.types].join(',')}`);
 });
 
+// ---------- 11) Magias prontas no mesmo tick disparam juntas (sem prioridade entre elas) ----------
+item(11, 'Duas magias prontas: disparam no mesmo tick, cada uma com a sua recarga', (r) => {
+  const { sim, w } = arena({ blackFrost: 1, frostMist: 1 });
+  dummy(sim, 2);
+  dummy(sim, 3);
+  const disparos: { tick: number; tipo: string }[] = [];
+  for (let i = 0; i < 4; i++) {
+    const es = sim.step();
+    for (const e of es) if (e.type === 'blackFrost' || e.type === 'frostMist') disparos.push({ tick: sim.tick, tipo: e.type });
+  }
+  const bf = disparos.find((d) => d.tipo === 'blackFrost');
+  const fm = disparos.find((d) => d.tipo === 'frostMist');
+  r.check(!!bf && !!fm, 'as duas lançam (Geada Negra e Névoa Gélida)', `disparos: ${JSON.stringify(disparos)}`);
+  r.check(!!bf && !!fm && bf.tick === fm.tick, `no mesmo tick (${bf?.tick}): uma conjuração, dois efeitos`, `Geada no t=${bf?.tick}, Névoa no t=${fm?.tick}`);
+  const nB = NEW_IDS.includes('blackFrost') ? SKILL_NUM.blackFrost(1) : undefined;
+  const nF = SKILL_NUM.frostMist(1);
+  r.check(
+    w.cooldowns.blackFrost === (bf?.tick ?? 0) + (nB?.cooldown ?? 0) && w.cooldowns.frostMist === (fm?.tick ?? 0) + nF.cooldown,
+    'cada recarga conta a partir do próprio disparo',
+    `recargas: Geada ${w.cooldowns.blackFrost}, Névoa ${w.cooldowns.frostMist}`,
+  );
+});
+
 const falhas = reports.filter((x) => x.failed).length;
 console.log(falhas ? `warlockCheck: ${falhas} FALHA(S) de ${reports.length} itens` : `warlockCheck: tudo certo (${reports.length} itens)`);
 // lançar erro = código de saída 1 (mesmo padrão do runicCheck)
