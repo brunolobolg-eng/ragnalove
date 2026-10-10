@@ -82,3 +82,9 @@ maga_original.zip   maga.glb original, enviado pelo dono para substituir a feiti
                     -> public/models/sorcerer.glb (2,3 MB): 47 mil vertices, 39 mil triangulos, textura WebP de 1024 px.
                     Usa o conjunto de clipes do guerreiro (clips 'warriorRig', bind 'ibm'), sem animacao propria.
                     Para refazer: node scripts/otimizar_glb.mjs maga.glb saida.glb 0.08 0.02 (sem redistribuir pesos).
+goblin_leader_original.zip  goblin leader.glb original, enviado pelo dono para virar mini-chefe (Khronos Blender I/O 4.2):
+                    343 mil vertices, textura PNG de 8192 px (36 MB), 41 ossos Mixamo, 1 animacao "Armature" em degrau.
+                    -> public/models/goblin_leader.glb (2,5 MB): 49 mil vertices, 40 mil triangulos, textura WebP de 1024 px.
+                    Usa clipes do guerreiro (clips 'warriorRig', bind 'ibm'); o conjunto do cultista achata a figura.
+                    Sem recolor: a cor do arquivo vale em todas as zonas. Para refazer:
+                    node scripts/otimizar_glb.mjs "goblin leader.glb" saida.glb 0.08 0.02
