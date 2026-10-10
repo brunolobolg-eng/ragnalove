@@ -58,7 +58,7 @@ export interface SimOptions {
 }
 
 /** Eventos que contam como uso de habilidade no relatório. */
-const SKILL_EVENTS = new Set<SimEvent['type']>(['cast', 'cleave', 'bash', 'bolt', 'arrow', 'rain', 'pierce', 'nova', 'storm', 'taunt', 'shockwave', 'fury', 'focus']);
+const SKILL_EVENTS = new Set<SimEvent['type']>(['cast', 'cleave', 'bash', 'bolt', 'arrow', 'rain', 'pierce', 'nova', 'storm', 'taunt', 'shockwave', 'fury', 'focus', 'enchantBlade', 'sonicWave', 'deathBound', 'hundredSpear', 'windCutter']);
 const PROJECTILES = new Set<DamageSource>(['bolt', 'arrow', 'pierce', 'spell']);
 
 /** O que cada herói traz da progressão para a onda. */
@@ -552,14 +552,8 @@ export class Simulation {
     }
     // Maldição (Bruxa): o amaldiçoado sofre mais dano de toda a party
     if (u.team === 'enemy' && (u.cursedUntil ?? 0) > this.tick) amount *= 1 + (u.curseAmp ?? 0);
-    // Limite da Morte (Guerreiro): o marcado recebe mais dano e devolve uma parte a quem bateu (golpe direto)
-    if (u.team === 'enemy' && (u.markedUntil ?? 0) > this.tick) {
-      amount *= 1 + (u.markAmp ?? 0);
-      const attacker = sourceId !== undefined ? this.units.get(sourceId) : undefined;
-      if (attacker && attacker.team === 'party' && attacker.alive && !CONTINUOUS.has(source) && (u.markReflect ?? 0) > 0) {
-        this.damage(attacker, amount * (u.markReflect ?? 0), 'reflect');
-      }
-    }
+    // Limite da Morte (Guerreiro): o marcado recebe mais dano (a devolução sai depois, sobre o dano final)
+    if (u.team === 'enemy' && (u.markedUntil ?? 0) > this.tick) amount *= 1 + (u.markAmp ?? 0);
     // Bênção: quem ataca abençoado causa mais dano
     if (u.team === 'enemy' && sourceId !== undefined) {
       const a = this.units.get(sourceId);
@@ -598,6 +592,11 @@ export class Simulation {
       if (src?.team === 'party') this.dealt[src.kind] = (this.dealt[src.kind] ?? 0) + applied;
     }
     this.emit(crit ? { type: 'damage', unitId: u.id, amount, source, sourceId, crit } : { type: 'damage', unitId: u.id, amount, source, sourceId });
+    // Limite da Morte: parte do dano que o marcado levou volta para quem bateu (golpe direto; não contínuo)
+    if (u.team === 'enemy' && (u.markedUntil ?? 0) > this.tick && (u.markReflect ?? 0) > 0 && !CONTINUOUS.has(source)) {
+      const attacker = sourceId !== undefined ? this.units.get(sourceId) : undefined;
+      if (attacker?.team === 'party' && attacker.alive) this.damage(attacker, applied * (u.markReflect ?? 0), 'reflect');
+    }
     if (u.hp <= 0) {
       u.alive = false;
       this.occ[this.board.idx(u.x, u.y)] = 0;
@@ -728,9 +727,15 @@ export class Simulation {
   /** Limite da Morte: marca o inimigo — recebe `amp` a mais de dano e devolve `reflect` do dano a quem bateu. */
   mark(u: Unit, amp: number, reflect: number, ticks: number): void {
     if (!u.alive) return;
+    // marca nova substitui a expirada; enquanto a atual dura, vale o maior valor
+    if ((u.markedUntil ?? 0) <= this.tick) {
+      u.markAmp = amp;
+      u.markReflect = reflect;
+    } else {
+      u.markAmp = Math.max(u.markAmp ?? 0, amp);
+      u.markReflect = Math.max(u.markReflect ?? 0, reflect);
+    }
     u.markedUntil = Math.max(u.markedUntil ?? 0, this.tick + ticks);
-    u.markAmp = Math.max(u.markAmp ?? 0, amp);
-    u.markReflect = Math.max(u.markReflect ?? 0, reflect);
   }
 
   /** Amaldiçoa: dano recebido +amp até o fim. */

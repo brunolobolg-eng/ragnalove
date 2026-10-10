@@ -83,7 +83,8 @@ function sonicWave(unit: Unit, sim: Simulation, force: boolean): boolean {
   let target: Unit | undefined;
   for (const e of sim.enemies()) {
     const d = chebyshev(e, unit);
-    if (d > n.range || (!force && d < 2)) continue; // colado: fica para o golpe corpo a corpo
+    // a 2 casas o cone do Golpe em Área (alcance 2) já pega o alvo; a onda vale a partir de 3
+    if (d > n.range || (!force && d < 3)) continue;
     if (!target || d < chebyshev(target, unit) || (d === chebyshev(target, unit) && e.id < target.id)) target = e;
   }
   if (!target) return false;
