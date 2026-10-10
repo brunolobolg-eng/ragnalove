@@ -138,6 +138,14 @@ const HEAVY: WaveMix[] = [
   { kind: 'brute', weight: 26 },
   { kind: 'necro', weight: 8 },
 ];
+/** Cinzas (Pico das Cinzas): HEAVY com 8 de peso trocados do pesado comum para o raydric (soma 100). */
+const ASH_HEAVY: WaveMix[] = [
+  { kind: 'grunt', weight: 46 },
+  { kind: 'runner', weight: 20 },
+  { kind: 'brute', weight: 18 },
+  { kind: 'raydric', weight: 8 },
+  { kind: 'necro', weight: 8 },
+];
 const wave = (seed: number, mix: WaveMix[], count = 40, interval = 5, bossDelay = 30) => ({ count, spawnIntervalTicks: interval, seed, mix, boss: 'boss', bossDelayTicks: bossDelay });
 
 export const ZONES: Record<string, ZoneDef> = {
@@ -698,7 +706,8 @@ Object.assign(ZONES, {
     wave: { count: 260, spawnIntervalTicks: 8, seed: 3303, mix: [
       { kind: 'grunt', weight: 48 },
       { kind: 'runner', weight: 34 },
-      { kind: 'brute', weight: 10 },
+      { kind: 'brute', weight: 6 },
+      { kind: 'raydric', weight: 4 },
       { kind: 'necro', weight: 8 },
     ], boss: 'boss', bossDelayTicks: 30 },
   },
@@ -768,7 +777,8 @@ Object.assign(ZONES, {
     wave: { count: 90, spawnIntervalTicks: 7, seed: 3404, mix: [
       { kind: 'grunt', weight: 48 },
       { kind: 'runner', weight: 34 },
-      { kind: 'brute', weight: 10 },
+      { kind: 'brute', weight: 6 },
+      { kind: 'raydric', weight: 4 },
       { kind: 'necro', weight: 8 },
     ], boss: 'boss', bossDelayTicks: 30 },
   },
@@ -1017,7 +1027,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(4404, HEAVY, 240, 6, 600),
+    wave: wave(4404, ASH_HEAVY, 240, 6, 600),
   },
 } satisfies Record<string, ZoneDef>);
 

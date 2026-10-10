@@ -64,6 +64,7 @@ export const GAME_CONFIG = {
     grunt: { hp: 30, moveTicks: 5, attackTicks: 10, damage: 6 }, // comum (pressiona mais que antes)
     runner: { hp: 16, moveTicks: 3, attackTicks: 8, damage: 4 }, // rápido
     brute: { hp: 85, moveTicks: 10, attackTicks: 14, damage: 11 }, // pesado
+    raydric: { hp: 110, moveTicks: 12, attackTicks: 15, damage: 12 }, // pesado comum (Raydric): +29% vida, 20% mais lento, bate 1 tick mais devagar e +1 de dano; não é chefe
     boss: { hp: 220, moveTicks: 9, attackTicks: 15, damage: 9 }, // Colosso (chefe do Ato I)
     /** Boneco de treino (Arena de Skills): parado, não ataca, HP alto. Recompensas zeradas abaixo. */
     trainingDummy: { hp: 999999, moveTicks: 1000000000, attackTicks: 1000000000, damage: 0 },
@@ -80,7 +81,7 @@ export const GAME_CONFIG = {
    * Almas são a moeda de progressão (atributos hoje; habilidades/upgrades no futuro).
    */
   souls: {
-    dropPerKill: { grunt: 1, runner: 1, brute: 2, necro: 1, elite: 8, boss: 18, boss2: 25, orcboss: 35, goblinImp: 7, goblinWarlord: 21, dinoBoss: 9, trainingDummy: 0 } as Record<string, number>,
+    dropPerKill: { grunt: 1, runner: 1, brute: 2, raydric: 3, necro: 1, elite: 8, boss: 18, boss2: 25, orcboss: 35, goblinImp: 7, goblinWarlord: 21, dinoBoss: 9, trainingDummy: 0 } as Record<string, number>,
     defaultDrop: 1,
   },
   /**
@@ -88,7 +89,7 @@ export const GAME_CONFIG = {
    * e vai para a bolsa da party. Almas continuam sendo a moeda de CRESCIMENTO (EXP, despertar).
    */
   zeni: {
-    dropPerKill: { grunt: 3, runner: 2, brute: 8, necro: 6, elite: 56, boss: 105, boss2: 154, orcboss: 280, goblinImp: 42, goblinWarlord: 140, dinoBoss: 50, trainingDummy: 0 } as Record<string, number>,
+    dropPerKill: { grunt: 3, runner: 2, brute: 8, raydric: 10, necro: 6, elite: 56, boss: 105, boss2: 154, orcboss: 280, goblinImp: 42, goblinWarlord: 140, dinoBoss: 50, trainingDummy: 0 } as Record<string, number>,
     defaultDrop: 2,
     /** Bônus ao vencer a onda. */
     waveClearBonus: 42,
@@ -100,7 +101,7 @@ export const GAME_CONFIG = {
   },
   /** EXP e níveis: cada abate dá EXP a toda a party viva; cada nível dá pontos de atributo. */
   progression: {
-    expPerKill: { grunt: 2, runner: 2, brute: 4, necro: 3, elite: 14, boss: 28, boss2: 42, orcboss: 70, goblinImp: 10, goblinWarlord: 38, dinoBoss: 14, trainingDummy: 0 } as Record<string, number>,
+    expPerKill: { grunt: 2, runner: 2, brute: 4, raydric: 5, necro: 3, elite: 14, boss: 28, boss2: 42, orcboss: 70, goblinImp: 10, goblinWarlord: 38, dinoBoss: 14, trainingDummy: 0 } as Record<string, number>,
     defaultExp: 2,
     expCurve: { base: 20, growth: 1.6 }, // EXP para passar do nível L = base * L^growth
     pointsPerLevel: 3,
@@ -238,7 +239,7 @@ export const GAME_CONFIG = {
    */
   cityDefense: {
     maxHp: 1000,
-    threat: { grunt: 3, runner: 2, brute: 8, necro: 4, elite: 24, boss: 48, boss2: 60, orcboss: 80, goblinImp: 20, goblinWarlord: 60, dinoBoss: 22 } as Record<string, number>,
+    threat: { grunt: 3, runner: 2, brute: 8, raydric: 9, necro: 4, elite: 24, boss: 48, boss2: 60, orcboss: 80, goblinImp: 20, goblinWarlord: 60, dinoBoss: 22 } as Record<string, number>,
     defaultThreat: 3,
     /** Peso da ameaça por ato (o Ato I começa com um herói só). */
     threatActMult: [0.6, 0.9, 1.2],
@@ -260,7 +261,7 @@ export const GAME_CONFIG = {
    *    Se um deles alcançar o portão, invade a cidade do mesmo jeito.
    */
   aggro: {
-    byKind: { grunt: 'tauntable', runner: 'bypass', brute: 'heavy', necro: 'city', elite: 'hunter', boss: 'hunter', boss2: 'hunter', orcboss: 'hunter', goblinImp: 'heavy', goblinWarlord: 'hunter', dinoBoss: 'hunter' } as Record<string, AggroType>,
+    byKind: { grunt: 'tauntable', runner: 'bypass', brute: 'heavy', raydric: 'heavy', necro: 'city', elite: 'hunter', boss: 'hunter', boss2: 'hunter', orcboss: 'hunter', goblinImp: 'heavy', goblinWarlord: 'hunter', dinoBoss: 'hunter' } as Record<string, AggroType>,
     defaultType: 'tauntable' as AggroType,
     /** Tipos que trocam de alvo com Provocar. */
     tauntAffects: ['tauntable', 'heavy'] as AggroType[],
@@ -283,7 +284,7 @@ export const GAME_CONFIG = {
     /** Reavalia aquisição a cada N ticks (escalonado pelo id, sem pico). */
     checkEveryTicks: 5,
     /** Alcance de aquisição por tipo (0 = nunca tranca: conjurador e infiltrador ignoram heróis por desenho). Perto = reage; longe = segue a horda. */
-    range: { grunt: 3, runner: 0, brute: 3, necro: 0, elite: 5, boss: 6, boss2: 6, orcboss: 6, goblinImp: 4, goblinWarlord: 6, dinoBoss: 5 } as Record<string, number>,
+    range: { grunt: 3, runner: 0, brute: 3, raydric: 3, necro: 0, elite: 5, boss: 6, boss2: 6, orcboss: 6, goblinImp: 4, goblinWarlord: 6, dinoBoss: 5 } as Record<string, number>,
     defaultRange: 5,
   },
   /** Objetos interativos dos mapas (regras em core/sim/objects.ts). */
