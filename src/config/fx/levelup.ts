@@ -38,7 +38,7 @@ export const LEVELUP_FX = {
     /** anel de choque no chão */
     ring: { radius: 2.6, life: 0.6 },
     /** estrela de clarão no centro do herói */
-    flare: { y: 1.4, size0: 0.4, size1: 1.6, life: 0.35 },
+    flare: { y: 1.4, size0: 0.4, size1: 1.3, life: 0.35 },
     /** risco horizontal de lente */
     streak: { width: 3.0, height: 0.4, life: 0.4 },
     /** raios de luz saindo do centro em todas as direções */
@@ -46,7 +46,8 @@ export const LEVELUP_FX = {
     /** faíscas radiais */
     sparks: { count: 24, speed: 3.0 },
     /** clarão pequeno (não pode lavar a arena nem o herói) */
-    flash: { size: 1.2, life: 0.16, y: 1.4 },
+    /** cor do clarão = cor da classe × tint (pequeno: não pode apagar o herói) */
+    flash: { size: 1.2, life: 0.16, y: 1.4, tint: 0.2 },
     /** tremor e empurrão de câmera leves */
     shake: 0.06,
     kick: 0.05,

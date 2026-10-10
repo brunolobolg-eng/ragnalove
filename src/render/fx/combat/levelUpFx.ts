@@ -166,8 +166,8 @@ export class DivineRiseFX implements OneShotFx {
     }
 
     this.halo = { o: sprite(this.group, 'lu_halo', pal.main, false, 9), base: 0.8 };
-    this.flare = { o: sprite(this.group, 'lu_flare', pal.hot, false, 11), base: 0.8 };
-    this.streak = { o: sprite(this.group, 'lu_streak', pal.main, false, 11), base: 0.6 };
+    this.flare = { o: sprite(this.group, 'lu_flare', pal.hot, false, 11), base: 0.55 };
+    this.streak = { o: sprite(this.group, 'lu_streak', pal.main, false, 11), base: 0.45 };
 
     for (let i = 0; i < K.burst.rays.count; i++) {
       const a = (i / K.burst.rays.count) * Math.PI * 2;
@@ -270,7 +270,7 @@ export class DivineRiseFX implements OneShotFx {
     this.burstAt = t;
     const B = K.burst;
     groundCircle(this.kit, this.feet, { radius: B.ring.radius, color: this.pal.main, life: B.ring.life, kind: 'ring', grow: 0.3, spin: 0 });
-    this.flashes.push(new Flash(this.group, new THREE.Vector3(this.feet.x, B.flash.y, this.feet.z), this.pal.main.clone().multiplyScalar(0.3), B.flash.size, B.flash.life));
+    this.flashes.push(new Flash(this.group, new THREE.Vector3(this.feet.x, B.flash.y, this.feet.z), this.pal.main.clone().multiplyScalar(B.flash.tint), B.flash.size, B.flash.life));
     this.kit.particles.spark.emit({
       pos: this.center.clone(),
       posJitter: 0.2,
