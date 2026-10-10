@@ -16,7 +16,7 @@ description: Sistema de combate do ROguard — simulação em tempo real determi
   (`Unit.drift`) que o faz escolher passos laterais quase tão bons (sempre rumo à cidade). Pesados/chefes/caçadores não derivam.
   A quantidade de monstros da fase varia ±`countJitter` (`battleFor` em run.ts). Tudo pela seed → determinístico.
 - Planejamento: a horda começa sozinha após `GAME_CONFIG.wave.autoStartSeconds` (contagem na HUD, `tickAutoStart` em main.ts).
-- Heróis: cada classe é um `Archetype` (`update` por tick + `skills` em ordem de prioridade da IA).
+- Heróis: cada classe é um `Archetype` (`update` por tick + `skills`). **Cada magia pronta dispara no seu tick, sem prioridade entre elas**: duas ou mais prontas no mesmo tick saem juntas (uma conjuração, os efeitos de todas). Só o golpe corpo a corpo do Guerreiro é escolhido por vez.
 - Tudo que acontece vira `SimEvent` (`damage`, `death`, `soul`, `drop`, `levelup`, `cityHit`, `avoid`...).
 
 ## Status do herói
@@ -28,7 +28,7 @@ description: Sistema de combate do ROguard — simulação em tempo real determi
     Mana = 18 + Inteligência × 2 (GAME_CONFIG.mana) + Poção de Mana + rolagem "Mana" de itens Épicos+. Teto de 5 slots (`maxSlots`).
     No começo: Mago/Bruxa 2 slots, Feiticeira 3, Guerreiro/Arqueira/Assassino 1. A barra de baixo do HUD mostra os 5 (bloqueados em preto).
     Ataque básico (`HERO_INFO.basic`) e passivas não usam slot. Escolha do jogador em `HeroProgress.equippedSkills`
-    (undefined = automático). A luta recebe `HeroLoadout.locked` e `Simulation.actWithSlots` segura essas recargas — o archetype não sabe de slots.
+    (undefined = automático: na ordem em que as habilidades foram aprendidas; a ordem dos slots não define quem dispara). A luta recebe `HeroLoadout.locked` e `Simulation.actWithSlots` segura essas recargas — o archetype não sabe de slots.
   - **Skill Haste** é o ÚNICO atributo de recuperação: `HeroStats.skillHaste`, recarga = base × (1 − Skill Haste) (`cooldownMult`).
     Vem de Destreza, rolagem "Skill Haste" e Meditação/Fluxo Arcano. Não criar "recarga" separada.
   - **Chance de crítico** (`crit`: 5% base + Sorte + itens + passivas) e **Dano crítico** (`critDamage`, 150% base + itens) são

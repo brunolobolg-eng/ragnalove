@@ -92,15 +92,16 @@ const SKILLS: ArchetypeSkill[] = [
 
 /**
  * Assassino: corpo a corpo letal.
- * Prioridade: Execução (inimigo fraco perto) → Leque de Lâminas (2+ no cone) → Golpe Furtivo (adjacente).
+ * Cada uma dispara quando fica pronta (sem prioridade entre elas): Execução (inimigo fraco perto) → Leque de Lâminas (2+ no cone) → Golpe Furtivo (adjacente).
  */
 export const assassin: Archetype = {
   id: 'assassin',
   maxHp: CFG.hp,
   skills: SKILLS,
   update(unit, sim) {
-    if (execute(unit, sim, false)) return;
-    if (bladeFan(unit, sim, false)) return;
+    // cada habilidade pronta dispara no seu tick, sem prioridade entre elas
+    execute(unit, sim, false);
+    bladeFan(unit, sim, false);
     backstab(unit, sim, false);
   },
 };

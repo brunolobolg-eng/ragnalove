@@ -190,7 +190,7 @@ const SKILLS: ArchetypeSkill[] = [
 
 /**
  * Arqueira: dano à distância.
- * Prioridade: Foco do Caçador (pressão) → Claymore → Congelante → Mina → Armadilha → Flecha Perfurante (2+ em linha) →
+ * Cada uma dispara quando fica pronta (sem prioridade entre elas): Foco do Caçador (pressão) → Claymore → Congelante → Mina → Armadilha → Flecha Perfurante (2+ em linha) →
  * Chuva de Flechas (grupo denso) → Flecha Precisa (mais próximo com linha de visão).
  */
 export const archer: Archetype = {
@@ -198,13 +198,14 @@ export const archer: Archetype = {
   maxHp: CFG.hp,
   skills: SKILLS,
   update(unit, sim) {
+    // cada habilidade pronta dispara no seu tick, sem prioridade entre elas
     hunterFocus(unit, sim, false);
-    if (claymore(unit, sim, false)) return;
-    if (freezingTrap(unit, sim, false)) return;
-    if (landMine(unit, sim, false)) return;
-    if (snareTrap(unit, sim, false)) return;
-    if (piercing(unit, sim, false)) return;
-    if (arrowRain(unit, sim, false)) return;
+    claymore(unit, sim, false);
+    freezingTrap(unit, sim, false);
+    landMine(unit, sim, false);
+    snareTrap(unit, sim, false);
+    piercing(unit, sim, false);
+    arrowRain(unit, sim, false);
     preciseShot(unit, sim, false);
   },
 };

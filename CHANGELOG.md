@@ -2,6 +2,20 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.6z
+- Magias prontas disparam no seu tick, sem prioridade entre elas. Antes, cada classe escolhia uma magia por tick pela ordem da IA e as demais esperavam; agora duas ou mais prontas no mesmo tick saem juntas, com uma só animação de conjuração e os efeitos de todas.
+- Vale para as seis classes. Exceção: o golpe corpo a corpo do Guerreiro continua um por vez (a animação e a posição dependem dele); as magias runicas e os buffs dele disparam em paralelo.
+- Ordem dos slots: o automático segue a ordem em que as habilidades foram aprendidas. Antes, a ordem da árvore dava prioridade a algumas magias. O número do slot não decide mais quem dispara.
+- Indicador de prontidão no HUD: a habilidade sai escura logo depois de conjurar e clareia conforme a recarga termina; quando fica pronta, um brilho passa uma vez e o contorno acende.
+- Equilíbrio: o combate padrão mudou para mais e para menos (algumas fases ficaram mais fáceis, outras mais difíceis). A regra é nova; os números de dano e recarga não mudaram. Ajustar pelo balance.ts se algo ficar fora do esperado.
+- Checagem nova (warlockCheck, item 11): duas magias prontas no mesmo tick, cada uma com a sua recarga.
+
+## 2026-10-10 — v0.6y
+- Líder goblin: novo mini-chefe (modelo do dono, `goblin leader.glb`, 67 MB), otimizado para 2,5 MB (49 mil vértices, 40 mil triângulos, textura WebP de 1024 px). Altura de 2,8 m, aura âmbar.
+- Aparece na entrada do Ato II (Vale das Raízes): a opção de elite desse nó é o líder. Tem 130 de vida, bate 10 e conta como chefe (drop garantido, sobe o nível da party).
+- Animações: o conjunto do guerreiro, com a pose de descanso do arquivo (`bind: 'ibm'`). O conjunto do cultista achatou a figura na vitrine. Sem recolor: a cor do modelo original vale em todas as zonas.
+- Pendências: o arquivo tem 17% dos vértices presos a ossos distantes (aceitável, abaixo do alerta de 20%); a cena dentro do jogo ainda não foi capturada, só a vitrine.
+
 ## 2026-10-10 — v0.6x
 - Raydric: novo inimigo pesado de pedra e cristal (modelo do dono, `raydric.glb`, 65 MB), otimizado para 2,5 MB (48 mil vértices, 39 mil triângulos, textura WebP de 1024 px).
 - Aparece nas misturas pesadas das ruínas do Ato II (Dunas Vermelhas e Ruínas Solares) e das Cinzas (Pico das Cinzas). Tem 110 de vida, anda mais devagar que o brutamonte e bate um pouco mais forte.
