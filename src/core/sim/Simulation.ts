@@ -69,7 +69,7 @@ const APEX_SOURCES = new Set<DamageSource>(['shadow', 'curse', 'frost']);
 /** Máximo de Névoas Gélidas ativas por Bruxa (a nova substitui a mais antiga). */
 const MIST_MAX_PER_OWNER = 2;
 /** Dano contínuo (não é golpe direto): não dispara o Limite da Morte nem devolve dano. */
-const CONTINUOUS = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'combust', 'curse']);
+const CONTINUOUS = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'combust', 'curse', 'frost']);
 
 export interface HeroLoadout {
   stats: HeroStats;
