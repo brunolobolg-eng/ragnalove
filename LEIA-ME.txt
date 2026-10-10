@@ -60,3 +60,10 @@ dino_original.zip   dino.glb original (Blender 4.2): 330 mil vertices, textura P
 bongun_original.zip bongun.glb original, que estava na raiz do projeto (Blender 4.2): 295 mil vertices,
                     textura PNG de 7,7 MB, 37 MB. -> public/models/bongun.glb (2 MB): 21 mil vertices, textura
                     WebP. E o mesmo modelo do necromante.
+bruxinha_original.zip bruxinha.glb original, enviado pelo dono para substituir a feiticeira (Khronos Blender
+                    I/O 4.2): 334 mil vertices, textura PNG de 8192 px (33 MB), 53 ossos no padrao Mixamo, 1 animacao
+                    "Armature" em degrau (2 chaves/s). NAO entrou no jogo: a rigagem do arquivo prende 46% dos
+                    vertices a cabeca (tronco e bracos seguem a cabeca), e a animacao do cultista deformou a figura
+                    (rasgos no golpe), mesmo com os pesos refeitos pela distancia dos ossos. Para usar de novo:
+                    precisa de um rig reexportado com pesos corretos (ou o dono manda outro modelo).
+                    Otimizacao testada: scripts/otimizar_glb.mjs (63 MB -> 2,4 MB, 39 mil triangulos).
