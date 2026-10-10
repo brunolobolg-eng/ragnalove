@@ -56,6 +56,8 @@ export const WARLOCK_NEW_FX = {
     bog: [0.05, 0.1, 0.04],
     /** silhueta fantasma do eco (mistura normal) */
     ghost: [0.1, 0.04, 0.16],
+    /** estouro violeta-escuro das batidas do eco (mistura normal, um pouco mais claro que a silhueta) */
+    echoBurst: [0.22, 0.08, 0.34],
     /** anel de luz do eco (aditivo) */
     echoRing: [0.5, 0.3, 0.8],
     /** flare do eco dobrado (aditivo, pequeno) */
@@ -149,6 +151,8 @@ export const WARLOCK_NEW_FX = {
     /** primeira batida (s): é quando o número do dano aparece */
     blowAt: 0.3,
     blowGap: 0.22,
+    /** batidas por alvo (cada uma é um golpe de sombra no alvo e na área) */
+    blows: 2,
     /** silhueta fantasma: altura, largura, cabeça, desvio para o lado, deriva para fora e vida (s) */
     ghostHeight: 1.4,
     ghostWidth: 0.45,
@@ -189,24 +193,26 @@ export const WARLOCK_NEW_FX = {
     haloOrbit: 0.6,
     haloSpin: 0.6,
     haloBob: 0.1,
-    /** nuvem (smoke_atlas): partículas por segundo, tamanho inicial e final, vida, alfa, giro (fração da velocidade) */
+    /** nuvem (smoke_atlas): partículas por segundo, tamanho inicial e final, vida, alfa, giro (rad/s) e freio */
     cloudRate: 14,
     cloudSize: 0.6,
     cloudSizeEnd: 1.4,
     cloudLife: 1.2,
     cloudAlpha: 0.55,
-    cloudSpin: 0.4,
+    cloudSpin: 1,
     cloudDrag: 0.8,
     /** flocos que caem na névoa: por segundo, tamanho, vida e peso */
     flakeRate: 8,
     flakeSize: 0.06,
     flakeLife: 0.8,
     flakeGravity: 0.8,
-    /** anel de cada pulso (× raio): tamanho final, vida (s) */
-    pulseRingSize: 2,
+    /** anel de cada pulso: tamanho final como fração da área (começa na metade), vida (s) */
+    pulseRingSize: 1,
     pulseRingLife: 0.5,
-    /** borda gelada da área (aditiva, ×raio): tamanho */
-    edgeRingSize: 2,
+    /** borda gelada da área (aditiva): tamanho como fração da área (2×raio+1) */
+    edgeRingSize: 1,
+    /** altura dos cristais orbitando */
+    haloHeight: 0.9,
     /** luz azul-gelo: intensidade máxima (teto 0,3), distância e altura */
     lightIntensity: 0.3,
     lightDistance: 4,
@@ -240,11 +246,11 @@ export const WARLOCK_NEW_FX = {
     tipBurstLife: 0.3,
     targetImpactSize: 0.5,
     targetImpactLife: 0.3,
-    /** área: decalque escuro (vida) e anel de gelo que se expande na batida */
+    /** área: decalque escuro (vida e fade) e anel de gelo que se expande na batida (tamanho como fração da área) */
     areaLife: 0.8,
     areaFade: 0.6,
     ringSize: 0.5,
-    ringSizeEnd: 1.2,
+    ringSizeEnd: 1.1,
     ringLife: 0.4,
     /** flash azul-gelo quando havia alvo gelado (tamanho em tiles, vida) */
     flashSize: 2,
@@ -268,7 +274,7 @@ export const WARLOCK_NEW_FX = {
     /** raízes: raio do círculo de saída (em volta dos pés), altura máxima, segmentos, tremor, espessura */
     rootRadius: 0.35,
     rootHeight: 1.1,
-    rootSegments: 5,
+    rootSegments: 4,
     rootJitter: 0.12,
     rootWidth: 0.1,
     /** raízes sobem em `rootGrow` s; afundam nos últimos `rootSink` s da duração */

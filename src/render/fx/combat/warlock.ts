@@ -5,6 +5,7 @@ import { ShadowBoltFX } from '../SkillFX';
 import type { CombatVisualCtx } from './CombatVisualCtx';
 import type { DemoEntry, DemoIds, DemoStep } from './demos';
 import { CurseFX, curseMark, LifeDrainFX, SwarmFX } from './warlockFx';
+import { WARLOCK_NEW_DEMOS, consumeEchoHit, frostHit, handleWarlockNew } from './warlockNew';
 
 /** Evento da simulação de um tipo específico. */
 type Ev<T extends SimEvent['type']> = Extract<SimEvent, { type: T }>;
@@ -28,6 +29,15 @@ export function handleWarlock(e: SimEvent, c: CombatVisualCtx): boolean {
       return true;
     case 'curse':
       return curse(e, c);
+    // magias novas: Cárcere, Eco, Névoa, Geada Negra, Lodaçal, Ápice; e o Frio do inimigo gelado
+    case 'etherealCage':
+    case 'soulEcho':
+    case 'frostMist':
+    case 'blackFrost':
+    case 'abyssMarsh':
+    case 'darkApex':
+    case 'chill':
+      return handleWarlockNew(e, c);
     case 'cast':
       return e.ability === 'shadowSwarm' ? swarm(e, c) : false;
     case 'damage':
@@ -96,7 +106,13 @@ function damage(e: Ev<'damage'>, c: CombatVisualCtx): void {
     if (feet) curseMark(c.kit, feet);
     return;
   }
+  if (e.source === 'frost') {
+    frostHit(e, c);
+    return;
+  }
   if (e.source !== 'shadow') return;
+  // golpe do Eco da Alma: o evento da magia já desenhou as batidas
+  if (consumeEchoHit(caster, e.unitId)) return;
   // o golpe do Dreno já tem visual próprio (no acerto): não conta como pulso do enxame
   if (drainPending.delete(`${caster}>${e.unitId}`)) return;
   const fx = swarms.get(caster);
@@ -149,4 +165,5 @@ export const WARLOCK_DEMOS: DemoEntry[] = [
       ...pulses(2.6, [t1, t2, t3], 'shadow', caster, 5),
     ],
   },
+  ...WARLOCK_NEW_DEMOS,
 ];
