@@ -2,6 +2,10 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.7g
+- Verso das cartas volta a mostrar o logo do ROguard (`emblem.png`), no lugar do recorte da arte de referência que trazia o texto "Aurenthal".
+- Removido `public/cards/brasao_dragao.webp`, que deixou de ser usado.
+
 ## 2026-10-10 — v0.7f
 - Cartas com a nova estética: o verso já mostra a raridade antes de revelar. Normal dourada e parada; Mini-Boss com borda azul pulsando; MVP com borda vermelha pulsando e brasão com brilho de fogo.
 - Brilho só nas raras: a carta normal não brilha em azul nem em vermelho.

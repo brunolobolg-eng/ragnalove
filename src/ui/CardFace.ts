@@ -39,7 +39,7 @@ export function cardFaceHtml(id: string): string {
     <span class="cf-band"><b${long}>${d.name}</b><em>${RARITY_LABEL[d.rarity]}</em></span>`;
 }
 
-/** Verso da carta: navy com a borda da raridade (já visível antes de revelar) e o brasão do dragão no centro. */
+/** Verso da carta: navy com a borda da raridade (já visível antes de revelar) e o logo do ROguard no centro. */
 export function cardBackHtml(): string {
-  return `${ornament(true)}<img class="cf-emb" src="cards/brasao_dragao.webp" alt="" draggable="false">`;
+  return `${ornament(true)}<img class="cf-emb" src="emblem.png" alt="" draggable="false">`;
 }

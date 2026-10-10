@@ -1870,7 +1870,7 @@ body.sand-warn #app::after { opacity: 0.12; }
 /* moldura ornamental (SVG): traço dourado, gemas na cor da raridade */
 .cf-orn { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; fill: none; stroke: #e0bd72; stroke-width: 1.4; vector-effect: non-scaling-stroke; overflow: visible; }
 .cf-orn .gem { fill: var(--rim); stroke: #fff3c4; }
-.cf-emb { position: relative; width: 66%; height: auto; border-radius: 50%; filter: drop-shadow(0 0 8px color-mix(in srgb, var(--rim) 70%, transparent)); }
+.cf-emb { position: relative; width: 66%; height: auto; filter: drop-shadow(0 0 8px color-mix(in srgb, var(--rim) 70%, transparent)); }
 /* raro (azul) e mítica (vermelha) já brilham de costas: a borda pulsa antes de revelar; o normal fica dourado e parado */
 @keyframes cf-rare-glow { 0%, 100% { box-shadow: inset 0 0 0 1.5px #ffe9a6, inset 0 0 0 4px var(--rim), inset 0 0 0 6px #0d1126, 0 0 10px var(--rim), 0 0 22px color-mix(in srgb, var(--rim) 40%, transparent); } 50% { box-shadow: inset 0 0 0 1.5px #ffe9a6, inset 0 0 0 4px var(--rim), inset 0 0 0 6px #0d1126, 0 0 16px var(--rim), 0 0 36px color-mix(in srgb, var(--rim) 65%, transparent); } }
 .cf.miniboss .cf-back, .cf.mvp .cf-back { animation: cf-rare-glow 2.2s ease-in-out infinite; }
