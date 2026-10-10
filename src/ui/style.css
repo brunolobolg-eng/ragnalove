@@ -1859,15 +1859,23 @@ body.sand-warn #app::after { opacity: 0.12; }
 @keyframes cf-in { 0% { opacity: 0; transform: translate(0, -60px) scale(0.25) rotate(-10deg); } 55% { opacity: 1; } 100% { opacity: 1; transform: none; } }
 .cf { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform 0.4s ease-out; --rim: #c9a25a; }
 .cf.tilting { transition: transform 0.08s linear; }
-.cf.normal { --rim: #c9a25a; } .cf.miniboss { --rim: #c77dff; } .cf.mvp { --rim: #ffd700; }
+.cf.normal { --rim: #d4a84f; } .cf.miniboss { --rim: #3fa9ff; } .cf.mvp { --rim: #ff3b2e; }
 .cf-inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform 0.75s cubic-bezier(0.3, 0.8, 0.25, 1); }
 .cf-wrap.flipped .cf-inner { transform: rotateY(180deg); }
 .cf-face { position: absolute; inset: 0; border-radius: 10px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden; }
 /* verso: navy com filigrana e o emblema */
-.cf-back { display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #2d3868, #141a36 72%); box-shadow: inset 0 0 0 1.5px #e0bd72, inset 0 0 0 4px #7a5a22, inset 0 0 0 6px #0d1126, 0 10px 22px rgba(0, 0, 0, 0.6); }
-.cf-back::before { content: ''; position: absolute; inset: 15px; border: 1px dashed rgba(224, 189, 114, 0.55); border-radius: 8px; }
+.cf-back { display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #2d3868, #141a36 72%); box-shadow: inset 0 0 0 1.5px #ffe9a6, inset 0 0 0 4px var(--rim), inset 0 0 0 6px #0d1126, 0 10px 22px rgba(0, 0, 0, 0.6); }
+.cf-back::before { content: ''; position: absolute; inset: 15px; border: 1px dashed color-mix(in srgb, var(--rim) 60%, transparent); border-radius: 8px; }
 .cf-back::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(135deg, rgba(224, 189, 114, 0.1) 0 2px, transparent 2px 12px); }
-.cf-emb { position: relative; width: 60%; height: auto; filter: drop-shadow(0 0 8px rgba(255, 210, 120, 0.6)); }
+/* moldura ornamental (SVG): traço dourado, gemas na cor da raridade */
+.cf-orn { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; fill: none; stroke: #e0bd72; stroke-width: 1.4; vector-effect: non-scaling-stroke; overflow: visible; }
+.cf-orn .gem { fill: var(--rim); stroke: #fff3c4; }
+.cf-emb { position: relative; width: 66%; height: auto; border-radius: 50%; filter: drop-shadow(0 0 8px color-mix(in srgb, var(--rim) 70%, transparent)); }
+/* raro (azul) e mítica (vermelha) já brilham de costas: a borda pulsa antes de revelar; o normal fica dourado e parado */
+@keyframes cf-rare-glow { 0%, 100% { box-shadow: inset 0 0 0 1.5px #ffe9a6, inset 0 0 0 4px var(--rim), inset 0 0 0 6px #0d1126, 0 0 10px var(--rim), 0 0 22px color-mix(in srgb, var(--rim) 40%, transparent); } 50% { box-shadow: inset 0 0 0 1.5px #ffe9a6, inset 0 0 0 4px var(--rim), inset 0 0 0 6px #0d1126, 0 0 16px var(--rim), 0 0 36px color-mix(in srgb, var(--rim) 65%, transparent); } }
+.cf.miniboss .cf-back, .cf.mvp .cf-back { animation: cf-rare-glow 2.2s ease-in-out infinite; }
+.cf.mvp .cf-back .cf-emb { animation: cf-fire 1.4s ease-in-out infinite alternate; }
+@keyframes cf-fire { from { filter: drop-shadow(0 0 6px rgba(255, 70, 40, 0.55)); } to { filter: drop-shadow(0 0 14px rgba(255, 110, 50, 0.9)); } }
 /* frente: arte recortada, moldura pela raridade e faixa com o nome */
 .cf-front { transform: rotateY(180deg); background: #14100a; box-shadow: inset 0 0 0 1.5px #ffe9a6, inset 0 0 0 4px var(--rim), inset 0 0 0 6px #241a0c, 0 10px 22px rgba(0, 0, 0, 0.6); }
 .cf-art { position: absolute; left: 7px; right: 7px; top: 7px; bottom: 41px; overflow: hidden; border-radius: 4px; background: #0a0c18; }
@@ -1900,7 +1908,7 @@ body.sand-warn #app::after { opacity: 0.12; }
 .pk-foot .pk-save { min-width: 240px; justify-content: center; }
 .pk-foot .pk-reveal-all { font-size: 13px; padding: 8px 16px; }
 @media (max-width: 760px) { .pk-row { gap: 8px; } }
-@media (prefers-reduced-motion: reduce) { .pk-veil .pk-pack, .pk-rays, .pk-pack .pk-body, .cf.aura .cf-front, .cf.gold .cf-art::after, .pk-banner.in { animation: none !important; } .pk-banner.in { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pk-veil .pk-pack, .pk-rays, .pk-pack .pk-body, .cf.aura .cf-front, .cf.gold .cf-art::after, .pk-banner.in, .cf.miniboss .cf-back, .cf.mvp .cf-back, .cf.mvp .cf-back .cf-emb { animation: none !important; } .pk-banner.in { opacity: 1; } }
 .cards-veil { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(6, 8, 20, 0.6); font-family: Tahoma, Verdana, sans-serif; }
 .cards-veil[hidden] { display: none; }
 .cards-win { width: min(1060px, 94vw); max-height: 92vh; display: flex; flex-direction: column; }

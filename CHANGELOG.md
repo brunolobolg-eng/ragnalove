@@ -2,6 +2,14 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.7f
+- Cartas com a nova estética: o verso já mostra a raridade antes de revelar. Normal dourada e parada; Mini-Boss com borda azul pulsando; MVP com borda vermelha pulsando e brasão com brilho de fogo.
+- Brilho só nas raras: a carta normal não brilha em azul nem em vermelho.
+- Verso com o brasão do dragão (recorte da arte de referência, `public/cards/brasao_dragao.webp`).
+- Moldura da frente com ornamentos em SVG (pontas e gemas na cor da raridade).
+- Cores: azul para Mini-Boss, vermelho para MVP (antes roxo e dourado).
+- Pendente: a arte dos monstros continua a mesma (só a moldura e o verso mudaram); ornamentos mais detalhados que a referência.
+
 ## 2026-10-10 — v0.7e
 - Muralha do Guerreiro refeita com o kit de castelo do dono (`fortress.glb`, em `public/models/`). Cada bloco é um trecho do muro reto de 2 m, reduzido a 1 tile, orientado conforme a linha (horizontal ou vertical). Quebrado, troca pela barricada danificada do mesmo kit.
 - O kit é estático (sem esqueleto e sem animação, cor por vértice, 2 mil vértices): auditoria sem problemas de tamanho (0,14 MB).
