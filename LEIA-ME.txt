@@ -67,3 +67,8 @@ bruxinha_original.zip bruxinha.glb original, enviado pelo dono para substituir a
                     (rasgos no golpe), mesmo com os pesos refeitos pela distancia dos ossos. Para usar de novo:
                     precisa de um rig reexportado com pesos corretos (ou o dono manda outro modelo).
                     Otimizacao testada: scripts/otimizar_glb.mjs (63 MB -> 2,4 MB, 39 mil triangulos).
+maga_original.zip   maga.glb original, enviado pelo dono para substituir a feiticeira (Khronos Blender I/O 4.2):
+                    325 mil vertices, textura PNG de 8192 px (31 MB), 61 ossos Mixamo, 1 animacao "Armature" em degrau.
+                    -> public/models/sorcerer.glb (2,3 MB): 47 mil vertices, 39 mil triangulos, textura WebP de 1024 px.
+                    Usa o conjunto de clipes do guerreiro (clips 'warriorRig', bind 'ibm'), sem animacao propria.
+                    Para refazer: node scripts/otimizar_glb.mjs maga.glb saida.glb 0.08 0.02 (sem redistribuir pesos).
