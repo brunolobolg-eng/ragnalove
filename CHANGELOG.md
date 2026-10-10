@@ -2,6 +2,11 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.7a
+- Bongun (necromante) flutua de verdade: o corpo sobe e desce 9 cm em torno da altura-base a cada 2,6 s (antes era um balanço de 1 cm, quase imperceptível, em posição fixa). A sombra de contato encolhe e clareia quando ele sobe e volta ao normal quando desce.
+- O balanço vem da unidade (`float` no registro dos modelos), então vale também nas ações no ar (golpe, conjuração, dano).
+- Balanço das juntas em 32 quadros por ciclo, sem facetas.
+
 ## 2026-10-10 — v0.6z
 - Magias prontas disparam no seu tick, sem prioridade entre elas. Antes, cada classe escolhia uma magia por tick pela ordem da IA e as demais esperavam; agora duas ou mais prontas no mesmo tick saem juntas, com uma só animação de conjuração e os efeitos de todas.
 - Vale para as seis classes. Exceção: o golpe corpo a corpo do Guerreiro continua um por vez (a animação e a posição dependem dele); as magias runicas e os buffs dele disparam em paralelo.
