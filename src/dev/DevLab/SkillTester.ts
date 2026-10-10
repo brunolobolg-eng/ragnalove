@@ -6,7 +6,7 @@
 import { GAME_CONFIG } from '../../config/gameConfig';
 import { HERO_ORDER } from '../../config/heroes';
 import { ARCHETYPES } from '../../core/archetypes/registry';
-import { SKILLS, SKILL_NUM } from '../../core/progression/skills';
+import { RUNIC_SKILLS, SKILLS, SKILL_NUM } from '../../core/progression/skills';
 import type { Unit } from '../../core/sim/types';
 import { SKILL_ICONS } from '../../ui/icons';
 import { SHARED_EDITOR } from '../../editor/EditorStore';
@@ -105,7 +105,7 @@ export function buildSkills(el: HTMLElement, ctx: DevCtx): { refresh(): void; on
     const lv = api.heroLevel(k).skills;
     const castable = new Set(ARCHETYPES[k]?.skills.map((s) => s.id) ?? []);
     const u = unitOf(k);
-    list.innerHTML = SKILLS.filter((d) => d.hero === k)
+    list.innerHTML = [...SKILLS, ...RUNIC_SKILLS].filter((d) => d.hero === k)
       .map((d) => {
         const l = lv[d.id] ?? 0;
         const cd = d.kind === 'active' ? skillCooldownTicks(d.id, l, u) : undefined;

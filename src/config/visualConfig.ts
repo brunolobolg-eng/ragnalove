@@ -190,6 +190,13 @@ export interface MonsterModelVisual {
   bind?: 'ibm';
   /** Variantes de cor: texturas alternativas no mesmo atlas do GLB (cada inimigo sorteia uma, ou a original). */
   skins?: string[];
+  /** Nome de cada variante de `skins`, na mesma ordem (ex.: 'gelo'). */
+  skinNames?: string[];
+  /**
+   * Cores que o monstro pode ter por zona: chave = id da zona ou tema (id vence). Com entrada, nunca sai cor de
+   * fora da zona em jogo ('azul' = o original do modelo). Sem entrada, sorteia entre todas (zumbis).
+   */
+  themeColors?: Record<string, string[]>;
   /** Armas presas nos ossos da mão (para modelos que vêm de mãos vazias); accent = cor do brilho. */
   weapons?: { type: 'bow' | 'dagger' | 'axe' | 'sword' | 'greatsword' | 'shield'; bone: string; accent?: number; tilt?: number; scale?: number; pos?: [number, number, number] }[];
 }
@@ -206,15 +213,37 @@ export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   mage: { file: 'models/cleria.glb', height: 1.9, walkRate: 1, ghost: [0.55, 0.8, 1.6], clips: 'mage' },
   // Líria (modelo do V2Fun no esqueleto padrão): animações da Arqueira
   archer: { file: 'models/liria.glb', height: 1.9, walkRate: 1, ghost: [0.5, 1.4, 0.6], clips: 'archer', weapons: [{ type: 'bow', bone: 'hand.L', accent: 0x9aff7a }] },
-  sorcerer: { file: 'models/sorcerer.glb', height: 1.75, walkRate: 1, ghost: [1.2, 0.55, 1.8] },
-  warlock: { file: 'models/warlock.glb', height: 1.75, walkRate: 1, ghost: [1.6, 0.25, 0.6] },
+  // Feiticeira: modelo da maga (2,3 MB, 47 mil vértices, textura 1024 px). Sem animações próprias: usa o conjunto do
+  // guerreiro (mesmo esqueleto Mixamo de 61 ossos) com a pose de descanso do arquivo. O conjunto do cultista deixa a figura achatada.
+  sorcerer: { file: 'models/sorcerer.glb', height: 1.75, walkRate: 1, ghost: [1.2, 0.55, 1.8], clips: 'warriorRig', bind: 'ibm' },
+  // Bruxa: modelo novo (2,3 MB, 47 mil vértices, textura WebP de 1024 px, sem redistribuir pesos). Sem animações próprias:
+  // usa o conjunto do guerreiro com a pose de descanso do arquivo (o conjunto do cultista deixa a figura achatada).
+  warlock: { file: 'models/warlock.glb', height: 1.75, walkRate: 1, ghost: [1.6, 0.25, 0.6], clips: 'warriorRig', bind: 'ibm' },
   // Cavaleiro sombrio (modelo do V2Fun no esqueleto padrão): animações de golpe do Guerreiro (corpo a corpo)
   assassin: { file: 'models/assassin_dk.glb', height: 1.9, walkRate: 1.05, ghost: [1.6, 1.3, 0.3], clips: 'warrior', weapons: [{ type: 'dagger', bone: 'hand.R', accent: 0xc070ff }, { type: 'dagger', bone: 'hand.L', accent: 0xc070ff }] },
 };
 /** Zumbi do Ato III: coveiro, afogado, pesteado, luto e cinzas (além da cor original do modelo). */
 const ZOMBIE_SKINS = ['coveiro', 'afogado', 'pesteado', 'luto', 'cinzas'].map((n) => `models/zombie_${n}.jpg`);
-/** Dino do Ato II: cinco cores (o corpo azul vira verde, vermelho, gelo, violeta e areia), como os zumbis. */
-const DINO_SKINS = ['musgo', 'magma', 'gelo', 'sombra', 'areia'].map((n) => `models/dino_${n}.webp`);
+/** Dino: cores além do azul original (o corpo azul). Cada arquivo é uma textura alternativa do mesmo GLB. */
+const DINO_SKIN_NAMES = ['gelo', 'deserto', 'grama', 'sombra'];
+const DINO_SKINS = DINO_SKIN_NAMES.map((n) => `models/dino_${n}.webp`);
+/**
+ * Cor do dino por zona: cada zona só mostra as próprias cores (nada de dino verde no gelo nem azul no deserto).
+ * A chave é o id da zona (ex.: 'frostPass') ou o tema (ex.: 'desert'); o id vence o tema.
+ * 'azul' = o original do modelo. Ponte e cidade seguem o verde da grama.
+ */
+const DINO_THEME_COLORS: Record<string, string[]> = {
+  frostPass: ['azul', 'gelo'], // Passo da Geada: azul e branco
+  rustGorge: ['sombra'], // Garganta de Ferrugem (montanha, mas não é gelo): violeta escuro
+  desert: ['deserto'], // deserto: amarelo e vermelho
+  forest: ['grama'], // floresta: verde
+  plains: ['grama'], // campos: verde
+  bridge: ['grama'],
+  town: ['grama'],
+  ash: ['sombra'], // cinzas: violeta escuro
+};
+/** Campos comuns de todo modelo de dino (mesmo arquivo, mesmas cores por tema). */
+const DINO_COLORS = { skins: DINO_SKINS, skinNames: DINO_SKIN_NAMES, themeColors: DINO_THEME_COLORS };
 /** Machado de batalha do orc: mão direita, cabo inclinado 35° para baixo, brilho do gume avermelhado. */
 const ORC_AXE = { type: 'axe' as const, bone: 'hand.R', accent: 0xff7040, tilt: 35, scale: 1.35 };
 export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
@@ -243,12 +272,12 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   orcLord: { file: 'models/orc.glb', height: 3.3, walkRate: 0.9, clips: 'brute', aura: [1.6, 0.15, 0.4], weapons: [ORC_AXE] },
   // Dino (família do Ato II): esqueleto de 57 ossos no padrão do cultista; pose de descanso = bind do arquivo;
   // movimentos da UAL (como o cultista). Grunt/corredor/brutamonte/necromante e mini-chefe (dinoBoss).
-  dino: { file: 'models/dino.glb', height: 1.8, walkRate: 1.2, clips: 'cultist', bind: 'ibm', skins: DINO_SKINS },
-  dinoRunner: { file: 'models/dino.glb', height: 1.5, walkRate: 2.2, clips: 'cultist', bind: 'ibm', skins: DINO_SKINS },
-  dinoBrute: { file: 'models/dino.glb', height: 2.3, walkRate: 0.85, clips: 'cultist', bind: 'ibm', skins: DINO_SKINS },
-  dinoNecro: { file: 'models/dino.glb', height: 1.7, walkRate: 1.2, clips: 'cultist', bind: 'ibm', aura: [0.7, 0.2, 1.6] },
-  // Mini-chefe (tipo próprio de inimigo, como o Krexx): dino maior, com aura âmbar
-  dinoBoss: { file: 'models/dino.glb', height: 2.6, walkRate: 0.9, clips: 'cultist', bind: 'ibm', aura: [1.2, 0.8, 0.2] },
+  dino: { file: 'models/dino.glb', height: 1.8, walkRate: 1.2, clips: 'cultist', bind: 'ibm', ...DINO_COLORS },
+  dinoRunner: { file: 'models/dino.glb', height: 1.5, walkRate: 2.2, clips: 'cultist', bind: 'ibm', ...DINO_COLORS },
+  dinoBrute: { file: 'models/dino.glb', height: 2.3, walkRate: 0.85, clips: 'cultist', bind: 'ibm', ...DINO_COLORS },
+  dinoNecro: { file: 'models/dino.glb', height: 1.7, walkRate: 1.2, clips: 'cultist', bind: 'ibm', aura: [0.7, 0.2, 1.6], ...DINO_COLORS },
+  // Mini-chefe (tipo próprio de inimigo, como o Krexx): dino maior, com aura âmbar; mesma regra de cor por tema
+  dinoBoss: { file: 'models/dino.glb', height: 2.6, walkRate: 0.9, clips: 'cultist', bind: 'ibm', aura: [1.2, 0.8, 0.2], ...DINO_COLORS },
 };
 
 /**
@@ -293,7 +322,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.6t',
+  version: 'v0.6w',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
@@ -375,6 +404,13 @@ export const CHARSELECT_ART = {
   cards: {
     warrior: 'sprites/cs/card_warrior.jpg', mage: 'sprites/cs/card_mage.jpg', archer: 'sprites/cs/card_archer.jpg',
     sorcerer: 'sprites/cs/card_sorcerer.jpg', warlock: 'sprites/cs/card_warlock.jpg', assassin: 'sprites/cs/card_assassin.jpg',
+  } as Record<string, string>,
+  /**
+   * Mini clipe em loop no lugar do chibi (painel de detalhes). Aparece por cima da imagem quando carrega;
+   * sem o arquivo, segue a imagem parada. Formato: webm/mp4 em public/clips/.
+   */
+  clips: {
+    warrior: 'clips/guerreiro_golpe.webm',
   } as Record<string, string>,
   /** chibi de corpo inteiro no painel de detalhes (vazio = usa a arte da carta) */
   chibis: {

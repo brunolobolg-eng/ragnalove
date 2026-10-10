@@ -351,6 +351,7 @@ export class CharSelect {
       })
       .join('');
     const chibi = CHARSELECT_ART.chibis[k];
+    const clip = CHARSELECT_ART.clips[k];
     const det = this.el.querySelector<HTMLElement>('.cs-detail')!;
     det.style.setProperty('--c', hex(INFO[k].color));
     det.innerHTML = `
@@ -361,7 +362,9 @@ export class CharSelect {
         <div class="cs-attrs">${bars}<div class="cs-attr hp"><span>HP</span><b>${st.maxHp}</b></div></div>
       </div>
       <div class="cs-skills"><h3>Habilidades</h3>${skills}</div>
-      <div class="cs-chibi"><i class="cs-circle"></i>${chibi ? `<img src="${chibi}" alt="">` : `<span class="cs-chibi-card" style="background-image:url('${CHARSELECT_ART.cards[k]}')"></span>`}</div>`;
+      <div class="cs-chibi"><i class="cs-circle"></i>${chibi ? `<img src="${chibi}" alt="">` : `<span class="cs-chibi-card" style="background-image:url('${CHARSELECT_ART.cards[k]}')"></span>`}${clip ? `<video class="cs-clip" src="${clip}" autoplay loop muted playsinline></video>` : ''}</div>`;
+    // o clipe só aparece quando carrega; sem arquivo, a imagem acima continua
+    det.querySelector<HTMLVideoElement>('.cs-clip')?.addEventListener('canplay', (e) => (e.target as HTMLElement).classList.add('ready'));
     // reinicia a animação de entrada
     det.classList.remove('in');
     void det.offsetWidth;

@@ -29,6 +29,8 @@ Stack: TypeScript + Vite + Three.js, desktop via Electron (Windows/Steam). Sem f
    Mudou UI/visual? Abra o jogo no Chromium headless (Playwright) e confira um screenshot.
 6. **Nada de arquivo-fonte pesado no repositório** (modelos originais, PSD, vídeos brutos). O jogo usa
    só versões otimizadas em `public/`. Fontes editáveis vão zipadas para a branch `fontes`.
+7. **GLB novo passa pela checagem** (skill `asset-pipeline`, seção "GLB novo"): cor, animações, tamanho/otimização
+   e, acima de tudo, **fluidez** das animações vistas no navegador. Auditoria: `node scripts/auditar_glb.cjs arquivo.glb`.
 
 ## Regras de design fixas (definidas pelo dono — pese o balanceamento antes de mudar)
 - **Mana = slots de habilidade** (não é MP, não gasta, não regenera). Mana vem da **Inteligência** (+ Poção de Mana e itens Épicos+). Custo do slot: Mago 1×, Arqueira/Assassino 1,5×, Guerreiro 2×. **Máximo de 5 slots** por herói; os não liberados aparecem bloqueados (escuros).

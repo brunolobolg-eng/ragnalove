@@ -62,6 +62,12 @@ export interface Unit {
   /** Amaldiçoado (Bruxa) até este tick: recebe `curseAmp` a mais de dano. */
   cursedUntil?: number;
   curseAmp?: number;
+  /** Limite da Morte (Guerreiro) até este tick: recebe `markAmp` a mais e devolve `markReflect` do dano a quem bateu. */
+  markedUntil?: number;
+  markAmp?: number;
+  markReflect?: number;
+  /** Lâmina Encantada (Guerreiro) até este tick: cada golpe corpo a corpo ganha dano mágico extra. */
+  enchantUntil?: number;
   /** Danos contínuos ativos (veneno, maldição, enxame). */
   dots?: { perPulse: number; until: number; source: DamageSource; ownerId: number }[];
   /** Só party: estado do movimento de combate (CombatMovement). */
@@ -137,7 +143,9 @@ export interface MapObject {
   area: Vec2[];
 }
 
-export type DamageSource = 'burn' | 'cleave' | 'melee' | 'bolt' | 'bash' | 'debug' | 'nova' | 'storm' | 'shock' | 'combust' | 'arrow' | 'rain' | 'pierce' | 'spell' | 'meteor' | 'oil' | 'ruin' | 'trap' | 'arcane' | 'shadow' | 'blade' | 'poison' | 'curse' | 'execute';
+export type DamageSource = 'burn' | 'cleave' | 'melee' | 'bolt' | 'bash' | 'debug' | 'nova' | 'storm' | 'shock' | 'combust' | 'arrow' | 'rain' | 'pierce' | 'spell' | 'meteor' | 'oil' | 'ruin' | 'trap' | 'arcane' | 'shadow' | 'blade' | 'poison' | 'curse' | 'execute'
+  // Guerreiro (Cavaleiro Rúnico): Lâmina Encantada (bônus mágico), Onda Sônica, Cem Lanças, Cortador de Vento, dano devolvido
+  | 'enchant' | 'wave' | 'spear' | 'wind' | 'reflect';
 
 export interface AreaEffect {
   id: number;
@@ -213,6 +221,16 @@ export type SimEvent =
   | { type: 'divineHeal'; unitId: number; targetId: number }
   /** Maldição lançada numa área. */
   | { type: 'curse'; unitId: number; x: number; y: number; radius: number }
+  /** Cavaleiro Rúnico: Lâmina Encantada ligada por `ticks` (a arma brilha; golpes ganham dano mágico). */
+  | { type: 'enchantBlade'; unitId: number; ticks: number }
+  /** Onda Sônica: do herói (fromX/fromY) até o alvo (x/y), à distância. O crítico vem no evento `damage`. */
+  | { type: 'sonicWave'; unitId: number; targetId: number; fromX: number; fromY: number; x: number; y: number }
+  /** Limite da Morte: marca o inimigo (x/y) por `ticks`. */
+  | { type: 'deathBound'; unitId: number; targetId: number; x: number; y: number; ticks: number }
+  /** Cem Lanças: `hits` golpes em sequência no alvo (x/y) e nos inimigos a até `radius` dele; `tiles` = onde cada inimigo atingido estava. */
+  | { type: 'hundredSpear'; unitId: number; targetId: number; x: number; y: number; hits: number; radius: number; tiles: Vec2[] }
+  /** Cortador de Vento: giro em volta do herói (raio `radius`, alcance maior com lança); `tiles` = casas atingidas. */
+  | { type: 'windCutter'; unitId: number; x: number; y: number; radius: number; tiles: Vec2[]; hits: number }
   /** Execução do Assassino. */
   | { type: 'execute'; unitId: number; targetId: number; x: number; y: number }
   /** Unidade provocada (aggro trocou para `targetId`). */

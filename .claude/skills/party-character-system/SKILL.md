@@ -29,6 +29,15 @@ Ainda **não existem** como sistema (aparecem "Em breve" no HeroCard). Ao implem
 (ex.: `pet?`, `wings?`) com migração de save, bônus somados em `heroStats`, dados em config, e UI já reservada.
 
 
+## Cavaleiro Rúnico (Guerreiro, conjunto de TESTE)
+- `RUNIC_SKILLS` em `skills.ts`: Lâmina Encantada, Onda Sônica, Limite da Morte, Cem Lanças, Cortador de Vento.
+  São a base da transformação futura do Guerreiro. **Ficam fora da árvore** (`heroSkills`), dos slots automáticos e dos
+  iniciais; liberam-se pelo debug (Desbloquear árvore) e aparecem na Dev Lab (aba SKILLS). Sem árvore própria ainda.
+- Números em `SKILL_NUM`; lógica em `core/archetypes/warrior.ts`; dano devolvido (`'reflect'`) e marca em `Simulation.damage`/`mark`.
+- Cem Lanças exige `stats.weapon === 'spear'` (lança, já existe no equipamento). Cortador de Vento ganha alcance com lança.
+  "Espadas de duas mãos" da arte de referência **não existe** no jogo (sem arma de duas mãos): não implementado.
+- Limite da Morte não marca `GAME_CONFIG.bossKinds` (chefes e mini-chefes).
+
 ## Especializações (ramos exclusivos da árvore)
 - `SkillDef.branch` + `BRANCHES` em `skills.ts`. Aprender a 1ª habilidade de um ramo escolhe a especialização;
   as habilidades dos outros ramos ficam travadas (`missingRequirements`). Refazer habilidades libera a troca.

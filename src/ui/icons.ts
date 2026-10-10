@@ -734,6 +734,9 @@ export const SKILL_ART: Record<string, string> = {
   bash: 'pacote-01/bash', cleave: 'pacote-01/cleave', ironSkin: 'pacote-01/ironSkin', fury: 'pacote-01/fury',
   battleBreath: 'pacote-01/battleBreath', shatter: 'pacote-01/shatter', taunt: 'pacote-01/taunt', shockwave: 'pacote-01/shockwave',
   shieldWall: 'pacote-01/shieldWall',
+  // Cavaleiro Rúnico (teste): ícones de reserva do guerreiro (public/icons/skills/catalogo.json) até a arte da transformação
+  enchantBlade: 'guerreiro/ataque-pesado', sonicWave: 'guerreiro/tiro-destruidor', deathBound: 'guerreiro/golpe-mortal',
+  hundredSpear: 'guerreiro/arremesso', windCutter: 'guerreiro/redemoinho',
   // Arqueira: Tiro e Armadilhas
   preciseShot: 'pacote-01/preciseShot', arrowRain: 'pacote-01/arrowRain', eagleEye: 'pacote-01/eagleEye', piercing: 'pacote-01/piercing',
   volley: 'pacote-01/volley', doubleShot: 'pacote-01/doubleShot', hunterFocus: 'pacote-01/hunterFocus', fireRain: 'pacote-01/fireRain',
@@ -745,6 +748,9 @@ export const SKILL_ART: Record<string, string> = {
   // Bruxa
   lifeDrain: 'pacote-01/lifeDrain', curse: 'pacote-01/curse', darkPact: 'pacote-01/darkPact', shadowSwarm: 'pacote-01/shadowSwarm',
   soulHarvest: 'pacote-01/soulHarvest',
+  // Bruxa (novas magias)
+  frostMist: 'ladrao/cortina-de-fumaca', etherealCage: 'mago/prisao-de-gelo', abyssMarsh: 'ladrao/veneno',
+  blackFrost: 'mago/rajada-de-gelo', soulEcho: 'ladrao/sombra-mortal', darkApex: 'mago/amplificar',
   // Assassino
   backstab: 'pacote-01/backstab', bladeFan: 'pacote-01/bladeFan', shadowStep: 'pacote-01/shadowStep', poisonBlades: 'pacote-01/poisonBlades',
   execute: 'pacote-01/execute',

@@ -113,6 +113,8 @@ export interface GearBonus {
   /** Ataque da arma física / ataque mágico do cajado. */
   atk: number;
   matk: number;
+  /** Tipo da arma equipada (ex.: 'spear' = lança). Ausente sem arma. */
+  weapon?: string;
 }
 
 export const emptyAttrs = (): Attrs => ({ str: 0, int: 0, vit: 0, dex: 0, luk: 0 });
@@ -121,6 +123,8 @@ export const emptyGear = (): GearBonus => ({ attrs: emptyAttrs(), hpRegen: 0, sk
 /** Status finais usados pela simulação. */
 export interface HeroStats {
   attrs: Attrs; // atributos efetivos (distribuídos + equipamento)
+  /** Tipo da arma equipada ('spear' = lança). Ausente sem arma. */
+  weapon?: string;
   maxHp: number;
   hpRegenPerSec: number;
   /** Mana = capacidade de slots de habilidade (não gasta, não regenera). */
@@ -198,6 +202,7 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
 
   return {
     attrs,
+    weapon: gear.weapon,
     maxHp: Math.round((baseHp + d('vit') * A.vit.hpPerPoint + (bonus.hp ?? 0)) * gear.hpMult * (1 + iron.hp)),
     hpRegenPerSec: gear.hpRegen,
     mana: GAME_CONFIG.mana.base + attrs.int * GAME_CONFIG.mana.perInt + gear.mana + (bonus.mana ?? 0),

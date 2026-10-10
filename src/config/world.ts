@@ -125,7 +125,8 @@ export const ACTS: ActDef[] = [
     nodes: [
       { region: 'rootVale', options: ['horde', 'event'] },
       { region: 'dryCrossing', options: ['elite', 'horde'], elite: 'goblinImp' },
-      { region: 'redDunes', options: ['horde', 'event', 'survival'] },
+      // mini-chefe dino (desert: amarelo e vermelho); só aqui, para não encher o ato de dinos
+      { region: 'redDunes', options: ['elite', 'horde', 'event', 'survival'], elite: 'dinoBoss' },
       { region: 'selmara', options: ['city'], city: 'Selmara' },
       { region: 'solarRuins', options: ['boss'] },
     ],

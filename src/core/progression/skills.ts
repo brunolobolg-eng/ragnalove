@@ -37,6 +37,12 @@ export type SkillId =
   | 'shockwave'
   | 'fury'
   | 'shieldWall'
+  // Guerreiro — Cavaleiro Rúnico (conjunto de teste, fora da árvore: ver RUNIC_SKILLS)
+  | 'enchantBlade'
+  | 'sonicWave'
+  | 'deathBound'
+  | 'hundredSpear'
+  | 'windCutter'
   // Arqueira
   | 'preciseShot'
   | 'arrowRain'
@@ -90,6 +96,8 @@ export interface SkillDef {
    * do herói até refazer as habilidades. Sem ramo = habilidade comum a todos.
    */
   branch?: string;
+  /** Cavaleiro Rúnico: fora da árvore (teste); ver RUNIC_SKILLS. */
+  runic?: true;
 }
 
 /** Especializações por classe (ramos exclusivos da árvore). */
@@ -152,6 +160,16 @@ export const SKILL_NUM = {
   fireRain: (lv: number) => ({ burnTicks: 20 + 8 * lv }),
   hunterFocus: (lv: number) => ({ duration: 40 + 8 * lv, cdMult: 0.65 - 0.04 * lv, cooldown: 170 - 6 * lv }),
   /** Muralha do Guerreiro: números base em GAME_CONFIG.archetypes.warrior.shieldWall. */
+  /** Lâmina Encantada: o golpe corpo a corpo ganha `bonus` de dano mágico enquanto a magia dura. */
+  enchantBlade: (lv: number) => ({ bonus: 3 + 2 * lv, ticks: 3000, cooldown: Math.max(400, 1200 - 80 * lv), range: 2 }),
+  /** Onda Sônica: dano à distância num alvo (sem linha de visão); pode causar crítico. */
+  sonicWave: (lv: number) => ({ damage: 12 + 5 * lv, range: 5, cooldown: Math.max(30, 60 - 2 * lv) }),
+  /** Limite da Morte: o marcado recebe `amp` a mais de dano e devolve `reflect` do dano a quem bateu (não é usado em chefes). */
+  deathBound: (lv: number) => ({ amp: 0.15 + 0.03 * lv, reflect: 0.1 + 0.02 * lv, ticks: 300 + 30 * lv, range: 4, cooldown: Math.max(80, 150 - 8 * lv) }),
+  /** Cem Lanças (exige lança): `hits` golpes de `damage` no alvo e nos vizinhos dele (raio `radius`), até `range` casas. */
+  hundredSpear: (lv: number) => ({ hits: 4 + Math.floor(lv / 2), damage: 4 + 2 * lv, range: 7, radius: 1, cooldown: Math.max(60, 160 - 8 * lv) }),
+  /** Cortador de Vento: giro com `damage` em cada inimigo do raio; com lança o raio é `spearRadius`. */
+  windCutter: (lv: number) => ({ damage: 8 + 3 * lv, radius: 1, spearRadius: 2, cooldown: Math.max(30, 70 - 3 * lv) }),
   shieldWall: (lv: number) => {
     const W = GAME_CONFIG.archetypes.warrior.shieldWall;
     return { length: W.length + (lv >= 4 ? 2 : lv >= 2 ? 1 : 0), hp: W.hp + W.hpPerLevel * (lv - 1), cooldown: Math.max(20, W.cooldownTicks - W.cooldownPerLevel * (lv - 1)) };
@@ -464,8 +482,42 @@ export const SKILLS: SkillDef[] = [
   },
 ];
 
-export const SKILL_BY_ID = Object.fromEntries(SKILLS.map((s) => [s.id, s])) as Record<SkillId, SkillDef>;
+/**
+ * Cavaleiro Rúnico (Guerreiro): conjunto de teste para a transformação futura. Fica FORA da árvore
+ * (`heroSkills`), dos slots automáticos e dos iniciais; libera-se pelo debug (Desbloquear árvore) e na
+ * Dev Lab (aba SKILLS). Quando a transformação entrar, estas entradas viram a árvore dela.
+ */
+export const RUNIC_SKILLS: SkillDef[] = [
+  {
+    id: 'enchantBlade', hero: 'warrior', name: 'Lâmina Encantada', tier: 3, col: 3, kind: 'active', maxLevel: 10, requires: [], start: 0, runic: true,
+    desc: 'Envolve a arma em magia por 5 minutos: os golpes corpo a corpo causam dano mágico extra.',
+    effect: (lv) => { const n = N.enchantBlade(lv); return `+${n.bonus} de dano mágico por golpe · ${sec(n.ticks)} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'sonicWave', hero: 'warrior', name: 'Onda Sônica', tier: 3, col: 3, kind: 'active', maxLevel: 10, requires: [], start: 0, runic: true,
+    desc: 'Golpeia o chão com a arma e manda uma onda sônica até o inimigo à distância. Pode causar crítico.',
+    effect: (lv) => { const n = N.sonicWave(lv); return `Dano ${n.damage} · alcance ${n.range} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'deathBound', hero: 'warrior', name: 'Limite da Morte', tier: 3, col: 3, kind: 'active', maxLevel: 10, requires: [], start: 0, runic: true,
+    desc: 'Marca um inimigo: ele recebe mais dano e parte desse dano volta para quem atacou. Não funciona em chefes.',
+    effect: (lv) => { const n = N.deathBound(lv); return `Dano recebido +${pct(n.amp)} · devolve ${pct(n.reflect)} · ${sec(n.ticks)} · alcance ${n.range} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'hundredSpear', hero: 'warrior', name: 'Cem Lanças', tier: 3, col: 3, kind: 'active', maxLevel: 10, requires: [], start: 0, runic: true,
+    desc: 'Exige lança. Ataca o alvo e os inimigos perto dele várias vezes em sequência; cresce com o nível do herói.',
+    effect: (lv) => { const n = N.hundredSpear(lv); return `${n.hits} golpes de ${n.damage} · alcance ${n.range} · raio ${n.radius} · recarga ${sec(n.cooldown)}`; },
+  },
+  {
+    id: 'windCutter', hero: 'warrior', name: 'Cortador de Vento', tier: 3, col: 3, kind: 'active', maxLevel: 10, requires: [], start: 0, runic: true,
+    desc: 'Gira a arma e solta uma pressão de vento que atinge os inimigos em volta. Com lança, o alcance é maior.',
+    effect: (lv) => { const n = N.windCutter(lv); return `Dano ${n.damage} por inimigo · raio ${n.radius} (lança: ${n.spearRadius}) · recarga ${sec(n.cooldown)}`; },
+  },
+];
+
+export const SKILL_BY_ID = Object.fromEntries([...SKILLS, ...RUNIC_SKILLS].map((s) => [s.id, s])) as Record<SkillId, SkillDef>;
 export const heroSkills = (hero: HeroKind) => SKILLS.filter((s) => s.hero === hero);
+export const runicSkills = (hero: HeroKind) => RUNIC_SKILLS.filter((s) => s.hero === hero);
 
 export type SkillLevels = Partial<Record<SkillId, number>>;
 

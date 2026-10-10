@@ -302,6 +302,7 @@ export function gearBonus(items: (Item | undefined)[]): GearBonus {
     if (!it) continue;
     g.atk += it.atk ?? 0;
     g.matk += it.matk ?? 0;
+    if (it.slot === 'weapon') g.weapon = itemKind(it);
     for (const r of it.rolls) {
       const v = rollValue(it, r);
       if (r.kind === 'hpRegen') g.hpRegen += v;

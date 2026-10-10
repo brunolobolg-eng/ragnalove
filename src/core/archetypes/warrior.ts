@@ -54,6 +54,100 @@ function shockwave(unit: Unit, sim: Simulation, force: boolean): boolean {
   return true;
 }
 
+/* ---------------- Cavaleiro Rúnico (conjunto de teste; ver RUNIC_SKILLS em skills.ts) ---------------- */
+
+/** Lâmina Encantada: liga a magia na arma quando há inimigo perto. Não gasta a ação. */
+function enchantBlade(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'enchantBlade', force);
+  if (!lv || !(force || ready(unit, sim, 'enchantBlade'))) return false;
+  const n = SKILL_NUM.enchantBlade(lv);
+  if (!force && sim.enemiesWithin(unit, n.range).length === 0) return false;
+  unit.enchantUntil = sim.tick + n.ticks;
+  unit.cooldowns.enchantBlade = sim.tick + cdOf(unit, n.cooldown);
+  sim.emit({ type: 'enchantBlade', unitId: unit.id, ticks: n.ticks });
+  return true;
+}
+
+/** Dano mágico extra de cada golpe corpo a corpo (Investida e Golpe em Área) enquanto a Lâmina Encantada dura. */
+function enchantHit(unit: Unit, sim: Simulation, target: Unit): void {
+  const lv = lvOf(unit.stats?.skills, 'enchantBlade');
+  if (!lv || (unit.enchantUntil ?? 0) <= sim.tick) return;
+  sim.damage(target, SKILL_NUM.enchantBlade(lv).bonus * (unit.stats?.skillDamageMult ?? 1), 'enchant', unit.id);
+}
+
+/** Onda Sônica: dano à distância no inimigo mais perto do alcance (2 a 5 casas, sem linha de visão). */
+function sonicWave(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'sonicWave', force);
+  if (!lv || !(force || ready(unit, sim, 'sonicWave'))) return false;
+  const n = SKILL_NUM.sonicWave(lv);
+  let target: Unit | undefined;
+  for (const e of sim.enemies()) {
+    const d = chebyshev(e, unit);
+    // a 2 casas o cone do Golpe em Área (alcance 2) já pega o alvo; a onda vale a partir de 3
+    if (d > n.range || (!force && d < 3)) continue;
+    if (!target || d < chebyshev(target, unit) || (d === chebyshev(target, unit) && e.id < target.id)) target = e;
+  }
+  if (!target) return false;
+  const from = { x: unit.x, y: unit.y };
+  unit.facing = { x: Math.sign(target.x - unit.x), y: Math.sign(target.y - unit.y) };
+  sim.emit({ type: 'sonicWave', unitId: unit.id, targetId: target.id, fromX: from.x, fromY: from.y, x: target.x, y: target.y });
+  sim.damage(target, n.damage * (unit.stats?.skillDamageMult ?? 1), 'wave', unit.id);
+  unit.cooldowns.sonicWave = sim.tick + cdOf(unit, n.cooldown);
+  return true;
+}
+
+/** Limite da Morte: marca o inimigo mais forte ao alcance (nunca chefe). Não gasta a ação. */
+function deathBound(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'deathBound', force);
+  if (!lv || !(force || ready(unit, sim, 'deathBound'))) return false;
+  const n = SKILL_NUM.deathBound(lv);
+  let target: Unit | undefined;
+  for (const e of sim.enemies()) {
+    if (GAME_CONFIG.bossKinds.includes(e.kind) || (e.markedUntil ?? 0) > sim.tick || chebyshev(e, unit) > n.range) continue;
+    if (!target || e.hp > target.hp || (e.hp === target.hp && e.id < target.id)) target = e;
+  }
+  if (!target) return false;
+  sim.mark(target, n.amp, n.reflect, n.ticks);
+  sim.emit({ type: 'deathBound', unitId: unit.id, targetId: target.id, x: target.x, y: target.y, ticks: n.ticks });
+  unit.cooldowns.deathBound = sim.tick + cdOf(unit, n.cooldown);
+  return true;
+}
+
+/** Cem Lanças (só com lança): golpes em sequência no inimigo com mais inimigos em volta e nos vizinhos dele. */
+function hundredSpear(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'hundredSpear', force);
+  if (!lv || !(force || ready(unit, sim, 'hundredSpear')) || unit.stats?.weapon !== 'spear') return false;
+  const n = SKILL_NUM.hundredSpear(lv);
+  let best: { t: Unit; around: Unit[] } | undefined;
+  for (const e of sim.enemies()) {
+    if (chebyshev(e, unit) > n.range) continue;
+    const around = sim.enemiesWithin(e, n.radius);
+    if (!best || around.length > best.around.length || (around.length === best.around.length && e.id < best.t.id)) best = { t: e, around };
+  }
+  if (!best) return false;
+  // "Base Level": o golpe cresce com o nível do herói (+2% por nível acima do 1º)
+  const dmg = n.damage * (unit.stats?.skillDamageMult ?? 1) * (1 + 0.02 * (unit.level - 1));
+  unit.facing = { x: Math.sign(best.t.x - unit.x), y: Math.sign(best.t.y - unit.y) };
+  sim.emit({ type: 'hundredSpear', unitId: unit.id, targetId: best.t.id, x: best.t.x, y: best.t.y, hits: n.hits, radius: n.radius, tiles: best.around.map((e) => ({ x: e.x, y: e.y })) });
+  for (let i = 0; i < n.hits; i++) for (const e of best.around) sim.damage(e, dmg, 'spear', unit.id);
+  unit.cooldowns.hundredSpear = sim.tick + cdOf(unit, n.cooldown);
+  return true;
+}
+
+/** Cortador de Vento: giro que atinge os inimigos em volta (com lança, a pressão alcança mais longe). */
+function windCutter(unit: Unit, sim: Simulation, force: boolean): boolean {
+  const lv = lvl(unit, 'windCutter', force);
+  if (!lv || !(force || ready(unit, sim, 'windCutter'))) return false;
+  const n = SKILL_NUM.windCutter(lv);
+  const reach = unit.stats?.weapon === 'spear' ? n.spearRadius : n.radius;
+  const near = sim.enemiesWithin(unit, reach);
+  if (near.length < (force ? 1 : 2)) return false;
+  sim.emit({ type: 'windCutter', unitId: unit.id, x: unit.x, y: unit.y, radius: reach, tiles: near.map((e) => ({ x: e.x, y: e.y })), hits: near.length });
+  for (const e of near) sim.damage(e, n.damage * (unit.stats?.skillDamageMult ?? 1), 'wind', unit.id);
+  unit.cooldowns.windCutter = sim.tick + cdOf(unit, n.cooldown);
+  return true;
+}
+
 /** Provocar: campo de aggro — quem está em volta larga a cidade e vem atrás do Guerreiro. */
 function taunt(unit: Unit, sim: Simulation, force: boolean): boolean {
   const lv = lvl(unit, 'taunt', force);
@@ -82,6 +176,7 @@ function bash(unit: Unit, sim: Simulation, force: boolean): boolean {
   unit.facing = { x: Math.sign(target.x - unit.x), y: Math.sign(target.y - unit.y) };
   sim.emit({ type: 'bash', unitId: unit.id, targetId: target.id, x: target.x, y: target.y });
   sim.damage(target, unit.stats?.bashDamage ?? CFG.bash.damage, 'bash', unit.id);
+  enchantHit(unit, sim, target);
   const bashCd = Math.max(1, Math.round((unit.stats?.bashCooldownTicks ?? CFG.bash.cooldownTicks) * furyMult(unit, sim)));
   unit.cooldowns.bash = sim.tick + bashCd;
   // mesmo braço, mesma arma: a Investida também atrasa o próximo Golpe em Área
@@ -116,6 +211,7 @@ function cleaveCone(unit: Unit, sim: Simulation, best: { dir: Vec2; hits: number
     if (e && e.team === 'enemy') {
       hitTiles.push(t);
       sim.damage(e, damage, 'cleave', unit.id);
+      enchantHit(unit, sim, e);
     }
   }
   // Golpe Estilhaçante: atordoa quem sobreviveu ao corte (sem empurrar)
@@ -147,6 +243,11 @@ const SKILLS: ArchetypeSkill[] = [
   { id: 'taunt', cast: taunt },
   { id: 'bash', cast: bash },
   { id: 'cleave', cast: cleave },
+  { id: 'enchantBlade', cast: enchantBlade },
+  { id: 'sonicWave', cast: sonicWave },
+  { id: 'deathBound', cast: deathBound },
+  { id: 'hundredSpear', cast: hundredSpear },
+  { id: 'windCutter', cast: windCutter },
 ];
 
 /**
@@ -162,12 +263,19 @@ export const warrior: Archetype = {
   update(unit, sim) {
     shieldWall(unit, sim, false);
     fury(unit, sim, false);
+    // buffs/marcas não gastam a ação
+    enchantBlade(unit, sim, false);
+    deathBound(unit, sim, false);
     if (shockwave(unit, sim, false)) return;
+    if (windCutter(unit, sim, false)) return;
+    if (hundredSpear(unit, sim, false)) return;
     if (taunt(unit, sim, false)) return;
     const best = bestCone(unit, sim);
     if (best.hits > 0) unit.facing = best.dir;
     const cleaveReady = ready(unit, sim, 'cleave');
     if (!(cleaveReady && best.hits >= 2) && bash(unit, sim, false)) return;
+    // sem inimigo colado: a Onda Sônica alcança quem está mais longe
+    if (best.hits === 0 && sonicWave(unit, sim, false)) return;
     if (best.hits === 0 || !cleaveReady) return;
     cleaveCone(unit, sim, best);
   },
