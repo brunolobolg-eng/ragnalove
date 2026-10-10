@@ -2,6 +2,13 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.7h
+- Aura dos chefes refeita: o casco deixa de recortar em labaredas secas e vira um halo suave na silhueta, com fiapos animados (ruído) e miolo na cor da magia (HDR, brilha no bloom). Chefes ganham um anel de energia no chão que gira e respira.
+- Números da aura em `AURA_VISUAL` (`visualConfig.ts`).
+- Krexx retorcido (Orc Warlord): sai do caminho de esqueleto automático e passa a usar o mesmo caminho do líder goblin (esqueleto do arquivo, clipes do guerreiro).
+- GLB com matrizes de bind inversas zeradas (caso do Krexx) recebem as matrizes pela pose de descanso. GLB sem normais ganham normais lisas por posição (sem lascas). Pesos de pele que não somam 1 são normalizados.
+- Pendente: o Krexx retorcido ainda se deforma nas animações (braços abertos, em T), o que pede revisão do rig. A aura melhorou, mas precisa de nova rodada de ajuste com a cena em movimento.
+
 ## 2026-10-10 — v0.7g
 - Verso das cartas volta a mostrar o logo do ROguard (`emblem.png`), no lugar do recorte da arte de referência que trazia o texto "Aurenthal".
 - Removido `public/cards/brasao_dragao.webp`, que deixou de ser usado.
