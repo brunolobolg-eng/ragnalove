@@ -8,6 +8,8 @@ export interface VisualUnit {
   cast(): void;
   hit(): void;
   setFacing(x: number, y: number, instant?: boolean): void;
+  /** o herói ganhou nível (só as views de modelo têm a animação) */
+  levelUp?(): void;
 }
 
 /**

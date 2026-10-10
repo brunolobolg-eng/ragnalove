@@ -1,7 +1,7 @@
 import type { SimEvent } from '../../../core/sim/types';
 
 /** Classes que têm visual próprio de combate. */
-export type FxClass = 'mage' | 'warrior' | 'archer' | 'assassin';
+export type FxClass = 'mage' | 'warrior' | 'archer' | 'assassin' | 'sorcerer' | 'warlock';
 
 /** Ids usados pela vitrine: o conjurador e três inimigos (grunts) em tiles fixos. */
 export interface DemoIds {

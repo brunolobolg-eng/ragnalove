@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Simulation } from '../core/sim/Simulation';
 import type { SimEvent } from '../core/sim/types';
 import { classVisual } from './fx/combat/classVisual';
+import { SORCERER_FX } from '../config/fx/sorcerer';
 import type { CombatVisualCtx, VisualUnit } from './fx/combat/CombatVisualCtx';
 import { BoardView } from './BoardView';
 import { tileToWorld } from './coords';
@@ -414,7 +415,12 @@ export class GameView {
       if (e.type === 'bolt') delay.set(e.targetId, FrostBoltFX.impactDelay(this.boltFrom(e), tileToWorld(e.to.x, e.to.y, undefined, 0.6)));
       else if (e.type === 'bash') delay.set(e.targetId, this.sim.units.get(e.unitId)?.kind === 'assassin' ? VISUAL_CONFIG.strike.impactAt : BASH_IMPACT);
       else if (e.type === 'meteor') {
-        for (const u of this.sim.units.values()) if (u.team === 'party' && Math.max(Math.abs(u.x - e.x), Math.abs(u.y - e.y)) <= e.radius) delay.set(u.id, 0.28);
+        // o meteoro demora a cair: com autor (Feiticeira), os inimigos da área reagem na queda; aliados como antes
+        for (const u of this.sim.units.values()) {
+          if (Math.max(Math.abs(u.x - e.x), Math.abs(u.y - e.y)) > e.radius) continue;
+          if (u.team === 'party') delay.set(u.id, 0.28);
+          else if (e.unitId !== undefined) delay.set(u.id, SORCERER_FX.meteor.impactAt);
+        }
       }
       else if (e.type === 'shadowBolt') delay.set(e.targetId, ShadowBoltFX.impactDelay(tileToWorld(e.from.x, e.from.y, undefined, 1.0), tileToWorld(e.to.x, e.to.y, undefined, 0.9)));
       else if (e.type === 'arrow') delay.set(e.targetId, ArrowFX.impactDelay(this.bowTip(e.unitId, e.from), tileToWorld(e.to.x, e.to.y, undefined, 0.6)));

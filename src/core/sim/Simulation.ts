@@ -470,7 +470,7 @@ export class Simulation {
     this.events.push(e);
     for (const cb of this.tap) cb(e);
     // métrica: habilidades usadas por herói
-    if (SKILL_EVENTS.has(e.type) && 'unitId' in e) {
+    if (SKILL_EVENTS.has(e.type) && 'unitId' in e && e.unitId !== undefined) {
       const u = this.units.get(e.unitId);
       if (u?.team === 'party') this.skillsUsed[u.kind] = (this.skillsUsed[u.kind] ?? 0) + 1;
     }

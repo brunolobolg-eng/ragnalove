@@ -2,6 +2,15 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-10 — v0.6r
+- Subida de nível: explosão divina. Primeiro, um anel de luz no chão e uma coluna dourada; depois um anjo branco se mostra acima do herói, bate as asas e some subindo em luz. A explosão solta raios e faíscas, e penas douradas caem sobre o herói. O texto NÍVEL continua.
+- Feiticeira (arcana): Orbe Arcano (ataque básico), Meteoro (runa no chão, queda com rastro, cratera), Corrente Elétrica (elos entre os inimigos) e acerto crítico; com nível 5, a corrente tem mais elos.
+- Bruxa (sombra): Dreno de Vida (ataque básico leve; a alma volta ao conjurador), Maldição (sigilo que se fecha sobre a área e marca os inimigos a cada pulso) e Enxame de Sombras (sombras que orbitam e mergulham nos alvos).
+- Combustão (passivo do Mago): o fogo estoura no tile atingido, com anel de runas e brasas.
+- Meteoro da Feiticeira: os inimigos da área reagem quando o meteoro cai, e não no disparo. O evento passa a levar o autor; nenhuma regra mudou.
+- Números em `src/config/fx/` (feiticeira, bruxa, subida de nível, combustão).
+- Pendências: a Barreira de Fogo ainda usa o efeito antigo; a aura do modelo da Bruxa clareia o contorno durante a conjuração; o bloom ainda tinge de dourado personagens de roupa escura em impactos brilhantes.
+
 ## 2026-10-10 — v0.6q
 - Efeitos de combate por classe: ataques básicos e habilidades do Mago, do Guerreiro, da Arqueira e do Assassino ganham composição própria (preparação, disparo, impacto e dissipação), com identidade pela forma e pelo movimento, não por cor.
 - Ataques básicos leves (um risco e um impacto pequeno); críticos com efeito completo (Golpe Furtivo crítico, flecha dourada com estrela).
