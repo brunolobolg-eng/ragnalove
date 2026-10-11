@@ -29,8 +29,13 @@ Stack: TypeScript + Vite + Three.js, desktop via Electron (Windows/Steam). Sem f
    Mudou UI/visual? Abra o jogo no Chromium headless (Playwright) e confira um screenshot.
 6. **Nada de arquivo-fonte pesado no repositório** (modelos originais, PSD, vídeos brutos). O jogo usa
    só versões otimizadas em `public/`. Fontes editáveis vão zipadas para a branch `fontes`.
-7. **GLB novo passa pela checagem** (skill `asset-pipeline`, seção "GLB novo"): cor, animações, tamanho/otimização
-   e, acima de tudo, **fluidez** das animações vistas no navegador. Auditoria: `node scripts/auditar_glb.cjs arquivo.glb`.
+7. **GLB novo: antes de qualquer outra coisa, otimize e agregue as animações do jogo.** Otimizar:
+   `node scripts/otimizar_glb.mjs` (tira a animação embutida pesada e simplifica a malha; as dependências ficam numa
+   pasta à parte). Agregar: ligar o conjunto de clipes do jogo (`clips` em `visualConfig.ts`, ex.: `warriorRig`, `mage`).
+   Depois confira cor, tamanho e, acima de tudo, **fluidez** no navegador. Auditoria: `node scripts/auditar_glb.cjs arquivo.glb`.
+8. **Cenário e visual**: chão, água e texturas usam a arte do dono em WebP nítido; nada de canvas pintado por código
+   (borra de perto). Nada pode flutuar: confira no screenshot de perto. Visual não altera a grade (`zones.ts`).
+   Mudou cenário? Meça a montagem da batalha antes e depois (`window.__vg.enterBattle`, só em DEV) e não piore sem motivo.
 
 ## Regras de design fixas (definidas pelo dono — pese o balanceamento antes de mudar)
 - **Mana = slots de habilidade** (não é MP, não gasta, não regenera). Mana vem da **Inteligência** (+ Poção de Mana e itens Épicos+). Custo do slot: Mago 1×, Arqueira/Assassino 1,5×, Guerreiro 2×. **Máximo de 5 slots** por herói; os não liberados aparecem bloqueados (escuros).
@@ -65,6 +70,9 @@ Carregue a skill do assunto antes de mexer nele — elas descrevem as regras rea
 - Ao mostrar resultado visual, mande um screenshot do jogo rodando.
 - Arte/ícones/modelos vêm do dono (geralmente gerados em IA). Use a arte dele; não troque por arte
   "programática" sem pedir.
+- O dono autorizou delegar partes do trabalho a subagentes quando ajudar.
+- Decisões e pendências de cada entrega vão para `LOG_SESSOES.md` (o histórico de versões segue no `CHANGELOG.md`).
+  Para retomar um trabalho, leia as últimas entradas desse log.
 
 ## Mapa rápido do código
 ```
