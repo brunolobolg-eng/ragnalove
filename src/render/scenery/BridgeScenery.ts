@@ -4,7 +4,7 @@ import type { ParsedZone } from '../../config/zones';
 import type { ParticleLayer } from '../fx/Particles';
 import { softCircle } from '../textures';
 import { bridgeSideTexture, wallBlockTexture, woodTexture } from './bridgeTextures';
-import { packInstances, packMatrix, packStoneMaterial, packTexture } from './packKit';
+import { KIT, instanceKit, kitMatrix, loadTexture } from './naturKit';
 import { placeProp } from './props';
 
 /**
@@ -59,13 +59,13 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   };
 
   // ---------------- Tabuleiro da ponte e praça ----------------
-  const deckTex = packTexture('Stone_BlueSlate');
+  const deckTex = loadTexture('textures/pedras/pedra_lousa.webp');
   const deckLen = plazaN - FAR_Z;
   deckTex.repeat.set((deckR - deckL) / 4, deckLen / 4);
   const deck = new THREE.Mesh(new THREE.BoxGeometry(deckR - deckL, 0.6, deckLen), [
     lambert({ color: 0x5a5e66 }),
     lambert({ color: 0x5a5e66 }),
-    packStoneMaterial('Stone_BlueSlate', deckTex),
+    lambert({ map: deckTex }),
     lambert({ color: 0x33363c }),
     lambert({ color: 0x5a5e66 }),
     lambert({ color: 0x5a5e66 }),
@@ -73,13 +73,13 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   deck.position.set((deckL + deckR) / 2, -0.3, (FAR_Z + plazaN) / 2);
   root.add(shadow(deck, false));
 
-  const plazaTex = packTexture('Cobblestone_Night');
+  const plazaTex = loadTexture('textures/pedras/pedra_blocos.webp');
   const plazaDepth = wallZ + 1.5 - plazaN;
   plazaTex.repeat.set((plazaR - plazaL) / 4, plazaDepth / 4);
   const plazaMesh = new THREE.Mesh(new THREE.BoxGeometry(plazaR - plazaL, 0.6, plazaDepth), [
     lambert({ color: 0x5c554c }),
     lambert({ color: 0x5c554c }),
-    packStoneMaterial('Cobblestone_Night', plazaTex),
+    lambert({ map: plazaTex }),
     lambert({ color: 0x33302b }),
     lambert({ color: 0x5c554c }),
     lambert({ color: 0x5c554c }),
@@ -183,9 +183,9 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
     const stairs = new THREE.Mesh(mergeGeometries(steps)!, lambert({ map: wallBlockTexture(12) }));
     stairs.receiveShadow = true;
     root.add(stairs);
-    const dockTex = packTexture('Cobblestone_Night');
+    const dockTex = loadTexture('textures/pedras/pedra_blocos.webp');
     dockTex.repeat.set(0.3, (d1 - d0) / 4);
-    const dock = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, d1 - d0), packStoneMaterial('Cobblestone_Night', dockTex));
+    const dock = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, d1 - d0), lambert({ map: dockTex }));
     dock.position.set(X(0), -0.3, (d0 + d1) / 2);
     dock.receiveShadow = true;
     root.add(dock);
@@ -706,7 +706,7 @@ function buildBanks(root: THREE.Group, L: BankLayout): void {
   const z0 = FAR_Z - 24;
   const z1 = wallZ + 10;
   const len = z1 - z0;
-  const grass = packTexture('Grass_Lush');
+  const grass = loadTexture('textures/floresta/grama_a.webp');
   grass.repeat.set(10, len / 4);
   const top = new THREE.MeshLambertMaterial({ map: grass, color: 0x6a7a62 });
   const sideTex = wallBlockTexture(57);
@@ -784,23 +784,23 @@ function buildBanks(root: THREE.Group, L: BankLayout): void {
 
   // ---- dentro dos muros (ao sul da muralha): o largo do mercado de Valdrec ----
   const cityDepth = 26;
-  const plaza = packTexture('Cobblestone_Night');
+  const plaza = loadTexture('textures/pedras/pedra_blocos.webp');
   plaza.repeat.set((W + 60) / 4, cityDepth / 4);
-  const city = new THREE.Mesh(new THREE.BoxGeometry(W + 60, 0.6, cityDepth), packStoneMaterial('Cobblestone_Night', plaza, 0x9a9088));
+  const city = new THREE.Mesh(new THREE.BoxGeometry(W + 60, 0.6, cityDepth), new THREE.MeshLambertMaterial({ map: plaza, color: 0x9a9088 }));
   city.position.set(0, -0.3, wallZ + 1 + cityDepth / 2);
   city.receiveShadow = true;
   root.add(city);
 
-  // ---- peças do packtextura nas margens: ruínas, rochas, arbustos e um marco de estrada.
+  // ---- peças naturais nas margens (naturKit.ts): ruínas, rochas, arbustos e um marco de estrada.
   // Ficam fora da grade (não bloqueiam nem mudam a horda); só dão a moldura da cena.
-  const bankPiece = (key: string, x: number, z: number, s: number, rot: number) => packInstances(root, key, [packMatrix(x, z, s, rot)]);
-  bankPiece('Ruin_01', X(-2.6), Z(30), 1.1, 0.4);
-  bankPiece('Ruin_03', X(W + 1.6), Z(33), 1.1, -0.5);
-  bankPiece('Waystone', X(-1.8), Z(27), 1, 0);
-  bankPiece('Rock_04', X(-3.8), Z(37), 1.3, 1.1);
-  bankPiece('Rock_07', X(W + 3.2), Z(36), 1.2, 2);
-  bankPiece('Bush_02_0', X(-4.6), Z(33), 1.6, 0.2);
-  bankPiece('Bush_05_1', X(W + 4.2), Z(31), 1.6, 1);
+  const bankPiece = (key: string, x: number, z: number, s: number, rot: number) => instanceKit(root, key, [kitMatrix(x, z, s, rot)]);
+  bankPiece(KIT.ruina[0], X(-2.6), Z(30), 1.1, 0.4);
+  bankPiece(KIT.ruina[1], X(W + 1.6), Z(33), 1.1, -0.5);
+  bankPiece(KIT.marco[0], X(-1.8), Z(27), 1, 0);
+  bankPiece(KIT.pedra[0], X(-3.8), Z(37), 1.3, 1.1);
+  bankPiece(KIT.pedra[1], X(W + 3.2), Z(36), 1.2, 2);
+  bankPiece(KIT.arbusto[0], X(-4.6), Z(33), 1.6, 0.2);
+  bankPiece(KIT.arbusto[1], X(W + 4.2), Z(31), 1.6, 1);
   const cz = wallZ + 3.2;
   for (let x = -W / 2 + 3; x < W / 2 - 2; x += 3.4 + r() * 1.5) {
     if (Math.abs(x) < 5) continue; // rua livre atrás do portão
@@ -821,11 +821,11 @@ function buildBanks(root: THREE.Group, L: BankLayout): void {
 }
 
 /**
- * Ruínas e pedras do kit packtextura dentro do rio, nos tiles de água (vazios): não andam nem bloqueiam
+ * Ruínas e pedras do kit natural (naturKit.ts) dentro do rio, nos tiles de água (vazios): não andam nem bloqueiam
  * nada da grade; dão a silhueta de ponte antiga com pilares quebrados. A escolha é determinística (sem sorteio).
  */
 function riverDressing(root: THREE.Group, zone: ParsedZone, X: (x: number) => number, Z: (y: number) => number): void {
-  const keys = ['Ruin_01', 'Rock_03', 'Ruin_02', 'Rock_06', 'Ruin_04', 'Rock_09', 'Ruin_03', 'Rock_01'];
+  const keys = [KIT.ruina[0], KIT.pedra[2], KIT.ruina[1], KIT.pedra[3], KIT.ruina[0], KIT.pedra[1], KIT.ruina[1], KIT.pedra[0]];
   const pieces: Record<string, THREE.Matrix4[]> = {};
   for (const v of zone.voids) {
     // uma peça a cada ~11 tiles de água, espalhadas pela fórmula
@@ -833,9 +833,9 @@ function riverDressing(root: THREE.Group, zone: ParsedZone, X: (x: number) => nu
     const key = keys[(v.x * 3 + v.y) % keys.length];
     const s = 1.1 + ((v.x * 17 + v.y * 5) % 7) * 0.09;
     const rot = ((v.x * 31 + v.y * 11) % 12) * (Math.PI / 6);
-    (pieces[key] ??= []).push(packMatrix(X(v.x), Z(v.y), s, rot, s, WATER_Y - 0.35));
+    (pieces[key] ??= []).push(kitMatrix(X(v.x), Z(v.y), s, rot, s, WATER_Y - 0.35));
   }
-  for (const [key, mats] of Object.entries(pieces)) packInstances(root, key, mats);
+  for (const [key, mats] of Object.entries(pieces)) instanceKit(root, key, mats);
 }
 
 function mulberry(seed: number): () => number {

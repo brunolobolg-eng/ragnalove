@@ -4,6 +4,8 @@
  * vêm do mapa da zona. Cada bioma tem o seu: nada de geleira no mapa de grama.
  */
 
+import * as THREE from 'three';
+
 export type KitBiome = 'forest' | 'plains' | 'desert' | 'mountain' | 'ash';
 
 export interface Tint {
@@ -53,6 +55,11 @@ export interface BiomeKit {
 
 const NONE: Tint = { color: 0xffffff, amount: 0 };
 
+/** Cor de multiplicação de uma peça: branco misturado com a cor da ambientação pela quantidade `amount`. */
+export function tintHex(t: Tint): number {
+  return new THREE.Color(0xffffff).lerp(new THREE.Color(t.color), t.amount).getHex();
+}
+
 export const KITS: Record<KitBiome, BiomeKit> = {
   forest: {
     rock: ['survival/rock-a', 'survival/rock-b', 'survival/rock-c', 'town/rock-small'],
@@ -87,7 +94,7 @@ export const KITS: Record<KitBiome, BiomeKit> = {
     mist: { color: 0xd8c9a0, opacity: 0.08 },
   },
   desert: {
-    rock: ['survival/rock-b', 'survival/rock-c', 'survival/rock-a'],
+    rock: ['nat:arenito'], // pedras de arenito feitas com a textura do dono (naturKit.ts)
     rockTint: { color: 0xd6a872, amount: 0.5 }, // arenito
     ridge: ['castle/rocks-large', 'town/rock-wide', 'survival/rock-b'],
     ridgeTint: { color: 0xcf9f68, amount: 0.55 }, // mesas

@@ -6,9 +6,10 @@ import type { SceneryHandle } from './BridgeScenery';
 import { buildCityGate } from './CityGate';
 import { softCircle } from '../textures';
 import { instanceProps } from './props';
-import { PACK, packInstances, packMatrix } from './packKit';
-import { packForestGround } from './forestGround';
-import { KITS, type BiomeKit } from './biomeKits';
+import { KIT, instanceKit, kitMatrix } from './naturKit';
+import { forestGround } from './forestGround';
+import { desertGround } from './desertGround';
+import { KITS, tintHex, type BiomeKit } from './biomeKits';
 
 /**
  * Cenário genérico por bioma (floresta, planície, deserto, montanha, cinzas).
@@ -100,26 +101,27 @@ const PAL: Record<Biome, Palette> = {
 
 const TILE_PX = 64;
 
-/** Kit da floresta com as peças do packtextura no lugar das antigas (os tokens `pack:*` viram peças do PACK). */
-const PACK_KIT: BiomeKit = {
+/** Kit da floresta com as peças naturais (naturKit.ts) no lugar das antigas: os tokens `nat:*` viram grupos do KIT. */
+const NAT_KIT: BiomeKit = {
   ...KITS.forest,
-  rock: ['pack:rock'],
-  ridge: ['pack:tree'],
-  peak: ['pack:tree'],
-  trees: ['pack:tree'],
+  rock: ['nat:pedra'],
+  ridge: ['nat:arvore'],
+  peak: ['nat:arvore'],
+  trees: ['nat:arvore'],
   ringTree: [],
-  stump: 'pack:log',
+  stump: 'nat:tronco',
 };
-/** Token de peça do kit → grupo de peças do packtextura (packKit.ts). */
-const PACK_TOKEN: Record<string, string[]> = {
-  'pack:tree': PACK.trees,
-  'pack:rock': PACK.rocks,
-  'pack:log': PACK.logs,
-  'pack:bush': PACK.bushes,
-  'pack:ruin': PACK.ruins,
+/** Token de peça do kit → grupo de peças do naturKit.ts (cada cópia sorteia uma peça do grupo). */
+const NAT_TOKEN: Record<string, string[]> = {
+  'nat:arvore': KIT.arvore,
+  'nat:pedra': KIT.pedra,
+  'nat:arenito': KIT.arenito,
+  'nat:arbusto': KIT.arbusto,
+  'nat:tronco': KIT.tronco,
+  'nat:ruina': KIT.ruina,
 };
-/** Escala das peças do packtextura por token (as árvores do kit são maiores que as antigas). */
-const PACK_SCALE: Record<string, number> = { 'pack:tree': 0.85 };
+/** Escala das peças naturais por token (as árvores do kit são maiores que as antigas). */
+const NAT_SCALE: Record<string, number> = { 'nat:arvore': 0.85 };
 
 export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHandle {
   const biome: Biome = theme === 'bridge' || theme === 'town' ? 'plains' : theme;
@@ -133,10 +135,10 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   /** Escala das quantidades de decoração com o tamanho do mapa (os antigos tinham 15 × 13). */
   const areaK = (W * H) / (15 * 13);
   const edgeK = (W + H) / 28;
-  /** Floresta: chão, árvores, rochas, troncos e arbustos vêm do kit packtextura. */
-  const pack = theme === 'forest';
+  /** Floresta: chão, árvores, rochas, troncos e arbustos vêm do naturKit.ts (texturas do dono). */
+  const floresta = theme === 'forest';
   /** Kit de peças da ambientação (pacotes, cores, sombra de contato, luz quente, névoa). */
-  const kit: BiomeKit = pack ? PACK_KIT : KITS[biome];
+  const kit: BiomeKit = floresta ? NAT_KIT : KITS[biome];
   const tintOfPath = (path: string) =>
     kit.rock.includes(path) ? kit.rockTint
       : kit.ridge.includes(path) || kit.peak.includes(path) || kit.towers.includes(path) || (kit.trees ?? []).includes(path) ? kit.ridgeTint
@@ -144,10 +146,12 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
       : { color: 0xffffff, amount: 0 };
 
   // ---------------- Chão ----------------
-  // floresta: chão em camadas, com lago e poças (texturas do dono; ver forestGround.ts)
-  const forest = pack ? packForestGround(zone, 22) : undefined;
+  // floresta e deserto: chão em camadas com as texturas do dono (forestGround.ts e desertGround.ts)
+  const forest = floresta ? forestGround(zone, 22) : undefined;
+  const desert = theme === 'desert' ? desertGround(zone, 22) : undefined;
   if (forest) root.add(forest.group);
-  if (!pack) {
+  if (desert) root.add(desert.group);
+  if (!floresta && !desert) {
     const outerTex = groundTexture(P, 256, 256, 4, rnd, true);
     outerTex.repeat.set((W + 44) / 4, (H + 44) / 4);
     const outer = new THREE.Mesh(new THREE.PlaneGeometry(W + 44, H + 44).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: outerTex }));
@@ -163,8 +167,8 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   }
 
   // ---------------- Água / lava nos tiles de vazio ----------------
-  // na floresta o lago é desenhado pelo chão (forestGround.ts); nos outros biomas, a água de sempre
-  const liquid = zone.voids.length && !pack ? liquidMesh(zone, P, X, Z) : undefined;
+  // na floresta e no deserto o lago é desenhado pelo chão; nos outros biomas, a água de sempre
+  const liquid = zone.voids.length && !floresta && !desert ? liquidMesh(zone, P, X, Z) : undefined;
   if (liquid) root.add(liquid.mesh);
 
   // ---------------- Props (dentro do tabuleiro + decoração em volta) ----------------
@@ -174,17 +178,17 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   };
   // Peças em GLB do kit (cada uma com a cor da ambientação) + sombra de contato sob cada uma
   const glb: Record<string, THREE.Matrix4[]> = {};
-  /** Peças do packtextura (chave = nome da peça no GLB), desenhadas instanciadas no fim. */
-  const packMats: Record<string, THREE.Matrix4[]> = {};
+  /** Peças naturais (chave = nome da peça no naturKit.ts), desenhadas instanciadas no fim. */
+  const natMats: Record<string, THREE.Matrix4[]> = {};
   const warm: THREE.Vector3[] = [];
   const contact: THREE.Matrix4[] = [];
   const glbPut = (path: string, x: number, z: number, s0: number, rot = rnd() * Math.PI * 2, sy0 = s0) => {
-    // um token `pack:*` escolhe ao acaso uma peça do grupo; o resto é GLB da ambientação
-    const k = PACK_SCALE[path] ?? 1;
+    // um token `nat:*` escolhe ao acaso uma peça do grupo; o resto é GLB da ambientação
+    const k = NAT_SCALE[path] ?? 1;
     const s = s0 * k;
-    const mx = packMatrix(x, z, s, rot, sy0 * k);
-    const group = PACK_TOKEN[path];
-    if (group) (packMats[group[Math.floor(rnd() * group.length)]] ??= []).push(mx);
+    const mx = kitMatrix(x, z, s, rot, sy0 * k);
+    const group = NAT_TOKEN[path];
+    if (group) (natMats[group[Math.floor(rnd() * group.length)]] ??= []).push(mx);
     else (glb[path] ??= []).push(mx);
     contact.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0.015, z), new THREE.Quaternion(), new THREE.Vector3(s * 1.15, 1, s * 1.15)));
   };
@@ -220,7 +224,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   function putProp(kind: PropKind, x: number, z: number): void {
     switch (kind) {
       case 'tree':
-        if (pack) glbPut('pack:tree', x, z, 0.85 + rnd() * 0.3);
+        if (floresta) glbPut('nat:arvore', x, z, 0.85 + rnd() * 0.3);
         else if (kit.trees && rnd() < 0.5) glbPut(pick(kit.trees), x, z, 0.85 + rnd() * 0.3);
         else put(procTree(biome === 'mountain' ? 'pineSnow' : 'oak'), x, z, 0.85 + rnd() * 0.3);
         break;
@@ -232,7 +236,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
         put('cactus', x, z, 0.85 + rnd() * 0.25);
         break;
       case 'ruin':
-        if (pack) glbPut('pack:ruin', x, z, 0.95 + rnd() * 0.15);
+        if (floresta) glbPut('nat:ruina', x, z, 0.95 + rnd() * 0.15);
         else put('ruin', x, z, 0.95 + rnd() * 0.15);
         break;
       case 'stump':
@@ -314,7 +318,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
       else glbPut(pick(kit.ridge), x, z, big);
     } else if (biome === 'forest' || biome === 'plains') {
       const plant = pick(['bush', 'bush', 'flowers'] as const);
-      if (plant === 'bush' && pack) glbPut('pack:bush', x, z, 1.2 + rnd() * 0.9);
+      if (plant === 'bush' && floresta) glbPut('nat:arbusto', x, z, 1.2 + rnd() * 0.9);
       else put(plant, x, z, 1.2 + rnd() * 0.9);
     } else {
       const path = pick([kit.camp.barrel, kit.camp.crate, kit.camp.bed, kit.camp.cart, kit.camp.sign]);
@@ -328,22 +332,21 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
       const x = (left ? -1 : 1) * (W / 2 + 0.25 + rnd() * 1.4);
       const z = -H / 2 + rnd() * H;
       const plant = rnd() < 0.55 ? 'bush' : 'flowers';
-      if (plant === 'bush' && pack) glbPut('pack:bush', x, z, 0.9 + rnd() * 0.8);
+      if (plant === 'bush' && floresta) glbPut('nat:arbusto', x, z, 0.9 + rnd() * 0.8);
       else put(plant, x, z, 0.9 + rnd() * 0.8);
     }
     for (let i = 0; i < 18 * edgeK; i++) {
       const plant = rnd() < 0.6 ? 'bush' : 'flowers';
       const x = -W / 2 + rnd() * W;
       const z = -H / 2 - 0.3 - rnd() * 1.2;
-      if (plant === 'bush' && pack) glbPut('pack:bush', x, z, 0.9 + rnd() * 0.7);
+      if (plant === 'bush' && floresta) glbPut('nat:arbusto', x, z, 0.9 + rnd() * 0.7);
       else put(plant, x, z, 0.9 + rnd() * 0.7);
     }
   }
   // Peças em GLB: uma chamada de desenho por tipo (instanciadas), com geada na neve
   for (const [path, mats] of Object.entries(glb)) instanceProps(root, path, mats, { tint: tintOfPath(path) });
-  // Peças do packtextura: uma chamada de desenho por malha (InstancedMesh)
-  // (copas e rochas do kit saem mais escuras e frias que o verde cru do pacote, para casar com a grama)
-  for (const [key, mats] of Object.entries(packMats)) packInstances(root, key, mats, key.startsWith('Tree_') ? 0xa8c890 : key.startsWith('Rock_') ? 0x8f958c : undefined);
+  // Peças naturais: uma chamada de desenho por malha (InstancedMesh); as rochas do deserto levam a cor da ambientação
+  for (const [key, mats] of Object.entries(natMats)) instanceKit(root, key, mats, KIT.arenito.includes(key) ? tintHex(kit.rockTint) : undefined);
   // Sombras de contato: uma mancha escura e suave sob cada peça (uma chamada de desenho para todas)
   if (contact.length) {
     const blobs = new THREE.InstancedMesh(
@@ -394,7 +397,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   // ---------------- Poças d'água com reflexo (tiles 'w') ----------------
   const puddles = zone.floor.filter((f) => f.ground === 'puddle');
   // na floresta as poças são do chão (forestGround.ts: lama e água pequena, no mesmo nível do terreno)
-  if (puddles.length && !pack) {
+  if (puddles.length && !floresta) {
     const geos = puddles.map((f) => new THREE.CircleGeometry(0.34 + rnd() * 0.16, 12).rotateX(-Math.PI / 2).scale(1.3, 1, 0.9).translate(X(f.x) + (rnd() - 0.5) * 0.3, 0.012, Z(f.y) + (rnd() - 0.5) * 0.3));
     // água parada: céu claro refletido (emissivo) + brilho especular do sol
     const ice = biome === 'mountain';
