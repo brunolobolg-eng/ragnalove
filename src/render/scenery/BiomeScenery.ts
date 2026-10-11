@@ -6,7 +6,7 @@ import type { SceneryHandle } from './BridgeScenery';
 import { buildCityGate } from './CityGate';
 import { softCircle } from '../textures';
 import { instanceProps } from './props';
-import { PACK, packGroundTexture, packInstances, packMatrix } from './packKit';
+import { PACK, packForestGround, packInstances, packMatrix } from './packKit';
 import { KITS, type BiomeKit } from './biomeKits';
 
 /**
@@ -144,11 +144,8 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
 
   // ---------------- Chão ----------------
   if (pack) {
-    // floresta: um chão só, pintado com o kit (borda de 22 tiles em volta da grade; vazios transparentes)
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(W + 44, H + 44).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: packGroundTexture(zone, 22), alphaTest: 0.5 }));
-    ground.position.y = -0.03;
-    ground.receiveShadow = true;
-    root.add(ground);
+    // floresta: chão em camadas com as texturas do dono (borda de 22 tiles em volta da grade)
+    root.add(packForestGround(zone, 22));
   } else {
     const outerTex = groundTexture(P, 256, 256, 4, rnd, true);
     outerTex.repeat.set((W + 44) / 4, (H + 44) / 4);

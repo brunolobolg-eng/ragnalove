@@ -2,6 +2,12 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-11 — v0.8b
+- Chão da floresta refeito com as texturas da folha do dono (grama, grama florida, terra e pedra, recortadas e emendadas em `public/textures/floresta/`). Antes era pintado num canvas de 16 pixels por tile, o que deixava tudo borrado de perto.
+- Chão em camadas (`packForestGround` em `packKit.ts`): cada camada é um plano com a textura nítida e uma máscara suave que decide onde ela aparece. Trilhas de terra com borda irregular, sombra sob as copas e rochas, poças e pedra no portão.
+- Removidas `Grass_Shadow` e `Dirt_Trail` do kit `packtextura` (não são mais usadas).
+- Pendente: as árvores (do kit) e as rochas continuam simples. A folha tem flores, cogumelos e tocos que podem virar decalques no chão numa próxima rodada, e texturas originais em resolução maior dariam mais nitidez de perto.
+
 ## 2026-10-10 — v0.8a
 - Florestas (tema `forest`: Bosque Torto, Floresta dos Sussurros, Clareira do Corvo, Vale das Raízes) com o kit packtextura: chão pintado com grama, sombra sob as copas, trilha de terra da entrada até o portão, raízes e poças. Árvores, rochas, troncos e arbustos do pacote, desenhados instanciados.
 - Ponte de Valdrec: deque e praça com a pedra azul e os paralelepípedos do pacote, com mapa de normais (relevo sob a luz). Ruínas e pedras dentro do rio, em tiles de água: não andam nem bloqueiam nada.

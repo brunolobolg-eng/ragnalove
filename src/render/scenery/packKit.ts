@@ -12,8 +12,10 @@ import type { Vec2 } from '../../core/grid/types';
 
 const GLB_URL = 'models/packtextura/AURENTHAL_Stylized_Environment_Props.glb';
 const TEX_DIR = 'textures/packtextura/';
-/** Pixels por tile no chão pintado: 16 fica nítido de perto e leve na memória. */
-const PX = 16;
+/** Texturas de chão recortadas da folha de texturas do dono (public/textures/floresta/). */
+const FLOOR_DIR = 'textures/floresta/';
+/** Pixels por tile nas máscaras das camadas do chão. As bordas são suaves, então não precisam da resolução da textura. */
+const MASK_PX = 12;
 
 /** Peças do kit por nome. Cada nome pega todas as malhas que começam com ele (Tree_01 = tronco + copas). */
 export const PACK: Record<string, string[]> = {
@@ -111,30 +113,27 @@ export function packInstances(parent: THREE.Object3D, key: string, mats: THREE.M
 
 const images = new Map<string, Promise<HTMLImageElement>>();
 
-function imageOf(name: string): Promise<HTMLImageElement> {
-  let p = images.get(name);
+function imageOf(url: string): Promise<HTMLImageElement> {
+  let p = images.get(url);
   if (!p) {
     p = new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error(`textura do kit ausente: ${name}`));
-      img.src = `${TEX_DIR}${name}.webp`;
+      img.onerror = () => reject(new Error(`textura ausente: ${url}`));
+      img.src = url;
     });
-    images.set(name, p);
+    images.set(url, p);
   }
   return p;
 }
 
-/**
- * Textura do kit (repete). Cor é sRGB; mapa de normais (`linear`) não. Devolve a textura na hora e preenche
- * a imagem quando ela chega, então cada uso pode ter o seu `repeat`.
- */
-export function packTexture(name: string, linear = false): THREE.Texture {
+/** Textura que aparece na hora e recebe a imagem quando ela chega (cada uso tem o seu `repeat`). */
+function loadTexture(url: string, linear: boolean): THREE.Texture {
   const t = new THREE.Texture();
   t.colorSpace = linear ? THREE.NoColorSpace : THREE.SRGBColorSpace;
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.anisotropy = 8;
-  imageOf(name)
+  imageOf(url)
     .then((img) => {
       t.image = img;
       t.needsUpdate = true;
@@ -143,6 +142,13 @@ export function packTexture(name: string, linear = false): THREE.Texture {
       /* sem textura o material fica liso: o cenário segue */
     });
   return t;
+}
+
+/**
+ * Textura de cor do kit (repete). Cor é sRGB; mapa de normais (`linear`) não.
+ */
+export function packTexture(name: string, linear = false): THREE.Texture {
+  return loadTexture(`${TEX_DIR}${name}.webp`, linear);
 }
 
 /**
@@ -156,110 +162,222 @@ export function packStoneMaterial(name: string, map: THREE.Texture, color = 0xff
   return new THREE.MeshStandardMaterial({ map, normalMap, color, roughness: 0.92, metalness: 0 });
 }
 
-/** Tipos de peça que projetam sombra no chão pintado (copas, rochas, troncos, ruínas, muros). */
+/** Tipos de peça que projetam sombra no chão (copas, rochas, troncos, ruínas, muros). */
 const SHADE_KINDS = new Set<string>(['tree', 'rock', 'stump', 'ruin', 'wall']);
 
-/**
- * Chão do mapa pintado com o kit: grama base em toda a área, sombra sob as copas e na neblina,
- * trilha de terra dos caminhos (das entradas até o portão), raízes, calçada na praça e poças.
- * Os vazios (`voids`) saem transparentes, e a água embaixo aparece. `margin` = tiles de chão além da grade.
- */
-export function packGroundTexture(zone: ParsedZone, margin: number): THREE.CanvasTexture {
-  const CW = (zone.width + 2 * margin) * PX;
-  const CH = (zone.height + 2 * margin) * PX;
-  const canvas = document.createElement('canvas');
-  canvas.width = CW;
-  canvas.height = CH;
-  const g = canvas.getContext('2d')!;
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
-  // até as texturas chegarem, o chão tem a cor média da grama (nada fica vazio)
-  g.fillStyle = '#4f7a34';
-  g.fillRect(0, 0, CW, CH);
+/** Hash inteiro determinístico (só visual): o mesmo mapa sai sempre igual. */
+function hash(x: number, y: number, s: number): number {
+  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(s, 2246822519);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
 
-  type Fill = { img: HTMLImageElement; tiles: number } | { color: string };
-  const scratch = (): HTMLCanvasElement => {
-    const c = document.createElement('canvas');
-    c.width = CW;
-    c.height = CH;
-    return c;
+/** Ruído de valor suave (0 a 1), com interpolação em S. */
+function valueNoise(x: number, y: number, s: number): number {
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const fx = x - x0;
+  const fy = y - y0;
+  const ux = fx * fx * (3 - 2 * fx);
+  const uy = fy * fy * (3 - 2 * fy);
+  const a = hash(x0, y0, s);
+  const b = hash(x0 + 1, y0, s);
+  const c = hash(x0, y0 + 1, s);
+  const d = hash(x0 + 1, y0 + 1, s);
+  return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
+}
+
+/** Ruído em três oitavas (0 a 1): bordas orgânicas e manchas irregulares. */
+function noise(x: number, y: number, s: number): number {
+  return 0.6 * valueNoise(x, y, s) + 0.3 * valueNoise(x * 2.03, y * 2.03, s + 1) + 0.1 * valueNoise(x * 4.1, y * 4.1, s + 2);
+}
+
+/** Degrau suave: 0 abaixo de `a`, 1 acima de `b`. */
+function smooth(a: number, b: number, x: number): number {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * Chão da floresta em camadas. Cada camada é um plano com uma textura da folha do dono e uma máscara suave
+ * (alphaMap) que diz onde ela aparece: grama base, manchas de grama florida, sombra sob as copas e na
+ * neblina, trilha de terra com borda orgânica (das entradas até o portão), pedra no portão e poças.
+ * A textura fica nítida de perto; só as máscaras são de baixa resolução, e por serem borrão ninguém as vê.
+ * Os vazios (água) saem em todas as camadas. `margin` = tiles de chão além da grade.
+ */
+export function packForestGround(zone: ParsedZone, margin: number): THREE.Group {
+  const TW = zone.width + 2 * margin;
+  const TH = zone.height + 2 * margin;
+  const CW = TW * MASK_PX;
+  const CH = TH * MASK_PX;
+  const voids = new Uint8Array(TW * TH);
+  for (const v of zone.voids) voids[(v.y + margin) * TW + v.x + margin] = 1;
+  const tileAt = (px: number, py: number): number => Math.floor(py / MASK_PX) * TW + Math.floor(px / MASK_PX);
+  const gx = (px: number) => px / MASK_PX - margin;
+  const gy = (py: number) => py / MASK_PX - margin;
+
+  const rect = (c: CanvasRenderingContext2D, x: number, y: number) => c.fillRect((x + margin) * MASK_PX, (y + margin) * MASK_PX, MASK_PX, MASK_PX);
+  const disc = (c: CanvasRenderingContext2D, x: number, y: number, r: number) => {
+    c.beginPath();
+    c.arc((x + margin + 0.5) * MASK_PX, (y + margin + 0.5) * MASK_PX, r * MASK_PX, 0, Math.PI * 2);
+    c.fill();
   };
-  /** Pinta `fill` só onde `draw` desenha (máscara em branco), com a borda suavizada por `blur`. */
-  const through = (fill: Fill, draw: (c: CanvasRenderingContext2D) => void, o: { blur?: number; alpha?: number } = {}) => {
-    const mask = scratch();
-    const mc = mask.getContext('2d')!;
-    mc.fillStyle = '#fff';
-    mc.strokeStyle = '#fff';
-    draw(mc);
-    let src = mask;
-    if (o.blur) {
-      src = scratch();
-      const sc = src.getContext('2d')!;
-      sc.filter = `blur(${o.blur}px)`;
-      sc.drawImage(mask, 0, 0);
+
+  /**
+   * Máscara em tons de cinza: `draw` pinta as formas (branco sobre preto), o desfoque amacia a borda e
+   * `shape(valor, x, y)` decide o contorno final com ruído. Os vazios são sempre zerados.
+   */
+  const mask = (draw: (c: CanvasRenderingContext2D) => void, blur: number, shape: (v: number, x: number, y: number) => number): HTMLCanvasElement => {
+    const src = document.createElement('canvas');
+    src.width = CW;
+    src.height = CH;
+    const sc = src.getContext('2d')!;
+    sc.fillStyle = '#000';
+    sc.fillRect(0, 0, CW, CH);
+    sc.fillStyle = '#fff';
+    sc.strokeStyle = '#fff';
+    draw(sc);
+    const out = document.createElement('canvas');
+    out.width = CW;
+    out.height = CH;
+    const oc = out.getContext('2d')!;
+    oc.filter = `blur(${blur}px)`;
+    oc.drawImage(src, 0, 0);
+    oc.filter = 'none';
+    const img = oc.getImageData(0, 0, CW, CH);
+    const d = img.data;
+    for (let py = 0; py < CH; py++) {
+      for (let px = 0; px < CW; px++) {
+        const i = (py * CW + px) * 4;
+        const v = voids[tileAt(px, py)] ? 0 : Math.min(1, Math.max(0, shape(d[i] / 255, gx(px), gy(py))));
+        d[i] = d[i + 1] = d[i + 2] = Math.round(v * 255);
+        d[i + 3] = 255;
+      }
     }
-    const color = scratch();
-    const cc = color.getContext('2d')!;
-    if ('img' in fill) {
-      const pat = cc.createPattern(fill.img, 'repeat')!;
-      const s = (PX * fill.tiles) / fill.img.width;
-      pat.setTransform(new DOMMatrix([s, 0, 0, s, 0, 0]));
-      cc.fillStyle = pat;
-    } else cc.fillStyle = fill.color;
-    cc.fillRect(0, 0, CW, CH);
-    cc.globalCompositeOperation = 'destination-in';
-    cc.drawImage(src, 0, 0);
-    g.globalAlpha = o.alpha ?? 1;
-    g.drawImage(color, 0, 0);
-    g.globalAlpha = 1;
+    oc.putImageData(img, 0, 0);
+    return out;
   };
-  const cells = (list: Vec2[]) => (c: CanvasRenderingContext2D) => {
-    for (const p of list) c.fillRect((p.x + margin) * PX, (p.y + margin) * PX, PX, PX);
-  };
-  const trail = (routes: Vec2[][]) => (c: CanvasRenderingContext2D) => {
-    c.lineWidth = PX * 1.2;
-    c.lineJoin = 'round';
-    c.lineCap = 'round';
-    for (const r of routes) {
-      c.beginPath();
-      r.forEach((p, i) => {
-        const px = (p.x + margin + 0.5) * PX;
-        const py = (p.y + margin + 0.5) * PX;
-        if (i) c.lineTo(px, py);
-        else c.moveTo(px, py);
-      });
-      c.stroke();
-    }
+
+  const ground = new THREE.Group();
+  /** Plano de chão cobrindo a área inteira; a textura repete a cada `tiles` tiles. */
+  const layer = (
+    o: { map?: THREE.Texture; tiles?: number; alpha: HTMLCanvasElement; color?: number; opacity?: number; y: number; order: number; opaque?: boolean },
+  ): void => {
+    if (o.map && o.tiles) o.map.repeat.set(TW / o.tiles, TH / o.tiles);
+    const alphaMap = new THREE.CanvasTexture(o.alpha);
+    alphaMap.colorSpace = THREE.NoColorSpace;
+    const mat = new THREE.MeshLambertMaterial({
+      map: o.map,
+      color: o.color ?? 0xffffff,
+      opacity: o.opacity ?? 1,
+      alphaMap,
+      transparent: !o.opaque,
+      alphaTest: o.opaque ? 0.5 : 0,
+      depthWrite: !!o.opaque,
+      polygonOffset: !o.opaque,
+      polygonOffsetFactor: -o.order,
+      polygonOffsetUnits: -o.order,
+    });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(TW, TH).rotateX(-Math.PI / 2), mat);
+    m.position.y = o.y;
+    m.renderOrder = o.order;
+    m.receiveShadow = true;
+    ground.add(m);
   };
 
   const routes = trailRoutes(zone);
-  const shade = [...zone.props.filter((p) => SHADE_KINDS.has(p.kind)), ...zone.fog];
-  const cobble = zone.floor.filter((f) => f.plaza || f.ground === 'gate');
-  const puddles = zone.floor.filter((f) => f.ground === 'puddle');
+  const shadeProps = zone.props.filter((p) => SHADE_KINDS.has(p.kind));
 
-  const compose = (imgs: HTMLImageElement[]) => {
-    const [grass, shadeTex, dirt, cobbleTex] = imgs;
-    through({ img: grass, tiles: 6 }, (c) => c.fillRect(0, 0, CW, CH));
-    through({ img: shadeTex, tiles: 4 }, cells(shade), { blur: 7, alpha: 0.9 });
-    through({ img: dirt, tiles: 4 }, (c) => {
-      cells(zone.slow)(c);
-      trail(routes)(c);
-    }, { blur: 3, alpha: 0.95 });
-    through({ img: cobbleTex, tiles: 2 }, cells(cobble));
-    through({ color: '#1c3b46' }, cells(puddles), { blur: 4, alpha: 0.75 });
-    // vazios: transparentes (o alphaTest do material deixa a água aparecer)
-    g.globalCompositeOperation = 'destination-out';
-    cells(zone.voids)(g);
-    g.globalCompositeOperation = 'source-over';
-    tex.needsUpdate = true;
-  };
-  Promise.all(['Grass_Lush', 'Grass_Shadow', 'Dirt_Trail', 'Cobblestone_Night'].map(imageOf))
-    .then(compose)
-    .catch(() => {
-      /* sem as texturas, o chão fica na cor média da grama */
-    });
-  return tex;
+  // 0 · grama base em toda a área (os vazios saem por máscara, o que está embaixo aparece)
+  layer({
+    map: loadTexture(`${FLOOR_DIR}grama_a.webp`, false),
+    tiles: 3,
+    alpha: mask((c) => c.fillRect(0, 0, CW, CH), 0, () => 1),
+    opaque: true,
+    y: -0.03,
+    order: 0,
+  });
+  // 1 · manchas de grama florida, em blocos irregulares
+  layer({
+    map: loadTexture(`${FLOOR_DIR}grama_b.webp`, false),
+    tiles: 3,
+    alpha: mask(() => {}, 0, (_v, x, y) => smooth(0.5, 0.64, noise(x * 0.16 + 3, y * 0.16 - 2, 11))),
+    y: -0.025,
+    order: 1,
+  });
+  // 2 · sombra sob as copas, rochas, troncos e na neblina (grama escurecida)
+  layer({
+    map: loadTexture(`${FLOOR_DIR}grama_a.webp`, false),
+    tiles: 3,
+    color: 0x3d4f3a,
+    opacity: 0.85,
+    alpha: mask(
+      (c) => {
+        for (const p of shadeProps) disc(c, p.x, p.y, 1.2);
+        for (const f of zone.fog) rect(c, f.x, f.y);
+      },
+      6,
+      (v, x, y) => smooth(0.2, 0.5, v * (0.8 + 0.4 * noise(x * 0.7, y * 0.7, 5))),
+    ),
+    y: -0.02,
+    order: 2,
+  });
+  // 3 · trilha de terra: borda orgânica, e as raízes expostas também ficam de terra
+  layer({
+    map: loadTexture(`${FLOOR_DIR}terra.webp`, false),
+    tiles: 2,
+    alpha: mask(
+      (c) => {
+        c.lineWidth = 1.3 * MASK_PX;
+        c.lineJoin = 'round';
+        c.lineCap = 'round';
+        for (const r of routes) {
+          c.beginPath();
+          r.forEach((p, i) => {
+            const px = (p.x + margin + 0.5) * MASK_PX;
+            const py = (p.y + margin + 0.5) * MASK_PX;
+            if (i === 0) c.moveTo(px, py);
+            else c.lineTo(px, py);
+          });
+          c.stroke();
+        }
+        for (const s of zone.slow) rect(c, s.x, s.y);
+      },
+      4,
+      (v, x, y) => smooth(0.3, 0.62, v + (noise(x * 1.1, y * 1.1, 9) - 0.5) * 0.7),
+    ),
+    y: -0.015,
+    order: 3,
+  });
+  // 4 · pedra no portão da cidade (calçada irregular)
+  layer({
+    map: loadTexture(`${FLOOR_DIR}pedra.webp`, false),
+    tiles: 2,
+    alpha: mask(
+      (c) => {
+        for (const f of zone.floor) if (f.plaza || f.ground === 'gate') rect(c, f.x, f.y);
+      },
+      2,
+      (v, x, y) => smooth(0.4, 0.6, v + (noise(x * 1.6, y * 1.6, 4) - 0.5) * 0.5),
+    ),
+    y: -0.012,
+    order: 4,
+  });
+  // 5 · poças: água escura com borda irregular
+  layer({
+    color: 0x1c3b46,
+    opacity: 0.85,
+    alpha: mask(
+      (c) => {
+        for (const f of zone.floor) if (f.ground === 'puddle') disc(c, f.x, f.y, 0.55);
+      },
+      3,
+      (v, x, y) => smooth(0.3, 0.6, v + (noise(x * 2, y * 2, 13) - 0.5) * 0.35),
+    ),
+    y: -0.009,
+    order: 5,
+  });
+  return ground;
 }
 
 /** Caminho mais curto de cada entrada até o portão, por tiles livres (sem muro, vazio ou árvore). */
