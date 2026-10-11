@@ -391,6 +391,47 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - Mesma fase em todas as cenas, senão a diferença mistura planejamento com batalha.
   - Não encerrar processo por padrão de texto no mesmo shell: isso derrubou o shell duas vezes.
 
+## 2026-10-11 — Pacote de shaders: auditoria e primeira melhoria, o Emperium (v0.11, em andamento)
+- **Pedido do dono:** pacote de qualidade visual em sete fases, sem reescrever o renderizador e sem bibliotecas novas. Começar pela auditoria, implementar a primeira melhoria completa e validar antes de avançar.
+- **Fase 1, auditoria (resumo):**
+  - **Engine:** Three.js 0.169.0 (`package.json`), com Vite 5.4, TypeScript 5.6 e Electron 36.
+  - **Renderizador** (`src/render/Stage.ts`): WebGL 2 (o r169 não tem caminho WebGL 1). Antisserrilhado desligado no canvas e MSAA 4× no alvo do composer (HalfFloat). Tone mapping Neutral, com exposição por tema. Sombra PCFSoft só do sol/lua: 2048 no alto, 1024 no médio, desligada no baixo. Névoa linear que acompanha o zoom. Ambiente PMREM de uma sala padrão (`RoomEnvironment`), com intensidade de 0,08 a 0,14.
+  - **Pós-processamento:** `RenderPass`, passe de efeitos (calor, aberração, correção de cor, gradiente), bloom (`UnrealBloomPass`, limiar de 0,82 a 0,9 por tema) e passe final (nitidez, vinheta, grão). Climas em `visualConfig.ts` (bloco `POSTFX`): dia, pôr do sol, noite, batalha e chefe.
+  - **Materiais:** a maior parte do cenário é `MeshLambertMaterial` com textura de cor, e `MeshBasicMaterial` para brilhos, lâmpadas e sobreposições. `MeshStandardMaterial` só aparece em unidades procedurais. Há 5 `ShaderMaterial` (água, Emperium, magias).
+  - **Texturas:** mais de 140 texturas de cor (pedra, madeira, água, copa de árvore, areia, grama). **Não há mapa de normal, rugosidade, oclusão, emissão ou metal no projeto.** Relevo e rugosidade dependem de arte nova do dono.
+  - **Presets:** `src/settings/Settings.ts` (`QUALITY_PRESETS`) → `graphicsFrom` → `Stage.applyGraphics`. O interruptor de luzes do cenário (`BoardView.setSceneryLights`, ligado com `maxLights > 0`) virou o gancho para efeitos caros de cenário.
+  - **Limites:** WebGL 2; o alvo do pós-processamento em HalfFloat com MSAA 4× é o maior custo de memória (estimativa de cerca de 170 MB a 1080p, não medida); sombra 2048² (cerca de 16 MB).
+- **Fase 2, identidade (proposta):** fantasia medieval com material rico, magia azul com detalhes dourados, sombras suaves e legíveis, névoa para profundidade, emissão para magia, cristal e tocha, contraste sem saturação. Nada de aplicar o mesmo efeito em tudo.
+- **Decisões:**
+  - **D33 — Primeira melhoria: o Emperium.** Contida (um material, um objeto), visível, está na zona de validação e não muda cenário nem jogo. As fases 3 a 7 ficam para as próximas etapas.
+  - **D34 — Biblioteca de materiais:** `src/render/materials/cristal.ts`, com o cristal mágico. Os demais materiais da lista ficam pendentes: ou usam as texturas de cor já existentes, ou esperam mapas do dono.
+  - **D35 — Veios por shader, sem textura:** emissão calculada pela posição no modelo. Iluminação, sombra e tone mapping continuam os do material original.
+  - **D36 — Presets:** os veios ligam com o interruptor de luzes do cenário, ou seja, médio e alto. O baixo mantém o cristal original.
+  - **D37 — Números em configuração:** `VISUAL_CONFIG.emperium` (densidade, nitidez, fluxo, brilho, pulso e cor do meio).
+- **Entregue:** `src/render/materials/cristal.ts` (novo), `src/render/scenery/Emperium.ts`, `src/render/scenery/CityGate.ts` (interruptor do castelo) e `src/config/visualConfig.ts`. Commits `f9735a9` (veios) e `da02062` (ajuste dos valores).
+- **Testes** (Chromium headless, mesma câmera e mesmo tempo fixo, antes e depois):
+  - Sem erro de console nas capturas.
+  - Bastião sem horda: 256 chamadas e 1,2 milhão de triângulos, antes e depois. Programas: 52 e 52.
+  - Horda de 120 vivos, todos na tela: 976 chamadas antes e depois. Visibilidade dos inimigos igual.
+  - Emperium de perto (preset alto): 705 chamadas e 54 programas, antes e depois. Veios visíveis, sem artefato.
+  - Preset baixo: 193 chamadas e 616 mil triângulos, antes e depois. Cristal igual ao original.
+  - `npm run build`, `npm run sim:check` e `npm run bastion:check` passam.
+- **Limitações desta entrega:**
+  - Veios conferidos em imagem fixa com tempo fixo. O pulso é lento, de cerca de 6 segundos, e o movimento não foi visto em vídeo.
+  - O cristal segue com opacidade de 0,88, e isso esconde inimigos atrás dele. Já era assim. Não mexi, porque mudaria a leitura do minério sem decisão do dono.
+  - O preset médio usa o mesmo interruptor do alto, mas não foi capturado separadamente.
+  - Ponte (dia e noite) e pântano não foram recapturados: nada deles mudou nesta entrega. A ponte só tem noite no jogo.
+  - FPS não medido (renderização por software). Memória estimada, não medida.
+- **Pendências (próximas fases, em ordem sugerida):**
+  1. Água: reflexo sutil e variação de normal no shader existente (`BridgeScenery.ts`, `waterMaterial`, e `BiomeScenery.ts`, `liquidMesh`).
+  2. Magias: dissolução e ondas nos shaders já existentes (`magicVfx`, `FireBarrierFX`, `Particles`).
+  3. Materiais de cenário: pedir ao dono mapas de normal e de rugosidade para pedra e madeira. Sem eles não há relevo.
+  4. Iluminação e atmosfera: névoa baixa para o pântano e calibração da sombra.
+  5. Opacidade do cristal: decidir com o dono se reduz para proteger a visibilidade dos inimigos.
+- **Lições:**
+  - O interruptor de luzes do cenário serve bem como gancho de preset para efeitos caros de cenário.
+  - Conferir o eixo antes de escrever o shader: a altura do cristal está no eixo Z do modelo, não no Y.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

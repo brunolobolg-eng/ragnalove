@@ -22,6 +22,7 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - As jornadas atuais não mudam: a saída de referência da simulação continua idêntica.
 - Painel de desenvolvimento (F9): mostra chamadas de desenho, triângulos e luzes da cena, para medir antes de mexer no visual.
 - Ponte: tochas e fogueiras ficam só com o clarão, sem iluminar o chão. A cena tem 12 luzes a menos por quadro.
+- Emperium: o cristal ganha veios de energia que sobem devagar, com um pulso lento, nos presets médio e alto. No preset baixo, ele segue como antes.
 
 ## 2026-10-11 — v0.10
 - Álbum de cartas refeito no layout da folha de referência do dono: lateral com o herói, cartas encontradas e barra de progresso, filtros de raridade com gemas, cartas equipadas e a fusão de 10 Normais.
