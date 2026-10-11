@@ -15,7 +15,8 @@ export function kitIcon(id: string): string {
  */
 export function applyKit(root: HTMLElement = document.documentElement): void {
   for (const [id, a] of Object.entries(UI_KIT)) {
-    root.style.setProperty(`--kit-${id}`, `url("${a.file}")`);
+    // URL absoluta: o CSS resolve url() de variáveis a partir do style.css (src/ui), não do index.html
+    root.style.setProperty(`--kit-${id}`, `url("${new URL(a.file, document.baseURI).href}")`);
     if (a.slice) root.style.setProperty(`--kit-${id}-s`, a.slice.join(' '));
     if (a.fill) {
       root.style.setProperty(`--kit-${id}-t`, a.fill.top);

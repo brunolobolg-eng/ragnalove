@@ -1373,7 +1373,7 @@ body.sand-warn #app::after { opacity: 0.12; }
 .au-btn:disabled, .worldmap button:disabled, .city-screen button:disabled, .skilltree-veil button:disabled, .run-veil button:disabled, .confirm-win button:disabled, .nr-veil button:disabled {
   opacity: 0.45; filter: grayscale(0.4); cursor: default; }
 .au-btn.gold, .worldmap button.primary, .city-screen button.primary, .skilltree-veil button.primary, .run-veil button.primary, .confirm-win button.primary, .city-screen .big-act.primary, .city-screen .city-go {
-  --bt: var(--kit-btn_gold); --bs: var(--kit-btn_gold-s, 16); --bf1: var(--kit-btn_gold-t, #f6c667); --bf2: var(--kit-btn_gold-b, #a8701c);
+  --bt: var(--kit-btn_gold); --bs: var(--kit-btn_gold-s, 16); --bf1: #ecb75a; --bf2: #b07424;
   position: relative; overflow: hidden; font-family: Cinzel, serif; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: #2a1405 !important; }
 .au-btn.gold::before, .worldmap button.primary::before, .city-screen button.primary::before, .skilltree-veil button.primary::before, .run-veil button.primary::before,
 .confirm-win button.primary::before, .city-screen .big-act.primary::before {
