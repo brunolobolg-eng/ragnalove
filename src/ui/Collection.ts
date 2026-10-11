@@ -9,7 +9,7 @@ import {
   CARD_BY_ID,
   CARD_CATALOG,
   NORMALS,
-  cardBonusFor,
+  cardRuntimeFor,
   cardSlotsPool,
   equipCard,
   freeCopies,
@@ -21,8 +21,7 @@ import {
   type CardRarity,
 } from '../core/progression/cards';
 import type { HeroKind } from '../core/progression/skills';
-import { ATTR_LABEL } from '../core/progression/attributes';
-import { RARITY_COLOR, RARITY_LABEL, cardAffinityText, cardArtHtml } from './CardFace';
+import { RARITY_COLOR, RARITY_LABEL, cardArtHtml, cardBaseText, cardVocationText } from './CardFace';
 import { kitIcon } from './kit';
 
 export interface CollectionCallbacks {
@@ -55,16 +54,6 @@ function emblemHtml(h: HeroKind, cls: string): string {
   return e ? `<img class="${cls}" src="${kitIcon(e)}" alt="">` : `<img class="${cls} port" src="${portraitOf(h)}" alt="">`;
 }
 
-/** Bônus da carta no herói: cheio com afinidade, metade sem. */
-const bonusText = (hero: HeroKind, id: string): string => {
-  const d = CARD_BY_ID[id];
-  if (!d) return '';
-  const full = d.affinity.includes(hero);
-  const v = (n: number): number => (full ? n : Math.floor(n / 2));
-  const parts = [`${ATTR_LABEL[d.attr]} +${v(d.value)}${full ? '' : ' (½)'}`];
-  if (d.second) parts.push(`${ATTR_LABEL[d.second.attr]} +${v(d.second.value)}${full ? '' : ' (½)'}`);
-  return parts.join(' · ');
-};
 
 export class Collection {
   readonly el: HTMLElement;
@@ -195,8 +184,8 @@ export class Collection {
     const equipped = this.cards.equipped[this.hero] ?? [];
     const found = (r?: CardRarity): number => CARD_CATALOG.filter((d) => (!r || d.rarity === r) && (this.cards.owned[d.id] ?? 0) > 0).length;
     const total = (r?: CardRarity): number => CARD_CATALOG.filter((d) => !r || d.rarity === r).length;
-    const bonus = cardBonusFor(this.hero, this.cards);
-    const bonusTxt = (Object.entries(bonus) as [keyof typeof bonus, number][]).filter(([, v]) => v > 0).map(([k, v]) => `${ATTR_LABEL[k]} +${v}`).join(' · ') || 'nenhum';
+    const regras = cardRuntimeFor(this.hero, this.cards);
+    const bonusTxt = regras.length ? regras.map((r) => r.name).join(' · ') : 'nenhum';
     const freeNormals = NORMALS.reduce((s, d) => s + freeCopies(this.cards, d.id), 0);
     const pct = Math.round((found() / total()) * 100);
 
@@ -347,8 +336,8 @@ export class Collection {
         <div class="cl-dt-txt">
           <b>${d.name}</b>
           <em><i class="cl-gem g-${d.rarity}"></i>${RARITY_LABEL[d.rarity]}</em>
-          <p><span>Efeito em ${HERO_NAME[this.hero]}:</span> ${bonusText(this.hero, d.id)}</p>
-          <p class="cl-dt-sub">${cardAffinityText(d.id)}</p>
+          <p><span>Efeito base:</span> ${cardBaseText(d.id)}</p>
+          <p class="cl-dt-sub">${cardVocationText(d.id)}${d.vocation.hero === this.hero ? ' <b>(ativo neste herói)</b>' : ''}</p>
           <p class="cl-dt-sub">Cópias: ${n} · livres: ${livres}${usam.length ? ` · equipada em ${usam.join(', ')}` : ''}</p>
         </div>
         <div class="cl-dt-btns">${botaoEquipar}${fundir}</div>

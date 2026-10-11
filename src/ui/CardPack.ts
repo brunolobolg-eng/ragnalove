@@ -5,9 +5,9 @@
  * raios, faíscas douradas e a faixa "VOCÊ ENCONTROU ...". As cartas já entraram na coleção ao conceder (main.ts):
  * aqui é só a revelação (e a dica do efeito ao passar o mouse numa carta virada). A apresentação não decide nada: a lista de cartas vem pronta.
  */
-import { CARD_BY_ID, revealOrder, type CardRarity } from '../core/progression/cards';
+import { CARD_BY_ID, CARD_TIER_NAMES, revealOrder, type CardRarity } from '../core/progression/cards';
 import type { SfxName } from '../audio/AudioEngine';
-import { RARITY_COLOR, RARITY_LABEL, cardAffinityText, cardBackHtml, cardBonusText, cardFaceHtml } from './CardFace';
+import { RARITY_COLOR, RARITY_LABEL, cardBackHtml, cardBaseText, cardFaceHtml, cardVocationText } from './CardFace';
 import { CardPackFx } from './CardPackFx';
 
 type Sfx = (name: SfxName) => void;
@@ -395,7 +395,7 @@ function reduced(): boolean {
 /** Dica da carta: nome e raridade, o efeito (atributo e valor), as classes com bônus cheio e quando ele entra. */
 function tipHtml(id: string): string {
   const d = CARD_BY_ID[id];
-  return `<b class="pt-name">${d.name}</b><em>${RARITY_LABEL[d.rarity]}</em>
-    <p class="pt-eff">${cardBonusText(id)}</p>
-    <p>${cardAffinityText(id)}</p>`;
+  return `<b class="pt-name">${d.name}</b><em>${CARD_TIER_NAMES[d.tier]} · ${RARITY_LABEL[d.rarity]}</em>
+    <p class="pt-eff">${cardBaseText(id)}</p>
+    <p>${cardVocationText(id)}</p>`;
 }

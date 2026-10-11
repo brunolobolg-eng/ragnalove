@@ -14,6 +14,8 @@ import { Rng } from './rng';
 import type { AreaEffect, CombatMoveStats, DamageSource, FrostMist, MapObject, Sanctuary, SimEvent, SimPhase, Trap, TrapKind, Unit, WaveReport } from './types';
 import { SKILL_NUM, lvOf, startingSkills, type HeroKind } from '../progression/skills';
 import { lockedSkillKeys } from '../progression/skillSlots';
+import type { CardRuntime } from '../progression/cards';
+import { cardTrigger } from './cardRules';
 import { neutralMods, testRangeMult, type SimMods } from './RangeSystem';
 import { updateCombatMovement } from './CombatMovement';
 
@@ -94,7 +96,7 @@ const PROJECTILES = new Set<DamageSource>(['bolt', 'arrow', 'pierce', 'spell']);
 
 /** O que cada herói traz da progressão para a onda. */
 /** Dano contínuo/ambiental: nunca é crítico. */
-const NO_CRIT = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'debug', 'curse', 'combust', 'enchant', 'reflect', 'frost', 'tower']);
+const NO_CRIT = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'debug', 'curse', 'combust', 'enchant', 'reflect', 'frost', 'tower', 'card']);
 /** Ids dos objetos das estruturas da cidade (Bastião): longe dos ids do mapa e das muralhas da onda. */
 const FORT_OBJECT_BASE = 1000000;
 /** Fontes que o Ápice Sombrio (Bruxa) amplia. */
@@ -103,6 +105,8 @@ const APEX_SOURCES = new Set<DamageSource>(['shadow', 'curse', 'frost']);
 const MIST_MAX_PER_OWNER = 2;
 /** Dano contínuo (não é golpe direto): não dispara o Limite da Morte nem devolve dano. */
 const CONTINUOUS = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'combust', 'curse', 'frost']);
+/** Fontes que não contam como golpe do herói para as cartas (dano de carta, reflexo, armadilha, torre, debug, contínuo). */
+const CARD_EXCLUDED = new Set<DamageSource>([...CONTINUOUS, 'card', 'reflect', 'trap', 'tower', 'debug']);
 
 export interface HeroLoadout {
   stats: HeroStats;
@@ -110,6 +114,8 @@ export interface HeroLoadout {
   locked?: string[];
   level: number;
   exp: number;
+  /** Regras das cartas equipadas (derivadas da coleção no início da run). */
+  cards?: CardRuntime[];
 }
 
 /**
@@ -120,6 +126,8 @@ export class Simulation {
   readonly board: Board;
   readonly setup: PartySetup;
   tick = 0;
+  /** Ticks por segundo (as regras de carta convertem segundos em ticks por aqui). */
+  readonly tickRate = GAME_CONFIG.sim.tickRate;
   phase: SimPhase = 'setup';
   readonly units = new Map<number, Unit>();
   readonly effects = new Map<number, AreaEffect>();
@@ -244,6 +252,8 @@ export class Simulation {
       u.locked = lo.locked ?? lockedSkillKeys(a.id as HeroKind, { ...startingSkills(a.id as HeroKind), ...lo.stats.skills }, lo.stats.mana ?? GAME_CONFIG.mana.base);
       u.level = lo.level;
       u.exp = lo.exp;
+      u.cardRules = lo.cards ?? [];
+      u.cardCd = {};
       this.heroFinal.set(u.kind, { level: u.level, exp: u.exp });
     }
     // Herói sozinho: bônus de vida e dano (a party começa com 1 herói)
@@ -524,6 +534,11 @@ export class Simulation {
   emit(e: SimEvent): void {
     this.events.push(e);
     for (const cb of this.tap) cb(e);
+    // cartas: lançar uma habilidade dispara o gatilho 'cast' do herói
+    if (e.type === 'cast') {
+      const cu = this.units.get(e.unitId);
+      if (cu?.team === 'party') cardTrigger(this, cu, 'cast');
+    }
     // métrica: habilidades usadas por herói
     if (SKILL_EVENTS.has(e.type) && 'unitId' in e && e.unitId !== undefined) {
       const u = this.units.get(e.unitId);
@@ -601,6 +616,7 @@ export class Simulation {
     if (u.team === 'party' && source === 'melee' && u.stats) {
       if (u.stats.dodge > 0 && this.combatRng.next() < u.stats.dodge) {
         this.emit({ type: 'avoid', unitId: u.id, how: 'dodge' });
+        cardTrigger(this, u, 'dodge');
         return;
       }
       if (u.stats.block > 0 && this.combatRng.next() < u.stats.block) {
@@ -672,7 +688,25 @@ export class Simulation {
         if (GAME_CONFIG.bossKinds.includes(u.kind)) this.bossLevelUp();
         this.rollDrop(u, hero);
         this.soulHarvest(sourceId);
+        const abatedor = sourceId !== undefined ? this.units.get(sourceId) : undefined;
+        if (abatedor?.team === 'party') cardTrigger(this, abatedor, 'kill', { target: u });
       }
+    }
+    // Cartas (depois da morte: o golpe extra nunca atinge quem já caiu)
+    if (applied > 0 && u.team === 'party' && sourceId !== undefined && (u.reflectUntil ?? 0) > this.tick && !CONTINUOUS.has(source)) {
+      const atacante = this.units.get(sourceId);
+      if (atacante?.team === 'enemy' && atacante.alive) this.damage(atacante, applied * (u.reflectPct ?? 0), 'reflect', u.id);
+    }
+    if (applied > 0 && u.team === 'enemy' && sourceId !== undefined && !CARD_EXCLUDED.has(source)) {
+      const heroi = this.units.get(sourceId);
+      if (heroi?.team === 'party' && heroi.alive) {
+        cardTrigger(this, heroi, 'hit', { target: u, amount: applied });
+        if (crit) cardTrigger(this, heroi, 'crit', { target: u, amount: applied });
+      }
+    }
+    if (applied > 0 && u.team === 'party') {
+      cardTrigger(this, u, 'hurt', { amount: applied });
+      if (u.alive && u.hp <= u.maxHp * 0.3) cardTrigger(this, u, 'lowHp');
     }
   }
 
@@ -687,6 +721,12 @@ export class Simulation {
       w.souls++;
       this.souls++;
     }
+  }
+
+  /** Almas ganhas fora do roubo (regras de carta): entram na conta do herói e da batalha. */
+  addSouls(u: Unit, amount: number): void {
+    u.souls += amount;
+    this.souls += amount;
   }
 
   /** Roubo de alma: calculado aqui (autoritativo), o render só desenha o evento. */
@@ -1292,6 +1332,7 @@ export class Simulation {
     if (this.phase !== 'setup') return;
     this.phase = 'running';
     this.emit({ type: 'phase', phase: 'running' });
+    for (const u of this.sortedUnits('party')) cardTrigger(this, u, 'start');
   }
 
   /** Avança 1 tick e devolve os eventos gerados. */
@@ -1314,6 +1355,7 @@ export class Simulation {
       // velocidade de ataque de teste: encurta as recargas que o arquétipo acabou de marcar
       const speed = this.mods.heroes[u.kind]?.attackSpeed ?? 1;
       const before = speed !== 1 ? { ...u.cooldowns } : undefined;
+      cardTrigger(this, u, 'tick');
       this.actWithSlots(u);
       if (before) for (const [k, v] of Object.entries(u.cooldowns)) if (v !== before[k] && v > this.tick) u.cooldowns[k] = this.tick + Math.max(1, Math.round((v - this.tick) / speed));
     }

@@ -469,6 +469,38 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - Antes de comparar um efeito, confirmar que ele apareceu na cena. A cúpula não existia nas capturas, e a diferença que se via era de outra coisa.
   - Para ocultar unidades numa captura, usar `sim.isVisible`. Ocultar o nó não adianta, porque o `GameView` redefine a visibilidade a cada quadro.
 
+## 2026-10-11 — Cartas de monstro: efeitos por gatilho, tiers e vocações (v0.11, em andamento)
+- **Pedido do dono:** trocar os bônus de atributo das cartas por algo mais inovador (não só números), com tiers como os equipamentos, referência do Ragnarok Online adaptada às magias e mecânicas daqui, e um bônus por vocação (todas as classes podem usar; certas classes ganham bônus com certas cartas).
+- **Entregue:**
+  - **Núcleo** (`src/core/progression/cards.ts`): formato de carta (efeito base + bônus de vocação), tiers, derivação das regras por herói (`cardRuntimeFor`), textos em pt-BR e validação do catálogo (`validarCatalogo`).
+  - **Dados** (`src/core/progression/cardCatalog/`): 112 cartas, cada uma com nome do efeito base, nome do efeito de vocação, gatilho, tier e a referência do RO em uma linha.
+  - **Motor** (`src/core/sim/cardRules.ts`, ganchos em `Simulation.ts`): gatilhos `start`, `tick`, `hit`, `crit`, `kill`, `hurt`, `lowHp`, `dodge` e `cast`. Efeitos: escudo, cura, bênção, fúria, recargas, lentidão, maldição, congelar, reflexo, golpe extra, veneno e almas. Chances usam o RNG de combate, e cada regra tem a própria recarga.
+  - **Apresentação:** texto flutuante com o nome do efeito quando dispara (`cardProc`), tier na moldura e no painel, e resumo do herói com os nomes dos efeitos ativos.
+  - **Save:** `cardAttrs` sai do perfil. `cards` é derivado da coleção a cada run. A coleção, os IDs e a fusão não mudam.
+- **Decisões:**
+  - **D45 — Efeitos por gatilho, não atributos.** Cada carta dá um efeito base para todas as classes e um bônus de vocação, que só a classe indicada recebe.
+  - **D46 — Tiers na escala dos equipamentos.** Normais em Comum, Incomum e Raro. Mini-Bosses em Épico e Lendário. MVPs em Mítico. O tier escala a força dos números (×1 a ×2), não a chance de gatilho.
+  - **D47 — Vocações distribuídas:** Guerreiro 19, Mago 19, Arqueira 19, Feiticeira 19, Bruxa 18 e Assassino 18.
+  - **D48 — Referência do RO.** Cada carta traz o efeito original do rAthena (banco de dados de itens, cruzado pelo nome do monstro), traduzido em uma linha. Oito cartas não têm carta equivalente no rAthena (Femur, Fireblend, Gorgon, Memorial, Mermand, Myomewnee, Rooween e Soldier): o efeito é autoral, inspirado no monstro.
+  - **D49 — Golpe extra não critica e não dispara outras cartas.** Evita crítico em cima de crítico e laço de gatilhos.
+- **Achados:**
+  - O teste da curva de slots (`scripts/cardCheck.ts`) já estava desatualizado desde o commit `56bfa5d`, que mudou `CARD_SLOT_WINS`. A expectativa foi atualizada para a curva vigente.
+  - A checagem de save do Bastião agora testa o que importa: o mapa da coleção (`owned`) não vai ao save. Os ids das cartas aparecem nas regras derivadas, como referência.
+  - Sem cartas equipadas, o `sim:check` dá exatamente o mesmo resultado de antes (determinismo intacto).
+- **Testes:**
+  - `npm run build`, `npm run sim:check`, `npm run bastion:check` e `scripts/cardCheck.ts` passam.
+  - `cardCheck` cobre: validação do catálogo, pacote, fusão, slots, equipar, regras por classe e tier, migração, revelação e o motor dentro da batalha (início, a cada 1 s, golpe extra, almas, determinismo e nenhum disparo sem cartas).
+  - Álbum e painel de detalhe no Chromium headless, sem erro de console. Os nomes dos efeitos aparecem no painel e no resumo do herói.
+- **Limitações:**
+  - **Balanceamento não testado em partida com cartas equipadas.** Só há checagem de sanidade e determinismo. Números a revisar: golpe extra de 78% do dano em carta Raro, "Tempestade Constante" (congela a cada 5 s) e "Peste Lenta", que os redatores apontaram como os bônus mais fortes.
+  - Runs em andamento de saves antigos começam sem cartas (campo `cards` ausente = vazio) até a próxima jornada.
+  - Os efeitos são individuais: não há escudo nem cura em área para aliados. Só texto flutuante, sem efeito visual próprio por carta.
+  - FPS e memória não medidos.
+- **Pendências:**
+  1. Playtest com cartas equipadas, para ajustar chances, durações e `TIER_POWER` em `cardCatalog/`.
+  2. Decidir se entram efeitos sobre aliados (escudo ou cura em grupo).
+  3. Efeitos visuais próprios por tipo de efeito (opcional).
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

@@ -41,7 +41,7 @@ export interface BastionState {
   coreMaxHp: number;
   /**
    * Carteira e progressão dos heróis do modo (Zen, EXP, equipamentos, almas): tudo próprio do Bastião.
-   * Os bônus de carta (`heroes[k].cardAttrs`) são uma cópia da coleção compartilhada, tirada no início da tentativa.
+   * As regras de carta (`heroes[k].cards`) são uma cópia da coleção compartilhada, tirada no início da tentativa.
    */
   profile: Profile;
   /** Heróis que defendem a cidade. */

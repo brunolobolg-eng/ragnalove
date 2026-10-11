@@ -6,7 +6,7 @@
  * 11) Emperium: dano de contato (vida × força ÷ 30) e a campanha segue pela ameaça por tipo.
  */
 import { BASTION, BASTION_ZONE_ID, PROJECTS, PROJECT_IDS, STRUCTURES } from '../src/config/bastion';
-import { CARD_SLOT_WINS, addCards, cardBonusFor, cardSlots, cardSlotsPool, emptyCollection, equipCard, type CardCollection } from '../src/core/progression/cards';
+import { CARD_SLOT_WINS, addCards, cardRuntimeFor, cardSlots, cardSlotsPool, emptyCollection, equipCard, type CardCollection } from '../src/core/progression/cards';
 import { heroStats } from '../src/core/progression/profile';
 import { DEFAULT_SETUP, GAME_CONFIG, applyZone } from '../src/config/gameConfig';
 import { ZONES, parseZone } from '../src/config/zones';
@@ -279,23 +279,24 @@ console.log('\n# 8) Cartas compartilhadas com a campanha');
 const cartas = emptyCollection();
 addCards(cartas, ['high_orc', 'high_orc', 'requiem']);
 const equipou = equipCard(cartas, 'warrior', 'high_orc', 3);
-check('carta equipada no guerreiro (+3 de Força, afinidade cheia)', equipou === undefined && cardBonusFor('warrior', cartas).str === 3);
+const regrasGuerreiro = cardRuntimeFor('warrior', cartas);
+check('carta equipada no guerreiro gera regras de batalha', equipou === undefined && regrasGuerreiro.length >= 1, `${regrasGuerreiro.length} regra(s)`);
 const comCartas = newBastion(7, cartas);
 const semCartas = newBastion(7, emptyCollection());
-check('Bastião: o guerreiro começa com o bônus da carta', comCartas.profile.heroes.warrior.cardAttrs?.str === 3);
-check('sem cartas na coleção, o bônus é zero', semCartas.profile.heroes.warrior.cardAttrs?.str === 0);
-check('o status do guerreiro sobe 3 de Força com a carta', heroStats(comCartas.profile, 'warrior').attrs.str === heroStats(semCartas.profile, 'warrior').attrs.str + 3);
-check('o save do Bastião guarda só o bônus, não a coleção', !JSON.stringify(comCartas).includes('"owned"') && !JSON.stringify(comCartas).includes('high_orc'));
+check('Bastião: o guerreiro começa com as regras da carta', comCartas.profile.heroes.warrior.cards?.length === regrasGuerreiro.length);
+check('sem cartas na coleção, não há regras', semCartas.profile.heroes.warrior.cards?.length === 0);
+check('cartas não mexem mais nos atributos (efeito é regra de batalha)', heroStats(comCartas.profile, 'warrior').attrs.str === heroStats(semCartas.profile, 'warrior').attrs.str);
+// as regras derivadas trazem o id e o nome da carta (chave e texto); o que não pode ir ao save é o mapa da coleção
+check('o save do Bastião guarda só as regras derivadas, não o mapa da coleção', !JSON.stringify(comCartas).includes('"owned"'));
 const antesDaDerrota = JSON.stringify(cartas);
 const derrota: NightOutcome = { victory: false, coreHp: 900, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } };
 applyNight(comCartas, derrota, 'night:1:1', cartas);
 check('a derrota no Bastião não mexe na coleção compartilhada', JSON.stringify(cartas) === antesDaDerrota);
 equipCard(cartas, 'mage', 'high_orc', 3);
-check('equipar no meio da tentativa não muda o Bastião (vale na próxima)', comCartas.profile.heroes.mage.cardAttrs?.str === 0);
+check('equipar no meio da tentativa não muda o Bastião (vale na próxima)', (comCartas.profile.heroes.mage.cards?.length ?? 0) === 0);
 const nova = startAttempt(comCartas, cartas);
-check('a próxima tentativa copia a coleção nova: o mago leva metade (+1 de Força, sem afinidade)', nova.ok && comCartas.profile.heroes.mage.cardAttrs?.str === 1 && comCartas.attempt === 2);
-check('o guerreiro mantém o bônus cheio (+3 de Força)', comCartas.profile.heroes.warrior.cardAttrs?.str === 3);
-check('a cópia do Bastião bate com o cálculo da campanha', JSON.stringify(comCartas.profile.heroes.mage.cardAttrs) === JSON.stringify(cardBonusFor('mage', cartas)));
+check('a próxima tentativa copia a coleção nova para o mago', nova.ok && (comCartas.profile.heroes.mage.cards?.length ?? 0) === cardRuntimeFor('mage', cartas).length && comCartas.attempt === 2);
+check('a cópia do Bastião bate com o cálculo da campanha', JSON.stringify(comCartas.profile.heroes.mage.cards) === JSON.stringify(cardRuntimeFor('mage', cartas)));
 
 console.log('\n# 9) Preço que dobra com teto, classes, pacotes e slots');
 const bx = newBastion(7, emptyCollection());

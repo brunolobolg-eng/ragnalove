@@ -848,6 +848,12 @@ export class GameView {
           this.oneShot(new ShockwaveFX(v ? v.root.position.clone() : tileToWorld(e.x, e.y), e.radius, this.kit));
           break;
         }
+        case 'cardProc': {
+          // carta de monstro disparou: o nome do efeito sobe sobre o herói (o efeito em si já está na simulação)
+          const v = this.units.get(e.unitId);
+          if (v) this.float(e.name, v.root.position.clone().setY(1.9), '#ffd36a', 0.24);
+          break;
+        }
         case 'fury': {
           const v = this.units.get(e.unitId);
           this.fury.set(e.unitId, e.ticks / 10);

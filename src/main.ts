@@ -258,7 +258,7 @@ function loadout(): Record<string, HeroLoadout> {
   const out: Record<string, HeroLoadout> = {};
   for (const k of Object.keys(profile.heroes)) {
     const h = profile.heroes[k];
-    out[k] = { stats: heroStats(profile, k), level: h.level, exp: h.exp, locked: heroLockedKeys(profile, k) };
+    out[k] = { stats: heroStats(profile, k), level: h.level, exp: h.exp, locked: heroLockedKeys(profile, k), cards: h.cards ?? [] };
   }
   return out;
 }
@@ -2269,7 +2269,7 @@ if (import.meta.env.DEV) {
       CARD_CATALOG.forEach((d, i) => {
         if (i % 4 !== 3) c.owned[d.id] = 1 + (i % 5 === 0 ? 2 : 0);
       });
-      c.equipped.warrior = CARD_CATALOG.filter((d) => d.affinity.includes('warrior')).slice(0, 3).map((d) => d.id);
+      c.equipped.warrior = CARD_CATALOG.filter((d) => d.vocation.hero === 'warrior').slice(0, 3).map((d) => d.id);
       c.equipped.mage = [CARD_CATALOG[0].id];
       collection.open(c, 6, 'warrior');
     },

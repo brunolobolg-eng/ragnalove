@@ -3,6 +3,7 @@ import type { AggroType } from '../../config/gameConfig';
 import type { MapObjectType } from '../../config/zones';
 import type { HeroStats } from '../progression/attributes';
 import type { Item } from '../progression/equipment';
+import type { CardRuntime } from '../progression/cards';
 
 export type Team = 'party' | 'enemy';
 
@@ -77,6 +78,12 @@ export interface Unit {
   enchantUntil?: number;
   /** Danos contínuos ativos (veneno, maldição, enxame). */
   dots?: { perPulse: number; until: number; source: DamageSource; ownerId: number }[];
+  /** Só party: regras das cartas equipadas (gatilhos prontos) e até quando cada uma fica em recarga (Infinity = uma vez). */
+  cardRules?: CardRuntime[];
+  cardCd?: Record<string, number>;
+  /** Reflexo (carta, só party): até quando devolve `reflectPct` do dano corpo a corpo que sofre. */
+  reflectUntil?: number;
+  reflectPct?: number;
   /** Só party: estado do movimento de combate (CombatMovement). */
   ai?: CombatAIState;
 }
@@ -150,7 +157,7 @@ export interface MapObject {
   area: Vec2[];
 }
 
-export type DamageSource = 'burn' | 'cleave' | 'melee' | 'bolt' | 'bash' | 'debug' | 'nova' | 'storm' | 'shock' | 'combust' | 'arrow' | 'rain' | 'pierce' | 'spell' | 'meteor' | 'oil' | 'ruin' | 'trap' | 'arcane' | 'shadow' | 'blade' | 'poison' | 'curse' | 'execute'
+export type DamageSource = 'burn' | 'cleave' | 'melee' | 'bolt' | 'bash' | 'debug' | 'nova' | 'storm' | 'shock' | 'combust' | 'arrow' | 'rain' | 'pierce' | 'spell' | 'meteor' | 'oil' | 'ruin' | 'trap' | 'arcane' | 'shadow' | 'blade' | 'poison' | 'curse' | 'execute' | 'card'
   // Guerreiro (Cavaleiro Rúnico): Lâmina Encantada (bônus mágico), Onda Sônica, Cem Lanças, Cortador de Vento, dano devolvido
   | 'enchant' | 'wave' | 'spear' | 'wind' | 'reflect'
   // Bruxa (magias novas): gelo (Névoa Gélida, Geada Negra) — nunca critica
@@ -216,6 +223,8 @@ export type SimEvent =
   | { type: 'shockwave'; unitId: number; x: number; y: number; radius: number }
   | { type: 'fury'; unitId: number; ticks: number }
   | { type: 'heal'; unitId: number; amount: number }
+  /** Carta disparou (só apresentação: texto flutuante). `effect`: tipo do efeito; `targetId`: alvo, se houver. */
+  | { type: 'cardProc'; unitId: number; name: string; effect: string; targetId?: number }
   | { type: 'combust'; x: number; y: number }
   | { type: 'arrow'; unitId: number; targetId: number; from: Vec2; to: Vec2; crit: boolean }
   /** `fire`: Chuva Incendiária (só apresentação) */

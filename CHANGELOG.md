@@ -25,6 +25,8 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - Emperium: o cristal ganha veios de energia que sobem devagar, com um pulso lento, nos presets médio e alto. No preset baixo, ele segue como antes.
 - Água do rio, do lago e das poças ganha ondulação discreta e reflexo do céu, nos presets médio e alto.
 - Escudo Sagrado: a cúpula se desfaz em pedaços, com a borda acesa, em vez de sumir de uma vez.
+- Cartas de monstro agora dão efeitos de batalha, não mais atributos: cada carta tem um efeito para todas as classes e um bônus de vocação, que só a classe indicada recebe.
+- As cartas ganham tiers, na mesma escala dos equipamentos (Comum a Mítico); o tier define a força do efeito.
 
 ## 2026-10-11 — v0.10
 - Álbum de cartas refeito no layout da folha de referência do dono: lateral com o herói, cartas encontradas e barra de progresso, filtros de raridade com gemas, cartas equipadas e a fusão de 10 Normais.

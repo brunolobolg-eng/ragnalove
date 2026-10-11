@@ -4,6 +4,7 @@ import { KIND_SLOT, SLOTS, canUse, gearBonus, itemKind, weaponPower, type Item, 
 import { lvOf, startingSkills, type HeroKind, type SkillId, type SkillLevels } from './skills';
 import { equippedSkills, lockedSkillKeys, manaToNextSlot, slotCount, usesSlot } from './skillSlots';
 import { HERO_ORDER, familyOf } from '../../config/heroes';
+import type { CardRuntime } from './cards';
 
 /**
  * Progressão persistente entre ondas (o "save" do jogador). A simulação recebe um
@@ -28,7 +29,8 @@ export interface HeroProgress {
   /** Habilidades nos slots, em ordem (undefined = escolha automática). Ver skillSlots.ts. */
   equippedSkills?: SkillId[];
   /** Bônus de atributos das cartas equipadas (coleção permanente; aplicado a cada nova run). */
-  cardAttrs?: Attrs;
+  /** Regras das cartas equipadas neste herói (derivadas da coleção no início da run; ver cards.ts). */
+  cards?: CardRuntime[];
 }
 
 export interface Profile {
@@ -60,7 +62,7 @@ export function createProfile(): Profile {
     skills: startingSkills(k as HeroKind),
     skillPoints: 0,
     equipment: { weapon: starterWeapon(k) },
-    cardAttrs: { str: 0, int: 0, vit: 0, dex: 0, luk: 0 },
+    cards: [],
   });
   return { version: 1, souls: 0, zeni: 0, heroes: Object.fromEntries(HERO_ORDER.map((k) => [k, hero(k)])), inventory: [] };
 }
@@ -123,7 +125,6 @@ export function autoEquip(p: Profile, party: string[], candidates: Item[]): { he
 export function heroStats(profile: Profile, kind: string): HeroStats {
   const h = profile.heroes[kind];
   const attrs = { ...h.attrs };
-  if (h.cardAttrs) for (const k of ATTR_KEYS) attrs[k] += h.cardAttrs[k] ?? 0;
   return computeStats(kind, attrs, gearBonus(SLOTS.map((s) => h.equipment[s])), h.skills, { hp: h.bonusHp, mana: h.bonusMana });
 }
 
@@ -366,7 +367,9 @@ export function migrateProfile(p: Profile): Profile {
     h.points ??= 0;
     h.attrs ??= { ...fresh.heroes[k as HeroKind].attrs };
     h.equipment ??= {};
-    h.cardAttrs ??= { str: 0, int: 0, vit: 0, dex: 0, luk: 0 };
+    // cartas: o formato antigo (bônus de atributo) sai; as regras são derivadas da coleção no início da run
+    delete (h as { cardAttrs?: unknown }).cardAttrs;
+    h.cards ??= [];
     h.skills ??= startingSkills(k as HeroKind);
     // habilidades iniciais novas (ex.: Muralha, Armadilha) entram aprendidas no nível 1
     for (const [id, lv] of Object.entries(startingSkills(k as HeroKind))) h.skills[id as keyof SkillLevels] ??= lv;
