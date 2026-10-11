@@ -6,6 +6,7 @@ O histórico técnico de cada versão está no `CHANGELOG.md`; o estado atual do
 Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisões, pendências e commits.
 
 ## Pendências em aberto (resumo)
+- **Kit de interface nos menus (v0.9):** conferir visualmente no PC do dono o pacote de cartas e as configurações (não conferidos nesta rodada); a moldura do mítico é dourada porque a arte do vermelho está no miolo (decisão de arte); silhuetas de amuleto e anel saíram irregulares, e brinco e cinto não têm silhueta própria; a muralha do guerreiro não tem textura no arquivo do kit (decisão: textura própria ou a do cenário). Ranking do menu é arte da tela inicial, não foi trocado (v0.9).
 - **Pacote de efeitos nas magias (v0.8g):** passivas e estados sem evento ficam sem efeito novo; desempenho precisa ser medido na GPU do dono; o 7z original espera permissão para ir à branch `fontes` (v0.8g).
 - **Gelo e lava (folha 24):** texturas de 70 a 124 px. Para o chão ficar nítido de perto, pedir a folha em 512 px ou mais. Paredes, portões e torres dos três mapas ainda são as peças antigas (v0.8f).
 - **Montagem do Cume das Cinzas:** subiu de cerca de 70 para cerca de 150 ms com o chão em camadas. O gargalo são as máscaras do chão em `groundLayers.ts` (v0.8f).
@@ -157,6 +158,22 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 - **Commits:** a entrega de pacote de efeitos (ver `git log` da branch).
 
 ---
+
+## 2026-10-11 — kit de interface com a arte do dono nos menus (v0.9)
+- **Pedido do dono:** usar as folhas de kit (imagens 27 e 28) em todo o jogo, substituindo qualquer menu pelo layout da imagem 2 (Ficha do Herói no padrão da Feiticeira). Depois, o Relatório da Noite virou pedido separado: visual, enxuto e sem rolagem. Em seguida, pediu roleta e muralha corrigidas, o painel do mapa, a Ficha cabendo em 720p e, por último, as molduras do Relatório com a borda fora do contorno e o gradiente estranho (imagem 31). Pediu acabamento de nível AAA.
+- **Recorte do kit:** duas agentes recortaram as folhas em paralelo. A folha A teve cinco peças com o conteúdo trocado; foi corrigida e conferida. As peças ficam em `public/ui/kit/`, e a configuração (`src/config/uiKit.ts`) é gerada por `scratchpad/ui_kit/gerar_uikit.py` a partir dos manifestos.
+- **Decisões:**
+  - Molduras só com o anel da arte (miolo transparente); o fundo do menu fica só dentro do anel (`background-clip: padding-box`).
+  - As molduras são carregadas com URL absoluta, porque o CSS resolve `url()` de variáveis a partir do `style.css`, não do `index.html`.
+  - O botão principal dourado usa um preenchimento fixo mais claro: a cor amostrada da peça original era bronze escuro e apagava o texto.
+  - Ranking do menu não foi trocado (faz parte da arte da tela inicial).
+  - Roleta: o giro é por tempo acumulado com teto de 120 ms por quadro, e "Pegar" só libera depois do fim. Não consegui reproduzir a finalização só com clique; a causa comprovada é a pausa do navegador (testada com bloqueio de 9 s no meio do giro).
+  - Muralha: as peças do `fortress.glb` vêm sem normais e com a ordem das faces irregular. Cada face recebe a normal para fora e a ordem certa; as cores por vértice são mantidas. O arquivo não tem textura.
+- **Relatório (imagem 31):** a causa era o halo translúcido das molduras (o anel não encostava nas bordas e o fundo aparecia além do ornamento), além de uma animação de brilho na caixa de desbloqueio (`unlockGlow`) que pintava uma faixa cinza. Corrigido: recorte até o pixel opaco, halo removido, fundo só dentro do anel, animação desligada na caixa de desbloqueio.
+- **Ficha do Herói em 1280×720:** o corpo tinha 52 px de conteúdo a mais que a área visível, e o conteúdo sumia sem barra de rolagem. Ajustado com a regra de tela baixa (slots menores, modelo menor, linhas mais justas, 20 px a mais de janela). Medido: sem rolagem, todo o conteúdo visível.
+- **Testes:** `npm run build` passou; `npm run sim:check` deu `determinístico: true`. No navegador (dev, 1600×900), menu, seleção, mapa, coleção, cidade, árvore e roleta abriram sem erro de console. A captura do pacote de cartas ficou com a roleta da demonstração por cima; não conferido.
+- **Commits:** f8fbae2, bfc8a4c, 04a41a5, 4d10d43, ee86a8a, dad5296, 06ba7e7 e o commit final desta versão.
+- **Pendências:** conferir configurações e pacote de cartas; silhuetas de amuleto e anel; brinco e cinto sem silhueta; mítico com moldura dourada; textura da muralha (decisão do dono); painel "Sob pressão" do Relatório ainda sem a moldura do kit. Quando a agente de restyle foi parada, o trabalho dela ficou nos commits WIP e foi concluído por mim.
 
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.

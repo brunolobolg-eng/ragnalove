@@ -2,6 +2,16 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-11 — v0.9
+- Aurenthal Kit com a arte do dono nos menus: molduras ornamentadas (janelas, painéis, barras, quadros de item, abas), botões em azul, dourado e vermelho, ícones e silhuetas de slot vazio. Vale para o mapa, a cidade, a árvore, a coleção, a seleção de personagem, a roleta, os diálogos e a Ficha do Herói.
+- Relatório da Noite refeito: quatro números no topo, party com barras, cidade com selo de estado e composição de quem chegou, itens em molduras e um botão. Sem rolagem, em 1280×720 e 1600×900.
+- Ficha do Herói (janela da batalha) cabe em 1280×720 sem cortar atributos nem status. Botões de +1 e +5 mais legíveis.
+- Painel Ato / Party e a escolha de caminho do mapa com a moldura do kit; os três botões de ação cabem na largura.
+- Molduras recortadas de novo: o anel encosta nas bordas da imagem e o halo translúcido foi removido, para o fundo do menu não vazar para fora do contorno.
+- Muralha do guerreiro: as peças do kit de muralha voltam com normais e faces na ordem certa; a luz e as faces deixam de falhar.
+- Roleta: o giro avança no máximo 120 ms por quadro, então uma pausa do navegador não encerra a animação nem entrega o prêmio antes da hora. O botão "Pegar" só libera depois do giro.
+- Peças do kit em `public/ui/kit/`; configuração gerada em `src/config/uiKit.ts`, carregada por `src/ui/kit.ts`.
+
 ## 2026-10-11 — v0.8g
 - Pacote de efeitos enviado pelo dono (Godot) portado para o jogo. Entram o círculo mágico em oito elementos (com runas, estrela e faíscas), o golpe em fatia com flash e anel de choque, auras, brilhos de buff, cruzes de cura e cristais de gelo.
 - 42 das 43 habilidades ativas e as três magias inimigas (míssil do Necromante, pisão e meteoro) ganham efeito novo: círculo no lançamento ou na área, golpe no acerto, aura nos escudos e buffs, cruzes ou cristais na cura e no gelo. A Flecha Precisa fica de fora: o evento dela é o mesmo da flecha comum. Os efeitos antigos de cada classe continuam por cima.
