@@ -1,0 +1,174 @@
+{
+ "origem": "Folha 24 do dono (neve/gelo e vulcão/fogo/lava)",
+ "pasta": "gelo",
+ "arquivos": [
+  {
+   "arquivo": "piso_neve_clara.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 1,
+   "largura": 95,
+   "altura": 95
+  },
+  {
+   "arquivo": "piso_gelo_fenda_a.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 2,
+   "largura": 94,
+   "altura": 94
+  },
+  {
+   "arquivo": "piso_gelo_fenda_b.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 3,
+   "largura": 93,
+   "altura": 93
+  },
+  {
+   "arquivo": "piso_neve_ondulada.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 4,
+   "largura": 94,
+   "altura": 94
+  },
+  {
+   "arquivo": "piso_neve_pedrosa.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 5,
+   "largura": 93,
+   "altura": 93
+  },
+  {
+   "arquivo": "piso_rocha_neve.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 6,
+   "largura": 92,
+   "altura": 92
+  },
+  {
+   "arquivo": "piso_gelo_fenda_c.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 7,
+   "largura": 69,
+   "altura": 69
+  },
+  {
+   "arquivo": "piso_gelo_claro.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 8,
+   "largura": 80,
+   "altura": 80
+  },
+  {
+   "arquivo": "parede_rocha_neve_a.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 1,
+   "largura": 109,
+   "altura": 109
+  },
+  {
+   "arquivo": "parede_gelo_estalactite_a.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 2,
+   "largura": 113,
+   "altura": 113
+  },
+  {
+   "arquivo": "parede_rocha_neve_b.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 3,
+   "largura": 98,
+   "altura": 98
+  },
+  {
+   "arquivo": "parede_gelo_pilar.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 4,
+   "largura": 73,
+   "altura": 73
+  },
+  {
+   "arquivo": "parede_gelo_estalactite_b.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 5,
+   "largura": 86,
+   "altura": 86
+  },
+  {
+   "arquivo": "parede_rocha_neve_c.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 6,
+   "largura": 103,
+   "altura": 103
+  },
+  {
+   "arquivo": "parede_gelo_cristal.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 7,
+   "largura": 84,
+   "altura": 84
+  },
+  {
+   "arquivo": "ambiente_neve_brilho.webp",
+   "categoria": "ambiente",
+   "painel": "EFEITOS AMBIENTAIS",
+   "celula": 1,
+   "largura": 104,
+   "altura": 104
+  },
+  {
+   "arquivo": "ambiente_neve_faixas.webp",
+   "categoria": "ambiente",
+   "painel": "EFEITOS AMBIENTAIS",
+   "celula": 2,
+   "largura": 87,
+   "altura": 87
+  },
+  {
+   "arquivo": "ambiente_nevoa.webp",
+   "categoria": "ambiente",
+   "painel": "EFEITOS AMBIENTAIS",
+   "celula": 3,
+   "largura": 105,
+   "altura": 105
+  },
+  {
+   "arquivo": "ambiente_geada_espiral.webp",
+   "categoria": "ambiente",
+   "painel": "EFEITOS AMBIENTAIS",
+   "celula": 4,
+   "largura": 95,
+   "altura": 95
+  },
+  {
+   "arquivo": "ambiente_geada_fenda.webp",
+   "categoria": "ambiente",
+   "painel": "EFEITOS AMBIENTAIS",
+   "celula": 5,
+   "largura": 113,
+   "altura": 113
+  },
+  {
+   "arquivo": "ambiente_geada_teia.webp",
+   "categoria": "ambiente",
+   "painel": "EFEITOS AMBIENTAIS",
+   "celula": 6,
+   "largura": 100,
+   "altura": 100
+  }
+ ]
+}

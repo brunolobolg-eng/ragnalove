@@ -2,6 +2,15 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-11 — v0.8f
+- Mapas de gelo (Passo da Geada e Garganta de Ferrugem) com as texturas de neve e gelo da folha 24: neve soprada pelo vento, fendas de gelo, trilha compactada até o portão, lagos congelados, névoa e neve soprando devagar. Pinheiros com neve, pedras e colunas de gelo nas bordas.
+- Mapa de lava (Cume das Cinzas) com as texturas de basalto e vulcão da folha 24: placas e veias incandescentes, lagos de lava que correm devagar com crosta escura na margem, fumaça e brasas lentas. A lava não recebe sombra e continua brilhando na noite.
+- Pedras de neve mais escuras na base, para destacarem da neve do chão. Pinheiros de neve 30% maiores.
+- Texturas novas em `public/textures/gelo/` (21) e `public/textures/vulcao/` (20), cada pasta com `catalogo.json`. A folha 24 fica em `referencias/texturas/`.
+- Números da arte dos dois mapas em `src/config/biomeArt.ts`. Grade, dano e simulação não mudaram; o teste de determinismo passou.
+- Montagem da batalha (teste no navegador): Cume das Cinzas foi de cerca de 70 para 150 ms, porque o chão agora é em 13 camadas. Gelo ficou na faixa do ruído do teste.
+- Pendente: as texturas têm de 70 a 124 px, então de perto a nitidez é limitada. Paredes, portões e torres ainda são as peças antigas.
+
 ## 2026-10-11 — v0.8e
 - Projétil do Necromante (inimigo) refeito: orbe de sombra com cerca de 0,8 tile de diâmetro (antes eram partículas miúdas), com halo pulsando, anel rúnico girando, rastro em fita e impacto com onda de choque roxa. Voo de 7 tiles por segundo, com o dano adiado até a batida.
 - A Bruxa da party continua com o orbe pequeno de antes.

@@ -7,6 +7,9 @@ import { buildCityGate } from './CityGate';
 import { softCircle } from '../textures';
 import { instanceProps } from './props';
 import { KIT, instanceKit, kitMatrix } from './naturKit';
+import { ICE_ART } from '../../config/biomeArt';
+import { iceGround } from './iceGround';
+import { lavaGround } from './lavaGround';
 import { forestGround } from './forestGround';
 import { desertGround } from './desertGround';
 import { KITS, tintHex, type BiomeKit } from './biomeKits';
@@ -112,16 +115,31 @@ const NAT_KIT: BiomeKit = {
   stump: 'nat:tronco',
 };
 /** Token de peça do kit → grupo de peças do naturKit.ts (cada cópia sorteia uma peça do grupo). */
-const NAT_TOKEN: Record<string, string[]> = {
-  'nat:arvore': KIT.arvore,
-  'nat:pedra': KIT.pedra,
-  'nat:arenito': KIT.arenito,
-  'nat:arbusto': KIT.arbusto,
-  'nat:tronco': KIT.tronco,
-  'nat:ruina': KIT.ruina,
-};
+const NAT_TOKEN: Record<string, string[]> = Object.fromEntries(Object.entries(KIT).map(([grupo, pecas]) => [`nat:${grupo}`, pecas]));
 /** Escala das peças naturais por token (as árvores do kit são maiores que as antigas). */
-const NAT_SCALE: Record<string, number> = { 'nat:arvore': 0.85 };
+const NAT_SCALE: Record<string, number> = { 'nat:arvore': 0.85, 'nat:neveArvore': ICE_ART.treeScale };
+/** Gelo (Passo da Geada, Garganta de Ferrugem): pedras e colunas de gelo, pinheiros com neve e cristais. */
+const ICE_KIT: BiomeKit = {
+  ...KITS.mountain,
+  rock: ['nat:neveRocha', 'nat:geloRocha'],
+  ridge: ['nat:geloColuna'],
+  peak: ['nat:geloColuna', 'nat:geloCristal'],
+  towers: [],
+  trees: ['nat:neveArvore'],
+  ringTree: ['nat:neveArvore', 'nat:neveMonte', 'nat:geloCristal', 'nat:geloEstalagmite'],
+  stump: 'nat:arvoreMortaGelo',
+};
+/** Lava (Cume das Cinzas): basalto com colunas, árvores queimadas com veias e cristais que brilham. */
+const LAVA_KIT: BiomeKit = {
+  ...KITS.ash,
+  rock: ['nat:basaltoRocha'],
+  ridge: ['nat:basaltoColuna'],
+  peak: ['nat:basaltoColuna', 'nat:lavaPilar'],
+  towers: [],
+  trees: null,
+  ringTree: ['nat:lavaArvore', 'nat:lavaCristal'],
+  stump: 'nat:lavaArvore',
+};
 
 export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHandle {
   const biome: Biome = theme === 'bridge' || theme === 'town' ? 'plains' : theme;
@@ -137,8 +155,13 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   const edgeK = (W + H) / 28;
   /** Floresta: chão, árvores, rochas, troncos e arbustos vêm do naturKit.ts (texturas do dono). */
   const floresta = theme === 'forest';
+  /** Gelo e lava: chão em camadas e peças naturais com as texturas da folha 24 (iceGround.ts e lavaGround.ts). */
+  const iceMap = biome === 'mountain';
+  const lavaMap = biome === 'ash';
+  /** Peças naturais e chão em camadas (sem canvas): floresta, gelo e lava. */
+  const natural = floresta || iceMap || lavaMap;
   /** Kit de peças da ambientação (pacotes, cores, sombra de contato, luz quente, névoa). */
-  const kit: BiomeKit = floresta ? NAT_KIT : KITS[biome];
+  const kit: BiomeKit = floresta ? NAT_KIT : iceMap ? ICE_KIT : lavaMap ? LAVA_KIT : KITS[biome];
   const tintOfPath = (path: string) =>
     kit.rock.includes(path) ? kit.rockTint
       : kit.ridge.includes(path) || kit.peak.includes(path) || kit.towers.includes(path) || (kit.trees ?? []).includes(path) ? kit.ridgeTint
@@ -146,12 +169,13 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
       : { color: 0xffffff, amount: 0 };
 
   // ---------------- Chão ----------------
-  // floresta e deserto: chão em camadas com as texturas do dono (forestGround.ts e desertGround.ts)
+  // floresta, deserto, gelo e lava: chão em camadas com as texturas do dono (forestGround, desertGround, iceGround, lavaGround)
   const forest = floresta ? forestGround(zone, 22) : undefined;
   const desert = theme === 'desert' ? desertGround(zone, 22) : undefined;
-  if (forest) root.add(forest.group);
-  if (desert) root.add(desert.group);
-  if (!floresta && !desert) {
+  const ice = iceMap ? iceGround(zone, 22) : undefined;
+  const lavaChao = lavaMap ? lavaGround(zone, 22) : undefined;
+  for (const h of [forest, desert, ice, lavaChao]) if (h) root.add(h.group);
+  if (!natural && !desert) {
     const outerTex = groundTexture(P, 256, 256, 4, rnd, true);
     outerTex.repeat.set((W + 44) / 4, (H + 44) / 4);
     const outer = new THREE.Mesh(new THREE.PlaneGeometry(W + 44, H + 44).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: outerTex }));
@@ -168,7 +192,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
 
   // ---------------- Água / lava nos tiles de vazio ----------------
   // na floresta e no deserto o lago é desenhado pelo chão; nos outros biomas, a água de sempre
-  const liquid = zone.voids.length && !floresta && !desert ? liquidMesh(zone, P, X, Z) : undefined;
+  const liquid = zone.voids.length && !natural && !desert ? liquidMesh(zone, P, X, Z) : undefined;
   if (liquid) root.add(liquid.mesh);
 
   // ---------------- Props (dentro do tabuleiro + decoração em volta) ----------------
@@ -192,6 +216,9 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     else (glb[path] ??= []).push(mx);
     contact.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0.015, z), new THREE.Quaternion(), new THREE.Vector3(s * 1.15, 1, s * 1.15)));
   };
+  /** Peça natural (token `nat:*`, pelo glbPut) ou procedural (pelo put). */
+  const anyPut = (token: string, x: number, z: number, s: number, rot?: number, sy?: number): void =>
+    token.startsWith('nat:') ? glbPut(token, x, z, s, rot, sy) : put(token, x, z, s, rot, sy);
   const pick = <T,>(list: T[]): T => list[Math.floor(rnd() * list.length)];
   /** Árvore procedural da decoração (pinheiro, carvalho, cacto, morta...); sem kit, usa a de reserva. */
   const procTree = (fallback: string) => (kit.ringTree.length ? pick(kit.ringTree) : fallback);
@@ -225,8 +252,8 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     switch (kind) {
       case 'tree':
         if (floresta) glbPut('nat:arvore', x, z, 0.85 + rnd() * 0.3);
-        else if (kit.trees && rnd() < 0.5) glbPut(pick(kit.trees), x, z, 0.85 + rnd() * 0.3);
-        else put(procTree(biome === 'mountain' ? 'pineSnow' : 'oak'), x, z, 0.85 + rnd() * 0.3);
+        else if (kit.trees && (natural || rnd() < 0.5)) glbPut(pick(kit.trees), x, z, 0.85 + rnd() * 0.3);
+        else anyPut(procTree(biome === 'mountain' ? 'pineSnow' : 'oak'), x, z, 0.85 + rnd() * 0.3);
         break;
       case 'rock':
         // pedras e paredes do mapa: tamanhos variados para não virarem um bloco repetido
@@ -237,6 +264,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
         break;
       case 'ruin':
         if (floresta) glbPut('nat:ruina', x, z, 0.95 + rnd() * 0.15);
+        else if (natural) glbPut(pick(kit.ridge), x, z, 0.95 + rnd() * 0.15);
         else put('ruin', x, z, 0.95 + rnd() * 0.15);
         break;
       case 'stump':
@@ -313,7 +341,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     const big = 0.9 + rnd() * 0.7;
     if (r < 0.2) glbPut(pick(kit.rock), x, z, big * (0.9 + rnd() * 0.4));
     else if (r < 0.5) {
-      if (kit.ringTree.length) put(pick(kit.ringTree), x, z, big);
+      if (kit.ringTree.length) anyPut(pick(kit.ringTree), x, z, big);
       else if (kit.trees) glbPut(pick(kit.trees), x, z, big);
       else glbPut(pick(kit.ridge), x, z, big);
     } else if (biome === 'forest' || biome === 'plains') {
@@ -504,6 +532,9 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     for (const f of flames) f.m.opacity = 0.32 + 0.07 * Math.sin(t * 5.1 + f.ph) + 0.03 * Math.sin(t * 11.3 + f.ph * 2);
     if (liquid) liquid.uniforms.uTime.value = t;
     forest?.update(dt);
+    desert?.update(dt);
+    ice?.update(dt);
+    lavaChao?.update(dt);
     cityGate.update(dt, particles);
     for (const sh of shafts) (sh.m.material as THREE.MeshBasicMaterial).opacity = sh.base * (0.7 + 0.3 * Math.sin(t * 0.35 + sh.ph));
     for (const g of glints) g.s.scale.setScalar(0.18 + Math.max(0, Math.sin(t * 2.2 + g.ph)) * 0.35);

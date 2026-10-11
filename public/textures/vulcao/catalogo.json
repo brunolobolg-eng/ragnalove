@@ -1,0 +1,166 @@
+{
+ "origem": "Folha 24 do dono (neve/gelo e vulcão/fogo/lava)",
+ "pasta": "vulcao",
+ "arquivos": [
+  {
+   "arquivo": "piso_lava_placas.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 1,
+   "largura": 98,
+   "altura": 98
+  },
+  {
+   "arquivo": "piso_lava_fenda_a.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 2,
+   "largura": 98,
+   "altura": 98
+  },
+  {
+   "arquivo": "piso_basalto.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 3,
+   "largura": 98,
+   "altura": 98
+  },
+  {
+   "arquivo": "piso_basalto_veias.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 4,
+   "largura": 99,
+   "altura": 99
+  },
+  {
+   "arquivo": "piso_lava_rochosa.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 5,
+   "largura": 104,
+   "altura": 104
+  },
+  {
+   "arquivo": "piso_lava_rio.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 6,
+   "largura": 91,
+   "altura": 91
+  },
+  {
+   "arquivo": "piso_lava_densa.webp",
+   "categoria": "piso",
+   "painel": "PISO / TERRENO",
+   "celula": 7,
+   "largura": 96,
+   "altura": 96
+  },
+  {
+   "arquivo": "parede_basalto_lava_a.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 1,
+   "largura": 70,
+   "altura": 70
+  },
+  {
+   "arquivo": "parede_lava_pilar_a.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 2,
+   "largura": 78,
+   "altura": 78
+  },
+  {
+   "arquivo": "parede_basalto_colunas_a.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 3,
+   "largura": 100,
+   "altura": 100
+  },
+  {
+   "arquivo": "parede_lava_colunas.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 4,
+   "largura": 100,
+   "altura": 100
+  },
+  {
+   "arquivo": "parede_basalto_colunas_b.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 5,
+   "largura": 85,
+   "altura": 85
+  },
+  {
+   "arquivo": "parede_basalto_colunas_c.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 6,
+   "largura": 85,
+   "altura": 85
+  },
+  {
+   "arquivo": "parede_basalto_lava_b.webp",
+   "categoria": "parede",
+   "painel": "PAREDES / ROCHAS VERTICAIS",
+   "celula": 7,
+   "largura": 124,
+   "altura": 124
+  },
+  {
+   "arquivo": "ambiente_fumaca_lava.webp",
+   "categoria": "ambiente",
+   "painel": "EFEITOS AMBIENTAIS",
+   "celula": 2,
+   "largura": 85,
+   "altura": 85
+  },
+  {
+   "arquivo": "ambiente_fumaca.webp",
+   "categoria": "ambiente",
+   "painel": "EFEITOS AMBIENTAIS",
+   "celula": 3,
+   "largura": 100,
+   "altura": 100
+  },
+  {
+   "arquivo": "ambiente_cinza_brasas.webp",
+   "categoria": "ambiente",
+   "painel": "EFEITOS AMBIENTAIS",
+   "celula": 4,
+   "largura": 96,
+   "altura": 96
+  },
+  {
+   "arquivo": "ambiente_lava_rio.webp",
+   "categoria": "ambiente",
+   "painel": "EFEITOS AMBIENTAIS",
+   "celula": 5,
+   "largura": 89,
+   "altura": 89
+  },
+  {
+   "arquivo": "ambiente_lava_fluxo.webp",
+   "categoria": "ambiente",
+   "painel": "EFEITOS AMBIENTAIS",
+   "celula": 6,
+   "largura": 91,
+   "altura": 91
+  },
+  {
+   "arquivo": "ambiente_lava_brilho.webp",
+   "categoria": "ambiente",
+   "painel": "EFEITOS AMBIENTAIS",
+   "celula": 7,
+   "largura": 84,
+   "altura": 84
+  }
+ ]
+}
