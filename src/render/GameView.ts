@@ -20,6 +20,8 @@ import { VFX } from './fx/kit/vfxSettings';
 import type { FxKit } from './fx/kit/FxKit';
 import { FireBarrierFX } from './fx/FireBarrierFX';
 import { ParticleLayer } from './fx/Particles';
+import { PackFx } from './fx/pack/PackFx';
+import { MagicVfx } from './fx/pack/magicVfx';
 import { SoulFX } from './fx/SoulFX';
 import { FloatText } from './fx/FloatText';
 import { FrostBoltFX } from './fx/FrostBoltFX';
@@ -113,6 +115,9 @@ function sharedMarkerDot(): THREE.BufferGeometry {
 export class GameView {
   boardView!: BoardView;
   readonly particles: ParticleLayer;
+  /** Efeitos do pacote de VFX (círculos, golpes, auras, faíscas) e a camada que os dispara. */
+  private readonly pack: PackFx;
+  private readonly magic: MagicVfx;
   private units = new Map<number, AnyUnitView>();
   private kinds = new Map<number, string>();
   private corpses: AnyUnitView[] = [];
@@ -283,7 +288,23 @@ export class GameView {
   constructor(private readonly stage: Stage) {
     this.particles = new ParticleLayer(stage.scene);
     this.particles.setScale(stage.projScale());
-    stage.onResize = (s) => this.particles.setScale(s);
+    this.pack = new PackFx(stage.scene);
+    this.pack.setScale(stage.projScale());
+    // compila os shaders do pacote agora, não no primeiro golpe da batalha
+    this.pack.warm(stage.renderer, stage.camera);
+    this.magic = new MagicVfx({
+      pack: this.pack,
+      world: this.world,
+      unitRoot: (id) => this.units.get(id)?.root,
+      kindOf: (id) => this.sim.units.get(id)?.kind,
+      add: (fx) => {
+        if (fx) this.oneShot(fx);
+      },
+    });
+    stage.onResize = (s) => {
+      this.particles.setScale(s);
+      this.pack.setScale(s);
+    };
     stage.scene.add(this.world);
     this.ribbons = new RibbonPool(stage.scene);
     this.decals = new DecalLayer(stage.scene);
@@ -362,6 +383,7 @@ export class GameView {
     this.fires.clear();
     this.oneShots = [];
     this.particles.clear();
+    this.pack.reset();
     this.ribbons.clear();
     this.decals.clear();
     this.vfx.clear();
@@ -497,6 +519,8 @@ export class GameView {
     if (!immediate) events = this.deferImpacts(events);
     for (const e of events) {
       // efeitos próprios de cada classe (ataque básico e habilidades); se não assumir, segue o caso padrão
+      // camada nova do pacote (não substitui o despachante de classe, só soma ao que ele desenha)
+      this.magic.onEvent(e);
       if (classVisual(e, (this.cfxCache ??= this.makeCombatCtx()))) continue;
       switch (e.type) {
         case 'spawn': {
@@ -1073,6 +1097,8 @@ export class GameView {
     for (const f of this.fading) f.update(dt);
     this.fading = this.fading.filter((f) => !f.done);
     for (const o of this.oneShots) o.update(dt);
+    this.pack.update(dt);
+    this.magic.update(dt);
     this.poisonMist.update(dt, this.sim.units.values(), (u) => this.units.get(u.id)?.root.position, this.kit);
     for (const l of this.loot) l.update(dt, this.stage.camera);
     this.loot = this.loot.filter((l) => !l.done);

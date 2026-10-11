@@ -2,6 +2,15 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-11 — v0.8g
+- Pacote de efeitos enviado pelo dono (Godot) portado para o jogo. Entram o círculo mágico em oito elementos (com runas, estrela e faíscas), o golpe em fatia com flash e anel de choque, auras, brilhos de buff, cruzes de cura e cristais de gelo.
+- Todas as magias ganham efeitos novos: as 62 habilidades e as três magias inimigas (míssil do Necromante, pisão e meteoro). O círculo aparece no lançamento ou na área, o golpe no acerto, a aura nos escudos e buffs, e cruzes ou cristais na cura e no gelo. Os efeitos antigos de cada classe continuam por cima.
+- Dano ao longo do tempo (queimadura, veneno, maldição, pulsos da Névoa Gélida e do Enxame de Sombras) não ganha golpe por acerto, para não poluir a tela.
+- Ainda sem efeito novo: as passivas (Meditação, Pele de Ferro, Olho de Águia e outras) e estados que não têm evento próprio (atordoar, lentidão, puxão).
+- Receita de cada magia em `src/config/fx/efeitosMagia.ts`; números em `efeitosPack.ts`. Texturas em `public/fx/efeitos/` e créditos (CC BY, CC0 e MIT) em `CREDITOS.txt`.
+- Os shaders são compilados antes da primeira batalha, para o primeiro efeito não travar o quadro. Montagem da batalha sem mudança relevante (dentro do ruído do teste).
+- Galeria de testes `efeitos.html` (dev) e a vitrine de efeitos mostram o pacote novo junto das magias.
+
 ## 2026-10-11 — v0.8f
 - Mapas de gelo (Passo da Geada e Garganta de Ferrugem) com as texturas de neve e gelo da folha 24: neve soprada pelo vento, fendas de gelo, trilha compactada até o portão, lagos congelados, névoa e neve soprando devagar. Pinheiros com neve, pedras e colunas de gelo nas bordas.
 - Mapa de lava (Cume das Cinzas) com as texturas de basalto e vulcão da folha 24: placas e veias incandescentes, lagos de lava que correm devagar com crosta escura na margem, fumaça e brasas lentas. A lava não recebe sombra e continua brilhando na noite.
