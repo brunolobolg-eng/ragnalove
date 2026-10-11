@@ -17,6 +17,8 @@ import { ACTIVE_ZONE } from '../config/zones';
 import { warmFxTextures } from '../render/fx/kit/vfxTextures';
 import { tileToWorld } from '../render/coords';
 import { classVisual, ALL_DEMOS } from '../render/fx/combat/classVisual';
+import { PackFx } from '../render/fx/pack/PackFx';
+import { MagicVfx } from '../render/fx/pack/magicVfx';
 import type { CombatVisualCtx, VisualUnit } from '../render/fx/combat/CombatVisualCtx';
 import type { DemoEntry, FxClass } from '../render/fx/combat/demos';
 import type { SimEvent } from '../core/sim/types';
@@ -60,6 +62,20 @@ async function main(): Promise<void> {
 
   const actors = new Map<number, Actor>();
   const oneShots: OneShotFx[] = [];
+  // mesma camada de magias do jogo (GameView): o pacote de VFX entra antes do despachante de classe
+  const pack = new PackFx(stage.scene);
+  pack.setScale(stage.projScale());
+  const magic = new MagicVfx({
+    pack,
+    world,
+    unitRoot: (id) => actors.get(id)?.view.root,
+    kindOf: (id) => actors.get(id)?.kind,
+    add: (fx) => {
+      if (!fx) return;
+      world.add(fx.group);
+      oneShots.push(fx);
+    },
+  });
   let t = 0;
   let pending: { at: number; e: SimEvent }[] = [];
   let current: DemoEntry | undefined;
@@ -120,6 +136,7 @@ async function main(): Promise<void> {
     decals.clear();
     particles.clear();
     ribbons.clear();
+    pack.reset();
     setup(d.cls);
     current = d;
     t = 0;
@@ -133,9 +150,12 @@ async function main(): Promise<void> {
       const s = pending.shift()!;
       // o GameView também faz o recuo de vida do alvo em cada dano
       if (s.e.type === 'damage') actors.get(s.e.unitId)?.view.hit();
+      magic.onEvent(s.e);
       classVisual(s.e, ctx);
     }
     particles.update(dt);
+    pack.update(dt);
+    magic.update(dt);
     ribbons.update(dt, stage.camera.position);
     decals.update(dt);
     for (const fx of oneShots) fx.update(dt);

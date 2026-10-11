@@ -4,6 +4,7 @@ import { HERO_INFO, HERO_NAME } from '../config/heroes';
 import type { HeroKind } from '../core/progression/skills';
 import { SKILL_ICONS } from './icons';
 import { itemArtCanvas, itemIconUrl } from './itemArt';
+import { kitIcon } from './kit';
 
 /** Resumo de um herói para a janelinha do mapa (montado pelo main). */
 export interface HeroCardVM {
@@ -40,6 +41,11 @@ export interface HeroCardCallbacks {
 const LEFT: Slot[] = ['head', 'armor', 'cloak', 'weapon', 'boots'];
 const RIGHT: Slot[] = ['earring', 'amulet', 'offhand', 'ring', 'belt'];
 
+/** Silhueta de cada slot vazio: peça do kit (máscara que o CSS tinge). Brinco e cinto ainda não têm a sua. */
+const KIT_GHOST: Partial<Record<Slot, string>> = {
+  head: 'ghost_head', armor: 'ghost_armor', cloak: 'ghost_cloak', weapon: 'ghost_weapon', boots: 'ghost_boots',
+  amulet: 'ghost_amulet', offhand: 'ghost_offhand', ring: 'ghost_ring',
+};
 const ghostCache = new Map<Slot, string>();
 function ghostIcon(s: Slot): string {
   let url = ghostCache.get(s);
@@ -58,21 +64,14 @@ const SVG = {
   atk: '<svg viewBox="0 0 24 24"><path d="M4 20 15 9m-2-4 6-1-1 6M4 4l6 6m4 4 6 6M20 4 9 15m2 4-6 1 1-6"/></svg>',
   dodge: '<svg viewBox="0 0 24 24"><path d="M3 8h11M5 12h12M3 16h9M15 5c4 1 6 4 6 7s-2 6-6 7"/></svg>',
   block: '<svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/></svg>',
-  drop: '<svg viewBox="0 0 24 24"><path d="M12 3s-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11Z"/></svg>',
-  heart: '<svg viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.6 4.6 0 0 1 8-3 4.6 4.6 0 0 1 8 3c0 5.8-8 11-8 11Z"/></svg>',
-  star: '<svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.8 6.2.9-4.5 4.4 1 6.2L12 17.4 6.5 20.3l1-6.2L3 9.7l6.2-.9Z"/></svg>',
-  spark: '<svg viewBox="0 0 24 24"><path d="M12 2v6m0 8v6M2 12h6m8 0h6M5 5l4 4m6 6 4 4M19 5l-4 4m-6 6-4 4"/></svg>',
-  bag: '<svg viewBox="0 0 24 24"><path d="M8 7V5a4 4 0 0 1 8 0v2M5 8h14l-1 12H6Z"/></svg>',
-  attrs: '<svg viewBox="0 0 24 24"><path d="M12 2 15 9l7 3-7 3-3 7-3-7-7-3 7-3Z"/></svg>',
-  skills: '<svg viewBox="0 0 24 24"><path d="M5 19 19 5M5 5l14 14M3 21l4-1-3-3ZM21 21l-1-4-3 3Z"/></svg>',
-  door: '<svg viewBox="0 0 24 24"><path d="M5 21V4l9-1v18M14 12h7m-3-3 3 3-3 3"/></svg>',
   paw: '<svg viewBox="0 0 24 24"><circle cx="7" cy="8" r="2"/><circle cx="17" cy="8" r="2"/><circle cx="4.5" cy="13" r="1.8"/><circle cx="19.5" cy="13" r="1.8"/><path d="M12 12c-3 0-5 3.5-5 5.5S9 20 12 20s5-.5 5-2.5-2-5.5-5-5.5Z"/></svg>',
   wing: '<svg viewBox="0 0 24 24"><path d="M21 5C13 5 6 9 3 19c4-3 7-4 10-4-2-1-3-2-4-3 3 0 6-1 8-3-2 0-4 0-5-1 4 0 7-1 9-3Z"/></svg>',
 };
 
 /**
- * Janelinha do herói aberta pela lista da party no mapa: equipamento em volta do personagem,
- * vida, status principais e atalhos para mochila, atributos e habilidades.
+ * Janelinha do herói aberta pela lista da party no mapa (padrão do Aurenthal Kit):
+ * emblema e nome no topo, slots de equipamento dos dois lados, o personagem no centro com vida e mana,
+ * status, pontos e Pet/Asas à direita, e os quatro atalhos embaixo.
  */
 export class HeroCard {
   readonly el: HTMLElement;
@@ -132,53 +131,59 @@ export class HeroCard {
     const info = HERO_INFO[h.kind];
     const slot = (s: Slot) => {
       const it = h.equipment[s];
-      if (!it) return `<div class="hc-slot empty" title="${SLOT_LABEL[s]} — vazio"><img src="${ghostIcon(s)}" alt=""></div>`;
+      if (!it) {
+        const g = KIT_GHOST[s];
+        const ghost = g ? `<i class="au-ghost" style="--g:var(--kit-${g})"></i>` : `<img class="au-ghost-old" src="${ghostIcon(s)}" alt="">`;
+        return `<div class="au-slot empty" title="${SLOT_LABEL[s]} — vazio">${ghost}</div>`;
+      }
       const r = RARITY_INFO[it.rarity];
       const tip = esc([itemName(it), ...itemLines(it)].join('\n'));
-      return `<div class="hc-slot r-${it.rarity}" style="--rc:${r.color}" title="${tip}"><img src="${itemIconUrl(it)}" alt="">${it.refine ? `<em>+${it.refine}</em>` : ''}</div>`;
+      return `<div class="au-slot r-${it.rarity}" style="--rc:${r.color}" title="${tip}"><img src="${itemIconUrl(it)}" alt="">${it.refine ? `<em>+${it.refine}</em>` : ''}</div>`;
     };
     const hpPct = h.maxHp ? Math.max(0, Math.min(1, h.hp / h.maxHp)) : 0;
     const emblem = SKILL_ICONS[info.area]?.() ?? '';
     this.el.innerHTML = `
-      <div class="hc ${h.dead ? 'dead' : ''}" role="dialog" aria-label="${HERO_NAME[h.kind]}">
-        <button class="hc-x" data-hc="close" title="Fechar (Esc)">×</button>
+      <div class="hc au-frame ${h.dead ? 'dead' : ''}" role="dialog" aria-label="${HERO_NAME[h.kind]}">
+        <header class="hc-head">
+          <span class="hc-emblem">${emblem ? `<img src="${emblem}" alt="">` : ''}</span>
+          <b>${HERO_NAME[h.kind]}</b>
+          <span class="hc-lv">Nv. ${h.level}</span>
+          <button class="au-x" data-hc="close" title="Fechar (Esc)">×</button>
+        </header>
         <div class="hc-main">
-          <header class="hc-head">
-            <span class="hc-emblem">${emblem ? `<img src="${emblem}" alt="">` : ''}</span>
-            <b>${HERO_NAME[h.kind]}</b><span class="hc-lv">Nv. ${h.level}</span>
-          </header>
           <div class="hc-doll">
             <div class="hc-col">${LEFT.map(slot).join('')}</div>
             <div class="hc-figure" style="--aura:#${info.color.toString(16).padStart(6, '0')}">
+              <span class="hc-medal" aria-hidden="true"></span>
               <img src="${h.art}" alt="">
               <div class="hc-bars">
-                <span class="hc-hp">${SVG.heart}<b>${h.dead ? 'Caído' : `${h.hp}/${h.maxHp}`}</b><i style="--p:${hpPct}"></i></span>
-                <span class="hc-hp hc-mp" title="Mana = capacidade de slots de habilidade (não gasta em combate)">${SVG.drop}<b>Mana ${h.mana} · ${h.slots} slots</b><i style="--p:1"></i></span>
+                <div class="au-bar hp" title="Vida"><i style="--p:${hpPct}"></i><b>${h.dead ? 'Caído' : `${h.hp} / ${h.maxHp}`}</b></div>
+                <div class="au-bar mp" title="Mana = capacidade de slots de habilidade (não gasta em combate)"><i></i><b>Mana ${h.mana} · ${h.slots} slots</b></div>
               </div>
             </div>
             <div class="hc-col">${RIGHT.map(slot).join('')}</div>
           </div>
           <div class="hc-info">
-            <div class="hc-stats">
+            <div class="hc-panel hc-stats">
               <div title="${h.magic ? 'Ataque mágico da arma' : 'Ataque da arma'}">${SVG.atk}<span>${h.magic ? 'ATQ M.' : 'ATQ'}</span><b>${h.atk}</b></div>
               <div title="Chance de esquiva">${SVG.dodge}<span>ESQ</span><b>${pct(h.dodge)}</b></div>
               <div title="Chance de bloqueio">${SVG.block}<span>BLQ</span><b>${pct(h.block)}</b></div>
             </div>
-            <div class="hc-points">
-              <div class="${h.points ? 'on' : ''}" title="Pontos de atributo para distribuir">${SVG.star}<b>${h.points}</b><span>atrib.</span></div>
-              <div class="${h.skillPoints ? 'on sk' : 'sk'}" title="Pontos de habilidade para gastar">${SVG.spark}<b>${h.skillPoints}</b><span>hab.</span></div>
+            <div class="hc-panel hc-points">
+              <div class="${h.points ? 'on' : ''}" title="Pontos de atributo para distribuir"><img src="${kitIcon('ico_star')}" alt=""><b>${h.points}</b><span>atrib.</span></div>
+              <div class="${h.skillPoints ? 'on sk' : 'sk'}" title="Pontos de habilidade para gastar"><img src="${kitIcon('ico_swords')}" alt=""><b>${h.skillPoints}</b><span>hab.</span></div>
             </div>
           </div>
         </div>
         <aside class="hc-side">
-          <section class="hc-extra"><h4>${SVG.paw}Pet</h4><div class="hc-big locked" title="Em breve">${SVG.paw}<small>Em breve</small></div></section>
-          <section class="hc-extra"><h4>${SVG.wing}Asas</h4><div class="hc-big locked" title="Em breve">${SVG.wing}<small>Em breve</small></div></section>
+          <section class="hc-panel hc-extra" title="Em breve"><h4>${SVG.paw}Pet</h4><div class="hc-big locked">${SVG.paw}<small>Em breve</small></div></section>
+          <section class="hc-panel hc-extra" title="Em breve"><h4>${SVG.wing}Asas</h4><div class="hc-big locked">${SVG.wing}<small>Em breve</small></div></section>
         </aside>
         <nav class="hc-actions">
-          <button data-hc="bag">${SVG.bag}<span>Mochila</span></button>
-          <button data-hc="attrs">${SVG.attrs}<span>Atributos</span>${h.points ? `<i>${h.points}</i>` : ''}</button>
-          <button data-hc="skills">${SVG.skills}<span>Habilidades</span>${h.skillPoints ? `<i>${h.skillPoints}</i>` : ''}</button>
-          <button data-hc="abandon" class="danger">${SVG.door}<span>Abandonar</span></button>
+          <button class="au-btn" data-hc="bag"><img src="${kitIcon('ico_bag')}" alt=""><span>Mochila</span></button>
+          <button class="au-btn" data-hc="attrs"><img src="${kitIcon('ico_star')}" alt=""><span>Atributos</span>${h.points ? `<i class="au-badge">${h.points}</i>` : ''}</button>
+          <button class="au-btn" data-hc="skills"><img src="${kitIcon('ico_swords')}" alt=""><span>Habilidades</span>${h.skillPoints ? `<i class="au-badge">${h.skillPoints}</i>` : ''}</button>
+          <button class="au-btn danger" data-hc="abandon"><img src="${kitIcon('ico_door')}" alt=""><span>Abandonar</span></button>
         </nav>
       </div>`;
   }

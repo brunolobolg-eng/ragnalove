@@ -6,6 +6,7 @@ O histórico técnico de cada versão está no `CHANGELOG.md`; o estado atual do
 Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisões, pendências e commits.
 
 ## Pendências em aberto (resumo)
+- **Pacote de efeitos nas magias (v0.8g):** passivas e estados sem evento ficam sem efeito novo; desempenho precisa ser medido na GPU do dono; o 7z original espera permissão para ir à branch `fontes` (v0.8g).
 - **Gelo e lava (folha 24):** texturas de 70 a 124 px. Para o chão ficar nítido de perto, pedir a folha em 512 px ou mais. Paredes, portões e torres dos três mapas ainda são as peças antigas (v0.8f).
 - **Montagem do Cume das Cinzas:** subiu de cerca de 70 para cerca de 150 ms com o chão em camadas. O gargalo são as máscaras do chão em `groundLayers.ts` (v0.8f).
 - **Quadradinho rosa no chão:** apareceu também no Passo da Geada, perto do herói (além da Floresta dos Sussurros). Não investigado (v0.8f).
@@ -122,6 +123,38 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   3. Custo do Cume das Cinzas: reduzir a resolução das máscaras (hoje 4 px por tile) ou calcular os campos por tile. Muda o visual de floresta e deserto, então depende de decisão.
   4. Quadradinho rosa no chão, agora também no Passo da Geada (e na Floresta dos Sussurros, já anotado). Não investigado.
 - **Commits:** a entrega de gelo e lava (ver `git log` da branch).
+
+---
+
+## 2026-10-11 — pacote de efeitos (Godot) nas magias (v0.8g)
+- **Pedido:** ver a pasta `efeitos` enviada pelo dono; se der para aproveitar os VFX, trocar TODAS as magias por esses efeitos.
+- **O que veio:** um 7z com 206 arquivos de um projeto Godot 4 (cenas `.tscn`, shaders `.gdshader`, scripts `.gd`), com seis pacotes: Magic Circles 3D Free (círculos mágicos), Free Hit VFX (golpe em fatia), Stylized Hit FX e Stylized Status FX (Binbun3D; só o Status foi portado), Buff Pickup VFX Lite (buff) e um pacote de loot. Não há Godot no projeto: os efeitos foram portados (shaders para GLSL, faíscas em pool na CPU).
+- **Licenças:** Magic Circles 3D Free é CC BY 4.0 (crédito obrigatório em `CREDITOS.txt`); Free Hit VFX permite uso comercial sem atribuição, mas não redistribuir os arquivos como pacote; Stylized Hit e Status FX são CC0; Buff Pickup é MIT (aviso de direitos autorais no `CREDITOS.txt`). O pacote de loot não tem arquivo de licença: **não foi usado**.
+- **Decisões:**
+  - Cada magia tem uma receita em `efeitosMagia.ts` (elemento, círculo, golpe, aura, emissor, brilho). Oito elementos: fogo, gelo, veneno, sagrado, sombra, arcano, natureza e sangue. Trocar um elemento é trocar uma palavra.
+  - A camada nova roda antes do despachante de cada classe e **não substitui** o efeito antigo: é a forma de não quebrar o que já foi aprovado. Se o dono quiser trocar um efeito antigo por completo, é uma classe de cada vez.
+  - Chaves por classe quando o evento não diz quem causou (`dmg:spell:necro` para o Necromante, `bash:assassin` para o Golpe Furtivo). A auditoria das 65 magias (62 + 3 inimigas) está no relatório do subagente e confirmou as chaves.
+  - Duração: escudo, buff e área usam o tempo que a simulação manda (`ticks`, 10 por segundo), não um valor fixo.
+  - Dano ao longo do tempo não tem golpe por acerto (ver a regra no cabeçalho de `efeitosMagia.ts`).
+  - O círculo baixou de energia (1,2 → 0,9): com o bloom, o miolo claro estourava em mancha branca no Santuário e no Julgamento.
+- **Como foi testado:**
+  - Galeria `efeitos.html` (um círculo, golpe e aura por elemento).
+  - Vitrine de efeitos (`fxshowcase.html`) com as 54 demonstrações, quadro no meio de cada uma: sem erro de console. Folhas de miniaturas revisadas.
+  - Batalha real (Dunas Vermelhas) com eventos injetados pelo caminho da `GameView`: escudo, cura, Nova, meteoro e congelamento aparecem; sem erro.
+  - `npm run build` e `npm run sim:check` (determinístico: true). A simulação não mudou.
+  - Montagem da batalha antes/depois (medir2): Passo da Geada 164 → 139 ms, Garganta de Ferrugem 133 → 152 ms, Cume das Cinzas 150 → 130 ms. Dentro do ruído (±40 ms).
+- **Pendências:**
+  1. **Desempenho na GPU real:** os testes rodaram em navegador por software (swiftshader), que não mede bem. Medir no PC do dono (F9) com muitas magias ao mesmo tempo.
+  2. **Passivas e estados sem evento:** das 19 passivas, só as que disparam evento (cura, bloqueio, combustão) ganham efeito. Os estados (atordoar, lentidão, puxão, atraso) não têm evento próprio na simulação; precisariam de um (muda o núcleo; exige decisão).
+  2b. **Cobertura:** 42 das 43 habilidades ativas e as 3 magias inimigas têm receita. A Flecha Precisa não tem (o evento é o da flecha comum).
+  3. **Julgamento:** o desenho do golpe usa 5 de 9 tiles (existe no despachante antigo); a camada nova só dá o círculo nos raios.
+  4. **Corrente Elétrica** usa a receita da Tempestade (o evento não diz qual habilidade é). Se o dono quiser outra cor, é uma receita nova com a chave `storm:chainLightning`, mas o evento não traz o nome.
+  5. **Flecha Precisa e Tiro Duplo** não têm golpe novo: o evento de flecha é o mesmo do ataque básico (sem como separar).
+  6. **Névoa Gélida:** a simulação remove a névoa depois de 2 tiques sem evento, mas o círculo novo segura pelo tempo do evento. Conferir se fica estranho.
+  7. **O 7z original** (2,5 MB) está em `/root/.claude/uploads`, fora do repositório. O CLAUDE.md manda guardar o original zipado na branch `fontes` com LEIA-ME: precisa de permissão explícita para enviar a outra branch.
+  8. **Pacote de loot** sem licença: não usado. Se o dono quiser, é preciso confirmar a licença.
+  9. **Stylized Hit FX** (impactos CC0) não foi portado: daria mais variedade aos golpes. Próxima rodada, se o dono quiser.
+- **Commits:** a entrega de pacote de efeitos (ver `git log` da branch).
 
 ---
 
