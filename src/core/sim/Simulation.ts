@@ -3,7 +3,7 @@ import { ARCHETYPES } from '../archetypes/registry';
 import { Board } from '../grid/Board';
 import { FlowField, canStep, stepCost } from '../grid/pathfinding';
 import { DIRS8, chebyshev, isDiagonal, type Vec2 } from '../grid/types';
-import { OBJECT_RULES, makeObject } from './objects';
+import { OBJECT_RULES, WALL_BREAKERS, makeObject } from './objects';
 import { ATTRIBUTES_CONFIG, computeStats, type HeroStats } from '../progression/attributes';
 import { LOOT_CONFIG, dropChance, gearBonus, itemName, rollItem, type Item } from '../progression/equipment';
 import { expToNext, starterWeapon, type WaveResult } from '../progression/profile';
@@ -14,6 +14,8 @@ import { Rng } from './rng';
 import type { AreaEffect, CombatMoveStats, DamageSource, FrostMist, MapObject, Sanctuary, SimEvent, SimPhase, Trap, TrapKind, Unit, WaveReport } from './types';
 import { SKILL_NUM, lvOf, startingSkills, type HeroKind } from '../progression/skills';
 import { lockedSkillKeys } from '../progression/skillSlots';
+import type { CardRuntime } from '../progression/cards';
+import { cardTrigger } from './cardRules';
 import { neutralMods, testRangeMult, type SimMods } from './RangeSystem';
 import { updateCombatMovement } from './CombatMovement';
 
@@ -55,6 +57,37 @@ export interface SimOptions {
   cityMaxHp?: number;
   /** Ids (índice + 1 no MAP_CONFIG) dos objetos já acionados nesta fase. */
   usedObjects?: number[];
+  /** Estruturas persistentes da cidade (Bastião) que entram nesta onda, com a vida que têm agora. */
+  fortifications?: Fortification[];
+  /**
+   * Dano que um invasor causa ao tocar a cidade, calculado a partir dele (o Emperium do Bastião: vida atual × força).
+   * Sem ele, vale a ameaça por tipo da campanha (`GAME_CONFIG.cityDefense.threat`).
+   */
+  contactDamage?: (u: Unit) => number;
+}
+
+/** Estrutura da cidade levada para a onda: vida atual e, se for torre, o tiro. */
+export interface Fortification {
+  /** Id da estrutura na cidade (volta em `fortificationStates`). */
+  id: number;
+  kind: 'wall' | 'tower';
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  /** Só torres: dano por tiro, alcance (tiles) e recarga (ticks). */
+  shot?: { damage: number; range: number; cooldownTicks: number };
+}
+
+/** Torre da cidade ativa na onda (o corpo dela é o objeto `objectId`). */
+interface Tower {
+  objectId: number;
+  x: number;
+  y: number;
+  damage: number;
+  range: number;
+  cooldownTicks: number;
+  readyTick: number;
 }
 
 /** Eventos que contam como uso de habilidade no relatório. */
@@ -63,13 +96,17 @@ const PROJECTILES = new Set<DamageSource>(['bolt', 'arrow', 'pierce', 'spell']);
 
 /** O que cada herói traz da progressão para a onda. */
 /** Dano contínuo/ambiental: nunca é crítico. */
-const NO_CRIT = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'debug', 'curse', 'combust', 'enchant', 'reflect', 'frost']);
+const NO_CRIT = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'debug', 'curse', 'combust', 'enchant', 'reflect', 'frost', 'tower', 'card']);
+/** Ids dos objetos das estruturas da cidade (Bastião): longe dos ids do mapa e das muralhas da onda. */
+const FORT_OBJECT_BASE = 1000000;
 /** Fontes que o Ápice Sombrio (Bruxa) amplia. */
 const APEX_SOURCES = new Set<DamageSource>(['shadow', 'curse', 'frost']);
 /** Máximo de Névoas Gélidas ativas por Bruxa (a nova substitui a mais antiga). */
 const MIST_MAX_PER_OWNER = 2;
 /** Dano contínuo (não é golpe direto): não dispara o Limite da Morte nem devolve dano. */
 const CONTINUOUS = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'combust', 'curse', 'frost']);
+/** Fontes que não contam como golpe do herói para as cartas (dano de carta, reflexo, armadilha, torre, debug, contínuo). */
+const CARD_EXCLUDED = new Set<DamageSource>([...CONTINUOUS, 'card', 'reflect', 'trap', 'tower', 'debug']);
 
 export interface HeroLoadout {
   stats: HeroStats;
@@ -77,6 +114,8 @@ export interface HeroLoadout {
   locked?: string[];
   level: number;
   exp: number;
+  /** Regras das cartas equipadas (derivadas da coleção no início da run). */
+  cards?: CardRuntime[];
 }
 
 /**
@@ -87,6 +126,8 @@ export class Simulation {
   readonly board: Board;
   readonly setup: PartySetup;
   tick = 0;
+  /** Ticks por segundo (as regras de carta convertem segundos em ticks por aqui). */
+  readonly tickRate = GAME_CONFIG.sim.tickRate;
   phase: SimPhase = 'setup';
   readonly units = new Map<number, Unit>();
   readonly effects = new Map<number, AreaEffect>();
@@ -126,6 +167,8 @@ export class Simulation {
   /** Dano descontado da cidade nesta onda e quem invadiu. */
   cityDamage = 0;
   reachedCity = 0;
+  /** Dano de contato do invasor (opção contactDamage); sem ela, vale a ameaça por tipo. */
+  private readonly cityDamageOf?: (u: Unit) => number;
   readonly reachedByKind: Record<string, number> = {};
   /** A vida da cidade chegou a zero nesta onda. */
   cityFallen = false;
@@ -135,6 +178,14 @@ export class Simulation {
   readonly objects = new Map<number, MapObject>();
   /** Cura contínua da party (altar/fogueira), HP por segundo. */
   blessRegen = 0;
+
+  // ---- Bastião: estruturas da cidade ----
+  /** Entrada recebida (inclui as destruídas): para devolver a vida final de cada uma. */
+  private readonly fortInput: Fortification[] = [];
+  /** Id da estrutura -> id do objeto na simulação (só as que entraram na onda). */
+  private readonly fortObjects = new Map<number, number>();
+  /** Torres ativas: atiram sozinhas no inimigo visível mais próximo. */
+  private readonly towers: Tower[] = [];
 
   // ---- campos de fluxo: cidade (todos), pesados (quebram obstáculos), provocação, party (reserva) ----
   private readonly heavyFlow: FlowField;
@@ -181,6 +232,7 @@ export class Simulation {
     });
     this.cityGoals = this.board.cityTiles();
     this.cityMaxHp = opts.cityMaxHp ?? GAME_CONFIG.cityDefense.maxHp;
+    this.cityDamageOf = opts.contactDamage;
     this.cityHp = Math.min(this.cityMaxHp, opts.cityHp ?? this.cityMaxHp);
     this.occ = new Int32Array(bc.width * bc.height);
     this.flow = new FlowField(this.board);
@@ -200,6 +252,8 @@ export class Simulation {
       u.locked = lo.locked ?? lockedSkillKeys(a.id as HeroKind, { ...startingSkills(a.id as HeroKind), ...lo.stats.skills }, lo.stats.mana ?? GAME_CONFIG.mana.base);
       u.level = lo.level;
       u.exp = lo.exp;
+      u.cardRules = lo.cards ?? [];
+      u.cardCd = {};
       this.heroFinal.set(u.kind, { level: u.level, exp: u.exp });
     }
     // Herói sozinho: bônus de vida e dano (a party começa com 1 herói)
@@ -231,6 +285,8 @@ export class Simulation {
     }
     // Objetos já acionados no planejamento desta fase (óleo, tocha, bênçãos...)
     for (const id of opts.usedObjects ?? []) this.useObject(id);
+    // Estruturas da cidade (Bastião): depois da party, para não cobrir um herói que já está no posto
+    for (const f of opts.fortifications ?? []) this.addFortification(f);
   }
 
   // ---------- Objetos do mapa ----------
@@ -478,6 +534,11 @@ export class Simulation {
   emit(e: SimEvent): void {
     this.events.push(e);
     for (const cb of this.tap) cb(e);
+    // cartas: lançar uma habilidade dispara o gatilho 'cast' do herói
+    if (e.type === 'cast') {
+      const cu = this.units.get(e.unitId);
+      if (cu?.team === 'party') cardTrigger(this, cu, 'cast');
+    }
     // métrica: habilidades usadas por herói
     if (SKILL_EVENTS.has(e.type) && 'unitId' in e && e.unitId !== undefined) {
       const u = this.units.get(e.unitId);
@@ -555,6 +616,7 @@ export class Simulation {
     if (u.team === 'party' && source === 'melee' && u.stats) {
       if (u.stats.dodge > 0 && this.combatRng.next() < u.stats.dodge) {
         this.emit({ type: 'avoid', unitId: u.id, how: 'dodge' });
+        cardTrigger(this, u, 'dodge');
         return;
       }
       if (u.stats.block > 0 && this.combatRng.next() < u.stats.block) {
@@ -607,7 +669,7 @@ export class Simulation {
     else if (sourceId !== undefined) {
       const src = this.units.get(sourceId);
       if (src?.team === 'party') this.dealt[src.kind] = (this.dealt[src.kind] ?? 0) + applied;
-    }
+    } else if (source === 'tower') this.dealt.tower = (this.dealt.tower ?? 0) + applied;
     this.emit(crit ? { type: 'damage', unitId: u.id, amount, source, sourceId, crit } : { type: 'damage', unitId: u.id, amount, source, sourceId });
     // Limite da Morte: parte do dano que o marcado levou volta para quem bateu (golpe direto; não contínuo)
     if (u.team === 'enemy' && (u.markedUntil ?? 0) > this.tick && (u.markReflect ?? 0) > 0 && !CONTINUOUS.has(source)) {
@@ -626,7 +688,25 @@ export class Simulation {
         if (GAME_CONFIG.bossKinds.includes(u.kind)) this.bossLevelUp();
         this.rollDrop(u, hero);
         this.soulHarvest(sourceId);
+        const abatedor = sourceId !== undefined ? this.units.get(sourceId) : undefined;
+        if (abatedor?.team === 'party') cardTrigger(this, abatedor, 'kill', { target: u });
       }
+    }
+    // Cartas (depois da morte: o golpe extra nunca atinge quem já caiu)
+    if (applied > 0 && u.team === 'party' && sourceId !== undefined && (u.reflectUntil ?? 0) > this.tick && !CONTINUOUS.has(source)) {
+      const atacante = this.units.get(sourceId);
+      if (atacante?.team === 'enemy' && atacante.alive) this.damage(atacante, applied * (u.reflectPct ?? 0), 'reflect', u.id);
+    }
+    if (applied > 0 && u.team === 'enemy' && sourceId !== undefined && !CARD_EXCLUDED.has(source)) {
+      const heroi = this.units.get(sourceId);
+      if (heroi?.team === 'party' && heroi.alive) {
+        cardTrigger(this, heroi, 'hit', { target: u, amount: applied });
+        if (crit) cardTrigger(this, heroi, 'crit', { target: u, amount: applied });
+      }
+    }
+    if (applied > 0 && u.team === 'party') {
+      cardTrigger(this, u, 'hurt', { amount: applied });
+      if (u.alive && u.hp <= u.maxHp * 0.3) cardTrigger(this, u, 'lowHp');
     }
   }
 
@@ -641,6 +721,12 @@ export class Simulation {
       w.souls++;
       this.souls++;
     }
+  }
+
+  /** Almas ganhas fora do roubo (regras de carta): entram na conta do herói e da batalha. */
+  addSouls(u: Unit, amount: number): void {
+    u.souls += amount;
+    this.souls += amount;
   }
 
   /** Roubo de alma: calculado aqui (autoritativo), o render só desenha o evento. */
@@ -866,7 +952,61 @@ export class Simulation {
   /** Muralha de pé no tile: todos os inimigos a atacam para passar (custo de "quebrar"). */
   private wallPass(x: number, y: number): number {
     const o = this.objects.get(this.board.objectAt(x, y));
-    return o && o.type === 'shieldWall' && o.state !== 'broken' ? GAME_CONFIG.pathing.breakCost : -1;
+    return o && WALL_BREAKERS.has(o.type) && o.state !== 'broken' ? GAME_CONFIG.pathing.breakCost : -1;
+  }
+
+  // ---------- Bastião: estruturas da cidade (muralhas e torres) ----------
+
+  /**
+   * Põe uma estrutura persistente da cidade na onda, com a vida que tem agora. Destruída (hp 0) não vira
+   * objeto: não bloqueia nem atira. Tile sem chão livre, com herói ou no portão é ignorado (a vida volta igual).
+   */
+  private addFortification(f: Fortification): void {
+    this.fortInput.push(f);
+    if (f.hp <= 0 || !this.board.isWalkable(f.x, f.y) || this.unitAt(f.x, f.y) || this.board.isCity(f.x, f.y)) return;
+    const o = makeObject(FORT_OBJECT_BASE + f.id, { type: f.kind === 'tower' ? 'bastionTower' : 'bastionWall', x: f.x, y: f.y });
+    o.hp = f.hp;
+    o.maxHp = f.maxHp;
+    this.objects.set(o.id, o);
+    this.syncObject(o);
+    this.fortObjects.set(f.id, o.id);
+    if (f.kind === 'tower' && f.shot) {
+      this.towers.push({ objectId: o.id, x: f.x, y: f.y, damage: f.shot.damage, range: f.shot.range, cooldownTicks: f.shot.cooldownTicks, readyTick: 0 });
+    }
+  }
+
+  /** Vida de cada estrutura da cidade ao fim da onda (0 = destruída). Mesmos ids da entrada. */
+  fortificationStates(): { id: number; hp: number }[] {
+    return this.fortInput.map((f) => {
+      const oid = this.fortObjects.get(f.id);
+      const o = oid !== undefined ? this.objects.get(oid) : undefined;
+      if (!o) return { id: f.id, hp: Math.max(0, f.hp) };
+      return { id: f.id, hp: o.state === 'broken' ? 0 : Math.max(0, Math.ceil(o.hp)) };
+    });
+  }
+
+  /** Cada torre intacta atira no inimigo visível mais próximo do alcance (empate: menor id), com recarga. */
+  private fireTowers(): void {
+    if (this.towers.length === 0) return;
+    const foes = this.visibleEnemies();
+    for (const t of this.towers) {
+      const o = this.objects.get(t.objectId);
+      if (!o || o.state === 'broken' || this.tick < t.readyTick) continue;
+      let best: Unit | undefined;
+      let bestD = Infinity;
+      for (const e of foes) {
+        if (!e.alive) continue;
+        const d = Math.hypot(e.x - t.x, e.y - t.y);
+        if (d > t.range || d >= bestD) continue;
+        if (!this.hasLineOfSight({ x: t.x, y: t.y }, e)) continue;
+        best = e;
+        bestD = d;
+      }
+      if (!best) continue;
+      t.readyTick = this.tick + t.cooldownTicks;
+      this.emit({ type: 'towerShot', objectId: t.objectId, from: { x: t.x, y: t.y }, to: { x: best.x, y: best.y }, targetId: best.id });
+      this.damage(best, t.damage, 'tower');
+    }
   }
 
   // ---------- Armadilhas da Arqueira ----------
@@ -1192,6 +1332,7 @@ export class Simulation {
     if (this.phase !== 'setup') return;
     this.phase = 'running';
     this.emit({ type: 'phase', phase: 'running' });
+    for (const u of this.sortedUnits('party')) cardTrigger(this, u, 'start');
   }
 
   /** Avança 1 tick e devolve os eventos gerados. */
@@ -1214,10 +1355,12 @@ export class Simulation {
       // velocidade de ataque de teste: encurta as recargas que o arquétipo acabou de marcar
       const speed = this.mods.heroes[u.kind]?.attackSpeed ?? 1;
       const before = speed !== 1 ? { ...u.cooldowns } : undefined;
+      cardTrigger(this, u, 'tick');
       this.actWithSlots(u);
       if (before) for (const [k, v] of Object.entries(u.cooldowns)) if (v !== before[k] && v > this.tick) u.cooldowns[k] = this.tick + Math.max(1, Math.round((v - this.tick) / speed));
     }
 
+    this.fireTowers();
     this.applyBurn();
     this.tickDots();
     this.tickFrostMists();
@@ -1731,11 +1874,11 @@ export class Simulation {
     if (this.board.isCity(u.x, u.y)) this.enterCity(u);
   }
 
-  /** Inimigo alcançou o portão: invade a cidade (sai do campo, sem recompensa) e desconta a ameaça. */
+  /** Inimigo alcançou a cidade: invade (sai do campo, sem recompensa) e desconta a ameaça, ou o dano de contato da onda. */
   private enterCity(u: Unit): void {
     const C = GAME_CONFIG.cityDefense;
     const mult = GAME_CONFIG.wave.endless ? C.survivalThreatMult : GAME_CONFIG.wave.threatMult;
-    const dmg = Math.round((C.threat[u.kind] ?? C.defaultThreat) * mult);
+    const dmg = this.cityDamageOf ? Math.max(0, Math.round(this.cityDamageOf(u))) : Math.round((C.threat[u.kind] ?? C.defaultThreat) * mult);
     this.cityHp = Math.max(0, this.cityHp - dmg);
     this.cityDamage += dmg;
     this.reachedCity++;

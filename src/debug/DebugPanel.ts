@@ -51,7 +51,7 @@ export interface DevApi {
   forceFx(name: FxName): void;
   /** Pior caso (100 zumbis + magias) em cada preset; aplica o recomendado. */
   benchmark(progress: (msg: string) => void): Promise<{ results: { preset: string; avg: number; low1: number }[]; recommended: string }>;
-  stats(): { fps: number; particles: number; lights: number; enemies: number; tick: number; phase: string };
+  stats(): { fps: number; particles: number; lights: number; draws: number; triangles: number; pointLights: number; enemies: number; tick: number; phase: string };
   /** Custo do campo de fluxo por tile (Infinity = inalcançável), ou undefined fora de onda. */
   flowCost(x: number, y: number): number | undefined;
   boardSize(): { w: number; h: number };
@@ -323,7 +323,7 @@ export function installDebug(root: HTMLElement, api: DevApi, addBarButton: (html
   const loop = () => {
     const s = api.stats();
     statsEl.hidden = !view.stats;
-    if (view.stats) statsEl.textContent = `${Math.round(s.fps)} FPS · partículas ${s.particles} · luzes ${s.lights} · inimigos ${s.enemies} · tick ${s.tick} · ${s.phase}`;
+    if (view.stats) statsEl.textContent = `${Math.round(s.fps)} FPS · chamadas ${s.draws} · triângulos ${Math.round(s.triangles / 1000)} mil · luzes na cena ${s.pointLights} (efeito ${s.lights}) · partículas ${s.particles} · inimigos ${s.enemies} · tick ${s.tick} · ${s.phase}`;
     const dpr = window.devicePixelRatio || 1;
     if (costs.width !== innerWidth * dpr || costs.height !== innerHeight * dpr) {
       costs.width = innerWidth * dpr;

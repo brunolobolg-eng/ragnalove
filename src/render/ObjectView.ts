@@ -232,23 +232,35 @@ function flame(g: THREE.Group, y: number, size: number): { glow: THREE.Sprite; l
   return { glow, light };
 }
 
+/** Muro de pedra do kit do dono (muralha do Guerreiro e muralha do Bastião usam o mesmo desenho). */
+const stoneWall: Builder = (p) => {
+  // muro de pedra do kit do dono (fortress.glb): cada bloco ocupa 1 tile, então a peça de 2 m é reduzida à metade;
+  // quebrado, troca pela barricada danificada do mesmo kit (também reduzida a 1 tile)
+  const seg = fortressPiece('Wall_Straight_2m');
+  seg.scale.x = 1 / (fortressSize('Wall_Straight_2m').x || 1);
+  const broken = fortressPiece('Barricade_Damaged');
+  broken.scale.x = 1 / (fortressSize('Barricade_Damaged').x || 1);
+  broken.visible = false;
+  p.group.add(seg, broken);
+  shadow(seg);
+  shadow(broken);
+  p.apply = (s) => {
+    if (s !== 'broken') return;
+    seg.visible = false;
+    broken.visible = true;
+  };
+};
+
 const BUILDERS: Record<MapObject['type'], Builder> = {
-  shieldWall(p) {
-    // muro de pedra do kit do dono (fortress.glb): cada bloco ocupa 1 tile, então a peça de 2 m é reduzida à metade;
-    // quebrado, troca pela barricada danificada do mesmo kit (também reduzida a 1 tile)
-    const seg = fortressPiece('Wall_Straight_2m');
-    seg.scale.x = 1 / (fortressSize('Wall_Straight_2m').x || 1);
-    const broken = fortressPiece('Barricade_Damaged');
-    broken.scale.x = 1 / (fortressSize('Barricade_Damaged').x || 1);
-    broken.visible = false;
-    p.group.add(seg, broken);
-    shadow(seg);
-    shadow(broken);
-    p.apply = (s) => {
-      if (s !== 'broken') return;
-      seg.visible = false;
-      broken.visible = true;
-    };
+  shieldWall: stoneWall,
+  bastionWall: stoneWall,
+  bastionTower(p) {
+    // torre redonda do kit do dono, reduzida para caber no tile (o maior lado vira 1 tile)
+    const tower = fortressPiece('Tower_Round');
+    const size = fortressSize('Tower_Round');
+    tower.scale.setScalar(1 / (Math.max(size.x, size.z) || 1));
+    p.group.add(tower);
+    shadow(tower);
   },
   cart(p) {
     const g = p.group;

@@ -47,6 +47,12 @@ function around(o: MapObject, sim: Simulation, r: number): Vec2[] {
 
 const nearObject = (o: MapObject, p: Vec2, r: number) => o.tiles.some((t) => chebyshev(t, p) <= r);
 
+/**
+ * Obstáculos que a horda inteira quebra quando não há passo livre quase tão bom (custo GAME_CONFIG.pathing.breakCost).
+ * A Muralha do Guerreiro e as estruturas da cidade (Bastião) entram aqui; raízes e colunas só os pesados quebram.
+ */
+export const WALL_BREAKERS: ReadonlySet<MapObjectType> = new Set<MapObjectType>(['shieldWall', 'bastionWall', 'bastionTower']);
+
 export const OBJECT_RULES: Record<MapObjectType, ObjectRule> = {
   shieldWall: {
     label: 'Muralha do Guerreiro',
@@ -54,6 +60,21 @@ export const OBJECT_RULES: Record<MapObjectType, ObjectRule> = {
     blocksWalk: standing,
     blocksSight: never,
     hp: GAME_CONFIG.archetypes.warrior.shieldWall.hp,
+    breakable: true,
+  },
+  // Bastião: a vida vem da estrutura (o chamador passa hp/maxHp ao criar o objeto); não usa o `hp` da regra.
+  bastionWall: {
+    label: 'Muralha de pedra',
+    desc: 'Bloco da cidade: a horda quebra para passar. Ela só não quebra quando há caminho livre quase tão bom.',
+    blocksWalk: standing,
+    blocksSight: never,
+    breakable: true,
+  },
+  bastionTower: {
+    label: 'Torre de tiro',
+    desc: 'Atira sozinha no inimigo visível mais próximo. Bloqueia a passagem e pode ser quebrada.',
+    blocksWalk: standing,
+    blocksSight: never,
     breakable: true,
   },
   cart: {

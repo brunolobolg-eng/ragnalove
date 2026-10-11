@@ -51,6 +51,7 @@ export const TEST_ZONE: ZoneDef = {
 
 /** Nome pt-BR de cada fonte de dano (comparação de skills). */
 export const SOURCE_LABEL: Record<DamageSource, string> = {
+  card: 'Carta de monstro',
   enchant: 'Lâmina Encantada',
   wave: 'Onda Sônica',
   spear: 'Cem Lanças',
@@ -58,6 +59,7 @@ export const SOURCE_LABEL: Record<DamageSource, string> = {
   reflect: 'Limite da Morte (devolvido)',
   burn: 'Queimadura',
   frost: 'Gelo',
+  tower: 'Torre do Bastião',
   cleave: 'Golpe em Área',
   melee: 'Corpo a corpo',
   bolt: 'Projéteis',

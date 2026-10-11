@@ -1,11 +1,77 @@
 import * as THREE from 'three';
 import type { ParsedZone } from '../../config/zones';
 import { boxBlur, noise } from './groundMath';
+import { VISUAL_CONFIG } from '../../config/visualConfig';
 
 /** Pixels por tile nas máscaras. Borradas, não precisam da resolução da textura (e assim a montagem fica leve). */
 export const RES = 4;
 /** Amostras de ruído por tile (o campo é interpolado nos pixels, sem custo por pixel). */
 export const SUB = 2;
+
+/**
+ * Ondulação e reflexo da água das camadas (rio, lago, poças). Os uniformes são compartilhados e o relógio é um só:
+ * `definirDetalheAgua` liga ou desliga tudo (preset baixo: água lisa, como antes).
+ */
+const aguaUniforms = {
+  uAguaTempo: { value: 0 },
+  uAguaDetalhe: { value: 1 },
+  uAguaEscala: { value: VISUAL_CONFIG.agua.escala },
+  uAguaVelocidade: { value: VISUAL_CONFIG.agua.velocidade },
+  uAguaOnda: { value: VISUAL_CONFIG.agua.ondulacao },
+  uAguaReflexo: { value: VISUAL_CONFIG.agua.reflexo },
+  uAguaBrilho: { value: VISUAL_CONFIG.agua.brilho },
+  uAguaCeu: { value: new THREE.Color(VISUAL_CONFIG.agua.corCeu) },
+};
+
+export function definirDetalheAgua(ligado: boolean): void {
+  aguaUniforms.uAguaDetalhe.value = ligado ? 1 : 0;
+}
+
+/** Acrescenta ao Lambert da água: a normal inclina com um ruído que escorre, e o céu reflete nas bordas de visão. */
+function aplicarAgua(sh: THREE.WebGLProgramParametersWithUniforms): void {
+  Object.assign(sh.uniforms, aguaUniforms);
+  sh.fragmentShader = sh.fragmentShader
+    .replace(
+      '#include <common>',
+      `#include <common>
+uniform float uAguaTempo, uAguaDetalhe, uAguaEscala, uAguaVelocidade, uAguaOnda, uAguaReflexo, uAguaBrilho;
+uniform vec3 uAguaCeu;
+float hashAgua(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float ruidoAgua(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hashAgua(i), hashAgua(i + vec2(1.0, 0.0)), f.x), mix(hashAgua(i + vec2(0.0, 1.0)), hashAgua(i + vec2(1.0, 1.0)), f.x), f.y);
+}`,
+    )
+    .replace(
+      '#include <normal_fragment_begin>',
+      `float aguaCrista = 0.0;
+#include <normal_fragment_begin>
+{
+  // ondulação discreta: um ruído que escorre inclina a normal; a inclinação entra na luz e no reflexo
+  vec2 pa = vMapUv * uAguaEscala + vec2(uAguaTempo * uAguaVelocidade, uAguaTempo * uAguaVelocidade * 0.7);
+  float e = 0.05;
+  float h0 = ruidoAgua(pa);
+  float hx = ruidoAgua(pa + vec2(e, 0.0));
+  float hz = ruidoAgua(pa + vec2(0.0, e));
+  vec2 inclina = vec2(h0 - hx, h0 - hz) / e * uAguaOnda * uAguaDetalhe;
+  vec3 eixoX = (viewMatrix * vec4(1.0, 0.0, 0.0, 0.0)).xyz;
+  vec3 eixoZ = (viewMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz;
+  normal = normalize(normal + inclina.x * eixoX + inclina.y * eixoZ);
+  aguaCrista = pow(h0, 6.0) * uAguaDetalhe;
+}`,
+    )
+    .replace(
+      '#include <emissivemap_fragment>',
+      `#include <emissivemap_fragment>
+{
+  // reflexo do céu nas bordas de visão (fresnel suave) e brilho nas cristas: pequenos, para não estourar
+  float fresnel = pow(1.0 - clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0), 3.0);
+  totalEmissiveRadiance += uAguaCeu * (fresnel * uAguaReflexo + aguaCrista * uAguaBrilho);
+}`,
+    );
+}
 
 /** Uma camada do chão: textura que repete a cada `tiles` tiles, com máscara (alfa) que diz onde ela aparece. */
 export interface GroundLayer {
@@ -170,6 +236,11 @@ export function groundLayers(zone: ParsedZone, margin: number): GroundLayers {
       blending: o.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
     };
     const mat = o.unlit ? new THREE.MeshBasicMaterial(params) : new THREE.MeshLambertMaterial(params);
+    // água (camada com fluxo): só esta camada recebe a ondulação; as demais continuam como estavam
+    if (o.flow && !o.unlit) {
+      mat.onBeforeCompile = aplicarAgua;
+      mat.customProgramCacheKey = () => 'vg-agua-camada';
+    }
     const m = new THREE.Mesh(new THREE.PlaneGeometry(TW, TH).rotateX(-Math.PI / 2), mat);
     m.position.y = o.y;
     m.renderOrder = o.order;
@@ -177,6 +248,7 @@ export function groundLayers(zone: ParsedZone, margin: number): GroundLayers {
     group.add(m);
   };
   const update = (dt: number) => {
+    aguaUniforms.uAguaTempo.value += dt;
     for (const w of water) {
       w.map.offset.x = (w.map.offset.x + w.vx * dt) % 1;
       w.map.offset.y = (w.map.offset.y + w.vy * dt) % 1;

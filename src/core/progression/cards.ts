@@ -1,16 +1,61 @@
 /**
  * Cartas de monstro: progressão permanente entre runs (coleção no save de meta).
  *
- * Run (vitória) → pacote de 5 → coleção → fusão/equipar → próxima run mais forte.
- * Bônus entram nos atributos via `profile.heroes[k].cardAttrs`, somados no `heroStats`
- * (só acima da base, como o resto). Valores por raridade: Normal +3, Mini-Boss +8,
- * MVP +12/+6. Afinidade flexível: sem afinidade o bônus cai pela metade (arredonda p/ baixo).
+ * Run (vitória) → pacote → coleção → equipar nos heróis → próxima run mais forte.
+ * Cada carta tem um EFEITO BASE (todas as classes podem usar) e um BÔNUS DE VOCAÇÃO (só a classe indicada).
+ * Os efeitos são regras de gatilho (ao acertar, ao abater, ao sofrer dano...) executadas pela simulação
+ * (core/sim/cardRules.ts). O tier (Comum → Mítico, a mesma escala dos equipamentos) escala a força dos números.
+ * O catálogo (dados) fica em core/progression/cardCatalog/. A referência do Ragnarok Online vem junto de cada carta.
  */
+import { HERO_NAME, HERO_ORDER } from '../../config/heroes';
 import type { HeroKind } from './skills';
-import type { AttrKey, Attrs } from './attributes';
-import { emptyAttrs } from './attributes';
+import { CARDS_NORMAIS_A } from './cardCatalog/normaisA';
+import { CARDS_NORMAIS_B } from './cardCatalog/normaisB';
+import { CARDS_ESPECIAIS } from './cardCatalog/especiais';
 
 export type CardRarity = 'normal' | 'miniboss' | 'mvp';
+
+/** Tier: a mesma escala de raridade dos equipamentos (Comum → Mítico). Define a força dos efeitos. */
+export type CardTier = 1 | 2 | 3 | 4 | 5 | 6;
+export const CARD_TIER_NAMES: Record<CardTier, string> = { 1: 'Comum', 2: 'Incomum', 3: 'Raro', 4: 'Épico', 5: 'Lendário', 6: 'Mítico' };
+/** Quanto o tier multiplica a força dos números da regra (Comum = 1). Balanceamento fica aqui. */
+export const TIER_POWER: Record<CardTier, number> = { 1: 1, 2: 1.15, 3: 1.3, 4: 1.5, 5: 1.75, 6: 2 };
+/** Faixa de tier de cada raridade de pacote (Normal: Comum a Raro; Mini-Boss: Épico e Lendário; MVP: Mítico). */
+const TIER_RANGE: Record<CardRarity, [CardTier, CardTier]> = { normal: [1, 3], miniboss: [4, 5], mvp: [6, 6] };
+
+/** Quando a regra é verificada. `hit`/`crit`: golpe da própria carta; `cast`: habilidade lançada. */
+export type CardTrigger = 'start' | 'tick' | 'hit' | 'crit' | 'kill' | 'hurt' | 'lowHp' | 'dodge' | 'cast';
+
+/**
+ * Efeito da regra. Durações em segundos (`sec`). Os números `pct`/`amp` são fração (0,1 = 10%).
+ * Efeitos sobre o inimigo (lentidão, maldição, congelar, veneno) usam o alvo do gatilho ou o inimigo mais próximo.
+ */
+export type CardEffect =
+  | { kind: 'shield'; pct: number; sec: number } // escudo de pct da vida máxima do herói
+  | { kind: 'heal'; pct: number } // cura pct da vida máxima do herói
+  | { kind: 'bless'; amp: number; sec: number } // o herói causa +amp de dano
+  | { kind: 'fury'; sec: number } // fúria: recargas do Guerreiro e da Arqueira mais curtas
+  | { kind: 'cooldown'; sec: number } // reduz todas as recargas do herói em sec
+  | { kind: 'slow'; mult: number; sec: number } // alvo: passos mult vezes mais lentos
+  | { kind: 'curse'; amp: number; sec: number } // alvo: recebe amp a mais de dano
+  | { kind: 'freeze'; sec: number } // alvo congela
+  | { kind: 'reflect'; pct: number; sec: number } // o herói devolve pct do dano corpo a corpo que sofre
+  | { kind: 'burst'; pct: number } // golpe extra de pct do dano do golpe (só em hit/crit)
+  | { kind: 'poison'; pct: number; sec: number } // alvo: pct da vida máxima por pulso de veneno
+  | { kind: 'soul'; amount: number }; // almas extras
+
+export interface CardRule {
+  /** Nome criativo do efeito (pt-BR). Aparece no herói quando dispara. */
+  name: string;
+  trigger: CardTrigger;
+  /** 0..1. `start` e `tick` sempre disparam (chance 1). */
+  chance: number;
+  /** Só `tick`: a cada quantos segundos. */
+  every?: number;
+  /** Recarga interna desta regra, em segundos (evita spam). */
+  icd?: number;
+  effect: CardEffect;
+}
 
 export interface CardDef {
   id: string;
@@ -18,12 +63,26 @@ export interface CardDef {
   /** Arquivo em public/sprites/cards (sem extensão). */
   art: string;
   rarity: CardRarity;
-  /** Atributo principal (+ secundário nas MVPs). */
-  attr: AttrKey;
-  second?: { attr: AttrKey; value: number };
-  value: number;
-  /** Classes com afinidade (bônus cheio; sem afinidade = metade). */
-  affinity: HeroKind[];
+  tier: CardTier;
+  /** Efeito para TODAS as classes. */
+  base: CardRule;
+  /** Bônus da vocação: só o herói desta classe recebe a regra (além do efeito base). */
+  vocation: { hero: HeroKind; rule: CardRule };
+  /** Referência do Ragnarok Online (texto curto em pt-BR). Sem carta equivalente: efeito autoral. */
+  ro: string;
+}
+
+/** Regra pronta para a simulação: números com o tier aplicado. Durações continuam em segundos. */
+export interface CardRuntime {
+  /** Chave estável da instância (carta + posição no slot + base/vocação): recarga própria. */
+  key: string;
+  card: string;
+  name: string;
+  trigger: CardTrigger;
+  chance: number;
+  every?: number;
+  icd: number;
+  effect: CardEffect;
 }
 
 export interface CardCollection {
@@ -43,52 +102,8 @@ export function migrateCollection(c: unknown): CardCollection {
   return { owned: { ...(o.owned ?? {}) }, equipped: { ...(o.equipped ?? {}) } };
 }
 
-const affinityOf = (attr: AttrKey): HeroKind[] =>
-  (({ str: ['warrior', 'assassin'], int: ['mage', 'sorcerer', 'warlock'], dex: ['archer', 'assassin'], vit: ['warrior', 'mage', 'archer', 'sorcerer', 'warlock', 'assassin'], luk: ['archer', 'assassin', 'warrior'] }) as Record<AttrKey, HeroKind[]>)[attr];
-
-const N = (id: string, name: string, attr: AttrKey, art = id): CardDef => ({ id, name, art, rarity: 'normal', attr, value: 3, affinity: affinityOf(attr) });
-const B = (id: string, name: string, attr: AttrKey, art = id): CardDef => ({ id, name, art, rarity: 'miniboss', attr, value: 8, affinity: affinityOf(attr) });
-const V = (id: string, name: string, attr: AttrKey, second: { attr: AttrKey; value: number }, art = id): CardDef => ({ id, name, art, rarity: 'mvp', attr, value: 12, second, affinity: affinityOf(attr) });
-
-/** Catálogo completo (112 artes). Valores e afinidades revisáveis aqui, sem tocar em código. */
-export const CARD_CATALOG: CardDef[] = [
-  // ---- cards2 (todas Normais) ----
-  N('stalactic_golem', 'STALACTIC GOLEM', 'str'), N('gargoyle', 'GARGOYLE', 'dex'), N('high_orc', 'HIGH ORC', 'str'), N('requiem', 'REQUIEM', 'int'),
-  N('incubus', 'INCUBUS', 'int'), N('succubus', 'SUCCUBUS', 'luk'), N('anolian', 'ANOLIAN', 'str'), N('rooween', 'ROOWEEN', 'dex'),
-  N('cruiser', 'CRUISER', 'vit'), N('tamruan', 'TAMRUAN', 'int'), N('phendark', 'PHENDARK', 'int'), N('golems', 'GOLEMS', 'vit'),
-  N('injustice', 'INJUSTICE', 'luk'), N('zipper_bear', 'ZIPPER BEAR', 'str'), N('grizzly', 'GRIZZLY', 'str'), N('orc_zombie', 'ORC ZOMBIE', 'str'),
-  N('skeleton_prisoner', 'SKELETON PRISONER', 'dex'), N('hunter_fly', 'HUNTER FLY', 'dex'), N('deviace', 'DEVIACE', 'int'), N('mermand', 'MERMAND', 'dex'),
-  N('spore', 'SPORE', 'vit'), N('poison_spore', 'POISON SPORE', 'int'), N('mandragora', 'MANDRAGORA', 'int'), N('fireblend', 'FIREBLEND', 'str'),
-  N('bongun', 'BONGUN', 'str'), N('munak', 'MUNAK', 'vit'), N('soldier', 'SOLDIER', 'str'), N('gorgon', 'GORGON', 'dex'),
-  N('noxious', 'NOXIOUS', 'int'), N('giant_whisper', 'GIANT WHISPER', 'vit'), N('miming', 'MIMING', 'luk'), N('memorial', 'MEMORIAL', 'luk'),
-  // ---- cards3 ----
-  N('angeling', 'ANGELING', 'vit'), N('deviling', 'DEVILING', 'str'), N('ghostring', 'GHOSTRING', 'int'), N('mastering', 'MASTERING', 'vit'),
-  N('toad', 'TOAD', 'vit'), N('strouf', 'STROUF', 'dex'), N('dragon_tail', 'DRAGON TAIL', 'str'), N('mao_guai', 'MAO GUAI', 'str'),
-  B('mutant_dragonoid', 'MUTANT DRAGONOID', 'str'), B('orc_hero', 'ORC HERO', 'str'), N('myomewnee', 'MYOMEWNEE', 'dex'), N('gryphon', 'GRYPHON', 'str'),
-  B('mistress', 'MISTRESS', 'int'), B('maya_purple', 'MAYA PURPLE', 'int'), B('bloody_knight', 'BLOODY KNIGHT', 'str'), B('evil_snake_lord', 'EVIL SNAKE LORD', 'int'),
-  N('owl_viscount', 'OWL VISCOUNT', 'int'), B('owl_duke', 'OWL DUKE', 'int'), B('garm', 'GARM', 'str'), N('stormy_knight', 'STORMY KNIGHT', 'str'),
-  N('creamy', 'CREAMY', 'vit'), N('creamy_fear', 'CREAMY FEAR', 'int'), N('yoyo', 'YOYO', 'dex'), N('rocker', 'ROCKER', 'vit'),
-  N('spore_2', 'SPORE', 'vit', 'spore_2'), N('poison_spore_2', 'POISON SPORE', 'int', 'poison_spore_2'), N('smokie', 'SMOKIE', 'dex'), N('green_ferus', 'GREEN FERUS', 'str'),
-  N('verit', 'VERIT', 'vit'), N('matyr', 'MATYR', 'vit'), N('miming_2', 'MIMING', 'luk', 'miming_2'), N('sohee', 'SOHEE', 'int'),
-  // ---- cards4 (todas Normais) ----
-  N('drops', 'DROPS', 'luk'), N('fabre', 'FABRE', 'dex'), N('chonchon', 'CHONCHON', 'dex'), N('willow', 'WILLOW', 'vit'),
-  N('mandragora_2', 'MANDRAGORA', 'int', 'mandragora_2'), N('peco_peco_egg', 'PECO PECO EGG', 'vit'), N('goblin', 'GOBLIN', 'dex'), N('kukre', 'KUKRE', 'str'),
-  N('horong', 'HORONG', 'int'), N('marina', 'MARINA', 'int'), N('santa_poring', 'SANTA PORING', 'vit'), N('metaling', 'METALING', 'vit'),
-  N('pupa', 'PUPA', 'vit'), N('femur', 'FEMUR', 'dex'), N('plankton', 'PLANKTON', 'int'), N('magnolia', 'MAGNOLIA', 'int'),
-  N('skeleton', 'SKELETON', 'str'), N('wolf', 'WOLF', 'dex'), N('mummy', 'MUMMY', 'str'), N('hydra', 'HYDRA', 'int'),
-  N('savage_babe', 'SAVAGE BABE', 'str'), N('hornet', 'HORNET', 'dex'), N('desert_wolf', 'DESERT WOLF', 'dex'), N('minorous', 'MINOROUS', 'str'),
-  N('skeleton_worker', 'SKELETON WORKER', 'str'), N('abysmal_knight', 'ABYSMAL KNIGHT', 'str'), N('thara_frog', 'THARA FROG', 'vit'), N('hodremlin', 'HODREMLIN', 'str'),
-  N('alice', 'ALICE', 'int'), N('bigfoot', 'BIGFOOT', 'str'), N('caramel', 'CARAMEL', 'dex'), N('rafflesia', 'RAFFLESIA', 'int'),
-  // ---- cards5: MVPs + repetições ----
-  V('baphomet', 'BAPHOMET', 'str', { attr: 'vit', value: 6 }), V('dark_lord', 'DARK LORD', 'int', { attr: 'vit', value: 6 }),
-  V('doppelganger', 'DOPPELGANGER', 'dex', { attr: 'str', value: 6 }), V('dracula', 'DRACULA', 'int', { attr: 'luk', value: 6 }),
-  V('eddga', 'EDDGA', 'str', { attr: 'vit', value: 6 }), V('golden_thief_bug', 'GOLDEN THIEF BUG', 'luk', { attr: 'vit', value: 6 }),
-  V('maya', 'MAYA', 'int', { attr: 'vit', value: 6 }), V('moonlight_flower', 'MOONLIGHT FLOWER', 'dex', { attr: 'luk', value: 6 }),
-  V('osiris', 'OSIRIS', 'int', { attr: 'vit', value: 6 }),
-  N('angeling_2', 'ANGELING', 'vit', 'angeling_2'), N('deviling_2', 'DEVILING', 'str', 'deviling_2'), N('ghostring_2', 'GHOSTRING', 'int', 'ghostring_2'),
-  B('orc_hero_2', 'ORC HERO', 'str', 'orc_hero_2'), B('bloody_knight_2', 'BLOODY KNIGHT', 'str', 'bloody_knight_2'), B('garm_2', 'GARM', 'str', 'garm_2'),
-  N('poring', 'PORING', 'vit'),
-];
+/** Catálogo completo (112 cartas: 92 Normais, 11 Mini-Boss, 9 MVPs). Dados em core/progression/cardCatalog/. */
+export const CARD_CATALOG: CardDef[] = [...CARDS_NORMAIS_A, ...CARDS_NORMAIS_B, ...CARDS_ESPECIAIS];
 
 export const CARD_BY_ID: Record<string, CardDef> = Object.fromEntries(CARD_CATALOG.map((c) => [c.id, c]));
 export const NORMALS = CARD_CATALOG.filter((c) => c.rarity === 'normal');
@@ -114,11 +129,28 @@ export const revealOrder = (ids: string[]): string[] =>
     .sort((a, b) => a.rank - b.rank || a.i - b.i)
     .map((x) => x.id);
 
-/** Slots por runs vencidas: 2/run até 20 (run 10), +1/run até 30 (run 20+). */
-export function cardSlots(runsWon: number): number {
-  if (runsWon <= 0) return 0;
-  if (runsWon <= 10) return runsWon * 2;
-  return Math.min(30, 20 + (runsWon - 10));
+/**
+ * Vitórias acumuladas para liberar cada slot (o 1º na vitória 1, o 2º na 2...). Os cinco primeiros são fáceis
+ * (6 vitórias); depois a conta sobe depressa (o 10º pede 31; o 20º, 156; o 30º, 381). Teto: 30 slots.
+ * Vale para a campanha e para o Bastião, que somam (cardSlotsPool). Tudo que é balanceamento fica aqui.
+ */
+export const CARD_SLOT_WINS: readonly number[] = [
+  1, 2, 3, 4, 6, 9, 13, 18, 24, 31, 39, 48, 58, 69, 81, 94, 108, 123, 139, 156, 174, 193, 213, 234, 256, 279, 303, 328, 354, 381,
+];
+
+/** Quantos slots um modo libera com `wins` vitórias (ondas vencidas no Bastião, vitórias de jornada na campanha). */
+export function cardSlots(wins: number): number {
+  let slots = 0;
+  while (slots < CARD_SLOT_WINS.length && wins >= CARD_SLOT_WINS[slots]) slots++;
+  return slots;
+}
+
+/**
+ * Slots de carta por herói: cada modo solta os seus (a campanha pelas vitórias da jornada; o Bastião pelas
+ * ondas vencidas) e os dois somam, até o máximo de 30. A build de cartas é uma só para os dois modos.
+ */
+export function cardSlotsPool(runsWon: number, bastionNights = 0): number {
+  return Math.min(30, cardSlots(runsWon) + cardSlots(bastionNights));
 }
 
 /** Pacote de fim de run (só vitória): 3 Normais + 2 rolagens 90/5/5. */
@@ -200,21 +232,176 @@ export function fuseBulk(c: CardCollection, rand: () => number = Math.random): {
   return { made };
 }
 
-/** Bônus de atributos das cartas equipadas (afinidade cheia, sem afinidade metade). */
-export function cardBonusFor(hero: HeroKind, c: CardCollection): Attrs {
-  const out = emptyAttrs();
-  for (const id of c.equipped[hero] ?? []) {
-    const d = CARD_BY_ID[id];
-    if (!d) continue;
-    const full = d.affinity.includes(hero);
-    const v = (n: number): number => (full ? n : Math.floor(n / 2));
-    out[d.attr] += v(d.value);
-    if (d.second) out[d.second.attr] += v(d.second.value);
+// ---------- Tier e regras ----------
+
+/** Aplica o tier aos números da regra: força (pct, amp, mult, quantidade) e duração (só nos efeitos de controle). */
+function scaledEffect(e: CardEffect, f: number): CardEffect {
+  const longer = (s: number): number => s * (1 + (f - 1) / 2);
+  switch (e.kind) {
+    case 'shield':
+    case 'heal':
+    case 'reflect':
+    case 'burst':
+    case 'poison':
+      return { ...e, pct: e.pct * f };
+    case 'bless':
+    case 'curse':
+      return { ...e, amp: e.amp * f };
+    case 'slow':
+      return { ...e, mult: 1 + (e.mult - 1) * f };
+    case 'soul':
+      return { ...e, amount: Math.max(1, Math.round(e.amount * f)) };
+    case 'fury':
+    case 'cooldown':
+    case 'freeze':
+      return { ...e, sec: longer(e.sec) };
   }
+}
+
+function runtimeOf(card: CardDef, rule: CardRule, key: string): CardRuntime {
+  const f = TIER_POWER[card.tier];
+  return { key, card: card.name, name: rule.name, trigger: rule.trigger, chance: rule.chance, every: rule.every, icd: rule.icd ?? 0, effect: scaledEffect(rule.effect, f) };
+}
+
+/**
+ * Regras que o herói recebe das cartas equipadas: o efeito base de cada carta, e o bônus de vocação
+ * quando a classe do herói é a da carta. Chave por posição no slot (duas cópias não dividem recarga).
+ */
+export function cardRuntimeFor(hero: HeroKind, c: CardCollection): CardRuntime[] {
+  const out: CardRuntime[] = [];
+  (c.equipped[hero] ?? []).forEach((id, i) => {
+    const d = CARD_BY_ID[id];
+    if (!d) return;
+    out.push(runtimeOf(d, d.base, `${id}#${i}b`));
+    if (d.vocation.hero === hero) out.push(runtimeOf(d, d.vocation.rule, `${id}#${i}v`));
+  });
   return out;
 }
 
 /** Aplica a build de cartas no profile (toda nova run; vale para os 6 heróis). */
-export function applyCardLoadout(profile: { heroes: Record<string, { cardAttrs?: Attrs }> }, c: CardCollection): void {
-  for (const [hero, h] of Object.entries(profile.heroes)) h.cardAttrs = cardBonusFor(hero as HeroKind, c);
+export function applyCardLoadout(profile: { heroes: Record<string, { cards?: CardRuntime[] }> }, c: CardCollection): void {
+  for (const [hero, h] of Object.entries(profile.heroes)) h.cards = cardRuntimeFor(hero as HeroKind, c);
+}
+
+// ---------- Texto (pt-BR) ----------
+
+const TRIGGER_TEXT: Record<Exclude<CardTrigger, 'tick'>, string> = {
+  start: 'No começo da batalha',
+  hit: 'Ao acertar um golpe',
+  crit: 'Ao causar um crítico',
+  kill: 'Ao abater um inimigo',
+  hurt: 'Ao sofrer dano',
+  lowHp: 'Ao cair abaixo de 30% de vida (uma vez por batalha)',
+  dodge: 'Ao esquivar um golpe',
+  cast: 'Ao lançar uma habilidade',
+};
+
+const pctTxt = (v: number): string => `${Math.round(v * 100)}%`;
+const numTxt = (v: number): string => (Number.isInteger(v) ? String(v) : v.toFixed(1).replace('.', ','));
+const secTxt = (s: number): string => `${numTxt(s)} s`;
+
+function efeitoTexto(e: CardEffect): string {
+  switch (e.kind) {
+    case 'shield':
+      return `erguer um escudo de ${pctTxt(e.pct)} da vida máxima por ${secTxt(e.sec)}`;
+    case 'heal':
+      return `recuperar ${pctTxt(e.pct)} da vida máxima`;
+    case 'bless':
+      return `causar +${pctTxt(e.amp)} de dano por ${secTxt(e.sec)}`;
+    case 'fury':
+      return `entrar em fúria por ${secTxt(e.sec)} (recargas mais curtas)`;
+    case 'cooldown':
+      return `reduzir as recargas em ${secTxt(e.sec)}`;
+    case 'slow':
+      return `deixar o alvo ${numTxt(e.mult)}× mais lento por ${secTxt(e.sec)}`;
+    case 'curse':
+      return `fazer o alvo sofrer +${pctTxt(e.amp)} de dano por ${secTxt(e.sec)}`;
+    case 'freeze':
+      return `congelar o alvo por ${secTxt(e.sec)}`;
+    case 'reflect':
+      return `devolver ${pctTxt(e.pct)} do dano sofrido por ${secTxt(e.sec)}`;
+    case 'burst':
+      return `desferir um golpe extra de ${pctTxt(e.pct)} do dano`;
+    case 'poison':
+      return `envenenar o alvo (${pctTxt(e.pct)} da vida máxima por pulso) por ${secTxt(e.sec)}`;
+    case 'soul':
+      return `ganhar ${e.amount} alma${e.amount > 1 ? 's' : ''}`;
+  }
+}
+
+/** Texto de uma regra já com o tier da carta aplicado (o que o jogador vê). */
+export function describeCardRule(card: CardDef, rule: CardRule): string {
+  const quando = rule.trigger === 'tick' ? `A cada ${secTxt(rule.every ?? 0)}` : TRIGGER_TEXT[rule.trigger];
+  const chance = rule.chance < 1 ? `${pctTxt(rule.chance)} de chance de ` : '';
+  return `${quando}, ${chance}${efeitoTexto(scaledEffect(rule.effect, TIER_POWER[card.tier]))}.`;
+}
+
+/** Linha do bônus de vocação, com o nome da classe. */
+export function describeVocation(card: CardDef): string {
+  return `Bônus de ${HERO_NAME[card.vocation.hero]}: ${describeCardRule(card, card.vocation.rule)}`;
+}
+
+// ---------- Validação do catálogo (usada por scripts/cardCheck.ts) ----------
+
+const TRIGGERS: CardTrigger[] = ['start', 'tick', 'hit', 'crit', 'kill', 'hurt', 'lowHp', 'dodge', 'cast'];
+
+/** Limites de cada efeito, antes do tier (um número acima disto é erro de digitação ou de balanceamento). */
+const LIMITES: Record<CardEffect['kind'], Record<string, [number, number]>> = {
+  shield: { pct: [0.01, 0.12], sec: [0.5, 6] },
+  heal: { pct: [0.01, 0.08] },
+  bless: { amp: [0.02, 0.25], sec: [1, 6] },
+  fury: { sec: [1, 6] },
+  cooldown: { sec: [0.5, 3] },
+  slow: { mult: [1.2, 2], sec: [1, 4] },
+  curse: { amp: [0.02, 0.3], sec: [1, 6] },
+  freeze: { sec: [0.5, 2] },
+  reflect: { pct: [0.05, 0.5], sec: [1, 6] },
+  burst: { pct: [0.1, 1] },
+  poison: { pct: [0.005, 0.04], sec: [1, 8] },
+  soul: { amount: [1, 3] },
+};
+
+function checarRegra(prefixo: string, rule: CardRule, erros: string[]): void {
+  if (!rule.name?.trim()) erros.push(`${prefixo}: regra sem nome`);
+  if (!TRIGGERS.includes(rule.trigger)) erros.push(`${prefixo}: gatilho inválido (${rule.trigger})`);
+  if (!(rule.chance > 0 && rule.chance <= 1)) erros.push(`${prefixo}: chance fora de (0, 1]`);
+  if ((rule.trigger === 'start' || rule.trigger === 'tick') && rule.chance !== 1) erros.push(`${prefixo}: ${rule.trigger} precisa de chance 1`);
+  if (rule.trigger === 'tick' && !(rule.every && rule.every > 0)) erros.push(`${prefixo}: tick precisa de every > 0`);
+  if (rule.icd !== undefined && rule.icd < 0) erros.push(`${prefixo}: icd negativo`);
+  const e = rule.effect;
+  if (e.kind === 'burst' && rule.trigger !== 'hit' && rule.trigger !== 'crit') erros.push(`${prefixo}: burst só em hit ou crit`);
+  const lim = LIMITES[e.kind];
+  if (!lim) {
+    erros.push(`${prefixo}: efeito desconhecido (${(e as { kind: string }).kind})`);
+    return;
+  }
+  for (const [campo, [min, max]] of Object.entries(lim)) {
+    const v = (e as unknown as Record<string, number>)[campo];
+    if (typeof v !== 'number' || Number.isNaN(v)) erros.push(`${prefixo}: ${e.kind}.${campo} ausente`);
+    else if (v < min || v > max) erros.push(`${prefixo}: ${e.kind}.${campo} = ${v} fora de [${min}, ${max}]`);
+  }
+}
+
+/** Lista de problemas do catálogo (vazia = válido). */
+export function validarCatalogo(catalogo: CardDef[] = CARD_CATALOG): string[] {
+  const erros: string[] = [];
+  const ids = new Set<string>();
+  for (const d of catalogo) {
+    const p = `carta ${d.id}`;
+    if (ids.has(d.id)) erros.push(`${p}: id repetido`);
+    ids.add(d.id);
+    if (!d.name?.trim()) erros.push(`${p}: sem nome`);
+    if (!d.art?.trim()) erros.push(`${p}: sem arte`);
+    if (!d.ro?.trim()) erros.push(`${p}: sem referência RO (use o texto de 'sem carta' se não houver)`);
+    const [min, max] = TIER_RANGE[d.rarity];
+    if (!(d.tier >= min && d.tier <= max)) erros.push(`${p}: tier ${d.tier} fora da faixa da raridade ${d.rarity} (${min}–${max})`);
+    if (!HERO_ORDER.includes(d.vocation.hero)) erros.push(`${p}: vocação inválida (${d.vocation.hero})`);
+    checarRegra(`${p} base`, d.base, erros);
+    checarRegra(`${p} vocação`, d.vocation.rule, erros);
+  }
+  const contagem = (r: CardRarity): number => catalogo.filter((c) => c.rarity === r).length;
+  if (catalogo.length === 112 && (contagem('normal') !== 92 || contagem('miniboss') !== 11 || contagem('mvp') !== 9)) {
+    erros.push(`contagem por raridade: ${contagem('normal')}/${contagem('miniboss')}/${contagem('mvp')} (esperado 92/11/9)`);
+  }
+  return erros;
 }

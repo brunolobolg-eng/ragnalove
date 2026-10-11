@@ -48,7 +48,7 @@ export type PropKind =
   | 'palm';
 
 /** Tipos de objeto interativo (dados em GAME_CONFIG.objects, regras em core/sim/objects.ts). */
-export type MapObjectType = 'cart' | 'oilBarrel' | 'torch' | 'roots' | 'altar' | 'sandColumn' | 'unstableRuin' | 'dryOasis' | 'campfire' | 'shieldWall';
+export type MapObjectType = 'cart' | 'oilBarrel' | 'torch' | 'roots' | 'altar' | 'sandColumn' | 'unstableRuin' | 'dryOasis' | 'campfire' | 'shieldWall' | 'bastionWall' | 'bastionTower';
 
 export interface MapObjectDef {
   type: MapObjectType;
@@ -72,6 +72,14 @@ export interface ZoneDef {
   widthTiles: number;
   heightTiles: number;
   map: string[];
+  /**
+   * Camada de construção do Último Bastião (mesmo tamanho de `map`): `b` = área tática livre para erguer
+   * estruturas; `1`–`4` = lotes especiais (serviços futuros, como forja e mercado), também construíveis;
+   * `.` = fora da área. As zonas comuns não têm esta camada.
+   */
+  lots?: string[];
+  /** Castelo fechado (Último Bastião): muralha de pedra em todos os tiles `W`, sem a paliçada do portão. */
+  castle?: boolean;
   /** Pontos de spawn fixos da zona (2 nos mapas atuais; o motor aceita N e alterna entre eles). */
   spawnPoints: Vec2[];
   /** Fração da horda que sai do 1º spawn (padrão: GAME_CONFIG.wave.spawnSplit). */
@@ -110,7 +118,10 @@ const PROP_OF: Record<string, PropKind | undefined> = {
 
 /** Tipo de chão por caractere do mapa. */
 export type GroundKind = 'plain' | 'plaza' | 'fog' | 'roots' | 'puddle' | 'gate';
-const GROUND_OF: Record<string, GroundKind | undefined> = { '.': 'plain', ',': 'plaza', ':': 'fog', r: 'roots', w: 'puddle', g: 'gate' };
+/** `E` = alvo da horda do Último Bastião (o Emperium, no centro): é tile da cidade, como o portão `g`. */
+const GROUND_OF: Record<string, GroundKind | undefined> = { '.': 'plain', ',': 'plaza', ':': 'fog', r: 'roots', w: 'puddle', g: 'gate', E: 'gate' };
+/** Caracteres válidos na camada de construção (`lots`): `.` = nada. */
+const LOT_CHARS = 'b1234';
 
 // Setup padrão de uma zona: guerreiro, mago e o centro das 3 barreiras.
 const setup = (wx: number, wy: number, mx: number, my: number, bx: number, by: number, o: PartySetup['barriers'][number]['orientation'] = 'H'): PartySetup => ({
@@ -1029,6 +1040,137 @@ Object.assign(ZONES, {
     },
     wave: wave(4404, ASH_HEAVY, 240, 6, 600),
   },
+  // O Último Bastião: cenário do modo de defesa (ver src/core/bastion). Castelo no centro com o Emperium (`E`, alvo
+  // da horda: quem toca morre e desconta a vida da cidade); fosso e quatro portais nas pontas das estradas. `lots`
+  // marca onde se constrói; `castle` põe muralha de pedra em todo o castelo. `wave` é provisório.
+  bastionKeep: {
+    id: 'bastionKeep',
+    name: 'O Último Bastião',
+    theme: 'forest',
+    widthTiles: 61,
+    heightTiles: 53,
+    map: [
+      '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~~~~~~~RRRRRRRRR~~RR~~~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~RRRRRRRRRRRRRRRRRRRRR~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~RRRRTTRT...,,,...TRTTRRR~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~RRRT...TTT...,,,...TTTTTRRRR~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~RRRTTTTTTTTT...,,,...TTT.TTTRRRRR~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~RRRTTTTTTTTTT...,,,....TTTTT..TRRRRR~~~~~~~~~~~~',
+      '~~~~~~~~~~~RRR...............,,,...............RRR~~~~~~~~~~~',
+      '~~~~~~~~~~RRR................,,,................RRR~~~~~~~~~~',
+      '~~~~~~~~~RR..................,,,................RRRR~~~~~~~~~',
+      '~~~~~~~RRR...................,,,................RRTRR~~~~~~~~',
+      '~~~~~~RRRTT..................,,,................RTRRRR~~~~~~~',
+      '~~~~~~RRT.T.T.....L........B.,,,.B........L.....RTTRRRR~~~~~~',
+      '~~~~~RRT.~~~.......~~~~~~~~~~,,,~~~~~~~~~~......TTRTRRR~~~~~~',
+      '~~~~~RRT~~~~~......~~~~~~~~~~,,,~~~~~~~~~~......TT..TTRR~~~~~',
+      '~~~~RRRR~~~~~......~~........,,,........~~......TTTTTTRR~~~~~',
+      '~~~~RR..~~~~~......~~.WWWWWWW,,,WWWWWWW.~~......TTTTTTRR~~~~~',
+      '~~~~RR.RR~~~.......~~.W,,,,,,,,,,,,,,,W.~~......TTTTT..RR~~~~',
+      '~~~~RRTTTRTRT......~~.W,,,,,,,,,,,,,,,W.~~......TTTTT..RR~~~~',
+      '~~~~RRTTRRRT.......~~.W,,,,,,,,,,,,,,,W.~~......TTTTTT.RR~~~~',
+      '~~~~RR....RRR......~~.W,,,,,,,,,,,,,,,W.~~......TTT....RR~~~~',
+      '~~~~RR.............~~.W,,,,,,,,,,,,,,,W.~~.............RR~~~~',
+      '~~~RR............B.~~.W,,,,,,,,,,,,,,,W.~~.B............RR~~~',
+      '~~~RR,,,,,,,,,,,,,,,,,,,,,,,,EEE,,,,,,,,,,,,,,,,,,,,,,,,RR~~~',
+      '~~~RR,,,,,,,,,,,,,,,,,,,,,,,,EEE,,,,,,,,,,,,,,,,,,,,,,,,RR~~~',
+      '~~~RR,,,,,,,,,,,,,,,,,,,,,,,,EEE,,,,,,,,,,,,,,,,,,,,,,,,RR~~~',
+      '~~~RR............B.~~.W,,,,,,,,,,,,,,,W.~~.B............RR~~~',
+      '~~~~RR.............~~.W,,,,,,,,,,,,,,,W.~~.............RR~~~~',
+      '~~~~RR....TTT......~~.W,,,,,,,,,,,,,,,W.~~......TTT....RR~~~~',
+      '~~~~RRTTTTTTT......~~.W,,,,,,,,,,,,,,,W.~~......TTTTTTTRR~~~~',
+      '~~~~RRRTTwTTT......~~.W,,,,,,,,,,,,,,,W.~~..........TTTRR~~~~',
+      '~~~~RRRT...TT......~~.W,,,,,,,,,,,,,,,W.~~..........TTTRRR~~~',
+      '~~~~RRTTTTTTT......~~.WWWWWWW,,,WWWWWWW.~~........~~~TTRR~~~~',
+      '~~~~~RRTTTTT.......~~........,,,........~~.......~~~~~TRR~~~~',
+      '~~~~~RRTTTT........~~~~~~~~~~,,,~~~~~~~~~~.......~~~~~RRR~~~~',
+      '~~~~~~RRTTT.T......~~~~~~~~~~,,,~~~~~~~~~~......R~~~~~RR~~~~~',
+      '~~~~~~RRT..TT.....L........B.,,,.B........L.......~~~RR~~~~~~',
+      '~~~~~~~RR..TT................,,,...................TRR~~~~~~~',
+      '~~~~~~~RRR.TT................,,,..................T.RR~~~~~~~',
+      '~~~~~~~~RRR.R................,,,..................TRR~~~~~~~~',
+      '~~~~~~~~~RRRR................,,,..................RR~~~~~~~~~',
+      '~~~~~~~~~~RRR................,,,.................RR~~~~~~~~~~',
+      '~~~~~~~~~~~RRRRTRRTRRRTTTT...,,,...RR.RTTRRRTRRRRR~~~~~~~~~~~',
+      '~~~~~~~~~~~~~RRRRT.TRRT.TR...,,,....RR.RRRTTRRRRR~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~RRRRRTRRTTRT...,,,...RRRR.RRRRRRR~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~RRRRRRT.RR...,,,....R.RTRRRRR~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~RRRRRRRRRRRRRRRRRRRRRRRRR~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~~RRR~~RRRRRRRRR~~RRR~~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+    ],
+    lots: [
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '..............bbbbbbbbbbbbbbb...bbbbbbbbbbbbbbb..............',
+      '.............bbbbbbbbbbbbbbbb...bbbbbbbbbbbbbbbb.............',
+      '.............bbbbbbbbbbbbbbbb...bbbbbbbbbbbbbbbb.............',
+      '.............bbbbbbbbbbbbbbbb...bbbbbbbbbbbbbbbb.............',
+      '.............bbbbbbbbbbbbbbbb...bbbbbbbbbbbbbbbb.............',
+      '.............bbbbb.bbbbbbbb.b...b.bbbbbbbb.bbbbb.............',
+      '.............bbbbbb.......................bbbbbb.............',
+      '.............bbbbbb.......................bbbbbb.............',
+      '.............bbbbbb..bbbbbbbb...bbbbbbbb..bbbbbb.............',
+      '.............bbbbbb..b.................b..bbbbbb.............',
+      '.............bbbbbb..b.111bbbbbbbbb222.b..bbbbbb.............',
+      '.............bbbbbb..b.111bbbbbbbbb222.b..bbbbbb.............',
+      '.............bbbbbb..b.111bbbbbbbbb222.b..bbbbbb.............',
+      '.............bbbbbb..b.bbbbbbbbbbbbbbb.b..bbbbbb.............',
+      '.............bbbbbb..b.bbbbbbbbbbbbbbb.b..bbbbbb.............',
+      '.............bbbb.b..b.bbbbbbbbbbbbbbb.b..b.bbbb.............',
+      '.......................bbbbbb...bbbbbb.......................',
+      '.......................bbbbbb...bbbbbb.......................',
+      '.......................bbbbbb...bbbbbb.......................',
+      '.............bbbb.b..b.bbbbbbbbbbbbbbb.b..b.bbbb.............',
+      '.............bbbbbb..b.bbbbbbbbbbbbbbb.b..bbbbbb.............',
+      '.............bbbbbb..b.bbbbbbbbbbbbbbb.b..bbbbbb.............',
+      '.............bbbbbb..b.333bbbbbbbbb444.b..bbbbbb.............',
+      '.............bbbbbb..b.333bbbbbbbbb444.b..bbbbbb.............',
+      '.............bbbbbb..b.333bbbbbbbbb444.b..bbbbbb.............',
+      '.............bbbbbb..b.................b..bbbbbb.............',
+      '.............bbbbbb..bbbbbbbb...bbbbbbbb..bbbbbb.............',
+      '.............bbbbbb.......................bbbbbb.............',
+      '.............bbbbbb.......................bbbbbb.............',
+      '.............bbbbb.bbbbbbbb.b...b.bbbbbbbb.bbbbb.............',
+      '.............bbbbbbbbbbbbbbbb...bbbbbbbbbbbbbbbb.............',
+      '.............bbbbbbbbbbbbbbbb...bbbbbbbbbbbbbbbb.............',
+      '.............bbbbbbbbbbbbbbbb...bbbbbbbbbbbbbbbb.............',
+      '.............bbbbbbbbbbbbbbbb...bbbbbbbbbbbbbbbb.............',
+      '.............bbbbbbbbbbbbbbbb...bbbbbbbbbbbbbbbb.............',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+      '.............................................................',
+    ],
+    castle: true,
+    spawnPoints: [{ x: 30, y: 5 }, { x: 30, y: 47 }, { x: 5, y: 26 }, { x: 55, y: 26 }],
+    objects: [],
+    defaultSetup: {
+      members: [
+        { archetype: 'warrior', x: 27, y: 21 },
+        { archetype: 'mage', x: 33, y: 21 },
+      ],
+      barriers: [],
+    },
+    wave: { count: 60, spawnIntervalTicks: 4, seed: 9001, mix: UNDEAD, bossDelayTicks: 0 },
+  },
 } satisfies Record<string, ZoneDef>);
 
 /** MAP_CONFIG: tamanho, spawns e objetos de cada mapa (mesmos dados das zonas). */
@@ -1055,13 +1197,25 @@ export interface ParsedZone {
   slow: Vec2[];
   spawnPoints: Vec2[];
   objects: MapObjectDef[];
+  /** Lotes de construção (zona do Último Bastião): `b` tática, `1`–`4` especiais. Vazio nas outras zonas. */
+  lots: { x: number; y: number; lot: string }[];
+  /** Castelo fechado: a cena põe muralha de pedra nos tiles `W` (ver CityGate), em vez da paliçada do portão. */
+  castle: boolean;
 }
 
 export function parseZone(z: ZoneDef): ParsedZone {
   const height = z.map.length;
   const width = z.map[0].length;
   if (width !== z.widthTiles || height !== z.heightTiles) throw new Error(`Zona ${z.id}: mapa ${width}×${height} ≠ ${z.widthTiles}×${z.heightTiles}`);
-  const out: ParsedZone = { width, height, walls: [], voids: [], props: [], floor: [], city: [], fog: [], slow: [], spawnPoints: z.spawnPoints.map((p) => ({ ...p })), objects: z.objects.map((o) => ({ ...o })) };
+  const out: ParsedZone = { width, height, walls: [], voids: [], props: [], floor: [], city: [], fog: [], slow: [], spawnPoints: z.spawnPoints.map((p) => ({ ...p })), objects: z.objects.map((o) => ({ ...o })), lots: [], castle: !!z.castle };
+  if (z.lots) {
+    if (z.lots.length !== height || z.lots.some((row) => row.length !== width)) throw new Error(`Zona ${z.id}: lots ≠ mapa ${width}×${height}`);
+    z.lots.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch === '.') return;
+      if (!LOT_CHARS.includes(ch)) throw new Error(`Zona ${z.id}: lote desconhecido "${ch}" em ${x},${y}`);
+      out.lots.push({ x, y, lot: ch });
+    }));
+  }
   z.map.forEach((row, y) => {
     if (row.length !== width) throw new Error(`Zona ${z.id}: linha ${y} com largura ${row.length} (esperado ${width})`);
     [...row].forEach((ch, x) => {

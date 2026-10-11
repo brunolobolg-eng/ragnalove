@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { DEFAULT_SETUP, GAME_CONFIG, ZONE_STATE, applyZone, barriersAround, barriersShield, type PartySetup, type WaveOptions } from './config/gameConfig';
-import { parseZone, type ZoneDef } from './config/zones';
+import { ZONES, parseZone, type ZoneDef } from './config/zones';
+import { BASTION_ZONE_ID } from './config/bastion';
 import { TEST_ZONE, TEST_ZONE_ID } from './dev/DevLab/skillArenaZone';
 import { warmFxTextures } from './render/fx/kit/vfxTextures';
 import { loadFortress } from './render/scenery/fortress';
@@ -40,7 +41,7 @@ import { CHARSELECT_ART, MUSIC, POSTFX, VICTORY_TITLES, VISUAL_CONFIG } from './
 import type { PostFxSituation } from './render/fx/kit/PostFX';
 import type { WaveReport } from './core/sim/types';
 import { RUNIC_SKILLS, SKILL_BY_ID, SKILL_NUM, SKILLS, lvOf, type HeroKind, type SkillId } from './core/progression/skills';
-import { addCards, applyCardLoadout, emptyCollection, migrateCollection, rollPack, type CardCollection } from './core/progression/cards';
+import { CARD_CATALOG, addCards, applyCardLoadout, emptyCollection, migrateCollection, rollPack, type CardCollection } from './core/progression/cards';
 import { CardPack } from './ui/CardPack';
 import { Collection } from './ui/Collection';
 import { orderMove } from './core/sim/CombatMovement';
@@ -257,7 +258,7 @@ function loadout(): Record<string, HeroLoadout> {
   const out: Record<string, HeroLoadout> = {};
   for (const k of Object.keys(profile.heroes)) {
     const h = profile.heroes[k];
-    out[k] = { stats: heroStats(profile, k), level: h.level, exp: h.exp, locked: heroLockedKeys(profile, k) };
+    out[k] = { stats: heroStats(profile, k), level: h.level, exp: h.exp, locked: heroLockedKeys(profile, k), cards: h.cards ?? [] };
   }
   return out;
 }
@@ -2249,7 +2250,30 @@ if (desktopBalance)
 // No build de produção o Vite troca `import.meta.env.DEV` por `false`, este bloco
 // é eliminado e o módulo de debug não entra no pacote da Steam.
 if (import.meta.env.DEV) {
-  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview }; // inspeção no console (dev)
+  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview,
+    // mapa do Último Bastião (só dev): grade nova em planejamento, sem horda, para conferir o cenário
+    openBastionMap: () => { loadZone(ZONES[BASTION_ZONE_ID], { count: 0, boss: null, seed: 1 }); setMode('battle'); focusParty(true); },
+    // qualquer zona (só dev), em planejamento e sem horda; para testar a horda: sim.start(), hud.setPlanning(false), sim.spawnEnemy()
+    abrirZona: (id: string) => {
+      const zona = ZONES[id];
+      if (!zona) throw new Error(`zona desconhecida: ${id}`);
+      loadZone(zona, { count: 0, boss: null, seed: 1 });
+      setMode('battle');
+      focusParty(true);
+    },
+    // prévias de tela (só dev): roleta de prêmio com um item lendário e o pacote de cartas (ids opcionais)
+    rouletteDemo: () => { void roulette.spin('Recompensa da primeira vitória', 'Demonstração da roleta', rollItem(debugRng, 0, `demo-roleta-${debugRng.int(1e9)}`, { rarity: 'legendary', slot: 'weapon' }), () => 'weapon'); },
+    cardPackDemo: (ids?: string[]) => cardPack.show(ids ?? rollPack(), () => {}),
+    collectionDemo: () => {
+      const c = emptyCollection();
+      CARD_CATALOG.forEach((d, i) => {
+        if (i % 4 !== 3) c.owned[d.id] = 1 + (i % 5 === 0 ? 2 : 0);
+      });
+      c.equipped.warrior = CARD_CATALOG.filter((d) => d.vocation.hero === 'warrior').slice(0, 3).map((d) => d.id);
+      c.equipped.mage = [CARD_CATALOG[0].id];
+      collection.open(c, 6, 'warrior');
+    },
+  }; // inspeção no console (dev)
   void import('./debug/DebugPanel').then(({ installDebug }) => installDebug(hudRoot, devApi(), (h, t, fn) => panels.addButton(h, t, fn)));}
 
 // ---------- Dev Lab (F8): só com devtools (dev ou devtools.txt no executável) ----------
@@ -2682,7 +2706,7 @@ function devApi(): DevApi {
       resetSim();
       return { results: out, recommended: QUALITY_LABEL[best] };
     },
-    stats: () => ({ fps, particles: view.particles.aliveCount() + view.vfx.aliveCount(), lights: stage.lightsInUse(), enemies: sim.enemies().length, tick: sim.tick, phase: sim.phase }),
+    stats: () => ({ fps, particles: view.particles.aliveCount() + view.vfx.aliveCount(), lights: stage.lightsInUse(), ...stage.sceneStats(), enemies: sim.enemies().length, tick: sim.tick, phase: sim.phase }),
     flowCost: (x, y) => (sim.phase === 'running' ? sim.flowCost(x, y) : undefined),
     boardSize: () => ({ w: sim.board.width, h: sim.board.height }),
     cityLine: () => `Cidade ${sim.cityHp}/${sim.cityMaxHp} · invadiram ${sim.reachedCity} (−${sim.cityDamage}) · run ${run.cityHp}/${run.cityMaxHp} · noite ${run.nights}`,

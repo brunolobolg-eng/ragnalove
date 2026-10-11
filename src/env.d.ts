@@ -20,8 +20,8 @@ interface Window {
     };
     /** Save do jogador em userData/saves (gravação atômica + cópia .bak). `null` = ainda não existe. */
     save?: {
-      read(): { run: string | null; meta: string | null };
-      write(key: 'run' | 'meta', text: string): boolean;
+      read(): { run: string | null; meta: string | null; bastion: string | null };
+      write(key: 'run' | 'meta' | 'bastion', text: string): boolean;
     };
     /** Dev Lab: cenários de teste (src/dev/devlab-scenarios.json no projeto, userData no executável). */
     devlab?: {

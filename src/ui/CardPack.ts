@@ -3,11 +3,11 @@
  * (ou toca) o topo para rasgar; as cartas saem viradas para baixo e são reveladas uma a uma (ou todas de uma
  * vez). Cada raridade tem a sua reação: Normal = brilho e moeda; Mini-Boss = aura roxa e faíscas; MVP = clarão,
  * raios, faíscas douradas e a faixa "VOCÊ ENCONTROU ...". As cartas já entraram na coleção ao conceder (main.ts):
- * aqui é só a revelação. A apresentação não decide nada: a lista de cartas vem pronta.
+ * aqui é só a revelação (e a dica do efeito ao passar o mouse numa carta virada). A apresentação não decide nada: a lista de cartas vem pronta.
  */
-import { CARD_BY_ID, revealOrder, type CardRarity } from '../core/progression/cards';
+import { CARD_BY_ID, CARD_TIER_NAMES, revealOrder, type CardRarity } from '../core/progression/cards';
 import type { SfxName } from '../audio/AudioEngine';
-import { RARITY_COLOR, RARITY_LABEL, cardBackHtml, cardFaceHtml } from './CardFace';
+import { RARITY_COLOR, RARITY_LABEL, cardBackHtml, cardBaseText, cardFaceHtml, cardVocationText } from './CardFace';
 import { CardPackFx } from './CardPackFx';
 
 type Sfx = (name: SfxName) => void;
@@ -30,6 +30,9 @@ export class CardPack {
   private drag?: { id: number; x0: number; y0: number; p: number };
   /** Houve arrasto no pacote: o clique que vem logo depois não deve rasgar. */
   private dragged = false;
+  /** Índice da carta sob o mouse (-1: nenhuma) e o painel da dica dela. */
+  private hoverI = -1;
+  private tipEl?: HTMLElement;
   private readonly onResize = () => this.resize();
 
   constructor(private readonly sfx: Sfx = () => {}) {
@@ -42,6 +45,8 @@ export class CardPack {
     this.el.addEventListener('pointerup', (e) => this.onUp(e));
     this.el.addEventListener('pointercancel', (e) => this.onUp(e));
     this.el.addEventListener('click', (e) => this.onClick(e));
+    this.el.addEventListener('pointerover', (e) => this.onOver(e));
+    this.el.addEventListener('pointerleave', () => this.leaveTip());
   }
 
   show(ids: string[], onClose: () => void): void {
@@ -75,13 +80,16 @@ export class CardPack {
         <div class="pk-row" hidden>${cards}</div>
         <div class="pk-rays" hidden></div>
         <div class="pk-banner" hidden></div>
+        <div class="pk-tip" hidden></div>
       </div>
       <p class="pk-hint">Arraste o topo do pacote para rasgar</p>
       <div class="pk-foot">
-        <button class="pk-reveal-all" data-c="all" hidden>Revelar todas</button>
-        <button class="big-act primary pk-save" data-c="close" disabled>Guardar na coleção ➜</button>
+        <button class="au-btn pk-reveal-all" data-c="all" hidden>Revelar todas</button>
+        <button class="au-btn gold pk-save" data-c="close" disabled>Guardar na coleção ➜</button>
       </div>`;
     this.el.hidden = false;
+    this.tipEl = this.el.querySelector<HTMLElement>('.pk-tip') ?? undefined;
+    this.hoverI = -1;
     this.fx = new CardPackFx(this.el.querySelector<HTMLCanvasElement>('.pk-fx')!);
     this.resize();
     window.addEventListener('resize', this.onResize);
@@ -90,6 +98,7 @@ export class CardPack {
 
   hide(): void {
     this.clearTimers();
+    this.leaveTip();
     this.stopMotes();
     this.fx?.clear();
     window.removeEventListener('resize', this.onResize);
@@ -219,6 +228,7 @@ export class CardPack {
       this.rays(true);
       this.banner(CARD_BY_ID[id].name);
     }
+    if (this.hoverI === i) this.showTip(i); // o mouse já estava sobre a carta: mostra a dica agora
     if (this.flipped.every(Boolean)) this.finish();
   }
 
@@ -305,6 +315,44 @@ export class CardPack {
     this.fx?.resize(window.innerWidth, window.innerHeight);
   }
 
+  // ---------- Dica da carta revelada ----------
+
+  /** Passar o mouse numa carta já virada mostra o que ela faz. */
+  private onOver(e: PointerEvent): void {
+    const wrap = (e.target as HTMLElement).closest<HTMLElement>('.cf-wrap.flipped');
+    const i = wrap ? Number(wrap.dataset.i) : -1;
+    if (i === this.hoverI) return;
+    this.hoverI = i;
+    if (i < 0) this.hideTip();
+    else this.showTip(i);
+  }
+
+  private showTip(i: number): void {
+    const tip = this.tipEl;
+    const wrap = this.el.querySelector<HTMLElement>(`.cf-wrap[data-i="${i}"]`);
+    const stage = this.el.querySelector<HTMLElement>('.pk-stage');
+    if (!tip || !stage || !wrap?.classList.contains('flipped')) return;
+    const id = this.ids[i];
+    tip.style.setProperty('--rc', RARITY_COLOR[CARD_BY_ID[id].rarity]);
+    tip.innerHTML = tipHtml(id);
+    tip.hidden = false;
+    const r = wrap.getBoundingClientRect();
+    const s = stage.getBoundingClientRect();
+    const left = r.left + r.width / 2 - s.left - tip.offsetWidth / 2;
+    tip.style.left = `${Math.min(Math.max(left, 0), s.width - tip.offsetWidth)}px`;
+    tip.style.top = `${r.bottom - s.top + 8}px`;
+  }
+
+  private hideTip(): void {
+    if (this.tipEl) this.tipEl.hidden = true;
+  }
+
+  /** Saiu do pacote (ou ele fechou): some a dica e o próximo passar do mouse começa do zero. */
+  private leaveTip(): void {
+    this.hoverI = -1;
+    this.hideTip();
+  }
+
   // ---------- Utilidades ----------
 
   private centerOf(el: HTMLElement | null | undefined): { x: number; y: number } {
@@ -342,4 +390,12 @@ export class CardPack {
 
 function reduced(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+}
+
+/** Dica da carta: nome e raridade, o efeito (atributo e valor), as classes com bônus cheio e quando ele entra. */
+function tipHtml(id: string): string {
+  const d = CARD_BY_ID[id];
+  return `<b class="pt-name">${d.name}</b><em>${CARD_TIER_NAMES[d.tier]} · ${RARITY_LABEL[d.rarity]}</em>
+    <p class="pt-eff">${cardBaseText(id)}</p>
+    <p>${cardVocationText(id)}</p>`;
 }

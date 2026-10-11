@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "sim:check": "tsx scripts/simCheck.ts",
+    "bastion:check": "tsx scripts/bastionCheck.ts",
     "desktop:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "desktop:start": "npm run build && electron .",
     "desktop:build": "npm run build && electron-builder --win dir",

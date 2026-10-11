@@ -2,7 +2,8 @@
  * Marcação das cartas de monstro (frente e verso). A arte vem recortada (CARD_ART_WINDOW) e a moldura,
  * a faixa do nome e a raridade são desenhadas aqui, iguais em todas as cartas.
  */
-import { CARD_ART_WINDOW, CARD_BY_ID, cardArt, type CardRarity } from '../core/progression/cards';
+import { CARD_ART_WINDOW, CARD_BY_ID, CARD_TIER_NAMES, cardArt, describeCardRule, type CardRarity } from '../core/progression/cards';
+import { HERO_NAME } from '../config/heroes';
 
 export const RARITY_LABEL: Record<CardRarity, string> = { normal: 'Normal', miniboss: 'Mini-Boss', mvp: 'MVP' };
 /** Cor da borda e do brilho: o normal é dourado (sem brilho); o raro (Mini-Boss) é azul e a mítica (MVP) é vermelha. */
@@ -36,10 +37,22 @@ export function cardFaceHtml(id: string): string {
   const long = d.name.length > 14 ? ' class="long"' : '';
   return `${cardArtHtml(id)}
     ${ornament(false)}
-    <span class="cf-band"><b${long}>${d.name}</b><em>${RARITY_LABEL[d.rarity]}</em></span>`;
+    <span class="cf-band"><b${long}>${d.name}</b><em>${CARD_TIER_NAMES[d.tier]}</em></span>`;
 }
 
 /** Verso da carta: navy com a borda da raridade (já visível antes de revelar) e o logo do ROguard no centro. */
 export function cardBackHtml(): string {
   return `${ornament(true)}<img class="cf-emb" src="emblem.png" alt="" draggable="false">`;
+}
+
+/** Efeito base da carta (vale para todas as classes): nome criativo do efeito e o que ele faz. */
+export function cardBaseText(id: string): string {
+  const d = CARD_BY_ID[id];
+  return d ? `<b>${d.base.name}</b> — ${describeCardRule(d, d.base)}` : '';
+}
+
+/** Bônus de vocação da carta (só a classe indicada recebe): classe, nome do efeito e o que ele faz. */
+export function cardVocationText(id: string): string {
+  const d = CARD_BY_ID[id];
+  return d ? `Bônus de ${HERO_NAME[d.vocation.hero]}: <b>${d.vocation.rule.name}</b> — ${describeCardRule(d, d.vocation.rule)}` : '';
 }

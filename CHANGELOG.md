@@ -2,6 +2,53 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-11 — v0.11 (em andamento)
+- Início do modo O Último Bastião: uma cidade que persiste entre tentativas. Estruturas, dano, projetos e a vida do núcleo ficam salvos num arquivo próprio, sem mexer na jornada.
+- Muralhas e torres com custo: construir, reparar (custo proporcional ao dano), reconstruir (sempre mais caro que reparar), aprimorar em três níveis e remover com reembolso parcial.
+- Projetos permanentes com pré-requisitos: Castelo básico, Torres de tiro (com a Arqueira na party) e Reforços estruturais.
+- Socorro contra a derrota severa, para a cidade nunca travar sem Zen.
+- Na batalha, a horda quebra as muralhas que estão no caminho, e as torres atiram sozinhas no inimigo visível mais próximo. Estrutura destruída não bloqueia nem atira.
+- As cartas dos personagens são a única parte compartilhada com a campanha: o Bastião usa a mesma coleção, e equipar vale a partir da próxima tentativa.
+- Muralha do Bastião custa 5 Zen e o preço dobra a cada muralha que já está na cidade, até o teto de 999 Zen.
+- As seis classes estão liberadas no Bastião (party de 1 a 6 heróis).
+- O Bastião dá um pacote de cartas a cada 100 ondas vencidas.
+- Slots de carta: a campanha e o Bastião somam os slots que cada um libera, com uma curva bem mais difícil depois dos cinco primeiros (máximo 30). Vale também para a campanha.
+- Mapa de batalha do Último Bastião: ilha com costa de rochas, castelo central de pedra com quatro portões, fosso, estradas dos quatro portais, mata e lagos nas bordas. Em volta do castelo fica a área livre para construir.
+- Emperium: o minério no centro do castelo é o alvo da horda. Quem toca morre na hora e desconta a vida da cidade pela vida atual e pela força do tipo, então criatura mais viva e mais forte causa mais dano.
+- O mapa do Bastião ficou maior (61×53), com castelo de 17×17 e área de construção de 850 tiles.
+- O Emperium agora usa o modelo do dono: cristal, pé e fragmentos, com runa e raio de luz no chão.
+- O cristal do Emperium ficou simétrico, com degradê de azul para aqua, brilho translúcido e luz saindo do centro.
+- O modo ainda não aparece no menu: falta a tela de construção, a recuperação entre ondas e a entrada no menu (próximas etapas).
+- As jornadas atuais não mudam: a saída de referência da simulação continua idêntica.
+- Painel de desenvolvimento (F9): mostra chamadas de desenho, triângulos e luzes da cena, para medir antes de mexer no visual.
+- Ponte: tochas e fogueiras ficam só com o clarão, sem iluminar o chão. A cena tem 12 luzes a menos por quadro.
+- Emperium: o cristal ganha veios de energia que sobem devagar, com um pulso lento, nos presets médio e alto. No preset baixo, ele segue como antes.
+- Água do rio, do lago e das poças ganha ondulação discreta e reflexo do céu, nos presets médio e alto.
+- Escudo Sagrado: a cúpula se desfaz em pedaços, com a borda acesa, em vez de sumir de uma vez.
+- Cartas de monstro agora dão efeitos de batalha, não mais atributos: cada carta tem um efeito para todas as classes e um bônus de vocação, que só a classe indicada recebe.
+- As cartas ganham tiers, na mesma escala dos equipamentos (Comum a Mítico); o tier define a força do efeito.
+
+## 2026-10-11 — v0.10
+- Álbum de cartas refeito no layout da folha de referência do dono: lateral com o herói, cartas encontradas e barra de progresso, filtros de raridade com gemas, cartas equipadas e a fusão de 10 Normais.
+- Abas por herói com a cor de cada classe (guerreiro, mago, arqueira, assassino, feiticeira e bruxa), que também colorem o nome e a barra da lateral.
+- Grade de 18 cartas por página, com moldura pela raridade (dourada: Normal; azul: Mini-Boss; vermelha: MVP), contagem ×N e "???" nas cartas ainda não encontradas. As possuídas vêm primeiro.
+- Cada carta mostra quem a está usando (retratos dos heróis) e a marca ✓ no herói da aba.
+- Painel da carta embaixo da grade: efeito no herói, classes com bônus cheio, cópias e os botões Equipar, Desequipar e Fundir 3. Passar o mouse numa carta mostra o painel dela.
+- Busca por nome e ordenação por raridade, nome ou cópias.
+- Pacote de cartas: ao passar o mouse numa carta já revelada, aparece a dica com o efeito (atributo e valor), as classes com bônus cheio e a regra de metade fora delas.
+- Molduras, gemas e ícones de classe da folha 32 recortados em `public/ui/kit/` (cardframe_*, gem_*, cls_*); configuração do kit regenerada.
+- Atalho de desenvolvimento `window.__vg.collectionDemo()` abre o álbum com uma coleção de exemplo.
+
+## 2026-10-11 — v0.9
+- Aurenthal Kit com a arte do dono nos menus: molduras ornamentadas (janelas, painéis, barras, quadros de item, abas), botões em azul, dourado e vermelho, ícones e silhuetas de slot vazio. Vale para o mapa, a cidade, a árvore, a coleção, a seleção de personagem, a roleta, os diálogos e a Ficha do Herói.
+- Relatório da Noite refeito: quatro números no topo, party com barras, cidade com selo de estado e composição de quem chegou, itens em molduras e um botão. Sem rolagem, em 1280×720 e 1600×900.
+- Ficha do Herói (janela da batalha) cabe em 1280×720 sem cortar atributos nem status. Botões de +1 e +5 mais legíveis.
+- Painel Ato / Party e a escolha de caminho do mapa com a moldura do kit; os três botões de ação cabem na largura.
+- Molduras recortadas de novo: o anel encosta nas bordas da imagem e o halo translúcido foi removido, para o fundo do menu não vazar para fora do contorno.
+- Muralha do guerreiro: as peças do kit de muralha voltam com normais e faces na ordem certa; a luz e as faces deixam de falhar.
+- Roleta: o giro avança no máximo 120 ms por quadro, então uma pausa do navegador não encerra a animação nem entrega o prêmio antes da hora. O botão "Pegar" só libera depois do giro.
+- Peças do kit em `public/ui/kit/`; configuração gerada em `src/config/uiKit.ts`, carregada por `src/ui/kit.ts`.
+
 ## 2026-10-11 — v0.8g
 - Pacote de efeitos enviado pelo dono (Godot) portado para o jogo. Entram o círculo mágico em oito elementos (com runas, estrela e faíscas), o golpe em fatia com flash e anel de choque, auras, brilhos de buff, cruzes de cura e cristais de gelo.
 - 42 das 43 habilidades ativas e as três magias inimigas (míssil do Necromante, pisão e meteoro) ganham efeito novo: círculo no lançamento ou na área, golpe no acerto, aura nos escudos e buffs, cruzes ou cristais na cura e no gelo. A Flecha Precisa fica de fora: o evento dela é o mesmo da flecha comum. Os efeitos antigos de cada classe continuam por cima.
