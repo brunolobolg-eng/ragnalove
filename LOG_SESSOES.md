@@ -349,6 +349,48 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   4. O texto do toque ainda diz "Cidade" no Bastião.
 - **Commits:** o commit desta versão.
 
+## 2026-10-11 — Desempenho: medição, tochas da ponte e sombra (v0.11, em andamento)
+- **Pedido do dono:** medir antes de mexer (etapa 0). Aprovou três coisas: testar a área da sombra ajustada ao zoom, tirar a luz real das tochas da ponte (ficando só o clarão) e medir a horda com um gancho DEV.
+- **Diagnóstico** (a auditoria anterior foi corrigida pela medição):
+  - O Bastião pesa cerca de 1,2 milhão de triângulos por quadro, não 614 mil como a auditoria estimou (a estimativa não contava a passagem de sombra). A vegetação instanciada (cerca de 10 mil instâncias) é a maior parte. O Three.js recorta um `InstancedMesh` como um bloco só, então ele é desenhado inteiro o tempo todo.
+  - A ponte tinha 16 luzes pontuais na cena: 12 do cenário e 4 do pool de efeitos.
+  - A área de sombra de 17 tiles já é quase o que a câmera exige no zoom padrão. Encolher só ajuda no zoom mais próximo, e pouco.
+- **Decisões:**
+  - **D29 — Medição no próprio jogo:** o painel F9 mostra chamadas de desenho, triângulos e luzes da cena. `__vg.abrirZona(id)` abre qualquer zona no console (só DEV).
+  - **D30 — Horda medida como no jogo:** os inimigos nascem em tiles que a câmera vê, e os eventos de nascimento passam por `view.handle(sim.flushEvents())`. Sem isso a visualização não cria o corpo, porque o `step()` zera os eventos que saem do tick. Todas as cenas ficam na mesma fase (planejamento), com os inimigos parados, para a contagem ser exata.
+  - **D31 — Tochas da ponte sem luz pontual (aprovado pelo dono):** saem as 12 luzes do cenário da ponte (8 braseiros, 2 fogueiras de acampamento e 2 tochas do portão). Ficam o sprite de chama e o brilho do bloom. O preset baixo já não tinha luz de cenário; o médio e o alto perdem as 12.
+  - **D32 — Área da sombra por zoom: não implementado.** Conta feita a partir da geometria da câmera (fora do repositório): no zoom mais próximo a área necessária é de 15,9 tiles, contra 17 de hoje (cerca de 7%). No zoom padrão a câmera precisa de 23,5 tiles, então a borda de cima da tela já fica sem sombra, escondida pela névoa. Mudança que não se vê. A alavanca real para sombra mais nítida é o mapa de sombra 4096 no preset alto, com mais memória e custo na passagem de sombra. Testar no PC, se o dono quiser.
+- **Medições** (headless, SwiftShader; as contagens valem em qualquer placa; FPS não medido). Valores antes → depois da troca de luzes:
+
+| Cena | Vivos na tela | Luzes pontuais | Chamadas | Triângulos |
+|---|---|---|---|---|
+| Ponte, alto, sem horda | 0 | 16 → 4 | 281 | 126 mil |
+| Ponte, alto, 35 | 35 | 16 → 4 | 351 | 227 mil |
+| Ponte, alto, 120 | 120 | 16 → 4 | 521 | 473 mil |
+| Ponte, médio, 120 | 120 | 14 → 2 | 521 | 473 mil |
+| Ponte, baixo, 120 | 120 | 0 → 0 | 382 | 407 mil |
+| Bastião, alto, sem horda | 0 | 4 → 4 | 257 | 1.206 mil |
+| Bastião, alto, 35 | 35 | 4 → 4 | 467 | 1.409 mil |
+| Bastião, alto, 120 | 120 | 4 → 4 | 977 | 1.903 mil |
+
+  - Custo por inimigo na tela (medido, igual com 35 e com 120): na ponte, +2 chamadas e +2,9 mil triângulos; no Bastião, +6 chamadas e +5,8 mil triângulos (o modelo do inimigo muda com o ato da zona).
+  - A troca de luzes não muda chamadas nem triângulos. Reduz o custo de iluminar cada pixel.
+- **Entregue:** `src/debug/DebugPanel.ts`, `src/main.ts` (só DEV), `src/render/Stage.ts` (contagem da cena) e `src/render/scenery/BridgeScenery.ts`. Commits `163ab9b` (medição) e `1836611` (tochas), mais o commit deste registro.
+- **Testes:**
+  - `npm run build` e `npm run sim:check`: passam (o sim:check é determinístico).
+  - Navegador (DEV, 1280×720): sem erro de console nas 16 cenas medidas (8 antes, 8 depois). Captura da ponte à noite com 35 inimigos conferida.
+- **Pendências:**
+  1. FPS no PC: `npm run dev`, F9 (chamadas, triângulos e luzes) e o benchmark do F9 nos três presets. Sem isso o número de quadros ainda é palpite.
+  2. Vegetação instanciada do Bastião (1,2 milhão de triângulos): dividir em blocos para o recorte funcionar. Depende de decisão de densidade do dono.
+  3. Sombra 4096 no preset alto: testar no PC (custo de memória).
+  4. Outras luzes pontuais de cenário ainda reais: portão de cidade (`CityGate`), mapas pintados (`PaintedScenery`) e objetos com braseiro (`ObjectView`). Mesmo caso das tochas. Aguardam decisão.
+  5. Pendências antigas: cores e brilho do cristal, texto "Cidade" no toque do Bastião, balanceamento do dano de contato.
+- **Lições:**
+  - Eventos de nascimento fora do tick somem sem `flushEvents()`. Medir horda assim mostra corpos que não existem.
+  - Unidade fora da tela não entra na contagem: a câmera precisa estar apontada para a horda.
+  - Mesma fase em todas as cenas, senão a diferença mistura planejamento com batalha.
+  - Não encerrar processo por padrão de texto no mesmo shell: isso derrubou o shell duas vezes.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

@@ -20,6 +20,8 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - O cristal do Emperium ficou simétrico, com degradê de azul para aqua, brilho translúcido e luz saindo do centro.
 - O modo ainda não aparece no menu: falta a tela de construção, a recuperação entre ondas e a entrada no menu (próximas etapas).
 - As jornadas atuais não mudam: a saída de referência da simulação continua idêntica.
+- Painel de desenvolvimento (F9): mostra chamadas de desenho, triângulos e luzes da cena, para medir antes de mexer no visual.
+- Ponte: tochas e fogueiras ficam só com o clarão, sem iluminar o chão. A cena tem 12 luzes a menos por quadro.
 
 ## 2026-10-11 — v0.10
 - Álbum de cartas refeito no layout da folha de referência do dono: lateral com o herói, cartas encontradas e barra de progresso, filtros de raridade com gemas, cartas equipadas e a fusão de 10 Normais.
