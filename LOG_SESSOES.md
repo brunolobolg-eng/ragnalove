@@ -6,6 +6,7 @@ O histórico técnico de cada versão está no `CHANGELOG.md`; o estado atual do
 Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisões, pendências e commits.
 
 ## Pendências em aberto (resumo)
+- **Álbum de cartas e dica da revelação (v0.10):** Feiticeira e Bruxa não têm ícone de classe na folha 32 (usam o retrato); cartas não têm nível no jogo (o "Nv." da imagem virou ×N); conferir no PC do dono o álbum com cartas reais e a dica do pacote.
 - **Kit de interface nos menus (v0.9):** conferir visualmente no PC do dono o pacote de cartas e as configurações (não conferidos nesta rodada); a moldura do mítico é dourada porque a arte do vermelho está no miolo (decisão de arte); silhuetas de amuleto e anel saíram irregulares, e brinco e cinto não têm silhueta própria; a muralha do guerreiro não tem textura no arquivo do kit (decisão: textura própria ou a do cenário). Ranking do menu é arte da tela inicial, não foi trocado (v0.9).
 - **Pacote de efeitos nas magias (v0.8g):** passivas e estados sem evento ficam sem efeito novo; desempenho precisa ser medido na GPU do dono; o 7z original espera permissão para ir à branch `fontes` (v0.8g).
 - **Gelo e lava (folha 24):** texturas de 70 a 124 px. Para o chão ficar nítido de perto, pedir a folha em 512 px ou mais. Paredes, portões e torres dos três mapas ainda são as peças antigas (v0.8f).
@@ -174,6 +175,21 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 - **Testes:** `npm run build` passou; `npm run sim:check` deu `determinístico: true`. No navegador (dev, 1600×900), menu, seleção, mapa, coleção, cidade, árvore e roleta abriram sem erro de console. A captura do pacote de cartas ficou com a roleta da demonstração por cima; não conferido.
 - **Commits:** f8fbae2, bfc8a4c, 04a41a5, 4d10d43, ee86a8a, dad5296, 06ba7e7 e o commit final desta versão.
 - **Pendências:** conferir configurações e pacote de cartas; silhuetas de amuleto e anel; brinco e cinto sem silhueta; mítico com moldura dourada; textura da muralha (decisão do dono); painel "Sob pressão" do Relatório ainda sem a moldura do kit. Quando a agente de restyle foi parada, o trabalho dela ficou nos commits WIP e foi concluído por mim.
+
+## 2026-10-11 — álbum de cartas no layout da folha 32 e dica da carta revelada (v0.10)
+- **Pedido do dono:** o álbum como na imagem 33, usando a folha de assets 32 (classes, raridades, molduras, botões). Destacar cada classe, a raridade das cartas e em quem está equipado. Na revelação do pacote, passar o mouse numa carta deve mostrar o que ela faz.
+- **Decisões:**
+  - Raridade pela moldura e pela gema, nas cores que o jogo já usa (dourada: Normal; azul: Mini-Boss; vermelha: MVP). Os nomes do jogo ficam; a folha traz outros nomes (Comum, Rara, Lendária), mas o jogo tem só três raridades.
+  - Cartas não têm nível no jogo: o "Nv. 1" da imagem virou ×N (cópias). Nível de carta seria mecânica nova e não foi criado.
+  - Seis heróis, não oito classes: a imagem mostra Clérigo, Monje, Mecânico e Professor, que não existem no jogo. Feiticeira e Bruxa não têm ícone na folha 32: usam o retrato do herói na aba e no cabeçalho.
+  - "Em quem está equipado": cada carta mostra os retratos dos heróis que a usam, e tem a marca ✓ quando está equipada no herói da aba.
+  - A coleção continua por herói. Cartas possuídas vêm primeiro; 18 por página (6×3), para caber em 1280×720 sem rolagem.
+  - Dica da revelação: nome, raridade, efeito (atributo e valor), classes com bônus cheio e "fora delas, metade". Fica embaixo da carta sob o mouse e não bloqueia o clique.
+  - Regras, valores e formato do save não mudaram (equipar, fundir, slots).
+- **Recorte da folha 32:** `scratchpad/ui_kit/cortar_folha32.py` com o manifesto `manifest_C.json`. Molduras com miolo transparente (a arte aparece por dentro); gemas em losango (silhueta, cor pelo CSS); ícones de classe em círculo.
+- **Testes:** `npm run build` e `npm run sim:check` (determinístico: true). No navegador (dev, 1600×900 e 1280×720): álbum sem rolagem, troca de classe, busca, filtro, paginação, equipar, desequipar e fundir 10 sem erro de console; dica da carta revelada aparece dentro da tela. Um defeito achado no teste (fundo branco ao passar o mouse sobre a carta, por uma regra global de botão) foi corrigido.
+- **Commits:** o commit desta versão.
+- **Pendências:** pedir ao dono os ícones de Feiticeira e Bruxa para a folha de classes; conferir no PC do dono o álbum com cartas reais e a dica do pacote; a faixa de citação da lateral (imagem 33) não entrou. Seguem as pendências de v0.9 (configurações, janela de batalha e silhuetas de amuleto, anel, brinco e cinto).
 
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.

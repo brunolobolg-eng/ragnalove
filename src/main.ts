@@ -40,7 +40,7 @@ import { CHARSELECT_ART, MUSIC, POSTFX, VICTORY_TITLES, VISUAL_CONFIG } from './
 import type { PostFxSituation } from './render/fx/kit/PostFX';
 import type { WaveReport } from './core/sim/types';
 import { RUNIC_SKILLS, SKILL_BY_ID, SKILL_NUM, SKILLS, lvOf, type HeroKind, type SkillId } from './core/progression/skills';
-import { addCards, applyCardLoadout, emptyCollection, migrateCollection, rollPack, type CardCollection } from './core/progression/cards';
+import { CARD_CATALOG, addCards, applyCardLoadout, emptyCollection, migrateCollection, rollPack, type CardCollection } from './core/progression/cards';
 import { CardPack } from './ui/CardPack';
 import { Collection } from './ui/Collection';
 import { orderMove } from './core/sim/CombatMovement';
@@ -2253,6 +2253,15 @@ if (import.meta.env.DEV) {
     // prévias de tela (só dev): roleta de prêmio com um item lendário e o pacote de cartas (ids opcionais)
     rouletteDemo: () => { void roulette.spin('Recompensa da primeira vitória', 'Demonstração da roleta', rollItem(debugRng, 0, `demo-roleta-${debugRng.int(1e9)}`, { rarity: 'legendary', slot: 'weapon' }), () => 'weapon'); },
     cardPackDemo: (ids?: string[]) => cardPack.show(ids ?? rollPack(), () => {}),
+    collectionDemo: () => {
+      const c = emptyCollection();
+      CARD_CATALOG.forEach((d, i) => {
+        if (i % 4 !== 3) c.owned[d.id] = 1 + (i % 5 === 0 ? 2 : 0);
+      });
+      c.equipped.warrior = CARD_CATALOG.filter((d) => d.affinity.includes('warrior')).slice(0, 3).map((d) => d.id);
+      c.equipped.mage = [CARD_CATALOG[0].id];
+      collection.open(c, 6, 'warrior');
+    },
   }; // inspeção no console (dev)
   void import('./debug/DebugPanel').then(({ installDebug }) => installDebug(hudRoot, devApi(), (h, t, fn) => panels.addButton(h, t, fn)));}
 

@@ -2,6 +2,17 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-11 — v0.10
+- Álbum de cartas refeito no layout da folha de referência do dono: lateral com o herói, cartas encontradas e barra de progresso, filtros de raridade com gemas, cartas equipadas e a fusão de 10 Normais.
+- Abas por herói com a cor de cada classe (guerreiro, mago, arqueira, assassino, feiticeira e bruxa), que também colorem o nome e a barra da lateral.
+- Grade de 18 cartas por página, com moldura pela raridade (dourada: Normal; azul: Mini-Boss; vermelha: MVP), contagem ×N e "???" nas cartas ainda não encontradas. As possuídas vêm primeiro.
+- Cada carta mostra quem a está usando (retratos dos heróis) e a marca ✓ no herói da aba.
+- Painel da carta embaixo da grade: efeito no herói, classes com bônus cheio, cópias e os botões Equipar, Desequipar e Fundir 3. Passar o mouse numa carta mostra o painel dela.
+- Busca por nome e ordenação por raridade, nome ou cópias.
+- Pacote de cartas: ao passar o mouse numa carta já revelada, aparece a dica com o efeito (atributo e valor), as classes com bônus cheio e a regra de metade fora delas.
+- Molduras, gemas e ícones de classe da folha 32 recortados em `public/ui/kit/` (cardframe_*, gem_*, cls_*); configuração do kit regenerada.
+- Atalho de desenvolvimento `window.__vg.collectionDemo()` abre o álbum com uma coleção de exemplo.
+
 ## 2026-10-11 — v0.9
 - Aurenthal Kit com a arte do dono nos menus: molduras ornamentadas (janelas, painéis, barras, quadros de item, abas), botões em azul, dourado e vermelho, ícones e silhuetas de slot vazio. Vale para o mapa, a cidade, a árvore, a coleção, a seleção de personagem, a roleta, os diálogos e a Ficha do Herói.
 - Relatório da Noite refeito: quatro números no topo, party com barras, cidade com selo de estado e composição de quem chegou, itens em molduras e um botão. Sem rolagem, em 1280×720 e 1600×900.

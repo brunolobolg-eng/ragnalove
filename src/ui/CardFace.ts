@@ -3,6 +3,8 @@
  * a faixa do nome e a raridade são desenhadas aqui, iguais em todas as cartas.
  */
 import { CARD_ART_WINDOW, CARD_BY_ID, cardArt, type CardRarity } from '../core/progression/cards';
+import { ATTR_LABEL } from '../core/progression/attributes';
+import { HERO_NAME, HERO_ORDER } from '../config/heroes';
 
 export const RARITY_LABEL: Record<CardRarity, string> = { normal: 'Normal', miniboss: 'Mini-Boss', mvp: 'MVP' };
 /** Cor da borda e do brilho: o normal é dourado (sem brilho); o raro (Mini-Boss) é azul e a mítica (MVP) é vermelha. */
@@ -42,4 +44,18 @@ export function cardFaceHtml(id: string): string {
 /** Verso da carta: navy com a borda da raridade (já visível antes de revelar) e o logo do ROguard no centro. */
 export function cardBackHtml(): string {
   return `${ornament(true)}<img class="cf-emb" src="emblem.png" alt="" draggable="false">`;
+}
+
+/** Efeito da carta em texto: atributo e valor (e o secundário, nas MVPs). Valor cheio = com afinidade. */
+export function cardBonusText(id: string): string {
+  const d = CARD_BY_ID[id];
+  if (!d) return '';
+  return [`${ATTR_LABEL[d.attr]} +${d.value}`, d.second ? `${ATTR_LABEL[d.second.attr]} +${d.second.value}` : ''].filter(Boolean).join(' · ');
+}
+
+/** Classes em que o bônus sai cheio (fora delas, metade). */
+export function cardAffinityText(id: string): string {
+  const d = CARD_BY_ID[id];
+  if (!d) return '';
+  return d.affinity.length >= HERO_ORDER.length ? 'Bônus cheio em todas as classes.' : `Bônus cheio em: <b>${d.affinity.map((h) => HERO_NAME[h]).join(', ')}</b>. Fora delas, metade.`;
 }
