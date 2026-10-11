@@ -57,6 +57,11 @@ export interface SimOptions {
   usedObjects?: number[];
   /** Estruturas persistentes da cidade (Bastião) que entram nesta onda, com a vida que têm agora. */
   fortifications?: Fortification[];
+  /**
+   * Dano que um invasor causa ao tocar a cidade, calculado a partir dele (o Emperium do Bastião: vida atual × força).
+   * Sem ele, vale a ameaça por tipo da campanha (`GAME_CONFIG.cityDefense.threat`).
+   */
+  contactDamage?: (u: Unit) => number;
 }
 
 /** Estrutura da cidade levada para a onda: vida atual e, se for torre, o tiro. */
@@ -154,6 +159,8 @@ export class Simulation {
   /** Dano descontado da cidade nesta onda e quem invadiu. */
   cityDamage = 0;
   reachedCity = 0;
+  /** Dano de contato do invasor (opção contactDamage); sem ela, vale a ameaça por tipo. */
+  private readonly cityDamageOf?: (u: Unit) => number;
   readonly reachedByKind: Record<string, number> = {};
   /** A vida da cidade chegou a zero nesta onda. */
   cityFallen = false;
@@ -217,6 +224,7 @@ export class Simulation {
     });
     this.cityGoals = this.board.cityTiles();
     this.cityMaxHp = opts.cityMaxHp ?? GAME_CONFIG.cityDefense.maxHp;
+    this.cityDamageOf = opts.contactDamage;
     this.cityHp = Math.min(this.cityMaxHp, opts.cityHp ?? this.cityMaxHp);
     this.occ = new Int32Array(bc.width * bc.height);
     this.flow = new FlowField(this.board);
@@ -1824,11 +1832,11 @@ export class Simulation {
     if (this.board.isCity(u.x, u.y)) this.enterCity(u);
   }
 
-  /** Inimigo alcançou o portão: invade a cidade (sai do campo, sem recompensa) e desconta a ameaça. */
+  /** Inimigo alcançou a cidade: invade (sai do campo, sem recompensa) e desconta a ameaça, ou o dano de contato da onda. */
   private enterCity(u: Unit): void {
     const C = GAME_CONFIG.cityDefense;
     const mult = GAME_CONFIG.wave.endless ? C.survivalThreatMult : GAME_CONFIG.wave.threatMult;
-    const dmg = Math.round((C.threat[u.kind] ?? C.defaultThreat) * mult);
+    const dmg = this.cityDamageOf ? Math.max(0, Math.round(this.cityDamageOf(u))) : Math.round((C.threat[u.kind] ?? C.defaultThreat) * mult);
     this.cityHp = Math.max(0, this.cityHp - dmg);
     this.cityDamage += dmg;
     this.reachedCity++;

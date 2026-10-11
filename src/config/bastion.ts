@@ -107,4 +107,10 @@ export const BASTION = {
    * No máximo uma vez a cada `everyAttempts` tentativas — garante que a derrota severa não trava o modo.
    */
   rescue: { zeni: 150, everyAttempts: 2, coreMinFraction: 0.1 },
+  /**
+   * Emperium (o minério no centro do castelo): quem toca o tile morre na hora e desconta vida atual × força do tipo
+   * ÷ contactDivisor. Com 30 (a vida de um comum), um comum cheio causa 3, como na campanha; um pesado
+   * (85 de vida, força 8) causa 23. Vida da cidade: GAME_CONFIG.cityDefense.maxHp.
+   */
+  emperium: { contactDivisor: 30 },
 };

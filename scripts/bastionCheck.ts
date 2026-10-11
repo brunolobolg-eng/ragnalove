@@ -2,7 +2,8 @@
  * Checagem headless do Último Bastião (sem renderização). Rode: npm run bastion:check
  * 1) Dados · 2) Estado e migração · 3) Colocação · 4) Custos, reparo e reembolso · 5) Projetos ·
  * 6) Ondas (idempotência, derrota e socorro) · 7) Simulação (muralhas quebráveis, torres, destruídas) ·
- * 8) Cartas compartilhadas · 9) Preço, teto, classes, pacotes e slots · 10) Mapa do Último Bastião (bastionKeep).
+ * 8) Cartas compartilhadas · 9) Preço, teto, classes, pacotes e slots · 10) Mapa do Último Bastião (bastionKeep) ·
+ * 11) Emperium: dano de contato (vida × força ÷ 30) e a campanha segue pela ameaça por tipo.
  */
 import { BASTION, BASTION_ZONE_ID, PROJECTS, PROJECT_IDS, STRUCTURES } from '../src/config/bastion';
 import { CARD_SLOT_WINS, addCards, cardBonusFor, cardSlots, cardSlotsPool, emptyCollection, equipCard, type CardCollection } from '../src/core/progression/cards';
@@ -34,6 +35,8 @@ import {
   type Result,
 } from '../src/core/bastion/rules';
 import { bastionBuildEnv, routeOpen, staticBoard } from '../src/core/bastion/route';
+import { emperiumDamage } from '../src/core/bastion/emperium';
+import type { Unit } from '../src/core/sim/types';
 import { Board } from '../src/core/grid/Board';
 import { chebyshev, type Vec2 } from '../src/core/grid/types';
 import { Simulation, type Fortification } from '../src/core/sim/Simulation';
@@ -365,17 +368,20 @@ console.log('\n# 10) Mapa do Último Bastião (zona bastionKeep)');
 const zonaB = ZONES[BASTION_ZONE_ID];
 check('a zona do Bastião existe e tem a camada de construção', zonaB !== undefined && zonaB.lots !== undefined);
 const pB = parseZone(zonaB);
-check('o mapa tem 45×39 e a camada de construção tem o mesmo tamanho', pB.width === 45 && pB.height === 39 && zonaB.lots!.length === 39 && zonaB.lots!.every((r) => r.length === 45));
+check('o mapa tem 61×53 e a camada de construção tem o mesmo tamanho', pB.width === 61 && pB.height === 53 && zonaB.lots!.length === 53 && zonaB.lots!.every((r) => r.length === 61));
 const boardB = staticBoard(zonaB);
 const partyB: Vec2[] = zonaB.defaultSetup.members.map((m) => ({ x: m.x, y: m.y }));
 const envB = bastionBuildEnv(zonaB, partyB, GAME_CONFIG.wave.spawnSafeRadius);
-check('todo portal alcança o portão sozinho', zonaB.spawnPoints.every((s) => routeOpen(boardB, [s])));
+check('todo portal alcança o Emperium sozinho', zonaB.spawnPoints.every((s) => routeOpen(boardB, [s])));
 const tatica = pB.lots.filter((l) => l.lot === 'b').length;
-check(`área tática para construir: ${tatica} tiles (mínimo 400)`, tatica >= 400);
+check(`área tática para construir: ${tatica} tiles (mínimo 800)`, tatica >= 800);
 check('todo tile de construção é andável (sem parede, água nem portão)', pB.lots.every((l) => boardB.isWalkable(l.x, l.y)));
 check('quatro lotes especiais (1 a 4) de 9 tiles cada', ['1', '2', '3', '4'].every((d) => pB.lots.filter((l) => l.lot === d).length === 9));
 check('a party começa em chão construível', partyB.every((p) => envB.buildable(p.x, p.y) && boardB.isWalkable(p.x, p.y)));
-check('estrada e fosso ficam fora da área de construção', !envB.buildable(22, 8) && !envB.buildable(14, 14));
+check('estrada e fosso ficam fora da área de construção', !envB.buildable(30, 8) && !envB.buildable(25, 15));
+const emperio: Vec2[] = [];
+zonaB.map.forEach((linha, y) => [...linha].forEach((ch, x) => { if (ch === 'E') emperio.push({ x, y }); }));
+check('o Emperium tem 9 tiles de alvo e nenhum é construível', emperio.length === 9 && emperio.every((t) => !envB.buildable(t.x, t.y)));
 check('zonas da campanha não têm camada de construção', parseZone(ZONES.bridge).lots.length === 0);
 let erroTamanho = false;
 try { parseZone({ ...zonaB, lots: zonaB.lots!.slice(1) }); } catch { erroTamanho = true; }
@@ -386,10 +392,10 @@ check('caractere desconhecido na camada é recusado', erroLetra);
 
 const bm = newBastion(11, emptyCollection());
 bm.profile.zeni = 500;
-check('muralha no lote tático do castelo: aceita', placeStructure(bm, envB, 'wall', { x: 21, y: 17 }).ok === true);
-check('muralha no lote especial 1: aceita', placeStructure(bm, envB, 'wall', { x: 18, y: 15 }).ok === true);
-check('muralha na estrada: recusada (fora da área)', errOf(placeStructure(bm, envB, 'wall', { x: 22, y: 8 })) === 'outside');
-check('muralha no fosso: recusada (fora da área)', errOf(placeStructure(bm, envB, 'wall', { x: 14, y: 14 })) === 'outside');
+check('muralha no lote tático do castelo: aceita', placeStructure(bm, envB, 'wall', { x: 26, y: 22 }).ok === true);
+check('muralha no lote especial 1: aceita', placeStructure(bm, envB, 'wall', { x: 24, y: 20 }).ok === true);
+check('muralha na estrada: recusada (fora da área)', errOf(placeStructure(bm, envB, 'wall', { x: 30, y: 8 })) === 'outside');
+check('muralha no fosso: recusada (fora da área)', errOf(placeStructure(bm, envB, 'wall', { x: 25, y: 15 })) === 'outside');
 
 // Teste de fumaça: a horda nasce nos portais, anda pelas estradas e chega ao portão ou morre (o mapa não trava).
 applyZone(zonaB, { count: 40, boss: null, seed: 4242 });
@@ -408,6 +414,43 @@ for (let i = 0; i < 2400 && simB.phase === 'running'; i++) {
 const chegadas = Object.values(simB.reachedByKind).reduce((soma, n) => soma + n, 0);
 check('a horda nasce nos portais e anda pelas estradas', nasceram > 0 && andaram > 0, `${nasceram} nascimentos · ${andaram} passos`);
 check('a horda interage com a defesa (mortes ou chegadas ao portão)', mortes + chegadas > 0, `${mortes} mortes · ${chegadas} chegadas`);
+
+console.log('\n# 11) Emperium: dano de contato (vida atual × força ÷ 30) e campanha sem mudança');
+check('comum cheio (30 de vida, força 3) causa 3, como na campanha', emperiumDamage('grunt', 30) === 3);
+check('comum ferido (15 de vida) causa 2 (arredonda)', emperiumDamage('grunt', 15) === 2);
+check('pesado (85 de vida, força 8) causa 23', emperiumDamage('brute', 85) === 23);
+check('raydric (110 de vida, força 9) causa 33', emperiumDamage('raydric', 110) === 33);
+check('mais vida, mais dano: o mesmo tipo com 60 de vida causa mais que com 30', emperiumDamage('grunt', 60) > emperiumDamage('grunt', 30));
+check('mais força, mais dano: com a mesma vida, um pesado causa mais que um comum', emperiumDamage('brute', 30) > emperiumDamage('grunt', 30));
+check('criatura quase morta ainda causa 1 (mínimo)', emperiumDamage('runner', 1) === 1);
+check('tipo fora da tabela usa a ameaça padrão (3)', emperiumDamage('desconhecido', 30) === 3);
+
+type Invasao = { unitId: number; damage: number };
+function rodarCidade(sim: Simulation): { vistos: Map<number, Unit>; invasoes: Invasao[]; r: ReturnType<Simulation['report']> } {
+  const vistos = new Map<number, Unit>();
+  const invasoes: Invasao[] = [];
+  sim.start();
+  while (sim.phase === 'running' && sim.tick < 8000) {
+    for (const u of sim.units.values()) if (u.team !== 'party') vistos.set(u.id, u);
+    for (const e of sim.step()) if (e.type === 'cityHit' && e.unitId >= 0) invasoes.push({ unitId: e.unitId, damage: e.damage });
+  }
+  return { vistos, invasoes, r: sim.report(1) };
+}
+applyZone(zonaB, { count: 40, boss: null, seed: 4242 });
+const cidadeB = rodarCidade(new Simulation(zonaB.defaultSetup, 4242, {}, { contactDamage: (u) => emperiumDamage(u.kind, u.hp) }));
+const confereB = cidadeB.invasoes.every((e) => {
+  const u = cidadeB.vistos.get(e.unitId);
+  return u !== undefined && !u.alive && e.damage === emperiumDamage(u.kind, u.hp);
+});
+check('Emperium: cada invasor morre ao tocar e desconta vida × força ÷ 30', cidadeB.invasoes.length > 0 && confereB, `${cidadeB.invasoes.length} toques`);
+check('Emperium: a vida da cidade cai exatamente pelo dano de contato', cidadeB.r.cityHpRemaining === Math.max(0, GAME_CONFIG.cityDefense.maxHp - cidadeB.r.cityDamageTaken));
+applyZone(ZONES.bridge);
+const cidadeP = rodarCidade(new Simulation(DEFAULT_SETUP));
+const confereP = cidadeP.invasoes.every((e) => {
+  const u = cidadeP.vistos.get(e.unitId);
+  return u !== undefined && e.damage === (GAME_CONFIG.cityDefense.threat[u.kind] ?? GAME_CONFIG.cityDefense.defaultThreat);
+});
+check('campanha: o invasor segue descontando a ameaça por tipo (sem a regra do Emperium)', cidadeP.invasoes.length > 0 && confereP, `${cidadeP.invasoes.length} invasões`);
 
 console.log(failures ? `\n${failures} checagem(ns) falharam.` : '\nTodas as checagens do Último Bastião passaram.');
 if (failures) throw new Error(`bastionCheck: ${failures} falha(s)`);

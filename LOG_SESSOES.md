@@ -269,6 +269,36 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   5. Pendências 10 a 12 da entrada anterior seguem (curva de slots na campanha, aprimoramento e teto de reparo).
 - **Commits:** o commit desta versão.
 
+## 2026-10-11 — O Último Bastião: Emperium no centro do castelo (v0.11, em andamento)
+- **Pedido do dono:** um minério valioso no centro do castelo, onde as criaturas vão "bater". Quem encostar morre na hora e desconta a vida da cidade; criatura com mais vida e mais forte (ou mais rara) desconta mais. Visual como a arte 36 (cristal azul, base de pedra com runas, raio de luz), com pouca estrutura e o minério em destaque, girando no mesmo lugar. Pediu também alargar a área de fora e a do castelo, que achou pequenas.
+- **Decisões:**
+  - **D14 — Alvo da horda:** o Emperium ocupa 3×3 tiles no centro do castelo (`E` no mapa). Esses tiles são tiles da cidade, como o portão antigo. Quem pisa neles invade: some na hora, sem recompensa e sem abate. Os portões agora são só aberturas no muro.
+  - **D15 — Dano de contato:** dano = vida atual × força do tipo ÷ 30 (mínimo 1). A força é a tabela de ameaça da cidade (`GAME_CONFIG.cityDefense.threat`), e a vida atual conta: criatura ferida faz menos. Com 30 de divisor, um comum cheio causa 3, como na campanha. Exemplos: pesado (85 de vida, força 8) 23; Raydric 33; mini-chefe 120; chefe 352. Proposta para balancear com o dono. A vida do Emperium é a da cidade (1000).
+  - **D16 — Campanha intacta:** a regra entra na simulação só pela opção `contactDamage`. Sem ela, a campanha segue com a ameaça por tipo (as 13 zonas dão o mesmo resultado de antes).
+  - **D17 — Mapa maior:** grade 61×53 (era 45×39), castelo 17×17 (era 13), área de construção de 9 tiles (era 7). Tiles construíveis: 850 (eram 436). Portões em 3 tiles no meio de cada lado.
+  - **D18 — Visual:** o cristal é geometria provisória (o dono não mandou modelo). Base de pedra com runas, runa no chão e raio de luz são recortes da arte do dono, sem rótulos, em `public/textures/bastiao/` (JPG, fundo escuro, modo aditivo). Os fragmentos orbitam e o cristal gira no lugar. O conjunto é 45% maior que o modelo base.
+- **Entregue:**
+  - `src/core/sim/Simulation.ts`: opção `contactDamage` (dano de contato por invasor). `enterCity` usa a função quando ela existe.
+  - `src/core/bastion/emperium.ts`: `emperiumDamage(tipo, vida)`.
+  - `src/config/bastion.ts`: `BASTION.emperium.contactDivisor = 30`.
+  - `src/config/zones.ts`: `E` vira tile da cidade; zona `bastionKeep` 61×53, spawns novos, party padrão em (27,21) e (33,21), dentro do castelo, perto do portão norte (com ela, 25 abatidos; nas laterais de fora, 7 abatidos e 53 toques).
+  - `src/render/scenery/CityGate.ts`: `buildEmperium` (pedestal, cristal, fragmentos, runa, raio) animado no `update` do cenário.
+  - `scripts/bastionCheck.ts`: seção 10 com as medidas novas e seção 11 com 11 checagens (fórmula do dano, toque que mata e desconta, vida da cidade pelo total, campanha pela ameaça por tipo).
+- **Testes:**
+  - `npm run build` e `npx tsc`: passam.
+  - `npm run bastion:check`: todas passam.
+  - `npx tsx scripts/zoneReachCheck.ts`: todas as zonas navegáveis.
+  - `npm run sim:check`: linhas da campanha idênticas; só a linha do `bastionKeep` mudou (mapa novo). Determinístico: true.
+  - Navegador (DEV, 1280×720): sem erro de console nem de página. Montagem do mapa de 240 a 290 ms. Capturas conferidas: visão ampla e Emperium de perto.
+- **Pendências:**
+  1. Balancear o dano de contato com o dono (D15). Hoje, um chefe causa 352 e um líder orc, 1013.
+  2. Ligar a regra na batalha do Bastião quando ela existir: `contactDamage: (u) => emperiumDamage(u.kind, u.hp)`. Hoje só os testes usam.
+  3. O texto flutuante ainda diz "Cidade" no toque. No Bastião deve dizer "Emperium".
+  4. Modelo do cristal: se o dono tiver o GLB, trocar a geometria provisória.
+  5. FPS não foi medido no PC do dono (só no navegador de teste, com renderização por software).
+  6. Lotes 1 a 4 seguem sem serviço (etapa 5). Mata, penhascos internos e pontes ainda pendentes (como antes).
+- **Commits:** o commit desta versão.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.
