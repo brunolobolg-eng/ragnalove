@@ -461,6 +461,7 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   3. Dono: opacidade do cristal, para proteger a leitura dos inimigos.
   4. FPS no PC com o F9 nos três presets.
   5. Sombra 4096 no preset alto (teste no PC) e luzes pontuais de cenário que ainda são reais (portão, paliçada e `ObjectView`).
+  6. Fase 4B, magias, ainda incompleta: só a dissolução do escudo entrou. Faltam as ondas nos shaders existentes (`magicVfx`, `FireBarrierFX`, `Particles`). Fica para depois da decisão sobre a cúpula (item 1), porque ela muda a leitura de qualquer efeito de magia.
 - **Lições:**
   - Captura que espera quadros pelo tempo não é exata. Para comparar antes e depois, avançar por passos (`__vgBudget`) e conferir uma região de controle que não pode mudar (tem que dar 0,00).
   - Antes de comparar um efeito, confirmar que ele apareceu na cena. A cúpula não existia nas capturas, e a diferença que se via era de outra coisa.
