@@ -10,7 +10,7 @@ import {
   CARD_CATALOG,
   NORMALS,
   cardBonusFor,
-  cardSlots,
+  cardSlotsPool,
   equipCard,
   freeCopies,
   fuseBulk,
@@ -70,6 +70,7 @@ export class Collection {
   readonly el: HTMLElement;
   private cards: CardCollection = { owned: {}, equipped: {} };
   private runsWon = 0;
+  private bastionNights = 0;
   private hero: HeroKind = 'warrior';
   private msg = '';
   private filter: Filtro = 'all';
@@ -96,9 +97,10 @@ export class Collection {
     this.el.addEventListener('mouseout', (e) => this.onLeaveGrid(e));
   }
 
-  open(cards: CardCollection, runsWon: number, hero?: HeroKind): void {
+  open(cards: CardCollection, runsWon: number, hero?: HeroKind, bastionNights = 0): void {
     this.cards = cards;
     this.runsWon = runsWon;
+    this.bastionNights = bastionNights;
     if (hero) this.hero = hero;
     this.msg = '';
     this.hover = undefined;
@@ -132,7 +134,7 @@ export class Collection {
     } else if (c === 'pick' && b.dataset.id) {
       this.sel = b.dataset.id;
     } else if (c === 'equip' && b.dataset.id) {
-      this.msg = equipCard(this.cards, this.hero, b.dataset.id, cardSlots(this.runsWon)) ?? `${CARD_BY_ID[b.dataset.id]?.name} equipada!`;
+      this.msg = equipCard(this.cards, this.hero, b.dataset.id, cardSlotsPool(this.runsWon, this.bastionNights)) ?? `${CARD_BY_ID[b.dataset.id]?.name} equipada!`;
       this.sel = b.dataset.id;
       return this.changed();
     } else if (c === 'unequip' && b.dataset.i !== undefined) {
@@ -189,7 +191,7 @@ export class Collection {
   }
 
   private render(): void {
-    const slots = cardSlots(this.runsWon);
+    const slots = cardSlotsPool(this.runsWon, this.bastionNights);
     const equipped = this.cards.equipped[this.hero] ?? [];
     const found = (r?: CardRarity): number => CARD_CATALOG.filter((d) => (!r || d.rarity === r) && (this.cards.owned[d.id] ?? 0) > 0).length;
     const total = (r?: CardRarity): number => CARD_CATALOG.filter((d) => !r || d.rarity === r).length;
@@ -333,7 +335,7 @@ export class Collection {
     const list = this.cards.equipped[this.hero] ?? [];
     const idx = list.indexOf(d.id);
     const livres = freeCopies(this.cards, d.id);
-    const lotado = list.length >= cardSlots(this.runsWon);
+    const lotado = list.length >= cardSlotsPool(this.runsWon, this.bastionNights);
     const usam = HERO_ORDER.filter((h) => (this.cards.equipped[h] ?? []).includes(d.id)).map((h) => HERO_NAME[h]);
     const motivo = livres <= 0 ? 'Sem cópias livres' : lotado ? 'Sem slots livres' : `Equipar em ${HERO_NAME[this.hero]}`;
     const botaoEquipar = idx >= 0

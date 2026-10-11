@@ -8,7 +8,7 @@ import type { HeroKind } from '../core/progression/skills';
  *  - Núcleo: vida máxima e Zen por HP do reparo vêm de GAME_CONFIG.cityDefense (a mesma cidade da jornada).
  *  - Ameaça de cada inimigo que chega ao portão: GAME_CONFIG.cityDefense.threat (sem tabela própria).
  *  - Recompensas: Zen dos abates (GAME_CONFIG.zeni.dropPerKill) e bônus de onda limpa (waveClearBonus).
- *  - Custos de estruturas: na escala de Zen do jogo (um Zumbi dá 3 Zen; uma onda limpa dá 42 de bônus).
+ *  - Custos de estruturas: muralha 5 Zen (dobra a cada muralha da cidade, decisão do dono); torre 120 Zen (inicial).
  * Os números de estrutura, projeto e socorro são INICIAIS: calibrar com o dono antes de fechar o balanceamento.
  */
 
@@ -20,8 +20,10 @@ export interface StructureDef {
   desc: string;
   /** Projeto que libera a construção (ver PROJECTS). */
   project: string;
-  /** Zen para construir o nível 1. */
+  /** Zen para construir o nível 1 (a primeira construção deste tipo na cidade). */
   cost: number;
+  /** Quanto o preço da próxima construção do tipo multiplica por cada uma que já está na cidade (1 = preço fixo). */
+  costGrowth: number;
   /** Vida do nível 1 e acréscimo por nível. */
   hp: number;
   hpPerLevel: number;
@@ -33,9 +35,10 @@ export interface StructureDef {
 export const STRUCTURES: Record<StructureKind, StructureDef> = {
   wall: {
     name: 'Muralha de pedra',
-    desc: 'Bloqueia a passagem: a horda precisa quebrá-la para seguir. Não atira.',
+    desc: 'Bloqueia a passagem: a horda precisa quebrá-la para seguir. Não atira. Cada muralha que já está na cidade dobra o preço da próxima.',
     project: 'castle',
-    cost: 30,
+    cost: 5,
+    costGrowth: 2,
     hp: 120,
     hpPerLevel: 60,
     maxLevel: 3,
@@ -45,6 +48,7 @@ export const STRUCTURES: Record<StructureKind, StructureDef> = {
     desc: 'Atira sozinha no inimigo visível mais próximo, dentro do alcance. Ocupa um tile e bloqueia a passagem.',
     project: 'towers',
     cost: 120,
+    costGrowth: 1,
     hp: 100,
     hpPerLevel: 40,
     maxLevel: 3,
@@ -84,12 +88,14 @@ export const BASTION = {
   repairRate: 0.5,
   /** Reconstruir estrutura destruída: Zen = investido × rebuildRate. Tem de ser sempre mais que reparar. */
   rebuildRate: 0.8,
-  /** Piso de qualquer reparo (evita reparo de graça por dano mínimo). */
-  minRepair: 2,
+  /** Piso de qualquer reparo: 1 Zen (as muralhas custam 5, então o piso precisa ser baixo). */
+  minRepair: 1,
   /** Remover estrutura: devolve esta fração do investido, na proporção da vida que resta. Destruída não devolve nada. */
   refundRate: 0.5,
   /** Aprimorar do nível L para L+1 custa Zen base × upgradeFactor × L. */
   upgradeFactor: 1,
+  /** Pacote de cartas a cada N níveis ganhos pelos heróis do Bastião (total, nunca zera). */
+  packEvery: 100,
   /**
    * Socorro: sem Zen nem para o reparo mínimo do núcleo (coreMinFraction da vida), a cidade ganha Zen.
    * No máximo uma vez a cada `everyAttempts` tentativas — garante que a derrota severa não trava o modo.

@@ -121,6 +121,14 @@ export function cardSlots(runsWon: number): number {
   return Math.min(30, 20 + (runsWon - 10));
 }
 
+/**
+ * Slots de carta por herói: cada modo solta os seus (a campanha pelas vitórias da jornada; o Bastião pelas
+ * ondas vencidas) e os dois somam, até o máximo de 30. A build de cartas é uma só para os dois modos.
+ */
+export function cardSlotsPool(runsWon: number, bastionNights = 0): number {
+  return Math.min(30, cardSlots(runsWon) + cardSlots(bastionNights));
+}
+
 /** Pacote de fim de run (só vitória): 3 Normais + 2 rolagens 90/5/5. */
 export function rollPack(rand: () => number = Math.random): string[] {
   const pick = <T>(arr: T[]): T => arr[Math.floor(rand() * arr.length)];

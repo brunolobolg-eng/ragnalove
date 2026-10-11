@@ -4,7 +4,7 @@
  * 6) Ondas (idempotência, derrota e socorro) · 7) Simulação (muralhas quebráveis, torres, destruídas).
  */
 import { BASTION, PROJECTS, PROJECT_IDS, STRUCTURES } from '../src/config/bastion';
-import { addCards, cardBonusFor, emptyCollection, equipCard } from '../src/core/progression/cards';
+import { addCards, cardBonusFor, cardSlots, cardSlotsPool, emptyCollection, equipCard, type CardCollection } from '../src/core/progression/cards';
 import { heroStats } from '../src/core/progression/profile';
 import { DEFAULT_SETUP, GAME_CONFIG, applyZone } from '../src/config/gameConfig';
 import { ZONES } from '../src/config/zones';
@@ -13,6 +13,9 @@ import { findStructure, migrateBastion, newBastion, structureMaxHp, structureSta
 import {
   BUILD_MSG,
   applyNight,
+  bastionCardSlots,
+  buildCostOf,
+  setParty,
   fortificationsOf,
   placeStructure,
   refundOf,
@@ -72,6 +75,7 @@ check(
 );
 check('reconstruir custa mais que reparar (taxas)', BASTION.rebuildRate > BASTION.repairRate);
 check('torre atira; muralha não', !!STRUCTURES.tower.shot && !STRUCTURES.wall.shot);
+check('muralha custa 5 e dobra; torre tem preço fixo', STRUCTURES.wall.cost === 5 && STRUCTURES.wall.costGrowth === 2 && STRUCTURES.tower.costGrowth === 1);
 check('há terreno livre suficiente para os testes', free.length >= 4, `${free.length} tiles`);
 
 console.log('\n# 2) Estado e migração');
@@ -93,7 +97,7 @@ console.log('\n# 3) Colocação');
 const bp = newBastion(7, emptyCollection());
 bp.profile.zeni = 1000;
 const r1 = placeStructure(bp, env(), 'wall', free[0]);
-check('muralha no tile livre: cobra 30 Zen e nasce com vida cheia', r1.ok && bp.profile.zeni === 970 && findStructure(bp, r1.ok ? r1.id : -1)?.hp === 120, r1.ok ? '' : BUILD_MSG[r1.error]);
+check('muralha no tile livre: cobra 5 Zen e nasce com vida cheia', r1.ok && bp.profile.zeni === 995 && findStructure(bp, r1.ok ? r1.id : -1)?.hp === 120, r1.ok ? '' : BUILD_MSG[r1.error]);
 check('mesmo tile de novo: recusado (ocupado)', errOf(placeStructure(bp, env(), 'wall', free[0])) === 'occupied');
 check('torre sem o projeto: recusada (bloqueada)', errOf(placeStructure(bp, env(), 'tower', free[1])) === 'locked');
 check('fora da área liberada: recusada', errOf(placeStructure(bp, env(() => false), 'wall', free[1])) === 'outside');
@@ -106,8 +110,8 @@ check('portão da cidade: recusado', errOf(placeStructure(bp, env(() => true), '
 check('portal da horda: recusado (raio de segurança)', errOf(placeStructure(bp, env(() => true), 'wall', spawns[0])) === 'spawn');
 check('tile com herói: recusado', errOf(placeStructure(bp, env(() => true), 'wall', heroes[0])) === 'hero');
 const bz = newBastion(7, emptyCollection());
-bz.profile.zeni = 10;
-check('sem Zen para a muralha: recusada e nada é gasto', errOf(placeStructure(bz, env(), 'wall', free[0])) === 'zeni' && bz.profile.zeni === 10 && bz.structures.length === 0);
+bz.profile.zeni = 4;
+check('sem Zen para a muralha: recusada e nada é gasto', errOf(placeStructure(bz, env(), 'wall', free[0])) === 'zeni' && bz.profile.zeni === 4 && bz.structures.length === 0);
 const sealed = new Board(7, 5);
 for (let x = 0; x < 7; x++) sealed.setWall(x, 2);
 sealed.setCity(3, 4);
@@ -125,14 +129,15 @@ const bc = newBastion(7, emptyCollection());
 bc.profile.zeni = 1000;
 const rc = placeStructure(bc, env(), 'wall', free[2]);
 const w = findStructure(bc, rc.ok ? rc.id : -1) as Structure;
+check('primeira muralha custa 5 Zen (fica registrado no investido)', rc.ok && rc.cost === 5 && w.invested === 5 && bc.profile.zeni === 995);
 w.hp = 96; // 20% de perda
-check('reparo de 20% custa 3 Zen', repairCostOf(bc, w) === 3);
+check('reparo de 20% custa 1 Zen (piso de 1, arredonda para cima)', repairCostOf(bc, w) === 1);
 w.hp = 6; // 95% de perda
 const quaseDestruida = repairCostOf(bc, w);
 w.hp = 0;
 const destruida = repairCostOf(bc, w);
-check('quase destruída custa 14 (mais que os 3 de 20% perdidos)', quaseDestruida === 14);
-check('destruída: reconstruir (24) custa mais que reparar a quase destruída', destruida === 24 && destruida > quaseDestruida);
+check('quase destruída custa 3 (mais que os 1 de 20% perdidos)', quaseDestruida === 3);
+check('destruída: reconstruir (4) custa mais que reparar a quase destruída', destruida === 4 && destruida > quaseDestruida);
 let cresce = true;
 let nuncaPassaReconstrucao = true;
 let anterior = 0;
@@ -146,25 +151,25 @@ for (let hp = 120; hp >= 1; hp--) {
 w.hp = 120;
 check('muralha intacta não tem reparo (0)', repairCostOf(bc, w) === 0);
 check('reparo cresce com o dano e nunca passa da reconstrução', cresce && nuncaPassaReconstrucao);
-check('reembolso: muralha inteira devolve metade do investido (15)', refundOf(bc, w) === 15);
+check('reembolso: muralha inteira devolve metade do investido (3 de 5)', refundOf(bc, w) === 3);
 w.hp = 60;
-check('reembolso: metade da vida devolve metade do valor (8)', refundOf(bc, w) === 8);
+check('reembolso: metade da vida devolve 1 Zen', refundOf(bc, w) === 1);
 w.hp = 0;
 check('reembolso: destruída não devolve nada', refundOf(bc, w) === 0);
 w.hp = 96;
 const zeniAntes = bc.profile.zeni;
 const rr = repairStructure(bc, w.id);
-check('reparo cobra 3 e restaura a vida toda', rr.ok && rr.cost === 3 && bc.profile.zeni === zeniAntes - 3 && w.hp === 120 && !rr.rebuilt, rr.ok ? '' : BUILD_MSG[rr.error]);
+check('reparo cobra 1 e restaura a vida toda', rr.ok && rr.cost === 1 && bc.profile.zeni === zeniAntes - 1 && w.hp === 120 && !rr.rebuilt, rr.ok ? '' : BUILD_MSG[rr.error]);
 check('reparar uma inteira é recusado', errOf(repairStructure(bc, w.id)) === 'intact');
 const up = upgradeStructure(bc, w.id);
-check('aprimorar: nível 2 custa 30 e sobe a vida máxima para 180 (o ganho entra na hora)', up.ok && up.cost === 30 && w.level === 2 && w.hp === 180 && w.invested === 60, up.ok ? '' : BUILD_MSG[up.error]);
+check('aprimorar: nível 2 custa 5 e sobe a vida máxima para 180 (o ganho entra na hora)', up.ok && up.cost === 5 && w.level === 2 && w.hp === 180 && w.invested === 10, up.ok ? '' : BUILD_MSG[up.error]);
 w.hp = 0;
 check('aprimorar destruída: recusado', errOf(upgradeStructure(bc, w.id)) === 'destroyed');
 w.level = 3;
 w.hp = structureMaxHp(bc, w);
 check('nível máximo: recusado', errOf(upgradeStructure(bc, w.id)) === 'maxLevel');
 const rm = removeStructure(bc, w.id);
-check('remover devolve metade do investido (60 → 30) e tira a construção', rm.ok && rm.refund === 30 && bc.structures.length === 0);
+check('remover devolve metade do investido (10 → 5) e tira a construção', rm.ok && rm.refund === 5 && bc.structures.length === 0);
 
 console.log('\n# 5) Projetos');
 const bj = newBastion(7, emptyCollection());
@@ -194,13 +199,13 @@ const wall = findStructure(bw, wr.ok ? wr.id : -1) as Structure;
 const waveOf = (zeni: number): WaveResult => ({ souls: 0, zeni, heroes: {}, drops: [] });
 const zeniAntesOnda = bw.profile.zeni;
 const win: NightOutcome = { victory: true, coreHp: 900, structures: [{ id: wall.id, hp: 40 }], wave: waveOf(60) };
-check('onda vencida: recompensa = Zen da onda + bônus de onda limpa', applyNight(bw, win, 'night:1:1') && bw.profile.zeni === zeniAntesOnda + 60 + GAME_CONFIG.zeni.waveClearBonus);
+check('onda vencida: recompensa = Zen da onda + bônus de onda limpa', applyNight(bw, win, 'night:1:1', emptyCollection()) !== undefined && bw.profile.zeni === zeniAntesOnda + 60 + GAME_CONFIG.zeni.waveClearBonus);
 check('dano da muralha fica registrado (40 de 120)', wall.hp === 40);
 check('núcleo perdeu vida (900) e a onda conta', bw.coreHp === 900 && bw.nights === 1 && bw.nightsInAttempt === 1);
 const zeniDepois = bw.profile.zeni;
-check('mesma chave: não paga nem desconta de novo', applyNight(bw, win, 'night:1:1') === false && bw.profile.zeni === zeniDepois && bw.coreHp === 900);
+check('mesma chave: não paga nem desconta de novo', applyNight(bw, win, 'night:1:1', emptyCollection()) === undefined && bw.profile.zeni === zeniDepois && bw.coreHp === 900);
 const lose: NightOutcome = { victory: false, coreHp: 0, structures: [{ id: wall.id, hp: 0 }], wave: waveOf(20) };
-applyNight(bw, lose, 'night:1:2');
+applyNight(bw, lose, 'night:1:2', emptyCollection());
 check('derrota: encerra a tentativa e registra o recorde', bw.attemptEnded === true && bw.records.bestNights === 1);
 check('derrota: projetos e muralha destruída continuam', bw.projects.includes('castle') && structureStatus(bw, wall) === 'destroyed');
 check('núcleo caído: não começa outra tentativa', errOf(startAttempt(bw, emptyCollection())) === 'coreDown');
@@ -211,7 +216,7 @@ const rcore = repairCore(bw, 100);
 check('núcleo: repara 100 de vida por 110 Zen', rcore.ok && rcore.cost === 110 && bw.coreHp === 100);
 check('derrota severa: a tentativa 2 começa com a cidade como estava', startAttempt(bw, emptyCollection()).ok === true && bw.attempt === 2 && bw.nightsInAttempt === 0);
 check('muralha destruída segue destruída na tentativa 2', structureStatus(bw, wall) === 'destroyed' && fortificationsOf(bw)[0].hp === 0);
-check('reconstruir a muralha custa 24 (investido × 0,8)', repairCostOf(bw, wall) === 24);
+check('reconstruir a muralha custa 4 (investido 5 × 0,8)', repairCostOf(bw, wall) === 4);
 bw.coreHp = 0;
 bw.attemptEnded = true;
 bw.profile.zeni = 0;
@@ -278,7 +283,7 @@ check('o status do guerreiro sobe 3 de Força com a carta', heroStats(comCartas.
 check('o save do Bastião guarda só o bônus, não a coleção', !JSON.stringify(comCartas).includes('"owned"') && !JSON.stringify(comCartas).includes('high_orc'));
 const antesDaDerrota = JSON.stringify(cartas);
 const derrota: NightOutcome = { victory: false, coreHp: 900, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } };
-applyNight(comCartas, derrota, 'night:1:1');
+applyNight(comCartas, derrota, 'night:1:1', cartas);
 check('a derrota no Bastião não mexe na coleção compartilhada', JSON.stringify(cartas) === antesDaDerrota);
 equipCard(cartas, 'mage', 'high_orc', 3);
 check('equipar no meio da tentativa não muda o Bastião (vale na próxima)', comCartas.profile.heroes.mage.cardAttrs?.str === 0);
@@ -286,6 +291,56 @@ const nova = startAttempt(comCartas, cartas);
 check('a próxima tentativa copia a coleção nova: o mago leva metade (+1 de Força, sem afinidade)', nova.ok && comCartas.profile.heroes.mage.cardAttrs?.str === 1 && comCartas.attempt === 2);
 check('o guerreiro mantém o bônus cheio (+3 de Força)', comCartas.profile.heroes.warrior.cardAttrs?.str === 3);
 check('a cópia do Bastião bate com o cálculo da campanha', JSON.stringify(comCartas.profile.heroes.mage.cardAttrs) === JSON.stringify(cardBonusFor('mage', cartas)));
+
+console.log('\n# 9) Preço que dobra, classes, pacotes e slots');
+const bx = newBastion(7, emptyCollection());
+bx.profile.zeni = 10000;
+const precos: number[] = [];
+for (let i = 0; i < 4; i++) {
+  const antes = bx.profile.zeni;
+  const r = placeStructure(bx, env(), 'wall', free[i + 10]);
+  precos.push(r.ok ? antes - bx.profile.zeni : -1);
+}
+check('muralhas custam 5, 10, 20 e 40 (cada uma dobra a próxima)', precos.join(',') === '5,10,20,40', precos.join(','));
+check('a próxima muralha custa 80', buildCostOf(bx, 'wall') === 80);
+const primeira = bx.structures[0];
+primeira.hp = 0;
+check('muralha destruída continua contando no preço (80)', buildCostOf(bx, 'wall') === 80);
+removeStructure(bx, primeira.id);
+check('remover uma muralha faz o preço cair (40)', buildCostOf(bx, 'wall') === 40);
+check('torre tem preço fixo (120), mesmo com muralhas na cidade', buildCostOf(bx, 'tower') === 120);
+
+const bh = newBastion(7, emptyCollection());
+check('as seis classes entram na party do Bastião', setParty(bh, ['archer', 'sorcerer', 'warlock', 'assassin', 'warrior', 'mage']).ok === true && bh.party.length === 6);
+check('party com herói repetido: recusada', errOf(setParty(bh, ['warrior', 'warrior'])) === 'partyDuplicate');
+check('party vazia: recusada', errOf(setParty(bh, [])) === 'partySize');
+check('party com 7 heróis: recusada', errOf(setParty(bh, ['warrior', 'mage', 'archer', 'sorcerer', 'warlock', 'assassin', 'warrior'])) === 'partySize');
+
+const ondaComNiveis = (guerreiro: number, mago: number): WaveResult => ({ souls: 0, zeni: 0, heroes: { warrior: { level: guerreiro, exp: 0 }, mage: { level: mago, exp: 0 } }, drops: [] });
+const totalCartas = (c: CardCollection) => Object.values(c.owned).reduce((soma, n) => soma + n, 0);
+const bpk = newBastion(7, emptyCollection());
+const colecaoPacote = emptyCollection();
+const q1 = applyNight(bpk, { victory: true, coreHp: 1000, structures: [], wave: ondaComNiveis(50, 50) }, 'night:1:1', colecaoPacote);
+check('98 níveis ganhos ainda não dão pacote', q1 !== undefined && q1.packs.length === 0 && bpk.levelsGained === 98);
+const q2 = applyNight(bpk, { victory: true, coreHp: 1000, structures: [], wave: ondaComNiveis(51, 51) }, 'night:1:2', colecaoPacote);
+check('ao chegar a 100 níveis, sai um pacote de 5 cartas na coleção compartilhada', q2 !== undefined && q2.packs.length === 1 && q2.packs[0].length === 5 && totalCartas(colecaoPacote) === 5 && bpk.packsGiven === 1);
+const q3 = applyNight(bpk, { victory: true, coreHp: 1000, structures: [], wave: ondaComNiveis(51, 51) }, 'night:1:2', colecaoPacote);
+check('a mesma onda não entrega o pacote de novo', q3 === undefined && totalCartas(colecaoPacote) === 5);
+const pacoteDaSemente = (): string => {
+  const x = newBastion(99, emptyCollection());
+  x.levelsGained = 100;
+  const c = emptyCollection();
+  applyNight(x, { victory: true, coreHp: 1000, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } }, 'k1', c);
+  return JSON.stringify(c.owned);
+};
+check('mesma semente e mesmo estado: o pacote sai igual (determinismo)', pacoteDaSemente() === pacoteDaSemente());
+
+check('Bastião sem ondas vencidas não solta slot', bastionCardSlots(bh) === 0);
+bh.nights = 5;
+check('5 ondas vencidas soltam 10 slots (mesma curva da campanha)', bastionCardSlots(bh) === 10);
+check('campanha com 3 vitórias e Bastião com 5 ondas: 6 + 10 = 16 slots', cardSlotsPool(3, 5) === 16);
+check('sem Bastião, o total é o da campanha (3 vitórias = 6)', cardSlotsPool(3) === cardSlots(3) && cardSlots(3) === 6);
+check('o total para em 30 slots', cardSlotsPool(20, 20) === 30);
 
 console.log(failures ? `\n${failures} checagem(ns) falharam.` : '\nTodas as checagens do Último Bastião passaram.');
 if (failures) throw new Error(`bastionCheck: ${failures} falha(s)`);

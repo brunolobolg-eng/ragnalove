@@ -55,6 +55,10 @@ export interface BastionState {
   /** Tentativa em que o socorro foi concedido (ver BASTION.rescue). */
   rescuedAttempt?: number;
   records: { bestNights: number; attempts: number };
+  /** Níveis que os heróis do Bastião ganharam no total (nunca diminui). Cada BASTION.packEvery vira um pacote. */
+  levelsGained: number;
+  /** Pacotes de cartas já entregues (ver levelsGained). */
+  packsGiven: number;
 }
 
 /**
@@ -76,6 +80,8 @@ export function newBastion(seed: number, cards: CardCollection, party: HeroKind[
     projects: ['castle'],
     nextId: 1,
     records: { bestNights: 0, attempts: 1 },
+    levelsGained: 0,
+    packsGiven: 0,
   };
   applyCardLoadout(b.profile, cards);
   return b;
@@ -98,6 +104,8 @@ export function migrateBastion(b: BastionState): BastionState {
   b.records ??= { bestNights: 0, attempts: b.attempt };
   b.records.bestNights ??= 0;
   b.records.attempts ??= b.attempt;
+  b.levelsGained = Number.isFinite(b.levelsGained) && b.levelsGained >= 0 ? b.levelsGained : 0;
+  b.packsGiven = Number.isFinite(b.packsGiven) && b.packsGiven >= 0 ? b.packsGiven : 0;
   return b;
 }
 
