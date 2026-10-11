@@ -382,7 +382,7 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 - **Pendências:**
   1. FPS no PC: `npm run dev`, F9 (chamadas, triângulos e luzes) e o benchmark do F9 nos três presets. Sem isso o número de quadros ainda é palpite.
   2. Vegetação instanciada do Bastião (1,2 milhão de triângulos): dividir em blocos para o recorte funcionar. Depende de decisão de densidade do dono.
-  3. Sombra 4096 no preset alto: testar no PC (custo de memória).
+  3. Sombra 4096 no preset alto: testar no PC (custo de memória). Fechado: o dono aprovou a sombra atual (D44).
   4. Outras luzes pontuais de cenário ainda reais: portão de cidade (`CityGate`), mapas pintados (`PaintedScenery`) e objetos com braseiro (`ObjectView`). Mesmo caso das tochas. Aguardam decisão.
   5. Pendências antigas: cores e brilho do cristal, texto "Cidade" no toque do Bastião, balanceamento do dano de contato.
 - **Lições:**
@@ -425,9 +425,9 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 - **Pendências (próximas fases, em ordem sugerida):**
   1. Água: reflexo sutil e variação de normal no shader existente (`BridgeScenery.ts`, `waterMaterial`, e `BiomeScenery.ts`, `liquidMesh`).
   2. Magias: dissolução e ondas nos shaders já existentes (`magicVfx`, `FireBarrierFX`, `Particles`).
-  3. Materiais de cenário: pedir ao dono mapas de normal e de rugosidade para pedra e madeira. Sem eles não há relevo.
+  3. Materiais de cenário: pedir ao dono mapas de normal e de rugosidade para pedra e madeira. Sem eles não há relevo. Fechado: o dono decidiu não ter mapas (D42).
   4. Iluminação e atmosfera: névoa baixa para o pântano e calibração da sombra.
-  5. Opacidade do cristal: decidir com o dono se reduz para proteger a visibilidade dos inimigos.
+  5. Opacidade do cristal: decidir com o dono se reduz para proteger a visibilidade dos inimigos. Fechado: o dono aprovou a opacidade atual (D43).
 - **Lições:**
   - O interruptor de luzes do cenário serve bem como gancho de preset para efeitos caros de cenário.
   - Conferir o eixo antes de escrever o shader: a altura do cristal está no eixo Z do modelo, não no Y.
@@ -451,17 +451,19 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - **Emperium** (preset alto, refeito após o refactor do ruído): erros 0; 256 chamadas e 1,2 milhão de triângulos sem horda; 976 chamadas com horda de 120; 705 chamadas de perto, com 52, 54 e 54 programas. Os números batem com a validação anterior, e os veios comparados lado a lado estão iguais.
 - **Limitações:**
   - FPS e memória não medidos (renderização por software).
-  - Sem mapas de normal nem de rugosidade no projeto: a fase 3 (materiais) fica parada até o dono enviar os mapas.
-  - O cristal segue com opacidade 0,88, e isso esconde inimigos atrás dele. Sem mudança, por decisão do dono.
+  - Sem mapas de normal nem de rugosidade no projeto. O dono decidiu que não vai ter (D42), então a fase 3 fica encerrada com os materiais atuais.
+  - O cristal segue com opacidade 0,88, que esconde inimigos atrás dele. O dono aprovou a leitura (D43).
   - Não há zona de pântano de verdade, então a névoa do pântano não tem onde ser validada.
   - Vale (fechado depois): com quadros exatos, antes e depois da água dão 266 chamadas e 980 594 triângulos. A diferença da captura antiga (2 chamadas, 128 triângulos) era do método de captura, não da água. Na imagem, a mudança fica só nos pixels da água (0,14%, média 0,1 em toda a tela).
+- **Respostas do dono (depois do registro):**
+  - **D42 — Sem mapas de normal e de rugosidade.** A fase 3 (materiais com relevo) sai do plano. Os materiais seguem com as texturas de cor que já existem.
+  - **D43 — Opacidade do cristal mantida (0,88).** O dono achou boa. Nada muda em `VISUAL_CONFIG`.
+  - **D44 — Sombra mantida.** O dono achou boa, então o mapa de sombra 4096 não entra. Segue 2048 no preset alto.
 - **Pendências:**
   1. Dono: a cúpula deve ficar mais visível no zoom do jogo? (D40)
-  2. Dono: mapas de normal e de rugosidade (pedra e madeira), para a fase 3.
-  3. Dono: opacidade do cristal, para proteger a leitura dos inimigos.
-  4. FPS no PC com o F9 nos três presets.
-  5. Sombra 4096 no preset alto (teste no PC) e luzes pontuais de cenário que ainda são reais (portão, paliçada e `ObjectView`).
-  6. Fase 4B, magias, ainda incompleta: só a dissolução do escudo entrou. Faltam as ondas nos shaders existentes (`magicVfx`, `FireBarrierFX`, `Particles`). Fica para depois da decisão sobre a cúpula (item 1), porque ela muda a leitura de qualquer efeito de magia.
+  2. FPS no PC com o F9 nos três presets.
+  3. Luzes pontuais de cenário que ainda são reais (portão, paliçada e `ObjectView`). Sem decisão ainda.
+  4. Fase 4B, magias, ainda incompleta: só a dissolução do escudo entrou. Faltam as ondas nos shaders existentes (`magicVfx`, `FireBarrierFX`, `Particles`). Fica para depois da decisão sobre a cúpula (item 1), porque ela muda a leitura de qualquer efeito de magia.
 - **Lições:**
   - Captura que espera quadros pelo tempo não é exata. Para comparar antes e depois, avançar por passos (`__vgBudget`) e conferir uma região de controle que não pode mudar (tem que dar 0,00).
   - Antes de comparar um efeito, confirmar que ele apareceu na cena. A cúpula não existia nas capturas, e a diferença que se via era de outra coisa.
