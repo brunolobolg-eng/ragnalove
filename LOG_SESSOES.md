@@ -324,6 +324,31 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   4. Balanceamento do dano de contato (D15) segue com o dono.
 - **Commits:** o commit desta versão.
 
+## 2026-10-11 — O Último Bastião: cristal do Emperium refeito (v0.11, em andamento)
+- **Pedido do dono:** o cristal não ficou bem feito. Pediu um visual mais bonito, a luz centralizada no cristal e disse que parecia meio torto.
+- **Diagnóstico:**
+  - O eixo do cristal do arquivo está vertical (0,3° de inclinação). O problema estava nos anéis: o bojo de baixo era cerca de 18% maior que o de cima, e isso aparecia ao girar.
+  - A coluna de luz da arte do dono ficava 3,8% à esquerda do centro da textura.
+  - Os fragmentos do arquivo ficavam agrupados de um lado.
+- **Decisões:**
+  - **D24 — Anéis regulares:** cada anel de seis vértices vira um hexágono regular, com o mesmo raio médio e a mesma altura. Ponta e centro ficam exatamente no eixo do giro.
+  - **D25 — Degradê e luz por face:** a base é azul-safira e o topo, aqua claro. Cada face recebe um tom um pouco diferente, fixo (sem sorteio), para as facetas lerem como gema.
+  - **D26 — Brilho:** corpo translúcido, borda luminosa (efeito de Fresnel), núcleo menor no centro, halo centrado (arte de brilho do acervo de efeitos) e faíscas em volta.
+  - **D27 — Fragmentos:** espaçados igualmente em volta do eixo, com o raio e a altura que o dono desenhou.
+  - **D28 — Luz centrada:** o raio sai do centro do cristal, e não do chão. A textura é deslocada 3,8% para a coluna de luz cair no eixo.
+- **Entregue:** `src/render/scenery/Emperium.ts` (regularização dos anéis, degradê, borda, núcleo, halo, faíscas e raio). Commits `8b1b9b2` e `31dfd01`.
+- **Testes:**
+  - `npm run build` e `npm run bastion:check`: passam.
+  - `npm run sim:check`: idêntico à etapa anterior.
+  - Navegador (DEV, 1920×1080): sem erro de console. Montagem do mapa de 205 a 262 ms. Capturas conferidas: o minério de perto e a visão ampla, com o raio centrado.
+  - A captura em 1920×1080 precisou de tempo maior (120 s por captura), porque o renderizador de software é lento nessa resolução.
+- **Pendências:**
+  1. Confirmar com o dono se as cores e o brilho ficaram como ele queria.
+  2. FPS não medido em PC real.
+  3. O anel de runas do arquivo segue desligado (a runa do chão é a arte do dono).
+  4. O texto do toque ainda diz "Cidade" no Bastião.
+- **Commits:** o commit desta versão.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.
