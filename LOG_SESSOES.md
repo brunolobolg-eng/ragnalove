@@ -6,7 +6,7 @@ O histórico técnico de cada versão está no `CHANGELOG.md`; o estado atual do
 Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisões, pendências e commits.
 
 ## Pendências em aberto (resumo)
-- **O Último Bastião (v0.11, em andamento):** fundação pronta e testada no core (sem tela, sem mapa próprio). Próxima etapa: mapa do Bastião com área de construção e portão. D1 (carteira própria), as cartas (D8), as muralhas, as classes, os pacotes e os slots (D9 a D12) foram definidos pelo dono. Ainda vale confirmar as pendências 9 a 12 do registro abaixo.
+- **O Último Bastião (v0.11, em andamento):** fundação pronta e testada no core (sem tela, sem mapa próprio). Próxima etapa: mapa do Bastião com área de construção e portão. D1 (carteira própria), as cartas (D8), as muralhas, as classes, os pacotes, os slots (D9 a D12) e o modelo de slots por personagem (D13) foram definidos pelo dono. Ainda vale confirmar as pendências 9 a 12 do registro abaixo.
 - **Álbum de cartas e dica da revelação (v0.10):** Feiticeira e Bruxa não têm ícone de classe na folha 32 (usam o retrato); cartas não têm nível no jogo (o "Nv." da imagem virou ×N); conferir no PC do dono o álbum com cartas reais e a dica do pacote.
 - **Kit de interface nos menus (v0.9):** conferir visualmente no PC do dono o pacote de cartas e as configurações (não conferidos nesta rodada); a moldura do mítico é dourada porque a arte do vermelho está no miolo (decisão de arte); silhuetas de amuleto e anel saíram irregulares, e brinco e cinto não têm silhueta própria; a muralha do guerreiro não tem textura no arquivo do kit (decisão: textura própria ou a do cenário). Ranking do menu é arte da tela inicial, não foi trocado (v0.9).
 - **Pacote de efeitos nas magias (v0.8g):** passivas e estados sem evento ficam sem efeito novo; desempenho precisa ser medido na GPU do dono; o 7z original espera permissão para ir à branch `fontes` (v0.8g).
@@ -211,6 +211,7 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - **D10 — Classes (decisão do dono):** as seis classes estão liberadas no Bastião. A party tem de 1 a 6 heróis, sem repetir.
   - **D11 — Pacotes (decisão do dono):** um pacote de cartas (mesmo formato da campanha: 3 comuns e 2 sorteios) a cada **100 ondas vencidas** no Bastião (total, sem zerar). Derrota não conta. O pacote vai para a coleção compartilhada.
   - **D12 — Slots (decisão do dono):** campanha e Bastião somam os slots que cada um libera, até 30. A curva é a mesma para os dois e fica bem mais difícil depois dos cinco primeiros: 5º slot com 6 vitórias, 10º com 31, 20º com 156, 30º com 381. A tabela está em `CARD_SLOT_WINS` (cards.ts), fácil de ajustar.
+  - **D13 — Slots por personagem (confirmado pelo dono):** o limite de slots vale para cada herói separadamente, com o mesmo número para todos. Equipar cartas num herói não tira slots dos outros. O que é compartilhado são as cópias: uma cópia equipada num herói não pode estar em outro ao mesmo tempo. O teto de 30 também é por personagem. Isso já era assim na campanha.
 - **Entregue (Etapa 2 inteira e parte da Etapa 3):**
   - Dados do modo (`src/config/bastion.ts`).
   - Estado, criação e migração da cidade (`src/core/bastion/bastion.ts`).
