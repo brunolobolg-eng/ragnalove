@@ -349,7 +349,7 @@ export const ACT_DRESSING = {
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
-  version: 'v0.8b',
+  version: 'v0.8c',
   image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
@@ -578,6 +578,26 @@ export const POSTFX: {
  * Aura de chefes e monstros de elite: halo animado na silhueta + anel de energia no chão (só chefes).
  * `intensity` = força do halo (0–1); `pulse` = quanto o anel respira; `ringWidth` em metros.
  */
+/**
+ * Lago e poças da floresta (render/scenery/forestGround.ts), com as texturas de água e terra da folha do dono.
+ * Cor multiplica a textura; opacidade é a transparência; `flow` é o deslizamento das ondas (partes da textura por segundo).
+ */
+export const POND_VISUAL = {
+  /** tiles que uma imagem de água cobre (menor = ondas maiores) */
+  waterTiles: 2.5,
+  /** cor que a água funda e a rasa multiplicam (tom verde-azulado de floresta) */
+  deepColor: 0xb8e4da,
+  rimColor: 0xd6fff0,
+  deepOpacity: 0.92,
+  rimOpacity: 0.85,
+  /** lama do leito, da margem molhada e das poças */
+  bedColor: 0x4a3b2a,
+  bankColor: 0x8a7050,
+  mudColor: 0x5c4a34,
+  flowRim: [0.012, 0.004] as const,
+  flowDeep: [-0.008, 0.006] as const,
+} as const;
+
 export const AURA_VISUAL = {
   intensity: 0.6,
   pulse: 0.2,

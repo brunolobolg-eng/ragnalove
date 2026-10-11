@@ -6,7 +6,8 @@ import type { SceneryHandle } from './BridgeScenery';
 import { buildCityGate } from './CityGate';
 import { softCircle } from '../textures';
 import { instanceProps } from './props';
-import { PACK, packForestGround, packInstances, packMatrix } from './packKit';
+import { PACK, packInstances, packMatrix } from './packKit';
+import { packForestGround } from './forestGround';
 import { KITS, type BiomeKit } from './biomeKits';
 
 /**
@@ -143,10 +144,10 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
       : { color: 0xffffff, amount: 0 };
 
   // ---------------- Chão ----------------
-  if (pack) {
-    // floresta: chão em camadas com as texturas do dono (borda de 22 tiles em volta da grade)
-    root.add(packForestGround(zone, 22));
-  } else {
+  // floresta: chão em camadas, com lago e poças (texturas do dono; ver forestGround.ts)
+  const forest = pack ? packForestGround(zone, 22) : undefined;
+  if (forest) root.add(forest.group);
+  if (!pack) {
     const outerTex = groundTexture(P, 256, 256, 4, rnd, true);
     outerTex.repeat.set((W + 44) / 4, (H + 44) / 4);
     const outer = new THREE.Mesh(new THREE.PlaneGeometry(W + 44, H + 44).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: outerTex }));
@@ -162,7 +163,8 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   }
 
   // ---------------- Água / lava nos tiles de vazio ----------------
-  const liquid = zone.voids.length ? liquidMesh(zone, P, X, Z) : undefined;
+  // na floresta o lago é desenhado pelo chão (forestGround.ts); nos outros biomas, a água de sempre
+  const liquid = zone.voids.length && !pack ? liquidMesh(zone, P, X, Z) : undefined;
   if (liquid) root.add(liquid.mesh);
 
   // ---------------- Props (dentro do tabuleiro + decoração em volta) ----------------
@@ -391,7 +393,8 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
 
   // ---------------- Poças d'água com reflexo (tiles 'w') ----------------
   const puddles = zone.floor.filter((f) => f.ground === 'puddle');
-  if (puddles.length) {
+  // na floresta as poças são do chão (forestGround.ts: lama e água pequena, no mesmo nível do terreno)
+  if (puddles.length && !pack) {
     const geos = puddles.map((f) => new THREE.CircleGeometry(0.34 + rnd() * 0.16, 12).rotateX(-Math.PI / 2).scale(1.3, 1, 0.9).translate(X(f.x) + (rnd() - 0.5) * 0.3, 0.012, Z(f.y) + (rnd() - 0.5) * 0.3));
     // água parada: céu claro refletido (emissivo) + brilho especular do sol
     const ice = biome === 'mountain';
@@ -497,6 +500,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     // chama da lanterna/fogueira: a poça de luz treme de leve, em fases diferentes
     for (const f of flames) f.m.opacity = 0.32 + 0.07 * Math.sin(t * 5.1 + f.ph) + 0.03 * Math.sin(t * 11.3 + f.ph * 2);
     if (liquid) liquid.uniforms.uTime.value = t;
+    forest?.update(dt);
     cityGate.update(dt, particles);
     for (const sh of shafts) (sh.m.material as THREE.MeshBasicMaterial).opacity = sh.base * (0.7 + 0.3 * Math.sin(t * 0.35 + sh.ph));
     for (const g of glints) g.s.scale.setScalar(0.18 + Math.max(0, Math.sin(t * 2.2 + g.ph)) * 0.35);

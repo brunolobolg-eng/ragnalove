@@ -2,6 +2,15 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-11 — v0.8c
+- Lago da floresta refeito: era um quadrado azul flutuando sobre a grama. Agora tem margem de terra molhada, anel de água rasa, centro fundo, contorno irregular, ondas que deslizam devagar e pedras e arbustos na borda.
+- Poças: os discos azuis eram desenhados acima do chão (flutuavam). Agora são lama no próprio chão, com um pouco de água parada no centro.
+- Chão da floresta montado em camadas com um só desfoque dos vazios e máscaras de 4 px por tile: no teste, montar a cena do Bosque Torto caiu de cerca de 820 ms (v0.8b) para cerca de 200 ms.
+- Módulo novo `src/render/scenery/forestGround.ts` (chão, lago e poças); `packKit.ts` fica só com o kit de peças e texturas.
+- Números do lago e das poças em `POND_VISUAL` (`visualConfig.ts`): cores, transparência e velocidade das ondas.
+- Texturas novas da folha do dono: água funda e rasa (`public/textures/floresta/`).
+- Pendente: de perto, as poças pequenas ainda ficam escuras demais. Árvores e rochas do kit continuam simples.
+
 ## 2026-10-11 — v0.8b
 - Chão da floresta refeito com as texturas da folha do dono (grama, grama florida, terra e pedra, recortadas e emendadas em `public/textures/floresta/`). Antes era pintado num canvas de 16 pixels por tile, o que deixava tudo borrado de perto.
 - Chão em camadas (`packForestGround` em `packKit.ts`): cada camada é um plano com a textura nítida e uma máscara suave que decide onde ela aparece. Trilhas de terra com borda irregular, sombra sob as copas e rochas, poças e pedra no portão.
