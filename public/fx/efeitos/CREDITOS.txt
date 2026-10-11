@@ -15,10 +15,11 @@ otimizadas (WebP) dos originais. Os arquivos originais não são redistribuídos
    Não é permitido revender ou redistribuir os arquivos originais como pacote de assets.
    Uso: golpe em fatia (textura t_stylizedhit.webp), flash e anel de choque.
 
-3) Stylized Hit FX e Stylized Status FX, por Binbun3D (bun3d.com)
+3) Stylized Status FX, por Binbun3D (bun3d.com)
    Licença: Creative Commons Zero (CC0)
    https://creativecommons.org/publicdomain/zero/1.0/
-   Uso: impactos e estados (aura, gelo, cura). Sem atribuição obrigatória; o autor pede a menção "Binbun3D".
+   Uso: aura de escudo e buff, cruz de cura e cristal de gelo (shaders de aura e de partículas).
+   Sem atribuição obrigatória; o autor pede a menção "Binbun3D".
 
 4) Buff Pickup VFX Lite, por Sean Elovirta
    Licença: MIT

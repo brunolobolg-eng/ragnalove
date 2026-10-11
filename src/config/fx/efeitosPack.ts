@@ -5,7 +5,7 @@
  * Origem (licenças em public/fx/efeitos/CREDITOS.txt):
  * - Magic Circles 3D Free (heyheythere): círculo mágico, ondulação e faíscas. CC BY 4.0.
  * - Free Hit VFX (Slash Crimson): golpe em fatia com a textura do pacote e o flash. Uso livre.
- * - Stylized Hit FX e Stylized Status FX (Binbun3D): impacto e status. CC0.
+ * - Stylized Status FX (Binbun3D): aura, cruz de cura e cristal de gelo. CC0.
  * - Buff Pickup VFX Lite (Sean Elovirta): anel e brilho de buff. MIT.
  */
 
