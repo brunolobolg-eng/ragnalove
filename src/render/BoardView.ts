@@ -3,6 +3,7 @@ import type { Board } from '../core/grid/Board';
 import type { Vec2 } from '../core/grid/types';
 import { tileToWorld, worldToTile } from './coords';
 import { buildScenery } from './scenery/Scenery';
+import { definirDetalheAgua } from './scenery/groundLayers';
 import { buildBridgeScenery, type SceneryHandle } from './scenery/BridgeScenery';
 import { parseZone } from '../config/zones';
 import { GAME_CONFIG, ZONE_STATE } from '../config/gameConfig';
@@ -67,6 +68,7 @@ export class BoardView {
   setSceneryLights(on: boolean): void {
     BoardView.sceneryLights = on;
     this.scenery.setLights(on);
+    definirDetalheAgua(on); // a ondulação da água segue o mesmo interruptor: médio e alto
   }
 
   /** Libera a GPU ao trocar de zona (texturas vitalícias compartilhadas não são tocadas). */
@@ -128,6 +130,7 @@ export class BoardView {
           ? { group: buildScenery(board), update: () => {}, setLights: () => {} }
           : buildBiomeScenery(parseZone(zone), zone.theme);
     this.scenery.setLights(BoardView.sceneryLights);
+    definirDetalheAgua(BoardView.sceneryLights);
     this.group.add(this.scenery.group);
     // Cenário temático dos monstros do ato + setas discretas do caminho da horda
     if (!zone.painted) this.group.add(buildActDressing(board)); // mapa pintado já traz o cenário

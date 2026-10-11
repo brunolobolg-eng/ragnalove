@@ -80,6 +80,15 @@ export const VISUAL_CONFIG = {
     pulseDepth: 0.22, // variação do pulso lento (0 = sem pulso)
     veinMid: 0x3fd9ff, // cor do meio do degradê (ciano)
   },
+  /** Água das camadas (rio, lago e poças): ondulação discreta, reflexo do céu e brilho nas cristas. Só visual. */
+  agua: {
+    escala: 0.9, // tamanho da ondulação (quanto maior, ondas mais curtas)
+    velocidade: 0.12, // velocidade com que a ondulação desliza
+    ondulacao: 0.8, // quanto a superfície inclina a luz (0 = água lisa)
+    reflexo: 0.14, // reflexo do céu nas bordas de visão (fresnel)
+    brilho: 0.18, // brilho nas cristas da ondulação
+    corCeu: 0xcfeeff, // cor do céu refletido
+  },
   /** Direção do sol (de onde a luz vem) — o deserto usa sol baixo de fim de tarde (sombras longas). */
   sun: [-7, 18, 9] as [number, number, number],
 };
