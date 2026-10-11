@@ -3,6 +3,7 @@ import { GAME_CONFIG } from '../../config/gameConfig';
 import type { Board } from '../grid/Board';
 import { chebyshev, type Vec2 } from '../grid/types';
 import { addZeni, applyWaveResult, type WaveResult } from '../progression/profile';
+import { applyCardLoadout, type CardCollection } from '../progression/cards';
 import { findStructure, structureMaxHp, type BastionState, type Structure } from './bastion';
 import { routeOpen } from './route';
 import type { Fortification } from '../sim/Simulation';
@@ -230,14 +231,18 @@ export function rescueIfStuck(b: BastionState): number {
   return BASTION.rescue.zeni;
 }
 
-/** Começa outra tentativa a partir do estado salvo (a cidade não reinicia sozinha). */
-export function startAttempt(b: BastionState): Result {
+/**
+ * Começa outra tentativa a partir do estado salvo (a cidade não reinicia sozinha). As cartas são copiadas
+ * da coleção compartilhada com a campanha: como na jornada, equipar só vale a partir da próxima tentativa.
+ */
+export function startAttempt(b: BastionState, cards: CardCollection): Result {
   if (!b.attemptEnded) return fail('attemptRunning');
   if (b.coreHp <= 0) return fail('coreDown');
   b.attemptEnded = false;
   b.attempt++;
   b.nightsInAttempt = 0;
   b.records.attempts++;
+  applyCardLoadout(b.profile, cards);
   return { ok: true };
 }
 

@@ -8,6 +8,7 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - Projetos permanentes com pré-requisitos: Castelo básico, Torres de tiro (com a Arqueira na party) e Reforços estruturais.
 - Socorro contra a derrota severa, para a cidade nunca travar sem Zen.
 - Na batalha, a horda quebra as muralhas que estão no caminho, e as torres atiram sozinhas no inimigo visível mais próximo. Estrutura destruída não bloqueia nem atira.
+- As cartas dos personagens são a única parte compartilhada com a campanha: o Bastião usa a mesma coleção, e equipar vale a partir da próxima tentativa.
 - O modo ainda não aparece no menu: falta o mapa próprio, a tela de construção e a recuperação entre ondas (próximas etapas).
 - As jornadas atuais não mudam: a saída de referência da simulação continua idêntica.
 

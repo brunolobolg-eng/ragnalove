@@ -6,7 +6,7 @@ O histórico técnico de cada versão está no `CHANGELOG.md`; o estado atual do
 Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisões, pendências e commits.
 
 ## Pendências em aberto (resumo)
-- **O Último Bastião (v0.11, em andamento):** fundação pronta e testada no core (sem tela, sem mapa próprio). Próxima etapa: mapa do Bastião com área de construção e portão. Decisões D1–D7 abaixo esperam confirmação do dono (principalmente a carteira separada, D1, e os valores iniciais, D7).
+- **O Último Bastião (v0.11, em andamento):** fundação pronta e testada no core (sem tela, sem mapa próprio). Próxima etapa: mapa do Bastião com área de construção e portão. D1 (carteira própria) e as cartas (D8) já foram confirmados pelo dono. Ainda esperam confirmação: os valores iniciais (D7) e as pendências 9 e 10 do registro abaixo.
 - **Álbum de cartas e dica da revelação (v0.10):** Feiticeira e Bruxa não têm ícone de classe na folha 32 (usam o retrato); cartas não têm nível no jogo (o "Nv." da imagem virou ×N); conferir no PC do dono o álbum com cartas reais e a dica do pacote.
 - **Kit de interface nos menus (v0.9):** conferir visualmente no PC do dono o pacote de cartas e as configurações (não conferidos nesta rodada); a moldura do mítico é dourada porque a arte do vermelho está no miolo (decisão de arte); silhuetas de amuleto e anel saíram irregulares, e brinco e cinto não têm silhueta própria; a muralha do guerreiro não tem textura no arquivo do kit (decisão: textura própria ou a do cenário). Ranking do menu é arte da tela inicial, não foi trocado (v0.9).
 - **Pacote de efeitos nas magias (v0.8g):** passivas e estados sem evento ficam sem efeito novo; desempenho precisa ser medido na GPU do dono; o 7z original espera permissão para ir à branch `fontes` (v0.8g).
@@ -199,13 +199,14 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - Não existia: cidade persistente entre jornadas; construção com custo, reparo e reembolso; torre que atira sozinha; projetos permanentes; chave de save própria.
   - Riscos achados: `shieldWall` é caso especial em 6 pontos (muralha do Guerreiro e a contagem que libera a habilidade). Por isso as muralhas da cidade têm tipo próprio, `bastionWall`. A grade é global (`applyZone` muda `GAME_CONFIG.board` e `wave`): duas simulações com zonas diferentes não podem rodar ao mesmo tempo. A horda comum só quebra obstáculos da lista `WALL_BREAKERS`. O Electron tinha lista fixa de chaves de save (`run`, `meta`).
 - **Decisões (proposta, o dono pode trocar):**
-  - **D1 — Carteira própria do modo:** a cidade tem o próprio perfil (heróis, Zen). Não divide Zen com a jornada: não mexe no save da jornada e a cidade grava tudo numa só escrita atômica.
+  - **D1 — Carteira própria do modo (confirmada pelo dono):** a cidade tem o próprio perfil (heróis, Zen). Não divide Zen com a jornada: não mexe no save da jornada e a cidade grava tudo numa só escrita atômica.
   - **D2 — Só Zen:** nenhum material novo. Reparo = investido × fração perdida × 0,5 (mínimo 2 Zen). Reconstruir = investido × 0,8, sempre mais que reparar. Remover devolve 50% da parte que resta; destruída não devolve.
   - **D3 — Caminho:** muralhas e torres são quebráveis, então a horda sempre passa, quebrando. Só o próprio mapa pode cortar a rota (a checagem fica como guarda).
   - **D4 — Derrota:** a tentativa termina, a cidade persiste (dano e destruição). O núcleo não volta sozinho: repara-se pagando. Socorro de 150 Zen, no máximo a cada 2 tentativas, se nem o reparo mínimo (10% do núcleo) der para pagar.
   - **D5 — Projetos:** Castelo básico (grátis); Torres de tiro (200 Zen, exige a Arqueira na party); Reforços estruturais (150 Zen, 2 ondas vencidas, +25% de vida nas muralhas).
   - **D6 — Recompensa de onda:** a mesma da jornada (Zen dos abates + bônus de onda limpa). Não há tabela nova.
   - **D7 — Valores iniciais (calibrar com o dono):** muralha 30 Zen, 120 de vida (+60 por nível, até o nível 3). Torre 120 Zen, 100 de vida (+40 por nível), 14 de dano a cada 1,2 s, alcance 6 tiles.
+  - **D8 — Cartas compartilhadas (correção do dono):** a run do Bastião não tem nada a ver com a jornada da campanha. A única coisa compartilhada são as cartas dos personagens. A coleção continua no save de meta; o Bastião copia os bônus no início de cada tentativa, igual à jornada ("vale a partir da próxima tentativa"). Nenhuma carta é gravada no save do Bastião além dessa cópia.
 - **Entregue (Etapa 2 inteira e parte da Etapa 3):**
   - Dados do modo (`src/config/bastion.ts`).
   - Estado, criação e migração da cidade (`src/core/bastion/bastion.ts`).
@@ -215,7 +216,7 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - Save próprio: chave `bastion` (arquivo próprio no executável; localStorage em dev). `SaveStore`, `electron/main.cjs` e o tipo da janela foram atualizados.
   - Visual: muralha da cidade usa o mesmo desenho da muralha do Guerreiro; torre usa a peça `Tower_Round` do kit do dono. Os dois só aparecem quando a batalha do Bastião existir.
 - **Testes:**
-  - `npm run bastion:check`: 72 checagens, todas passando (dados, migração, colocação, custos, projetos, ondas, socorro e simulação com muralhas, torres e estruturas destruídas).
+  - `npm run bastion:check`: 82 checagens, todas passando (inclui as cartas compartilhadas) (dados, migração, colocação, custos, projetos, ondas, socorro e simulação com muralhas, torres e estruturas destruídas).
   - `npm run build`: passa.
   - `npm run sim:check`: resultados das 13 zonas idênticos à linha de base, antes e depois.
   - Navegador (DEV, 1280×720): batalha da ponte com 16 muralhas erguidas pelo caminho refatorado (`ObjectView`): sem erro de console; captura do planejamento mostra as muralhas do kit no lugar.
@@ -227,7 +228,9 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   5. Tela de construção e recuperação, entrada no menu, arrastar e girar linhas de muralha. Etapa 6.
   6. Expansões de terreno e progressão por etapa com requisitos reais. Etapa 4.
   7. Melhorias temporárias de combate (encerram com a tentativa): ainda não existe nenhuma.
-  8. Balanceamento: custos e dano das torres com o dono (D7). Carteira separada (D1): confirmar.
+  8. Balanceamento: custos e dano das torres com o dono (D7).
+  9. Cartas no Bastião: os slots de carta dependem das vitórias da campanha (`cardSlots(runsWon)`). Decidir se o Bastião usa a mesma regra quando tiver tela de equipar.
+  10. Classes no Bastião: hoje qualquer herói pode entrar na party. Decidir quais começam liberadas (sugestão: Guerreiro, Mago e Arqueira).
 - **Commits:** o commit desta versão.
 
 ## Lições (curtas)

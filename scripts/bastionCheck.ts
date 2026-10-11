@@ -4,6 +4,8 @@
  * 6) Ondas (idempotência, derrota e socorro) · 7) Simulação (muralhas quebráveis, torres, destruídas).
  */
 import { BASTION, PROJECTS, PROJECT_IDS, STRUCTURES } from '../src/config/bastion';
+import { addCards, cardBonusFor, emptyCollection, equipCard } from '../src/core/progression/cards';
+import { heroStats } from '../src/core/progression/profile';
 import { DEFAULT_SETUP, GAME_CONFIG, applyZone } from '../src/config/gameConfig';
 import { ZONES } from '../src/config/zones';
 import type { WaveResult } from '../src/core/progression/profile';
@@ -73,7 +75,7 @@ check('torre atira; muralha não', !!STRUCTURES.tower.shot && !STRUCTURES.wall.s
 check('há terreno livre suficiente para os testes', free.length >= 4, `${free.length} tiles`);
 
 console.log('\n# 2) Estado e migração');
-const b0 = newBastion(7);
+const b0 = newBastion(7, emptyCollection());
 check('cidade nova: só o castelo, núcleo cheio, party inicial', b0.projects.join() === 'castle' && b0.coreHp === BASTION.coreMaxHp && b0.party.join() === 'warrior,mage' && b0.attempt === 1);
 const j0 = JSON.stringify(b0);
 check('save vai e volta pelo JSON sem perda', JSON.stringify(migrateBastion(JSON.parse(j0))) === j0);
@@ -88,7 +90,7 @@ check('save incompleto ganha os campos que faltam', m1.includes('"projects":["ca
 check('migração é idempotente', JSON.stringify(migrateBastion(JSON.parse(m1) as BastionState)) === m1);
 
 console.log('\n# 3) Colocação');
-const bp = newBastion(7);
+const bp = newBastion(7, emptyCollection());
 bp.profile.zeni = 1000;
 const r1 = placeStructure(bp, env(), 'wall', free[0]);
 check('muralha no tile livre: cobra 30 Zen e nasce com vida cheia', r1.ok && bp.profile.zeni === 970 && findStructure(bp, r1.ok ? r1.id : -1)?.hp === 120, r1.ok ? '' : BUILD_MSG[r1.error]);
@@ -103,14 +105,14 @@ const gate = board.cityTiles()[0];
 check('portão da cidade: recusado', errOf(placeStructure(bp, env(() => true), 'wall', gate)) === 'city');
 check('portal da horda: recusado (raio de segurança)', errOf(placeStructure(bp, env(() => true), 'wall', spawns[0])) === 'spawn');
 check('tile com herói: recusado', errOf(placeStructure(bp, env(() => true), 'wall', heroes[0])) === 'hero');
-const bz = newBastion(7);
+const bz = newBastion(7, emptyCollection());
 bz.profile.zeni = 10;
 check('sem Zen para a muralha: recusada e nada é gasto', errOf(placeStructure(bz, env(), 'wall', free[0])) === 'zeni' && bz.profile.zeni === 10 && bz.structures.length === 0);
 const sealed = new Board(7, 5);
 for (let x = 0; x < 7; x++) sealed.setWall(x, 2);
 sealed.setCity(3, 4);
 const sealedEnv: BuildEnv = { board: sealed, buildable: () => true, spawns: [{ x: 3, y: 0 }], spawnSafeRadius: 0, heroes: [] };
-const bs = newBastion(7);
+const bs = newBastion(7, emptyCollection());
 bs.profile.zeni = 500;
 check('rota cortada pelo próprio mapa: recusada', errOf(placeStructure(bs, sealedEnv, 'wall', { x: 1, y: 1 })) === 'route');
 const open = new Board(7, 5);
@@ -119,7 +121,7 @@ check('rota aberta: a mesma colocação passa', placeStructure(bs, { ...sealedEn
 check('o mapa do Bastião (ponte) tem rota dos portais ao portão', routeOpen(board, spawns));
 
 console.log('\n# 4) Custos, reparo e reembolso');
-const bc = newBastion(7);
+const bc = newBastion(7, emptyCollection());
 bc.profile.zeni = 1000;
 const rc = placeStructure(bc, env(), 'wall', free[2]);
 const w = findStructure(bc, rc.ok ? rc.id : -1) as Structure;
@@ -165,7 +167,7 @@ const rm = removeStructure(bc, w.id);
 check('remover devolve metade do investido (60 → 30) e tira a construção', rm.ok && rm.refund === 30 && bc.structures.length === 0);
 
 console.log('\n# 5) Projetos');
-const bj = newBastion(7);
+const bj = newBastion(7, emptyCollection());
 bj.profile.zeni = 2000;
 check('torres: sem a Arqueira na party, não liberam', errOf(unlockProject(bj, 'towers')) === 'heroNeeded');
 bj.party.push('archer');
@@ -178,14 +180,14 @@ check('reforço: libera com 2 ondas e dá +25% de vida à muralha (120 → 150)'
 check('torre não ganha o bônus da muralha (100)', structureMaxHp(bj, { kind: 'tower', level: 1 }) === 100);
 check('projeto que não existe: recusado', errOf(unlockProject(bj, 'forja')) === 'unknownProject');
 check('nome herdado do JavaScript (constructor): recusado sem quebrar', errOf(unlockProject(bj, 'constructor')) === 'unknownProject');
-const bq = newBastion(7);
+const bq = newBastion(7, emptyCollection());
 bq.projects = [];
 bq.party.push('archer');
 bq.profile.zeni = 999;
 check('torres sem o castelo: o pré-requisito bloqueia', errOf(unlockProject(bq, 'towers')) === 'requires');
 
 console.log('\n# 6) Ondas, derrota e socorro');
-const bw = newBastion(7);
+const bw = newBastion(7, emptyCollection());
 bw.profile.zeni = 500;
 const wr = placeStructure(bw, env(), 'wall', free[3]);
 const wall = findStructure(bw, wr.ok ? wr.id : -1) as Structure;
@@ -201,13 +203,13 @@ const lose: NightOutcome = { victory: false, coreHp: 0, structures: [{ id: wall.
 applyNight(bw, lose, 'night:1:2');
 check('derrota: encerra a tentativa e registra o recorde', bw.attemptEnded === true && bw.records.bestNights === 1);
 check('derrota: projetos e muralha destruída continuam', bw.projects.includes('castle') && structureStatus(bw, wall) === 'destroyed');
-check('núcleo caído: não começa outra tentativa', errOf(startAttempt(bw)) === 'coreDown');
+check('núcleo caído: não começa outra tentativa', errOf(startAttempt(bw, emptyCollection())) === 'coreDown');
 bw.profile.zeni = 0;
 check('socorro: sem Zen nem para o reparo mínimo, a cidade ganha Zen', rescueIfStuck(bw) === BASTION.rescue.zeni && bw.profile.zeni === BASTION.rescue.zeni);
 check('socorro: não repete na mesma tentativa', rescueIfStuck(bw) === 0);
 const rcore = repairCore(bw, 100);
 check('núcleo: repara 100 de vida por 110 Zen', rcore.ok && rcore.cost === 110 && bw.coreHp === 100);
-check('derrota severa: a tentativa 2 começa com a cidade como estava', startAttempt(bw).ok === true && bw.attempt === 2 && bw.nightsInAttempt === 0);
+check('derrota severa: a tentativa 2 começa com a cidade como estava', startAttempt(bw, emptyCollection()).ok === true && bw.attempt === 2 && bw.nightsInAttempt === 0);
 check('muralha destruída segue destruída na tentativa 2', structureStatus(bw, wall) === 'destroyed' && fortificationsOf(bw)[0].hp === 0);
 check('reconstruir a muralha custa 24 (investido × 0,8)', repairCostOf(bw, wall) === 24);
 bw.coreHp = 0;
@@ -262,6 +264,28 @@ const deadWall: Fortification = { id: 301, kind: 'wall', x: row[0].x, y: row[0].
 const D = fight([deadTower, deadWall]);
 check('destruída não bloqueia o tile e não atira', D.sim.board.isWalkable(deadWall.x, deadWall.y) && D.sim.board.isWalkable(deadTower.x, deadTower.y) && D.shots.length === 0);
 check('destruída continua com vida 0 ao fim da onda', D.sim.fortificationStates().every((s) => s.hp === 0));
+
+console.log('\n# 8) Cartas compartilhadas com a campanha');
+const cartas = emptyCollection();
+addCards(cartas, ['high_orc', 'high_orc', 'requiem']);
+const equipou = equipCard(cartas, 'warrior', 'high_orc', 3);
+check('carta equipada no guerreiro (+3 de Força, afinidade cheia)', equipou === undefined && cardBonusFor('warrior', cartas).str === 3);
+const comCartas = newBastion(7, cartas);
+const semCartas = newBastion(7, emptyCollection());
+check('Bastião: o guerreiro começa com o bônus da carta', comCartas.profile.heroes.warrior.cardAttrs?.str === 3);
+check('sem cartas na coleção, o bônus é zero', semCartas.profile.heroes.warrior.cardAttrs?.str === 0);
+check('o status do guerreiro sobe 3 de Força com a carta', heroStats(comCartas.profile, 'warrior').attrs.str === heroStats(semCartas.profile, 'warrior').attrs.str + 3);
+check('o save do Bastião guarda só o bônus, não a coleção', !JSON.stringify(comCartas).includes('"owned"') && !JSON.stringify(comCartas).includes('high_orc'));
+const antesDaDerrota = JSON.stringify(cartas);
+const derrota: NightOutcome = { victory: false, coreHp: 900, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } };
+applyNight(comCartas, derrota, 'night:1:1');
+check('a derrota no Bastião não mexe na coleção compartilhada', JSON.stringify(cartas) === antesDaDerrota);
+equipCard(cartas, 'mage', 'high_orc', 3);
+check('equipar no meio da tentativa não muda o Bastião (vale na próxima)', comCartas.profile.heroes.mage.cardAttrs?.str === 0);
+const nova = startAttempt(comCartas, cartas);
+check('a próxima tentativa copia a coleção nova: o mago leva metade (+1 de Força, sem afinidade)', nova.ok && comCartas.profile.heroes.mage.cardAttrs?.str === 1 && comCartas.attempt === 2);
+check('o guerreiro mantém o bônus cheio (+3 de Força)', comCartas.profile.heroes.warrior.cardAttrs?.str === 3);
+check('a cópia do Bastião bate com o cálculo da campanha', JSON.stringify(comCartas.profile.heroes.mage.cardAttrs) === JSON.stringify(cardBonusFor('mage', cartas)));
 
 console.log(failures ? `\n${failures} checagem(ns) falharam.` : '\nTodas as checagens do Último Bastião passaram.');
 if (failures) throw new Error(`bastionCheck: ${failures} falha(s)`);

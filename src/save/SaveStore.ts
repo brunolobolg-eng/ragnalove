@@ -1,6 +1,6 @@
 /**
  * Save do jogador: jornada em andamento ('run'), conquistas/recordes ('meta') e a cidade do
- * Último Bastião ('bastion', arquivo próprio: a cidade persiste entre jornadas e tentativas).
+ * Último Bastião ('bastion', arquivo próprio: a cidade persiste entre tentativas e não compartilha nada com a jornada, exceto as cartas, que vêm do 'meta').
  * Executável: arquivos em userData/saves, gravados pelo Electron de forma atômica e com cópia de
  * segurança (.bak). Na primeira abertura desta versão, o save das versões anteriores (localStorage)
  * é copiado para os arquivos — e continua lá, intocado, como mais uma cópia.

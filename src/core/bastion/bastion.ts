@@ -1,10 +1,13 @@
 import { BASTION, PROJECTS, STRUCTURES, type StructureKind } from '../../config/bastion';
 import { createProfile, migrateProfile, type Profile } from '../progression/profile';
+import { applyCardLoadout, type CardCollection } from '../progression/cards';
 import type { HeroKind } from '../progression/skills';
 
 /**
  * Estado do Último Bastião (salvo à parte, na chave 'bastion'). A cidade persiste entre tentativas:
- * estruturas, dano, projetos desbloqueados, vida do núcleo e a carteira (Zen) ficam aqui.
+ * estruturas, dano, projetos desbloqueados, vida do núcleo, carteira (Zen) e heróis do modo ficam aqui.
+ * Nada é compartilhado com a jornada da campanha, exceto as CARTAS: a coleção mora no save de meta e
+ * entra aqui só como cópia dos bônus, tirada no início de cada tentativa (igual à jornada).
  * Regras de colocação, custo e reparo ficam em rules.ts; este arquivo só guarda, cria e migra.
  */
 
@@ -36,7 +39,10 @@ export interface BastionState {
   attemptEnded?: boolean;
   coreHp: number;
   coreMaxHp: number;
-  /** Carteira e progressão dos heróis do modo (mesmos sistemas da jornada: Zen, EXP, equipamentos). */
+  /**
+   * Carteira e progressão dos heróis do modo (Zen, EXP, equipamentos, almas): tudo próprio do Bastião.
+   * Os bônus de carta (`heroes[k].cardAttrs`) são uma cópia da coleção compartilhada, tirada no início da tentativa.
+   */
   profile: Profile;
   /** Heróis que defendem a cidade. */
   party: HeroKind[];
@@ -51,9 +57,12 @@ export interface BastionState {
   records: { bestNights: number; attempts: number };
 }
 
-/** Cidade nova: só o castelo básico desbloqueado, núcleo cheio e a party inicial da jornada. */
-export function newBastion(seed: number, party: HeroKind[] = ['warrior', 'mage']): BastionState {
-  return {
+/**
+ * Cidade nova: só o castelo básico desbloqueado, núcleo cheio e a party inicial. `cards` é a coleção
+ * compartilhada com a campanha (save de meta): só os bônus dela são copiados para os heróis do modo.
+ */
+export function newBastion(seed: number, cards: CardCollection, party: HeroKind[] = ['warrior', 'mage']): BastionState {
+  const b: BastionState = {
     version: 1,
     seed: seed >>> 0,
     attempt: 1,
@@ -68,6 +77,8 @@ export function newBastion(seed: number, party: HeroKind[] = ['warrior', 'mage']
     nextId: 1,
     records: { bestNights: 0, attempts: 1 },
   };
+  applyCardLoadout(b.profile, cards);
+  return b;
 }
 
 /** Completa campos que faltam (save antigo ou editado à mão) sem perder nada. Pode rodar mais de uma vez. */
