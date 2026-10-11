@@ -2,6 +2,18 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-11 — v0.8d
+- Pacote packtextura removido (peças GLB e texturas de pedra e grama): o dono achou as texturas horríveis. Nada da ponte nem da floresta depende mais dele.
+- Árvores da floresta refeitas: tronco com casca e copa de folhas, com as texturas de casca, musgo, bétula e folha do dono. Cinco variações, uma de outono. Antes eram as peças antigas, com cara de bolinhas.
+- Rochas, arbustos, troncos caídos e ruínas da floresta e da ponte refeitos com as pedras e folhas do dono. Cada peça tem sombra na base, para não flutuar.
+- Deserto (Dunas Vermelhas, Ruínas Solares): chão de areia em camadas com as texturas do dono (dunas fora do tabuleiro, ondulações, areia rachada, pedrinhas perto das pedras, areia avermelhada, trilha batida até o portão). O canvas saiu do deserto. As rochas e as cristas do fundo agora são de arenito do dono.
+- Oásis do deserto com margem úmida e água, pelo mesmo método do lago da floresta.
+- Ponte: deque, praça e doca com as pedras do dono. A praça tem pedra cinza, para não avermelhar com as lanternas à noite.
+- Texturas novas em `public/textures/arvores/`, `pedras/` e `deserto/`: 52 recortes de duas folhas de referência, emendados e com a iluminação das bordas corrigida.
+- Código: `naturKit.ts` (peças), `groundLayers.ts` e `groundMath.ts` (base comum dos chãos), `desertGround.ts` (deserto). `forestGround.ts` mantém o comportamento. Grade e simulação não mudaram.
+- Montagem da batalha (teste no navegador, sem GPU): floresta na mesma faixa de antes (113 a 145 ms). Deserto mais lento: Dunas Vermelhas de 137 para 164 ms, Ruínas Solares de 89 para 130 ms, por causa do chão em camadas. Ponte: 39 ms.
+- Pendente: os recortes têm 95 a 150 px, então de perto a nitidez é limitada. Pedir ao dono as folhas originais em 512 px ou mais. Objetos das folhas (flores, cogumelos, tocos, cactos, ossos) ainda não viraram peças.
+
 ## 2026-10-11 — v0.8c
 - Lago da floresta refeito: era um quadrado azul flutuando sobre a grama. Agora tem margem de terra molhada, anel de água rasa, centro fundo, contorno irregular, ondas que deslizam devagar e pedras e arbustos na borda.
 - Poças: os discos azuis eram desenhados acima do chão (flutuavam). Agora são lama no próprio chão, com um pouco de água parada no centro.

@@ -272,7 +272,7 @@ const BUILD: Record<string, () => KitPiece> = {
   pedra_d: () => rock(79, 'pedras/pedra_azulada'),
   arenito_a: () => rock(83, 'pedras/pedra_colunas_vermelhas'),
   arenito_b: () => rock(89, 'pedras/pedra_seixos_b'),
-  arenito_c: () => rock(97, 'pedras/pedra_seixos_claros'),
+  arenito_c: () => rock(97, 'pedras/pedra_seixos'),
   arbusto_a: () => bush(101, 'arvores/copa_verde_escura'),
   arbusto_b: () => bush(103, 'arvores/copa_verde'),
   tronco_a: () => log(107, 'arvores/tronco_casca_b'),

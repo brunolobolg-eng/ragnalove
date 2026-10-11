@@ -73,13 +73,13 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   deck.position.set((deckL + deckR) / 2, -0.3, (FAR_Z + plazaN) / 2);
   root.add(shadow(deck, false));
 
-  const plazaTex = loadTexture('textures/pedras/pedra_blocos.webp');
+  const plazaTex = loadTexture('textures/pedras/pedra_cinza.webp');
   const plazaDepth = wallZ + 1.5 - plazaN;
   plazaTex.repeat.set((plazaR - plazaL) / 4, plazaDepth / 4);
   const plazaMesh = new THREE.Mesh(new THREE.BoxGeometry(plazaR - plazaL, 0.6, plazaDepth), [
     lambert({ color: 0x5c554c }),
     lambert({ color: 0x5c554c }),
-    lambert({ map: plazaTex, color: 0xb4b8c2 }),
+    lambert({ map: plazaTex, color: 0xc4c8d0 }),
     lambert({ color: 0x33302b }),
     lambert({ color: 0x5c554c }),
     lambert({ color: 0x5c554c }),
@@ -784,9 +784,9 @@ function buildBanks(root: THREE.Group, L: BankLayout): void {
 
   // ---- dentro dos muros (ao sul da muralha): o largo do mercado de Valdrec ----
   const cityDepth = 26;
-  const plaza = loadTexture('textures/pedras/pedra_blocos.webp');
+  const plaza = loadTexture('textures/pedras/pedra_cinza.webp');
   plaza.repeat.set((W + 60) / 4, cityDepth / 4);
-  const city = new THREE.Mesh(new THREE.BoxGeometry(W + 60, 0.6, cityDepth), new THREE.MeshLambertMaterial({ map: plaza, color: 0xa8acb6 }));
+  const city = new THREE.Mesh(new THREE.BoxGeometry(W + 60, 0.6, cityDepth), new THREE.MeshLambertMaterial({ map: plaza, color: 0xc8ccd6 }));
   city.position.set(0, -0.3, wallZ + 1 + cityDepth / 2);
   city.receiveShadow = true;
   root.add(city);

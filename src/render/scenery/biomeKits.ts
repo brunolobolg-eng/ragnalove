@@ -96,9 +96,9 @@ export const KITS: Record<KitBiome, BiomeKit> = {
   desert: {
     rock: ['nat:arenito'], // pedras de arenito feitas com a textura do dono (naturKit.ts)
     rockTint: { color: 0xd6a872, amount: 0.5 }, // arenito
-    ridge: ['castle/rocks-large', 'town/rock-wide', 'survival/rock-b'],
+    ridge: ['nat:arenito'], // mesas e cristas do fundo com as pedras de arenito (naturKit.ts)
     ridgeTint: { color: 0xcf9f68, amount: 0.55 }, // mesas
-    peak: ['castle/rocks-large', 'town/rock-wide'],
+    peak: ['nat:arenito'],
     towers: ['castle/tower-hexagon-base', 'castle/tower-square-base'],
     trees: null,
     ringTree: ['cactus'],
