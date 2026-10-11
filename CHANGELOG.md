@@ -2,6 +2,14 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-11 — v0.8e
+- Projétil do Necromante (inimigo) refeito: orbe de sombra com cerca de 0,8 tile de diâmetro (antes eram partículas miúdas), com halo pulsando, anel rúnico girando, rastro em fita e impacto com onda de choque roxa. Voo de 7 tiles por segundo, com o dano adiado até a batida.
+- A Bruxa da party continua com o orbe pequeno de antes.
+- Dano de magia inimiga que acerta herói aparece em roxo, com o valor. Dano corpo a corpo segue vermelho.
+- Biblioteca de texturas: 47 texturas da folha 23 (terreno e grama, caminhos, água, pedras, madeira, muro, telhados e pisos) em `public/textures/biblioteca/`, com `catalogo.json`.
+- Folhas de referência 21, 22 e 23 guardadas em `referencias/texturas/` (fora de `public/`, não entram no `.exe`).
+- Números do efeito em `src/config/fx/enemyShadow.ts`. Grade, dano, alcance e recarga não mudaram.
+
 ## 2026-10-11 — v0.8d
 - Pacote packtextura removido (peças GLB e texturas de pedra e grama): o dono achou as texturas horríveis. Nada da ponte nem da floresta depende mais dele.
 - Árvores da floresta refeitas: tronco com casca e copa de folhas, com as texturas de casca, musgo, bétula e folha do dono. Cinco variações, uma de outono. Antes eram as peças antigas, com cara de bolinhas.
