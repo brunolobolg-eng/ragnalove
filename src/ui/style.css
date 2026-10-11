@@ -724,7 +724,7 @@ body.cine #cine { pointer-events: auto; cursor: pointer; }
 #hud .charwin.rog > .win-title { height: auto; min-height: 46px; padding: 8px 14px; gap: 10px; justify-content: flex-start; border-bottom: 1px solid rgba(199, 157, 72, 0.6);
   background: linear-gradient(180deg, rgba(42, 62, 128, 0.9), rgba(18, 30, 70, 0.9)); font-family: Cinzel, serif; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; color: var(--au-title); text-shadow: 0 2px 4px #000; }
 #hud .charwin.rog > .win-title .au-ico img { width: 20px; height: 20px; object-fit: contain; }
-#hud .charwin.rog .char-body { padding: 12px 14px 14px; overflow: auto; background: transparent; }
+#hud .charwin.rog .char-body { padding: 12px 14px 14px; flex: 1 1 auto; min-height: 0; overflow: auto; background: transparent; }
 .cw { display: grid; grid-template-columns: 1.45fr 1fr; gap: 12px; }
 .cw-panel, .cw-box { min-width: 0; }
 /* abas dos heróis: retrato redondo com anel dourado (mesmo desenho das abas da Cidade) */
@@ -740,12 +740,12 @@ body.cine #cine { pointer-events: auto; cursor: pointer; }
 /* boneco no centro, equipamento dos dois lados (quadros do kit por raridade) */
 .cw-doll { display: grid; grid-template-columns: 62px 1fr 62px; gap: 10px; align-items: stretch; }
 .cw-col { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
-#hud .charwin.rog .cw-col .au-slot { width: 58px; height: 58px; padding: 4px; cursor: pointer; }
-#hud .charwin.rog .cw-col .au-slot.empty { cursor: default; }
-#hud .charwin.rog .au-slot > img { width: 82%; height: 82%; object-fit: contain; }
-#hud .charwin.rog .au-slot.empty > .au-ghost { inset: 14% 22% 24%; }
-#hud .charwin.rog .au-slot.empty > small { position: absolute; left: 0; right: 0; bottom: 2px; text-align: center; font: 9px Tahoma, sans-serif; color: var(--au-dim); pointer-events: none; }
-#hud .charwin.rog .au-slot:not(.empty):hover { filter: brightness(1.18); }
+#hud .charwin.rog .cw-col .cw-slot { width: 58px; height: 58px; padding: 4px; cursor: pointer; }
+#hud .charwin.rog .cw-col .cw-slot.empty { cursor: default; }
+#hud .charwin.rog .cw-slot > img, #hud .charwin.rog .cw-cell > img { width: 82%; height: 82%; object-fit: contain; }
+#hud .charwin.rog .cw-slot.empty > .au-ghost { inset: 14% 22% 24%; }
+#hud .charwin.rog .cw-slot.empty > small { position: absolute; left: 0; right: 0; bottom: 2px; text-align: center; font: 9px Tahoma, sans-serif; color: var(--au-dim); pointer-events: none; }
+#hud .charwin.rog .cw-slot:not(.empty):hover { filter: brightness(1.18); }
 .cw-model { position: relative; min-height: 310px; padding-top: 46px; border-radius: 10px; overflow: hidden; display: flex; align-items: flex-end; justify-content: center;
   background: radial-gradient(ellipse at 50% 58%, rgba(70, 110, 200, 0.35), rgba(16, 24, 56, 0.2) 55%, rgba(6, 10, 26, 0.7)), linear-gradient(180deg, #16244f, #070d22); border: 1px solid var(--au-line); }
 .cw-model .hc-medal { position: absolute; left: 50%; top: 52%; width: 260px; height: 260px; margin: -130px 0 0 -130px; opacity: 0.55; z-index: 0; }
@@ -770,12 +770,13 @@ body.cine #cine { pointer-events: auto; cursor: pointer; }
 .cw-attr .au-btn { --bw: 6px; --bs: 12; height: 22px; padding: 0; font-size: 12px; line-height: 1; min-width: 0; }
 .cw-attr .au-btn.p5 { font-size: 10px; }
 .cw-attr[data-tip] { cursor: help; }
-.cw-drvs { max-height: 150px; overflow-y: auto; }
+.cw-drvs { display: flex; flex-direction: column; }
 .cw-drv { display: flex; justify-content: space-between; gap: 6px; font: 11px Tahoma, sans-serif; padding: 2px 0; border-bottom: 1px dashed rgba(199, 157, 72, 0.22); }
 .cw-drv span { color: var(--au-dim); }
 .cw-drv b { color: var(--au-text); font-weight: 600; text-align: right; }
 .cw-bonus { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; font: 11px Tahoma, sans-serif; padding: 3px 0; border-bottom: 1px dashed rgba(199, 157, 72, 0.22); }
-.cw-stats > .cw-box:nth-child(3) { grid-column: 1 / -1; }
+.cw-stats > .cw-box:nth-child(3) { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; }
+.cw-stats > .cw-box:nth-child(3) > .cw-sub, .cw-stats > .cw-box:nth-child(3) > .cw-dim { grid-column: 1 / -1; }
 .cw-bonus i { width: 8px; height: 8px; border-radius: 50%; background: var(--rc, #888); flex: none; }
 .cw-bonus span { color: var(--au-text); font-weight: 600; }
 .cw-bonus small { color: var(--au-dim); }
@@ -786,13 +787,47 @@ body.cine #cine { pointer-events: auto; cursor: pointer; }
 .cw-filter { display: flex; gap: 6px; margin-bottom: 8px; }
 #hud .charwin.rog .cw-filter .au-tab { flex: 1; min-width: 0; padding: 4px 0; font: 12px Tahoma, sans-serif; }
 .cw-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; max-height: 440px; overflow-y: auto; padding: 2px 4px 2px 2px; }
-#hud .charwin.rog .cw-grid .au-slot { width: 100%; height: auto; aspect-ratio: 1; padding: 3px; }
-#hud .charwin.rog .cw-grid .au-slot > img { width: 80%; height: 80%; }
+#hud .charwin.rog .cw-grid .cw-cell { width: 100%; height: auto; aspect-ratio: 1; padding: 3px; }
+#hud .charwin.rog .cw-grid .cw-cell > img { width: 80%; height: 80%; }
 #hud .charwin.rog .cw-cell.void { cursor: default; opacity: 0.5; }
 #hud .charwin.rog .cw-cell.nouse > img { opacity: 0.35; filter: grayscale(0.8); }
 #hud .charwin.rog .cw-cell.nouse::after { content: '✕'; position: absolute; bottom: 1px; right: 3px; font: bold 11px Tahoma; color: #ff6a5a; text-shadow: 0 0 3px #000; }
 .cw-money { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; padding: 7px 10px; border-radius: 10px; background: var(--au-panel); border: 1px solid var(--au-line); font: 700 13px Cinzel, serif; color: var(--au-title); }
 .cw-money span { display: flex; align-items: center; gap: 5px; }
+/* telas baixas (1280x720): a ficha cabe inteira sem rolagem — quadros, modelo e linhas mais apertados */
+@media (max-height: 760px) {
+  #hud .charwin.rog > .win-title { min-height: 34px; padding: 4px 12px; font-size: 16px; }
+  #hud .charwin.rog > .win-title .au-ico { width: 26px; height: 26px; }
+  #hud .charwin.rog .char-body { padding: 8px 10px 10px; }
+  .cw { gap: 8px; }
+  .cw-tabs { gap: 5px; margin-bottom: 6px; }
+  #hud .charwin.rog .cw-tab { gap: 6px; padding: 2px 10px 2px 2px; }
+  #hud .charwin.rog .cw-tab img { width: 30px; height: 30px; }
+  #hud .charwin.rog .cw-tab span { font-size: 12px; }
+  .cw-doll { grid-template-columns: 50px 1fr 50px; gap: 8px; }
+  .cw-col { gap: 5px; }
+  #hud .charwin.rog .cw-col .cw-slot { width: 46px; height: 46px; padding: 3px; }
+  #hud .charwin.rog .cw-slot.empty > small { display: none; }
+  .cw-model { min-height: 0; height: 250px; padding-top: 30px; }
+  .cw-model img { height: 196px; }
+  .cw-model .hc-medal { top: 54%; width: 200px; height: 200px; margin: -100px 0 0 -100px; }
+  .cw-name { top: 4px; }
+  .cw-name b { font-size: 15px; }
+  .cw-name span { font-size: 10px; }
+  .cw-stats { gap: 8px; margin-top: 8px; }
+  .cw-stats > .cw-box { padding: 6px 8px; }
+  .cw-sub { font-size: 12px; padding-bottom: 3px; margin-bottom: 4px; }
+  .cw-attr { grid-template-columns: 1fr 26px 26px 24px 30px; gap: 3px; padding: 0; font-size: 11px; }
+  .cw-attr .au-btn { height: 18px; }
+  .cw-drv { padding: 1px 0; font-size: 10.5px; }
+  .cw-hint { margin-top: 3px; font-size: 9.5px; line-height: 1.25; }
+  .cw-bonus { padding: 2px 0; font-size: 10.5px; }
+  .cw-money { margin-top: 6px; padding: 5px 8px; font-size: 12px; }
+  .cw-filter { margin-bottom: 5px; }
+  #hud .charwin.rog .cw-filter .au-tab { padding: 3px 0; font-size: 11px; }
+  .cw-grid { gap: 4px; max-height: none; }
+  #hud .charwin.rog .cw-grid .cw-cell { padding: 2px; }
+}
 .cw-tip { position: absolute; z-index: 80; pointer-events: none; min-width: 200px; max-width: 270px; padding: 8px 10px; border-radius: 5px; background: rgba(12, 14, 24, 0.97); border: 1px solid #6a7aa4;
   box-shadow: 0 8px 24px rgba(0,0,0,0.7); color: #d8e0f2; font: 12px Tahoma, sans-serif; }
 .cw-tip[hidden] { display: none; }
