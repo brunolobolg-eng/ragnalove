@@ -2253,6 +2253,14 @@ if (import.meta.env.DEV) {
   (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview,
     // mapa do Último Bastião (só dev): grade nova em planejamento, sem horda, para conferir o cenário
     openBastionMap: () => { loadZone(ZONES[BASTION_ZONE_ID], { count: 0, boss: null, seed: 1 }); setMode('battle'); focusParty(true); },
+    // qualquer zona (só dev), em planejamento e sem horda; para testar a horda: sim.start(), hud.setPlanning(false), sim.spawnEnemy()
+    abrirZona: (id: string) => {
+      const zona = ZONES[id];
+      if (!zona) throw new Error(`zona desconhecida: ${id}`);
+      loadZone(zona, { count: 0, boss: null, seed: 1 });
+      setMode('battle');
+      focusParty(true);
+    },
     // prévias de tela (só dev): roleta de prêmio com um item lendário e o pacote de cartas (ids opcionais)
     rouletteDemo: () => { void roulette.spin('Recompensa da primeira vitória', 'Demonstração da roleta', rollItem(debugRng, 0, `demo-roleta-${debugRng.int(1e9)}`, { rarity: 'legendary', slot: 'weapon' }), () => 'weapon'); },
     cardPackDemo: (ids?: string[]) => cardPack.show(ids ?? rollPack(), () => {}),
@@ -2698,7 +2706,7 @@ function devApi(): DevApi {
       resetSim();
       return { results: out, recommended: QUALITY_LABEL[best] };
     },
-    stats: () => ({ fps, particles: view.particles.aliveCount() + view.vfx.aliveCount(), lights: stage.lightsInUse(), enemies: sim.enemies().length, tick: sim.tick, phase: sim.phase }),
+    stats: () => ({ fps, particles: view.particles.aliveCount() + view.vfx.aliveCount(), lights: stage.lightsInUse(), ...stage.sceneStats(), enemies: sim.enemies().length, tick: sim.tick, phase: sim.phase }),
     flowCost: (x, y) => (sim.phase === 'running' ? sim.flowCost(x, y) : undefined),
     boardSize: () => ({ w: sim.board.width, h: sim.board.height }),
     cityLine: () => `Cidade ${sim.cityHp}/${sim.cityMaxHp} · invadiram ${sim.reachedCity} (−${sim.cityDamage}) · run ${run.cityHp}/${run.cityMaxHp} · noite ${run.nights}`,

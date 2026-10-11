@@ -72,6 +72,8 @@ export class Stage {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // (dev) a bancada do F9 soma as passagens do quadro inteiro, não só a última
+    if (import.meta.env.DEV) this.renderer.info.autoReset = false;
     this.renderer.toneMapping = THREE.NeutralToneMapping; // cores de "pintura", sem contraste cinematográfico
     this.renderer.toneMappingExposure = V.exposure;
     container.appendChild(this.renderer.domElement);
@@ -340,6 +342,16 @@ export class Stage {
     return n;
   }
 
+  /** Contagem para a bancada do F9 (dev): chamadas de desenho e triângulos do quadro e luzes pontuais visíveis na cena. */
+  sceneStats(): { draws: number; triangles: number; pointLights: number } {
+    let pointLights = 0;
+    this.scene.traverseVisible((o) => {
+      if ((o as THREE.PointLight).isPointLight) pointLights++;
+    });
+    const info = this.renderer.info.render;
+    return { draws: info.calls, triangles: info.triangles, pointLights };
+  }
+
   /** Luz pontual do pool (cor/intensidade definidas por quem pega). */
   acquireLight(color?: THREE.ColorRepresentation): THREE.PointLight | undefined {
     const l = this.acquireLightRaw();
@@ -364,6 +376,7 @@ export class Stage {
   }
 
   render(dt: number): void {
+    if (import.meta.env.DEV) this.renderer.info.reset();
     this.time += dt;
     // câmera tática: suaviza até o alvo de seguir e posiciona câmera + sombra em volta do foco
     this.manualT = Math.max(0, this.manualT - dt);
