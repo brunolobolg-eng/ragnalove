@@ -79,7 +79,7 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   const plazaMesh = new THREE.Mesh(new THREE.BoxGeometry(plazaR - plazaL, 0.6, plazaDepth), [
     lambert({ color: 0x5c554c }),
     lambert({ color: 0x5c554c }),
-    lambert({ map: plazaTex }),
+    lambert({ map: plazaTex, color: 0xb4b8c2 }),
     lambert({ color: 0x33302b }),
     lambert({ color: 0x5c554c }),
     lambert({ color: 0x5c554c }),
@@ -786,7 +786,7 @@ function buildBanks(root: THREE.Group, L: BankLayout): void {
   const cityDepth = 26;
   const plaza = loadTexture('textures/pedras/pedra_blocos.webp');
   plaza.repeat.set((W + 60) / 4, cityDepth / 4);
-  const city = new THREE.Mesh(new THREE.BoxGeometry(W + 60, 0.6, cityDepth), new THREE.MeshLambertMaterial({ map: plaza, color: 0x9a9088 }));
+  const city = new THREE.Mesh(new THREE.BoxGeometry(W + 60, 0.6, cityDepth), new THREE.MeshLambertMaterial({ map: plaza, color: 0xa8acb6 }));
   city.position.set(0, -0.3, wallZ + 1 + cityDepth / 2);
   city.receiveShadow = true;
   root.add(city);

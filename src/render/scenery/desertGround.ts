@@ -65,14 +65,15 @@ export function desertGround(zone: ParsedZone, margin: number): GroundHandle {
   }, 0.2);
 
   // ---- campos de ruído (uma vez) ----
-  const duneN = sample(field(7, 0.25));
-  const rippleN = sample(field(15, 0.6));
-  const crackN = sample(field(17, 0.9));
+  // manchas grandes (escala até 1,1) usam uma amostra por tile; pedrinhas e plaza, que são mais miúdas, usam duas
+  const duneN = sample(field(7, 0.25, 1));
+  const rippleN = sample(field(15, 0.6, 1));
+  const crackN = sample(field(17, 0.9, 1));
   const pebbleN = sample(field(23, 1.4));
-  const redN = sample(field(29, 0.4));
-  const lakeN = sample(field(21, 0.9));
-  const shadeN = sample(field(5, 0.7));
-  const trailN = sample(field(9, 1.1));
+  const redN = sample(field(29, 0.4, 1));
+  const lakeN = sample(field(21, 0.9, 1));
+  const shadeN = sample(field(5, 0.7, 1));
+  const trailN = sample(field(9, 1.1, 1));
   const plazaN = sample(field(4, 1.6));
 
   // ---- máscaras: uma passada por pixel calcula todas ----
@@ -102,7 +103,7 @@ export function desertGround(zone: ParsedZone, margin: number): GroundHandle {
     dunes[p] = 255 * out;
     const inner = 1 - out;
     ripples[p] = isVoid ? 0 : 255 * inner * smooth(0.5, 0.65, rippleN[p]);
-    cracks[p] = isVoid ? 0 : 255 * inner * smooth(0.6, 0.72, crackN[p]);
+    cracks[p] = isVoid ? 0 : 255 * inner * smooth(0.68, 0.8, crackN[p]);
     pebbles[p] = isVoid ? 0 : 255 * smooth(0.25, 0.55, stoneV[p] * 0.8 + (pebbleN[p] - 0.5) * 0.6 + 0.1);
     reddish[p] = isVoid ? 0 : 255 * smooth(0.6, 0.72, redN[p]);
     shade[p] = isVoid ? 0 : 255 * smooth(0.2, 0.5, shadeV[p] * (0.8 + 0.4 * shadeN[p]));
@@ -115,7 +116,7 @@ export function desertGround(zone: ParsedZone, margin: number): GroundHandle {
   layer({ map: sand('areia_duna_c'), tiles: 6, alpha: dunes, y: -0.028, order: 1 });
   layer({ map: sand('areia_ondas_b'), tiles: 4, alpha: ripples, y: -0.026, order: 2 });
   layer({ map: sand('areia_avermelhada'), tiles: 3, opacity: 0.85, alpha: reddish, y: -0.024, order: 3 });
-  layer({ map: sand('areia_rachada_b'), tiles: 2, opacity: 0.9, alpha: cracks, y: -0.022, order: 4 });
+  layer({ map: sand('areia_rachada_b'), tiles: 2, opacity: 0.7, alpha: cracks, y: -0.022, order: 4 });
   layer({ map: sand('areia_pedrinhas_b'), tiles: 2, alpha: pebbles, y: -0.02, order: 5 });
   layer({ map: sand('areia_plana'), tiles: 3, color: 0x7a5630, opacity: 0.5, alpha: shade, y: -0.018, order: 6 });
   layer({ map: sand('areia_grumos'), tiles: 2, color: 0xc49a66, opacity: 0.9, alpha: trail, y: -0.015, order: 7 });

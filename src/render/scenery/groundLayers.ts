@@ -32,7 +32,7 @@ export interface GroundLayers {
   voids: Uint8Array;
   /** Flag de vazio por pixel. */
   voidPix: Uint8Array;
-  field: (seed: number, scale: number) => (x: number, y: number) => number;
+  field: (seed: number, scale: number, sub?: number) => (x: number, y: number) => number;
   sample: (f: (x: number, y: number) => number) => Float32Array;
   rect: (c: CanvasRenderingContext2D, x: number, y: number) => void;
   disc: (c: CanvasRenderingContext2D, x: number, y: number, r: number) => void;
@@ -63,15 +63,18 @@ export function groundLayers(zone: ParsedZone, margin: number): GroundLayers {
   const voidPix = new Uint8Array(N);
   for (let py = 0; py < CH; py++) for (let px = 0; px < CW; px++) voidPix[py * CW + px] = voids[tileAt(px, py)];
 
-  /** Campo de ruído amostrado a cada 1/SUB de tile e interpolado: barato de consultar em cada pixel. */
-  const field = (seed: number, scale: number): ((x: number, y: number) => number) => {
-    const w = TW * SUB + 1;
-    const h = TH * SUB + 1;
+  /**
+   * Campo de ruído amostrado a cada 1/`sub` de tile e interpolado: barato de consultar em cada pixel. Campos de
+   * baixa frequência (manchas grandes) podem usar `sub` = 1, que custa quatro vezes menos.
+   */
+  const field = (seed: number, scale: number, sub = SUB): ((x: number, y: number) => number) => {
+    const w = TW * sub + 1;
+    const h = TH * sub + 1;
     const g = new Float32Array(w * h);
-    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) g[j * w + i] = noise((i / SUB - margin) * scale, (j / SUB - margin) * scale, seed);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) g[j * w + i] = noise((i / sub - margin) * scale, (j / sub - margin) * scale, seed);
     return (x: number, y: number): number => {
-      const fx = Math.min(w - 1.001, Math.max(0, (x + margin) * SUB));
-      const fy = Math.min(h - 1.001, Math.max(0, (y + margin) * SUB));
+      const fx = Math.min(w - 1.001, Math.max(0, (x + margin) * sub));
+      const fy = Math.min(h - 1.001, Math.max(0, (y + margin) * sub));
       const i = Math.floor(fx);
       const j = Math.floor(fy);
       const tx = fx - i;
@@ -144,6 +147,8 @@ export function groundLayers(zone: ParsedZone, margin: number): GroundLayers {
   const water: { map: THREE.Texture; vx: number; vy: number }[] = [];
   /** Plano de chão cobrindo a área inteira; a textura repete a cada `tiles` tiles. */
   const layer = (o: GroundLayer): void => {
+    // máscara zerada não desenha nada: a camada nem entra na cena (as camadas de água e de margem são assim)
+    if (!o.opaque && o.alpha.every((v) => v === 0)) return;
     if (o.map && o.tiles) o.map.repeat.set(TW / o.tiles, TH / o.tiles);
     if (o.map && o.flow) water.push({ map: o.map, vx: o.flow[0], vy: o.flow[1] });
     const alphaMap = maskTexture(o.alpha);

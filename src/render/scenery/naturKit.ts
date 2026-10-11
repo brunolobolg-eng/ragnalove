@@ -184,7 +184,7 @@ function tree(seed: number, bark: string, leaf: string, lobes: number, spread: n
   const trunk = new THREE.CylinderGeometry(0.07, 0.13, 1.5, 7, 1, true).toNonIndexed().translate(0, 0.75, 0);
   scaleUV(trunk, 1, 2.4); // a casca corre na vertical
   shade(trunk, r, 0.55, 1);
-  const crown = canopy(seed + 1, { lobes, spread, top: 2, radius: 0.78 });
+  const crown = canopy(seed + 1, { lobes, spread, top: 2, radius: 0.92 });
   boxUV(crown, 1.1);
   shade(crown, r, 0.6, 1);
   return { parts: [{ geo: trunk, mat: matOf(bark) }, { geo: crown, mat: matOf(leaf) }] };
@@ -206,7 +206,7 @@ function rock(seed: number, tex: string): KitPiece {
   geo.translate(0, -geo.boundingBox!.min.y, 0);
   geo.computeVertexNormals();
   boxUV(geo, 0.9);
-  shade(geo, r, 0.45, 1);
+  shade(geo, r, 0.55, 1);
   return { parts: [{ geo, mat: matOf(tex) }] };
 }
 
@@ -271,8 +271,8 @@ const BUILD: Record<string, () => KitPiece> = {
   pedra_c: () => rock(71, 'pedras/pedra_fissurada'),
   pedra_d: () => rock(79, 'pedras/pedra_azulada'),
   arenito_a: () => rock(83, 'pedras/pedra_colunas_vermelhas'),
-  arenito_b: () => rock(89, 'pedras/pedra_terra'),
-  arenito_c: () => rock(97, 'pedras/pedra_seixos'),
+  arenito_b: () => rock(89, 'pedras/pedra_seixos_b'),
+  arenito_c: () => rock(97, 'pedras/pedra_seixos_claros'),
   arbusto_a: () => bush(101, 'arvores/copa_verde_escura'),
   arbusto_b: () => bush(103, 'arvores/copa_verde'),
   tronco_a: () => log(107, 'arvores/tronco_casca_b'),
