@@ -2,6 +2,41 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-11 — v0.8d
+- Pacote packtextura removido (peças GLB e texturas de pedra e grama): o dono achou as texturas horríveis. Nada da ponte nem da floresta depende mais dele.
+- Árvores da floresta refeitas: tronco com casca e copa de folhas, com as texturas de casca, musgo, bétula e folha do dono. Cinco variações, uma de outono. Antes eram as peças antigas, com cara de bolinhas.
+- Rochas, arbustos, troncos caídos e ruínas da floresta e da ponte refeitos com as pedras e folhas do dono. Cada peça tem sombra na base, para não flutuar.
+- Deserto (Dunas Vermelhas, Ruínas Solares): chão de areia em camadas com as texturas do dono (dunas fora do tabuleiro, ondulações, areia rachada, pedrinhas perto das pedras, areia avermelhada, trilha batida até o portão). O canvas saiu do deserto. As rochas e as cristas do fundo agora são de arenito do dono.
+- Oásis do deserto com margem úmida e água, pelo mesmo método do lago da floresta.
+- Ponte: deque, praça e doca com as pedras do dono. A praça tem pedra cinza, para não avermelhar com as lanternas à noite.
+- Texturas novas em `public/textures/arvores/`, `pedras/` e `deserto/`: 52 recortes de duas folhas de referência, emendados e com a iluminação das bordas corrigida.
+- Código: `naturKit.ts` (peças), `groundLayers.ts` e `groundMath.ts` (base comum dos chãos), `desertGround.ts` (deserto). `forestGround.ts` mantém o comportamento. Grade e simulação não mudaram.
+- Montagem da batalha (teste no navegador, sem GPU): floresta na mesma faixa de antes (113 a 145 ms). Deserto mais lento: Dunas Vermelhas de 137 para 164 ms, Ruínas Solares de 89 para 130 ms, por causa do chão em camadas. Ponte: 39 ms.
+- Pendente: os recortes têm 95 a 150 px, então de perto a nitidez é limitada. Pedir ao dono as folhas originais em 512 px ou mais. Objetos das folhas (flores, cogumelos, tocos, cactos, ossos) ainda não viraram peças.
+
+## 2026-10-11 — v0.8c
+- Lago da floresta refeito: era um quadrado azul flutuando sobre a grama. Agora tem margem de terra molhada, anel de água rasa, centro fundo, contorno irregular, ondas que deslizam devagar e pedras e arbustos na borda.
+- Poças: os discos azuis eram desenhados acima do chão (flutuavam). Agora são lama no próprio chão, com um pouco de água parada no centro.
+- Chão da floresta montado em camadas com um só desfoque dos vazios e máscaras de 4 px por tile: no teste, montar a cena do Bosque Torto caiu de cerca de 820 ms (v0.8b) para cerca de 200 ms.
+- Módulo novo `src/render/scenery/forestGround.ts` (chão, lago e poças); `packKit.ts` fica só com o kit de peças e texturas.
+- Números do lago e das poças em `POND_VISUAL` (`visualConfig.ts`): cores, transparência e velocidade das ondas.
+- Texturas novas da folha do dono: água funda e rasa (`public/textures/floresta/`).
+- Pendente: de perto, as poças pequenas ainda ficam escuras demais. Árvores e rochas do kit continuam simples.
+
+## 2026-10-11 — v0.8b
+- Chão da floresta refeito com as texturas da folha do dono (grama, grama florida, terra e pedra, recortadas e emendadas em `public/textures/floresta/`). Antes era pintado num canvas de 16 pixels por tile, o que deixava tudo borrado de perto.
+- Chão em camadas (`packForestGround` em `packKit.ts`): cada camada é um plano com a textura nítida e uma máscara suave que decide onde ela aparece. Trilhas de terra com borda irregular, sombra sob as copas e rochas, poças e pedra no portão.
+- Removidas `Grass_Shadow` e `Dirt_Trail` do kit `packtextura` (não são mais usadas).
+- Pendente: as árvores (do kit) e as rochas continuam simples. A folha tem flores, cogumelos e tocos que podem virar decalques no chão numa próxima rodada, e texturas originais em resolução maior dariam mais nitidez de perto.
+
+## 2026-10-10 — v0.8a
+- Florestas (tema `forest`: Bosque Torto, Floresta dos Sussurros, Clareira do Corvo, Vale das Raízes) com o kit packtextura: chão pintado com grama, sombra sob as copas, trilha de terra da entrada até o portão, raízes e poças. Árvores, rochas, troncos e arbustos do pacote, desenhados instanciados.
+- Ponte de Valdrec: deque e praça com a pedra azul e os paralelepípedos do pacote, com mapa de normais (relevo sob a luz). Ruínas e pedras dentro do rio, em tiles de água: não andam nem bloqueiam nada.
+- Grade, caminhos e regras não mudaram; só a apresentação. Módulo novo `src/render/scenery/packKit.ts` (carrega o GLB do kit, as texturas e o chão pintado).
+- Assets: `public/models/packtextura/` (GLB de peças) e `public/textures/packtextura/` (cores em WebP e os mapas de normais da pedra).
+- Removidas `bridgeDeckTexture` e `plazaTexture` (sem uso).
+- Pendente: ainda não está no nível AAA. As árvores são estilizadas e pouco variadas; falta variação de cor nas copas, mais detalhe no chão da floresta (sem mapa de normais) e iluminação de cena. A ponte segue escura à noite, com poucos pontos de interesse dentro do enquadramento.
+
 ## 2026-10-10 — v0.7h
 - Aura dos chefes refeita: o casco deixa de recortar em labaredas secas e vira um halo suave na silhueta, com fiapos animados (ruído) e miolo na cor da magia (HDR, brilha no bloom). Chefes ganham um anel de energia no chão que gira e respira.
 - Números da aura em `AURA_VISUAL` (`visualConfig.ts`).
