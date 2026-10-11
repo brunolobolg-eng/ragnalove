@@ -128,7 +128,7 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 
 ## 2026-10-11 — pacote de efeitos (Godot) nas magias (v0.8g)
 - **Pedido:** ver a pasta `efeitos` enviada pelo dono; se der para aproveitar os VFX, trocar TODAS as magias por esses efeitos.
-- **O que veio:** um 7z com 206 arquivos de um projeto Godot 4 (cenas `.tscn`, shaders `.gdshader`, scripts `.gd`), com seis pacotes: Magic Circles 3D Free (círculos mágicos), Free Hit VFX (golpe em fatia), Stylized Hit FX e Stylized Status FX (Binbun3D, impacto e estados), Buff Pickup VFX Lite (buff) e um pacote de loot. Não há Godot no projeto: os efeitos foram portados (shaders para GLSL, faíscas em pool na CPU).
+- **O que veio:** um 7z com 206 arquivos de um projeto Godot 4 (cenas `.tscn`, shaders `.gdshader`, scripts `.gd`), com seis pacotes: Magic Circles 3D Free (círculos mágicos), Free Hit VFX (golpe em fatia), Stylized Hit FX e Stylized Status FX (Binbun3D; só o Status foi portado), Buff Pickup VFX Lite (buff) e um pacote de loot. Não há Godot no projeto: os efeitos foram portados (shaders para GLSL, faíscas em pool na CPU).
 - **Licenças:** Magic Circles 3D Free é CC BY 4.0 (crédito obrigatório em `CREDITOS.txt`); Free Hit VFX permite uso comercial sem atribuição, mas não redistribuir os arquivos como pacote; Stylized Hit e Status FX são CC0; Buff Pickup é MIT (aviso de direitos autorais no `CREDITOS.txt`). O pacote de loot não tem arquivo de licença: **não foi usado**.
 - **Decisões:**
   - Cada magia tem uma receita em `efeitosMagia.ts` (elemento, círculo, golpe, aura, emissor, brilho). Oito elementos: fogo, gelo, veneno, sagrado, sombra, arcano, natureza e sangue. Trocar um elemento é trocar uma palavra.
