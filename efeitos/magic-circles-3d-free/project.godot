@@ -1,0 +1,22 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="Magic Circles 3D"
+run/main_scene="res://addons/magic_circles/demo/demo.tscn"
+config/features=PackedStringArray("4.3")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+
+[rendering]
+
+environment/defaults/default_clear_color=Color(0.05, 0.04, 0.08, 1)
+
+[autoload]
+
+FullPack="*res://addons/magic_circles/demo/full_pack.gd"
