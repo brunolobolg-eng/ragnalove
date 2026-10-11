@@ -8,6 +8,8 @@ import { itemIconUrl } from './itemArt';
  */
 const CARD = 162; // largura de cada carta + espaço (150 + 12)
 const WIN_INDEX = 46;
+/** Maior avanço do giro por quadro (ms): uma pausa do navegador (clique que trava a página, troca de aba) não pula o giro. */
+const PASSO_MAX_MS = 120;
 const FILLER_WEIGHTS: Record<Rarity, number> = { common: 52, uncommon: 30, rare: 18, epic: 0, legendary: 0, mythic: 0 };
 
 export class Roulette {
@@ -53,11 +55,16 @@ export class Roulette {
       const jitter = (Math.random() - 0.5) * (CARD * 0.16); // para dentro da moldura central
       const target = WIN_INDEX * CARD + CARD / 2 - center + jitter;
       const dur = 5200;
-      const t0 = performance.now();
+      // tempo do giro acumulado com teto por quadro: a animação não pula para o fim depois de uma pausa
+      let decorrido = 0;
+      let ultimo = performance.now();
       let lastIdx = -1;
+      let fim = false;
       const ease = (k: number) => 1 - Math.pow(1 - k, 4);
       const tick = (now: number) => {
-        const k = Math.min(1, (now - t0) / dur);
+        decorrido += Math.min(PASSO_MAX_MS, Math.max(0, now - ultimo));
+        ultimo = now;
+        const k = Math.min(1, decorrido / dur);
         const x = target * ease(k);
         strip.style.transform = `translateX(${-x}px)`;
         const idx = Math.floor((x + center) / CARD);
@@ -69,6 +76,7 @@ export class Roulette {
         else done();
       };
       const done = () => {
+        fim = true;
         const good = RARITIES.indexOf(prize.rarity) >= 2;
         this.sound(good ? 'jackpot' : 'coin');
         strip.children[WIN_INDEX].classList.add('won');
@@ -85,6 +93,7 @@ export class Roulette {
         btn.textContent = 'Pegar ➜';
       };
       btn.onclick = () => {
+        if (!fim) return; // o prêmio só é entregue depois que o giro termina
         this.el.hidden = true;
         resolve();
       };

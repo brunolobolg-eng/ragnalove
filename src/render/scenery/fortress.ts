@@ -20,12 +20,63 @@ export function loadFortress(): Promise<void> {
   return loading;
 }
 
+/**
+ * O kit vem sem normais e com a ordem das faces irregular: a luz ficava falhada e algumas faces sumiam por fora.
+ * Cada bloco é convexo (o centro fica dentro), então cada triângulo recebe a normal apontando para fora e a ordem
+ * dos vértices é ajustada para ficar de frente para fora. As cores por vértice (COLOR_0) são preservadas.
+ */
+function outwardFaces(src: THREE.BufferGeometry): THREE.BufferGeometry {
+  const g = src.toNonIndexed();
+  const pos = g.getAttribute('position') as THREE.BufferAttribute;
+  const n = pos.count;
+  const centro = new THREE.Vector3();
+  for (let i = 0; i < n; i++) centro.add(new THREE.Vector3().fromBufferAttribute(pos, i));
+  centro.multiplyScalar(1 / n);
+  const normais = new Float32Array(n * 3);
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const nrm = new THREE.Vector3();
+  const meio = new THREE.Vector3();
+  for (let t = 0; t < n; t += 3) {
+    a.fromBufferAttribute(pos, t);
+    b.fromBufferAttribute(pos, t + 1);
+    c.fromBufferAttribute(pos, t + 2);
+    nrm.subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a));
+    if (nrm.lengthSq() === 0) nrm.set(0, 1, 0); // triângulo degenerado: não tem face
+    nrm.normalize();
+    meio.addVectors(a, b).add(c).multiplyScalar(1 / 3).sub(centro);
+    if (nrm.dot(meio) < 0) {
+      swapVertices(g, t + 1, t + 2); // a face passa a olhar para fora
+      nrm.negate();
+    }
+    for (let k = 0; k < 3; k++) normais.set([nrm.x, nrm.y, nrm.z], (t + k) * 3);
+  }
+  g.setAttribute('normal', new THREE.BufferAttribute(normais, 3));
+  return g;
+}
+
+/** Troca dois vértices de todos os atributos (posição, cor, normal). */
+function swapVertices(g: THREE.BufferGeometry, i: number, j: number): void {
+  for (const attr of Object.values(g.attributes) as THREE.BufferAttribute[]) {
+    const arr = attr.array as Float32Array;
+    const s = attr.itemSize;
+    for (let k = 0; k < s; k++) {
+      const x = arr[i * s + k];
+      arr[i * s + k] = arr[j * s + k];
+      arr[j * s + k] = x;
+    }
+  }
+}
+
 /** Monta a peça com os meshes cujo nome começa por `prefix`. */
 function build(prefix: string): { group: THREE.Group; size: THREE.Vector3 } {
   const group = new THREE.Group();
   source?.traverse((o) => {
     if (!(o instanceof THREE.Mesh) || !o.name.startsWith(prefix)) return;
-    group.add(new THREE.Mesh(o.geometry.clone().applyMatrix4(o.matrixWorld), o.material));
+    const mat = (o.material as THREE.Material).clone();
+    mat.side = THREE.DoubleSide; // faces que sobrarem por ordem irregular continuam visíveis
+    group.add(new THREE.Mesh(outwardFaces(o.geometry.clone().applyMatrix4(o.matrixWorld)), mat));
   });
   const box = new THREE.Box3().setFromObject(group);
   const c = box.getCenter(new THREE.Vector3());
