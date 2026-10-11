@@ -83,6 +83,9 @@ export const PROJECTS: Record<string, ProjectDef> = {
 
 export const PROJECT_IDS = Object.keys(PROJECTS);
 
+/** Mapa do Último Bastião (zona em src/config/zones.ts): grade, lotes de construção e portais. */
+export const BASTION_ZONE_ID = 'bastionKeep';
+
 /** Economia do modo (Zen é a moeda da própria carteira do Bastião: ver core/bastion). */
 export const BASTION = {
   /** Vida máxima do núcleo: a mesma cidade da jornada. */

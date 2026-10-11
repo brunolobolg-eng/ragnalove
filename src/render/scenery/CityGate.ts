@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { ParsedZone, ZoneTheme } from '../../config/zones';
 import type { ParticleLayer } from '../fx/Particles';
 import { softCircle } from '../textures';
+import { loadTexture } from './naturKit';
 
 /**
  * Muralha e portão da cidade no lado oposto aos spawns (só visual; o bloqueio vem dos tiles
@@ -32,7 +33,37 @@ const STYLE: Record<string, Style> = {
   ash: { wall: 0x4a3c36, top: 0x2e2420, wood: 0x2a1e18, banner: 0x8a1e14, palisade: false, sun: false },
 };
 
+/**
+ * Castelo fechado (zona com `castle`): muralha de pedra em cada tile 'W' do mapa, com ameias por cima. Os tiles
+ * 'g' ficam abertos (são os portões). Não usa a paliçada do portão, que é uma linha só do lado oposto aos spawns.
+ */
+function buildCastleWalls(zone: ParsedZone): CityGateHandle {
+  const root = new THREE.Group();
+  const X = (x: number) => x - zone.width / 2 + 0.5;
+  const Z = (y: number) => y - zone.height / 2 + 0.5;
+  const blocks: THREE.BufferGeometry[] = [];
+  const ameias: THREE.BufferGeometry[] = [];
+  const pedra = loadTexture('textures/pedras/pedra_cinza.webp');
+  for (const p of zone.props) {
+    if (p.kind !== 'cityWall') continue;
+    blocks.push(new THREE.BoxGeometry(1, 1.4, 1).translate(X(p.x), 0.7, Z(p.y)));
+    if ((p.x + p.y) % 2 === 0) ameias.push(new THREE.BoxGeometry(0.42, 0.3, 0.42).translate(X(p.x), 1.55, Z(p.y)));
+  }
+  if (blocks.length) {
+    const muro = new THREE.Mesh(mergeGeometries(blocks)!, new THREE.MeshLambertMaterial({ map: pedra, color: 0xd9d3c3, flatShading: true }));
+    muro.castShadow = true;
+    root.add(muro);
+  }
+  if (ameias.length) {
+    const topo = new THREE.Mesh(mergeGeometries(ameias)!, new THREE.MeshLambertMaterial({ map: pedra, color: 0xa9a392, flatShading: true }));
+    topo.castShadow = true;
+    root.add(topo);
+  }
+  return { group: root, update: () => {}, setLights: () => {} };
+}
+
 export function buildCityGate(zone: ParsedZone, theme: ZoneTheme): CityGateHandle {
+  if (zone.castle) return buildCastleWalls(zone);
   const root = new THREE.Group();
   const W = zone.width;
   const H = zone.height;

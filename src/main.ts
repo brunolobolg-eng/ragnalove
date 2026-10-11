@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { DEFAULT_SETUP, GAME_CONFIG, ZONE_STATE, applyZone, barriersAround, barriersShield, type PartySetup, type WaveOptions } from './config/gameConfig';
-import { parseZone, type ZoneDef } from './config/zones';
+import { ZONES, parseZone, type ZoneDef } from './config/zones';
+import { BASTION_ZONE_ID } from './config/bastion';
 import { TEST_ZONE, TEST_ZONE_ID } from './dev/DevLab/skillArenaZone';
 import { warmFxTextures } from './render/fx/kit/vfxTextures';
 import { loadFortress } from './render/scenery/fortress';
@@ -2250,6 +2251,8 @@ if (desktopBalance)
 // é eliminado e o módulo de debug não entra no pacote da Steam.
 if (import.meta.env.DEV) {
   (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview,
+    // mapa do Último Bastião (só dev): grade nova em planejamento, sem horda, para conferir o cenário
+    openBastionMap: () => { loadZone(ZONES[BASTION_ZONE_ID], { count: 0, boss: null, seed: 1 }); setMode('battle'); focusParty(true); },
     // prévias de tela (só dev): roleta de prêmio com um item lendário e o pacote de cartas (ids opcionais)
     rouletteDemo: () => { void roulette.spin('Recompensa da primeira vitória', 'Demonstração da roleta', rollItem(debugRng, 0, `demo-roleta-${debugRng.int(1e9)}`, { rarity: 'legendary', slot: 'weapon' }), () => 'weapon'); },
     cardPackDemo: (ids?: string[]) => cardPack.show(ids ?? rollPack(), () => {}),

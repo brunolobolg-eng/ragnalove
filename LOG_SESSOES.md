@@ -240,9 +240,39 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   12. Confirmar se reparo e reconstrução devem ter teto também (hoje não têm, D9).
 - **Commits:** o commit desta versão.
 
+## 2026-10-11 — O Último Bastião: mapa de batalha (v0.11, em andamento)
+- **Pedido do dono:** o mapa parecido com as imagens 34 e 35 (castelo central, quatro portais nas pontas, penhascos, florestas, estradas e fosso). Texturas livres, e espaço para o jogador construir muralhas, torres, guardiões e serviços (mercado, forja).
+- **Decisões:**
+  - **Layout (zona `bastionKeep`, em `zones.ts`):** castelo de 13×13 com muralha de pedra e quatro portões de 3 tiles; fosso de 2 tiles de largura; quatro estradas de pedra dos portais até o castelo; costa de rochas; mata e rochas nas laterais e cantos; poças e raízes. O mapa é dado: dá para editar à mão.
+  - **Área de construção:** a faixa de 7 tiles em volta do castelo fica sem árvores, rochas nem lagos, com 436 tiles construíveis (camada `lots`, `b`). Dentro do castelo há quatro lotes especiais 3×3 (`1` a `4`), reservados para serviços futuros (forja, mercado etc.); por ora também aceitam muralhas e torres.
+  - **Tema floresta (não planície):** o tema planície não desenha as estradas de pedra nem a água do fosso. Mesmo assim, o fosso de 1 tile saía como lama; por isso ficou com 2 tiles.
+  - **Muralha de pedra (`castle: true`):** o portão da cidade desenhava uma paliçada de toras numa linha só, de borda a borda, o que não serve a um castelo. Com o flag `castle`, cada tile `W` vira um bloco de pedra com ameias, e os `g` ficam abertos. A pedra é a textura `pedra_cinza.webp` do dono. As campanhas não têm o flag e seguem como estavam.
+  - **Party padrão nas laterais da estrada norte (18,7) e (26,7):** dentro do castelo, a horda entrava pelos portões e era contada como invasão sem nunca encontrar os heróis (0 abatidos). Nas laterais, a simulação dá 21 abatidos e 119 de dano à cidade. O mapa ainda é provisório na defesa: as levas e as estruturas vêm nas próximas etapas.
+- **Entregue:**
+  - `zones.ts`: zona `bastionKeep` (45×39, quatro portais, `wave` provisório sem chefe). Camada `lots` e flag `castle` no `ZoneDef`, validados em `parseZone` (tamanho e caracteres).
+  - `src/config/bastion.ts`: `BASTION_ZONE_ID`.
+  - `src/core/bastion/route.ts`: `bastionBuildEnv(zone, heroes, raio)`, o ambiente de colocação da zona (grade, lotes, portais, heróis).
+  - `src/render/scenery/CityGate.ts`: ramo do castelo fechado (só para zonas com `castle`).
+  - `src/main.ts`: `window.__vg.openBastionMap()` (só em DEV) carrega o mapa em planejamento, sem horda.
+  - `scripts/bastionCheck.ts`: seção 10 com 19 checagens (rota de cada portal, área de construção, lotes especiais, validação, colocação e um teste de fumaça da horda na simulação).
+- **Testes:**
+  - `npm run build` e `npx tsc`: passam.
+  - `npm run bastion:check`: todas as checagens passam (inclui as 19 novas).
+  - `npx tsx scripts/zoneReachCheck.ts`: todas as zonas navegáveis.
+  - `npm run sim:check`: as linhas das 13 zonas da campanha continuam idênticas à linha de base; a única diferença é a linha nova do `bastionKeep`.
+  - Navegador (DEV, 1280×720): mapa abre sem erro de console nem de página. Montagem medida em 182 a 244 ms. Capturas conferidas de perto: muralhas e heróis assentados no chão, sem nada flutuando.
+- **Pendências:**
+  1. Dono ver o mapa e dizer se está parecido. Pontos que o dono pode querer: floresta mais densa (hoje cobre 44% do anel externo; a referência tem mais), penhascos internos e pontes de pedra (a referência tem), e a cor da muralha.
+  2. A área de construção ainda não aparece no jogo: falta marcá-la no planejamento (próxima etapa, junto da tela de construção).
+  3. Lotes 1 a 4 existem mas não têm serviço ainda (etapa 5).
+  4. Guardiões e torres ainda não são tipos de estrutura; hoje só existem muralha e torre.
+  5. Pendências 10 a 12 da entrada anterior seguem (curva de slots na campanha, aprimoramento e teto de reparo).
+- **Commits:** o commit desta versão.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.
 - **Visual não altera a grade:** a grade (`zones.ts`) é gameplay.
 - **Medir a montagem da cena** antes e depois de mudar cenário (`window.__vg.enterBattle`, só em DEV).
 - **Git:** trabalhar na branch da sessão (`claude/festive-curie-5iy45i`). A `main` recebe o que o dono envia com ENVIAR_PARA_GITHUB.bat.
+- **Tema decide o cenário:** o tema planície não desenha estradas de pedra nem a água de fosso fino; o portão da cidade é uma paliçada de borda. Castelo fechado usa o flag `castle`. Fosso precisa de 2 tiles para ler como água.

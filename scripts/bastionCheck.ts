@@ -1,13 +1,14 @@
 /**
  * Checagem headless do Último Bastião (sem renderização). Rode: npm run bastion:check
  * 1) Dados · 2) Estado e migração · 3) Colocação · 4) Custos, reparo e reembolso · 5) Projetos ·
- * 6) Ondas (idempotência, derrota e socorro) · 7) Simulação (muralhas quebráveis, torres, destruídas).
+ * 6) Ondas (idempotência, derrota e socorro) · 7) Simulação (muralhas quebráveis, torres, destruídas) ·
+ * 8) Cartas compartilhadas · 9) Preço, teto, classes, pacotes e slots · 10) Mapa do Último Bastião (bastionKeep).
  */
-import { BASTION, PROJECTS, PROJECT_IDS, STRUCTURES } from '../src/config/bastion';
+import { BASTION, BASTION_ZONE_ID, PROJECTS, PROJECT_IDS, STRUCTURES } from '../src/config/bastion';
 import { CARD_SLOT_WINS, addCards, cardBonusFor, cardSlots, cardSlotsPool, emptyCollection, equipCard, type CardCollection } from '../src/core/progression/cards';
 import { heroStats } from '../src/core/progression/profile';
 import { DEFAULT_SETUP, GAME_CONFIG, applyZone } from '../src/config/gameConfig';
-import { ZONES } from '../src/config/zones';
+import { ZONES, parseZone } from '../src/config/zones';
 import type { WaveResult } from '../src/core/progression/profile';
 import { findStructure, migrateBastion, newBastion, structureMaxHp, structureStatus, type BastionState, type Structure } from '../src/core/bastion/bastion';
 import {
@@ -32,7 +33,7 @@ import {
   type NightOutcome,
   type Result,
 } from '../src/core/bastion/rules';
-import { routeOpen, staticBoard } from '../src/core/bastion/route';
+import { bastionBuildEnv, routeOpen, staticBoard } from '../src/core/bastion/route';
 import { Board } from '../src/core/grid/Board';
 import { chebyshev, type Vec2 } from '../src/core/grid/types';
 import { Simulation, type Fortification } from '../src/core/sim/Simulation';
@@ -359,6 +360,54 @@ check('5 ondas vencidas soltam 4 slots', bastionCardSlots(bh) === 4);
 check('campanha com 3 vitórias e Bastião com 5 ondas: 3 + 4 = 7 slots (soma)', cardSlotsPool(3, 5) === 7);
 check('sem Bastião, o total é o da campanha (3 vitórias = 3 slots)', cardSlotsPool(3) === cardSlots(3) && cardSlots(3) === 3);
 check('o total para em 30 slots', cardSlotsPool(400, 400) === 30);
+
+console.log('\n# 10) Mapa do Último Bastião (zona bastionKeep)');
+const zonaB = ZONES[BASTION_ZONE_ID];
+check('a zona do Bastião existe e tem a camada de construção', zonaB !== undefined && zonaB.lots !== undefined);
+const pB = parseZone(zonaB);
+check('o mapa tem 45×39 e a camada de construção tem o mesmo tamanho', pB.width === 45 && pB.height === 39 && zonaB.lots!.length === 39 && zonaB.lots!.every((r) => r.length === 45));
+const boardB = staticBoard(zonaB);
+const partyB: Vec2[] = zonaB.defaultSetup.members.map((m) => ({ x: m.x, y: m.y }));
+const envB = bastionBuildEnv(zonaB, partyB, GAME_CONFIG.wave.spawnSafeRadius);
+check('todo portal alcança o portão sozinho', zonaB.spawnPoints.every((s) => routeOpen(boardB, [s])));
+const tatica = pB.lots.filter((l) => l.lot === 'b').length;
+check(`área tática para construir: ${tatica} tiles (mínimo 400)`, tatica >= 400);
+check('todo tile de construção é andável (sem parede, água nem portão)', pB.lots.every((l) => boardB.isWalkable(l.x, l.y)));
+check('quatro lotes especiais (1 a 4) de 9 tiles cada', ['1', '2', '3', '4'].every((d) => pB.lots.filter((l) => l.lot === d).length === 9));
+check('a party começa em chão construível', partyB.every((p) => envB.buildable(p.x, p.y) && boardB.isWalkable(p.x, p.y)));
+check('estrada e fosso ficam fora da área de construção', !envB.buildable(22, 8) && !envB.buildable(14, 14));
+check('zonas da campanha não têm camada de construção', parseZone(ZONES.bridge).lots.length === 0);
+let erroTamanho = false;
+try { parseZone({ ...zonaB, lots: zonaB.lots!.slice(1) }); } catch { erroTamanho = true; }
+check('camada com tamanho errado é recusada', erroTamanho);
+let erroLetra = false;
+try { parseZone({ ...zonaB, lots: zonaB.lots!.map((r, i) => (i === 5 ? `x${r.slice(1)}` : r)) }); } catch { erroLetra = true; }
+check('caractere desconhecido na camada é recusado', erroLetra);
+
+const bm = newBastion(11, emptyCollection());
+bm.profile.zeni = 500;
+check('muralha no lote tático do castelo: aceita', placeStructure(bm, envB, 'wall', { x: 21, y: 17 }).ok === true);
+check('muralha no lote especial 1: aceita', placeStructure(bm, envB, 'wall', { x: 18, y: 15 }).ok === true);
+check('muralha na estrada: recusada (fora da área)', errOf(placeStructure(bm, envB, 'wall', { x: 22, y: 8 })) === 'outside');
+check('muralha no fosso: recusada (fora da área)', errOf(placeStructure(bm, envB, 'wall', { x: 14, y: 14 })) === 'outside');
+
+// Teste de fumaça: a horda nasce nos portais, anda pelas estradas e chega ao portão ou morre (o mapa não trava).
+applyZone(zonaB, { count: 40, boss: null, seed: 4242 });
+const simB = new Simulation(zonaB.defaultSetup, 4242);
+simB.start();
+let nasceram = 0;
+let andaram = 0;
+let mortes = 0;
+for (let i = 0; i < 2400 && simB.phase === 'running'; i++) {
+  for (const e of simB.step()) {
+    if (e.type === 'spawn') nasceram++;
+    if (e.type === 'move') andaram++;
+    if (e.type === 'death') mortes++;
+  }
+}
+const chegadas = Object.values(simB.reachedByKind).reduce((soma, n) => soma + n, 0);
+check('a horda nasce nos portais e anda pelas estradas', nasceram > 0 && andaram > 0, `${nasceram} nascimentos · ${andaram} passos`);
+check('a horda interage com a defesa (mortes ou chegadas ao portão)', mortes + chegadas > 0, `${mortes} mortes · ${chegadas} chegadas`);
 
 console.log(failures ? `\n${failures} checagem(ns) falharam.` : '\nTodas as checagens do Último Bastião passaram.');
 if (failures) throw new Error(`bastionCheck: ${failures} falha(s)`);

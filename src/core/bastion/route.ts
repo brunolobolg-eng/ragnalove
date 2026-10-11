@@ -3,6 +3,7 @@ import { Board } from '../grid/Board';
 import { canStep } from '../grid/pathfinding';
 import { DIRS8, type Vec2 } from '../grid/types';
 import { OBJECT_RULES, makeObject } from '../sim/objects';
+import type { BuildEnv } from './rules';
 
 /**
  * Grade ESTÁTICA de uma zona (paredes, vazio, portão e objetos fixos do mapa), montada do mesmo jeito
@@ -21,6 +22,15 @@ export function staticBoard(zone: ZoneDef): Board {
     if (rule.blocksWalk(o)) for (const t of o.tiles) b.setObject(t.x, t.y, o.id, rule.blocksSight(o));
   });
   return b;
+}
+
+/**
+ * Ambiente de colocação do Último Bastião para uma zona: a grade estática, os tiles de construção (lotes
+ * `b` e especiais `1`–`4`), os portais e a posição da party agora (não se constrói em cima de herói).
+ */
+export function bastionBuildEnv(zone: ZoneDef, heroes: readonly Vec2[], spawnSafeRadius: number): BuildEnv {
+  const lots = new Set(parseZone(zone).lots.map((l) => `${l.x},${l.y}`));
+  return { board: staticBoard(zone), buildable: (x, y) => lots.has(`${x},${y}`), spawns: zone.spawnPoints, spawnSafeRadius, heroes };
 }
 
 /**

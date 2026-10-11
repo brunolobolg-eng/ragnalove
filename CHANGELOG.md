@@ -13,7 +13,8 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - As seis classes estão liberadas no Bastião (party de 1 a 6 heróis).
 - O Bastião dá um pacote de cartas a cada 100 ondas vencidas.
 - Slots de carta: a campanha e o Bastião somam os slots que cada um libera, com uma curva bem mais difícil depois dos cinco primeiros (máximo 30). Vale também para a campanha.
-- O modo ainda não aparece no menu: falta o mapa próprio, a tela de construção e a recuperação entre ondas (próximas etapas).
+- Mapa de batalha do Último Bastião: ilha com costa de rochas, castelo central de pedra com quatro portões, fosso, estradas dos quatro portais, mata e lagos nas bordas. Em volta do castelo fica a área livre para construir.
+- O modo ainda não aparece no menu: falta a tela de construção, a recuperação entre ondas e a entrada no menu (próximas etapas).
 - As jornadas atuais não mudam: a saída de referência da simulação continua idêntica.
 
 ## 2026-10-11 — v0.10
