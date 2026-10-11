@@ -299,6 +299,31 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   6. Lotes 1 a 4 seguem sem serviço (etapa 5). Mata, penhascos internos e pontes ainda pendentes (como antes).
 - **Commits:** o commit desta versão.
 
+## 2026-10-11 — O Último Bastião: modelo do Emperium do dono (v0.11, em andamento)
+- **Pedido do dono:** enviou o modelo do minério (`roguard_emperium_crystal.glb`, na branch `main`) e pediu para olhar. Usar no lugar do cristal provisório.
+- **Auditoria do arquivo (`scripts/auditar_glb.cjs` e leitura direta):** 21 KB; 852 triângulos; 10 peças: o cristal principal, 7 fragmentos, um pé de base e um anel de runas opcional. Cor por vértice em todas as peças. Não traz normais, nem materiais, nem esqueleto, nem animação. Como é peça de cenário (não personagem), o giro vem do código, então não precisa de clipes; os dois avisos da auditoria não se aplicam. Não tem textura, então não passa por WebP.
+- **Decisões:**
+  - **D19 — Modelo do dono no lugar do cristal provisório:** cristal, pé e fragmentos vêm do arquivo. Sem pedestal, para ficar com pouca estrutura.
+  - **D20 — Eixo:** o arquivo tem o eixo Z para cima, e o jogo usa Y. O conjunto gira 90° em X ao entrar na cena.
+  - **D21 — Luz:** o arquivo não traz normais. Calculei as normais de cada face no carregamento (faces planas, para fora) e o cristal recebe luz e um brilho próprio, com casca de brilho em aditivo.
+  - **D22 — Runas:** o anel de runas do arquivo fica desligado (é opcional). A runa do chão é a arte do dono, em aditivo, girando devagar. A runa, o raio e a casca são desenhados por último; sem isso, as camadas do chão cobriam a runa.
+  - **D23 — Tamanho:** 1,25 vezes o tamanho original, para o minério ser o destaque.
+- **Entregue:**
+  - `public/models/roguard_emperium_crystal.glb` (arquivo do dono, sem alteração).
+  - `src/render/scenery/Emperium.ts`: módulo novo, com o carregamento do modelo, as normais, o raio, a runa e o giro. Saiu do `CityGate.ts`, que só chama.
+  - `public/textures/bastiao/`: fica só a runa e o raio (a base de pedra saiu com o pedestal).
+- **Testes:**
+  - `npm run build`, `npx tsc` e `npm run bastion:check`: passam.
+  - `npx tsx scripts/zoneReachCheck.ts`: todas as zonas navegáveis.
+  - `npm run sim:check`: idêntico à etapa anterior.
+  - Navegador (DEV, 1280×720): sem erro de console. Montagem do mapa de 207 a 246 ms. Capturas conferidas: visão ampla (raio sobe pelo norte) e o minério de perto (cristal, fragmentos e runa).
+- **Pendências:**
+  1. Confirmar se o anel de runas do arquivo deve aparecer (hoje desligado).
+  2. FPS não medido em PC real (só no navegador de teste).
+  3. O texto do toque ainda diz "Cidade" no Bastião (ver entrada anterior).
+  4. Balanceamento do dano de contato (D15) segue com o dono.
+- **Commits:** o commit desta versão.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

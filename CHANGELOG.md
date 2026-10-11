@@ -16,6 +16,7 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - Mapa de batalha do Último Bastião: ilha com costa de rochas, castelo central de pedra com quatro portões, fosso, estradas dos quatro portais, mata e lagos nas bordas. Em volta do castelo fica a área livre para construir.
 - Emperium: o minério no centro do castelo é o alvo da horda. Quem toca morre na hora e desconta a vida da cidade pela vida atual e pela força do tipo, então criatura mais viva e mais forte causa mais dano.
 - O mapa do Bastião ficou maior (61×53), com castelo de 17×17 e área de construção de 850 tiles.
+- O Emperium agora usa o modelo do dono: cristal, pé e fragmentos, com runa e raio de luz no chão.
 - O modo ainda não aparece no menu: falta a tela de construção, a recuperação entre ondas e a entrada no menu (próximas etapas).
 - As jornadas atuais não mudam: a saída de referência da simulação continua idêntica.
 

@@ -4,6 +4,7 @@ import type { ParsedZone, ZoneTheme } from '../../config/zones';
 import type { ParticleLayer } from '../fx/Particles';
 import { softCircle } from '../textures';
 import { loadTexture } from './naturKit';
+import { buildEmperium } from './Emperium';
 
 /**
  * Muralha e portão da cidade no lado oposto aos spawns (só visual; o bloqueio vem dos tiles
@@ -63,90 +64,6 @@ function buildCastleWalls(zone: ParsedZone): CityGateHandle {
   const emperio = buildEmperium(zone, X, Z);
   root.add(emperio.group);
   return { group: root, update: (dt) => emperio.update(dt), setLights: () => {} };
-}
-
-/**
- * O Emperium (zona com `castle`): o minério no centro do castelo, alvo da horda. Fica no mesmo lugar: o cristal gira
- * devagar, os fragmentos orbitam, a runa gira no chão e um raio de luz sobe. Só visual: o alvo é o tile 'E' do mapa.
- * A base, a runa e o raio são arte do dono (public/textures/bastiao). O cristal é geometria provisória, até o modelo.
- */
-/** Tamanho do conjunto do Emperium em relação ao modelo base (ênfase no minério, como pediu o dono). */
-const EMPERIUM_SCALE = 1.45;
-
-function buildEmperium(zone: ParsedZone, X: (x: number) => number, Z: (y: number) => number): { group: THREE.Group; update: (dt: number) => void } {
-  const group = new THREE.Group();
-  const alvo = zone.city;
-  const cx = alvo.reduce((soma, t) => soma + t.x, 0) / Math.max(1, alvo.length);
-  const cy = alvo.reduce((soma, t) => soma + t.y, 0) / Math.max(1, alvo.length);
-  group.position.set(X(cx), 0, Z(cy));
-  // pedestal baixo: laterais de pedra e o topo com a base de runas do dono
-  const pedra = loadTexture('textures/pedras/pedra_cinza.webp');
-  const lados = new THREE.MeshLambertMaterial({ map: pedra, color: 0xd9d3c3, flatShading: true });
-  const topo = new THREE.MeshLambertMaterial({ map: loadTexture('textures/bastiao/emperium_base.jpg'), flatShading: true });
-  const pedestal = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.35, 2.6), [lados, lados, topo, lados, lados, lados]);
-  pedestal.position.y = 0.175;
-  pedestal.castShadow = true;
-  group.add(pedestal);
-  // cristal: corpo hexagonal com ponta em cima e embaixo (enterrada no pedestal) e um núcleo de brilho
-  const cristalMat = new THREE.MeshLambertMaterial({ color: 0x9be8ff, emissive: 0x2aa8ff, emissiveIntensity: 1.3, flatShading: true, transparent: true, opacity: 0.9 });
-  const cristal = new THREE.Group();
-  cristal.position.y = 0.35;
-  const forma = mergeGeometries([
-    new THREE.CylinderGeometry(0.62, 0.62, 2.2, 6).translate(0, 1.1, 0),
-    new THREE.CylinderGeometry(0, 0.62, 0.9, 6).translate(0, 2.65, 0),
-    new THREE.CylinderGeometry(0.62, 0, 0.6, 6).translate(0, -0.3, 0),
-  ])!;
-  cristal.add(new THREE.Mesh(forma, cristalMat));
-  // casca de brilho: a mesma forma um pouco maior, em aditivo, para o cristal irradiar
-  const casca = new THREE.Mesh(forma, new THREE.MeshBasicMaterial({ color: 0x66d6ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }));
-  casca.scale.setScalar(1.12);
-  cristal.add(casca);
-  const nucleo = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8).translate(0, 1.4, 0), new THREE.MeshBasicMaterial({ color: 0xcdf2ff, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
-  cristal.add(nucleo);
-  group.add(cristal);
-  // fragmentos em volta: seis cristais pequenos que orbitam e sobem e descem de leve
-  const fragmentos = new THREE.Group();
-  const pedacos: { mesh: THREE.Mesh; base: number; fase: number }[] = [];
-  const fragGeo = new THREE.CylinderGeometry(0, 0.2, 0.85, 5).translate(0, 0.42, 0);
-  for (let i = 0; i < 6; i++) {
-    const ang = (i / 6) * Math.PI * 2;
-    const mesh = new THREE.Mesh(fragGeo, cristalMat);
-    mesh.position.set(Math.cos(ang) * 1.75, 0.9 + (i % 3) * 0.55, Math.sin(ang) * 1.75);
-    mesh.rotation.set((i % 2) * 0.35, ang, (i % 3) * 0.2);
-    fragmentos.add(mesh);
-    pedacos.push({ mesh, base: mesh.position.y, fase: i * 1.1 });
-  }
-  group.add(fragmentos);
-  // runa no chão: arte do dono em modo aditivo (o fundo preto some)
-  const runaGrupo = new THREE.Group();
-  const runa = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6), new THREE.MeshBasicMaterial({ map: loadTexture('textures/bastiao/emperium_runa.jpg'), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
-  runa.rotation.x = -Math.PI / 2;
-  runa.position.y = 0.12;
-  runaGrupo.add(runa);
-  group.add(runaGrupo);
-  // raio de luz: dois planos cruzados com a arte do dono, subindo do centro
-  const raioMat = new THREE.MeshBasicMaterial({ map: loadTexture('textures/bastiao/emperium_raio.jpg'), transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  for (const giro of [0, Math.PI / 2]) {
-    const plano = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 12), raioMat);
-    plano.position.y = 6;
-    plano.rotation.y = giro;
-    group.add(plano);
-  }
-  let t = 0;
-  group.scale.setScalar(EMPERIUM_SCALE);
-  return {
-    group,
-    update(dt: number) {
-      t += dt;
-      cristal.rotation.y += dt * 0.5;
-      cristal.position.y = 0.35 + Math.sin(t * 1.3) * 0.06;
-      cristalMat.emissiveIntensity = 1.3 + Math.sin(t * 2.4) * 0.2;
-      fragmentos.rotation.y -= dt * 0.8;
-      for (const p of pedacos) p.mesh.position.y = p.base + Math.sin(t * 1.7 + p.fase) * 0.15;
-      runaGrupo.rotation.y += dt * 0.15;
-      raioMat.opacity = 0.85 + Math.sin(t * 2) * 0.1;
-    },
-  };
 }
 
 export function buildCityGate(zone: ParsedZone, theme: ZoneTheme): CityGateHandle {
