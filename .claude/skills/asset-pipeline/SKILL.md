@@ -8,6 +8,7 @@ description: Pipeline de arte do ROguard — onde ficam modelos GLB, sprites, re
 ## Onde ficam (o jogo só carrega de `public/`)
 ```
 public/models/        GLB dos heróis e monstros (HERO_MODELS / MONSTER_MODELS em visualConfig.ts)
+public/models/muros.glb   muralhas dos mapas: peça estática do dono (módulo de 1 m); usada por render/scenery/muralhaGlb.ts
 public/models/*.jpg   skins alternativas (ex.: zombie_*.jpg)
 public/sprites/       retratos (portrait_*), cartas/chibis da seleção (cs/), ícones de nó (nodes/),
                       item_icons.png (atlas), cidade/mapa (city_valnor_chibi.jpg, world_aurenthal.jpg),

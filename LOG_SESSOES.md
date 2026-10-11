@@ -501,6 +501,40 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   2. Decidir se entram efeitos sobre aliados (escudo ou cura em grupo).
   3. Efeitos visuais próprios por tipo de efeito (opcional).
 
+## 2026-10-11 — Muralhas com a peça muros.glb do dono (v0.11, em andamento)
+- **Pedido:** trocar as muralhas de todos os mapas, porque as atuais estavam sem textura. Primeiro conferir a ponte (zona `bridge`, "Ponte e Portões de Valdrec") e depois aplicar nos demais.
+- **Peça:** o `muros.glb` do dono (9,3 MB, 1 milhão de triângulos, textura JPEG 4096 e mapas de rugosidade) virou `public/models/muros.glb`: 4.002 triângulos, cor em WebP 1024 (375 KB), sem mapas de rugosidade e normal, atributos em Float32 e índices inteiros. Arquivo final: 0,48 MB. O original não entrou no repositório.
+- **Decisões:**
+  - **D50 — Mesma peça em todas as muralhas.** Cada módulo tem 1 m com torres e ameias nas pontas. Ele é esticado até a altura da muralha com escala uniforme (a pedra não deforma) e repetido ao longo de cada trecho. Cada chamada gera um único InstancedMesh.
+  - **D51 — Volta por configuração.** `VISUAL_CONFIG.muralha.glb` (padrão `true`). Com `false`, voltam as muralhas antigas (caixas, paliçada e blocos com ameias).
+  - **D52 — Alturas:** cidade 1,3 e castelo 1,4 (como antes); vila 0,9.
+  - **D53 — Torres de portão em pedra.** Os corpos das torres (cilindros e blocos) usam a pedra nova, e a paliçada de madeira da floresta sai. Cúpulas e bandeiras mantêm as cores.
+  - **D54 — Não mudou:** rochas dos tiles `#` (já são rochas texturizadas do kit), a muralha que o guerreiro constrói (kit `fortress.glb`, já texturizado) e os mapas pintados, cuja muralha está na própria arte.
+  - **Castelo:** os tiles `W` viram trechos contínuos de linhas e colunas, com esquinas fechadas e as aberturas dos portões preservadas.
+  - Nada muda na grade (`zones.ts`) nem na simulação.
+- **Achados:**
+  - A auditoria (`auditar_glb.cjs`) acusa "sem esqueleto e sem animação": é esperado numa peça estática.
+  - O otimizador do projeto (`scripts/otimizar_glb.mjs`) não lê GLB comprimido com meshopt (`EXT_meshopt_compression`). A peça foi otimizada com um script à parte, fora do repositório.
+  - Um primeiro otimizador deixava os índices em Float32, e a GPU recusava a malha (`GL_INVALID_ENUM` em `glDrawElements`). Corrigido e checado pela contagem de triângulos desenhados.
+- **Medição** (`stage.sceneStats()`, antes → depois):
+  - Ponte: 281 → 279 desenhos; 125.571 → 220.083 triângulos.
+  - Castelo: 231 → 229; 1.202.538 → 1.328.682.
+  - Floresta (`crookedWood`): 257 → 255; 1.107.010 → 1.208.362.
+  - Planície (`dryCrossing`): 196 → 194; 648.688 → 758.968.
+  - Vila (`town`): 289 → 287; 95.776 → 158.944.
+  - O aumento vem dos 4.002 triângulos por módulo. Se o FPS cair no PC, a saída é otimizar com razão menor (1.500 triângulos já foi testado e mantém a silhueta).
+- **Testes:**
+  - `npm run build`, `npm run sim:check` (determinístico) e `npm run bastion:check` passam.
+  - Capturas no Chromium headless do primeiro mapa (antes/depois, normal e aproximada) e das zonas `bastionKeep`, `crookedWood`, `dryCrossing` e `town`. Sem erro de console.
+- **Limitações:**
+  - Sob a luz noturna da ponte a pedra fica mais escura que o muro antigo.
+  - Os pilares do portão da ponte continuam caixas (texturizadas), e o topo fica azulado pela luz.
+  - FPS não medido (sem GPU real aqui).
+- **Pendências:**
+  1. Dono confirmar a leitura de "muralhas" (cidade, portões, castelo e vila) e se os afloramentos `#` e a muralha do guerreiro ficam como estão.
+  2. Guardar o original de 9,3 MB zipado na branch `fontes`, se o dono autorizar.
+  3. Registrar o decodificador meshopt no `scripts/otimizar_glb.mjs`.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

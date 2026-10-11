@@ -89,6 +89,8 @@ export const VISUAL_CONFIG = {
     brilho: 0.18, // brilho nas cristas da ondulação
     corCeu: 0xcfeeff, // cor do céu refletido
   },
+  /** Muralhas: peça `muros.glb` do dono (módulo de 1 m com torres e ameias). `glb: false` volta às caixas antigas. Alturas em tiles. */
+  muralha: { glb: true, alturaCidade: 1.3, alturaCastelo: 1.4, alturaVila: 0.9 },
   /** Direção do sol (de onde a luz vem) — o deserto usa sol baixo de fim de tarde (sombras longas). */
   sun: [-7, 18, 9] as [number, number, number],
 };

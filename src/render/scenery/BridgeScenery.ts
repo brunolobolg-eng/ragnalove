@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { VISUAL_CONFIG } from '../../config/visualConfig';
 import type { ParsedZone } from '../../config/zones';
 import type { ParticleLayer } from '../fx/Particles';
 import { softCircle } from '../textures';
 import { bridgeSideTexture, wallBlockTexture, woodTexture } from './bridgeTextures';
+import { muralhaRetas, muroMaterial } from './muralhaGlb';
 import { KIT, instanceKit, kitMatrix, loadTexture } from './naturKit';
 import { placeProp } from './props';
 
@@ -241,23 +243,30 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   root.add(props);
 
   // ---------------- Muralha, torres e casa do portão (última fileira; portão aberto nos tiles 'g') ----------------
-  const wallTex = wallBlockTexture(33);
-  wallTex.repeat.set(4, 1);
-  const wallMat = lambert({ map: wallTex });
-  const topMat = lambert({ color: 0x55575d });
-  const merlons: THREE.BufferGeometry[] = [];
-  const wallGeos: THREE.BufferGeometry[] = [];
-  for (const [xa, xb] of [
+  // muralha com a peça muros.glb do dono (torres e ameias já vêm no módulo); `muralha.glb: false` volta às caixas antigas
+  const trechos = [
     [plazaL - 2, gateL - 0.6],
     [gateR + 0.6, plazaR + 2],
-  ]) {
-    wallGeos.push(new THREE.BoxGeometry(xb - xa, 1.3, 1.2).translate((xa + xb) / 2, 0.65, wallZ + 0.3));
-    for (let x = xa + 0.3; x < xb - 0.1; x += 0.7) merlons.push(new THREE.BoxGeometry(0.4, 0.35, 0.28).translate(x, 1.47, wallZ - 0.18));
+  ];
+  let wallMat: THREE.Material;
+  if (VISUAL_CONFIG.muralha.glb) {
+    wallMat = muroMaterial();
+    muralhaRetas(root, trechos.map(([xa, xb]) => ({ a: xa, b: xb, linha: wallZ + 0.3, eixo: 'x' as const })), VISUAL_CONFIG.muralha.alturaCidade);
+  } else {
+    const wallTex = wallBlockTexture(33);
+    wallTex.repeat.set(4, 1);
+    wallMat = lambert({ map: wallTex });
+    const topMat = lambert({ color: 0x55575d });
+    const merlons: THREE.BufferGeometry[] = [];
+    const wallGeos: THREE.BufferGeometry[] = [];
+    for (const [xa, xb] of trechos) {
+      wallGeos.push(new THREE.BoxGeometry(xb - xa, 1.3, 1.2).translate((xa + xb) / 2, 0.65, wallZ + 0.3));
+      for (let x = xa + 0.3; x < xb - 0.1; x += 0.7) merlons.push(new THREE.BoxGeometry(0.4, 0.35, 0.28).translate(x, 1.47, wallZ - 0.18));
+    }
+    root.add(shadow(new THREE.Mesh(mergeGeometries(wallGeos)!, wallMat)));
+    root.add(shadow(new THREE.Mesh(mergeGeometries(merlons)!, wallMat)));
+    void topMat;
   }
-  const cityWall = shadow(new THREE.Mesh(mergeGeometries(wallGeos)!, wallMat));
-  root.add(cityWall);
-  root.add(shadow(new THREE.Mesh(mergeGeometries(merlons)!, wallMat)));
-  void topMat;
   // casa do portão: arco sobre o vão, com telhado e portas abertas para dentro
   const gate = new THREE.Group();
   gate.position.set(gateC, 0, wallZ + 0.3);
