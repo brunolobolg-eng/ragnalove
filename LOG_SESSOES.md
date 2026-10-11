@@ -454,7 +454,7 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - Sem mapas de normal nem de rugosidade no projeto: a fase 3 (materiais) fica parada até o dono enviar os mapas.
   - O cristal segue com opacidade 0,88, e isso esconde inimigos atrás dele. Sem mudança, por decisão do dono.
   - Não há zona de pântano de verdade, então a névoa do pântano não tem onde ser validada.
-  - Vale: a captura antiga mostrou 2 chamadas e 128 triângulos a mais numa visão geral. Não foi refeita com quadros exatos nem investigada.
+  - Vale (fechado depois): com quadros exatos, antes e depois da água dão 266 chamadas e 980 594 triângulos. A diferença da captura antiga (2 chamadas, 128 triângulos) era do método de captura, não da água. Na imagem, a mudança fica só nos pixels da água (0,14%, média 0,1 em toda a tela).
 - **Pendências:**
   1. Dono: a cúpula deve ficar mais visível no zoom do jogo? (D40)
   2. Dono: mapas de normal e de rugosidade (pedra e madeira), para a fase 3.
