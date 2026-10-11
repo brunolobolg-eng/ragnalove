@@ -3,6 +3,8 @@ import type { Simulation } from '../core/sim/Simulation';
 import type { SimEvent } from '../core/sim/types';
 import { classVisual } from './fx/combat/classVisual';
 import { SORCERER_FX } from '../config/fx/sorcerer';
+import { ENEMY_SHADOW_FX } from '../config/fx/enemyShadow';
+import { EnemyShadowOrbFX } from './fx/EnemyShadowOrbFX';
 import { WARRIOR_RUNIC_FX } from '../config/fx/warriorRunic';
 import type { CombatVisualCtx, VisualUnit } from './fx/combat/CombatVisualCtx';
 import { BoardView } from './BoardView';
@@ -402,6 +404,11 @@ export class GameView {
     return v.root.position.clone().setY(1.2);
   }
 
+  /** Unidade do lado dos inimigos (id ausente ou herói: falso). */
+  private isEnemyUnit(id: number | undefined): boolean {
+    return id !== undefined && this.sim.units.get(id)?.team === 'enemy';
+  }
+
   private boltFrom(e: { unitId: number; from: { x: number; y: number } }): THREE.Vector3 {
     return this.staffTip(e.unitId) ?? tileToWorld(e.from.x, e.from.y, undefined, 1.2);
   }
@@ -424,7 +431,11 @@ export class GameView {
           else if (e.unitId !== undefined) delay.set(u.id, SORCERER_FX.meteor.impactAt);
         }
       }
-      else if (e.type === 'shadowBolt') delay.set(e.targetId, ShadowBoltFX.impactDelay(tileToWorld(e.from.x, e.from.y, undefined, 1.0), tileToWorld(e.to.x, e.to.y, undefined, 0.9)));
+      else if (e.type === 'shadowBolt') {
+        const from = tileToWorld(e.from.x, e.from.y, undefined, 1.0);
+        const to = tileToWorld(e.to.x, e.to.y, undefined, 0.9);
+        delay.set(e.targetId, this.isEnemyUnit(e.unitId) ? EnemyShadowOrbFX.impactDelay(from, to) : ShadowBoltFX.impactDelay(from, to));
+      }
       // Bruxa: o número do dano do Eco e da Geada Negra só aparece na batida (o efeito leva esse tempo para chegar)
       else if (e.type === 'soulEcho') for (const id of e.targetIds) delay.set(id, WARLOCK_NEW_FX.echo.blowAt);
       else if (e.type === 'blackFrost') for (const id of e.targetIds) delay.set(id, WARLOCK_NEW_FX.blackFrost.spikeAt);
@@ -562,7 +573,7 @@ export class GameView {
           const v = this.units.get(e.unitId);
           if (!v) break;
           v.hit();
-          this.damageNumber(e.unitId, e.amount, e.source, v.root.position);
+          this.damageNumber(e.unitId, e.amount, e.source, v.root.position, e.sourceId);
           if (e.crit && e.source !== 'arrow') this.float('CRÍTICO!', v.root.position.clone().setY(1.5), '#ffd84a', 0.3);
           if (e.source === 'burn') v.burning = 0.6;
           const spark = HIT_VFX[e.source];
@@ -872,7 +883,9 @@ export class GameView {
           const v = this.units.get(e.unitId);
           v?.cast();
           const from = v ? v.root.position.clone().setY(1.1) : tileToWorld(e.from.x, e.from.y, undefined, 1.0);
-          this.oneShot(new ShadowBoltFX(from, tileToWorld(e.to.x, e.to.y, undefined, 0.9), this.kit));
+          const to = tileToWorld(e.to.x, e.to.y, undefined, 0.9);
+          // o Necromante (inimigo) dispara o orbe grande; a Bruxa da party mantém o orbe pequeno
+          this.oneShot(this.isEnemyUnit(e.unitId) ? new EnemyShadowOrbFX(from, to, this.kit) : new ShadowBoltFX(from, to, this.kit));
           break;
         }
         case 'stomp': {
@@ -1235,15 +1248,17 @@ export class GameView {
     this.cine = undefined;
   }
 
-  /** Número de dano estilo MMO: branco/amarelo nos inimigos, vermelho nos heróis; fogo em laranja. */
+  /** Número de dano estilo MMO: branco/amarelo nos inimigos, vermelho nos heróis, roxo na magia inimiga; fogo em laranja. */
   private dmgCount = 0;
-  private damageNumber(unitId: number, amount: number, source: string, at: THREE.Vector3): void {
+  private damageNumber(unitId: number, amount: number, source: string, at: THREE.Vector3, sourceId?: number): void {
     if (amount <= 0) return;
     const live = this.oneShots.filter((o) => o instanceof FloatText).length;
     if (live > 44) return;
     const hero = this.sim.units.get(unitId)?.team === 'party';
     const big = amount >= 40;
-    const [c1, c2] = hero ? ['#ff6a5a', '#b01818'] : source === 'burn' ? ['#ffb04a', '#e0501a'] : big ? ['#ffe56a', '#ff9a1a'] : ['#fff4d8', '#d8c0a0'];
+    // magia do inimigo (Necromante e demais conjuradores) que acerta um herói: número roxo
+    const enemySpell = hero && source === 'spell' && this.isEnemyUnit(sourceId);
+    const [c1, c2] = enemySpell ? [ENEMY_SHADOW_FX.damageColors.fill, ENEMY_SHADOW_FX.damageColors.deep] : hero ? ['#ff6a5a', '#b01818'] : source === 'burn' ? ['#ffb04a', '#e0501a'] : big ? ['#ffe56a', '#ff9a1a'] : ['#fff4d8', '#d8c0a0'];
     const k = this.dmgCount++ % 5;
     const pos = at.clone().add(new THREE.Vector3((k - 2) * 0.14, 1.95 + (k % 2) * 0.16, 0));
     const f = new FloatText(String(Math.round(amount)), pos, c1, {

@@ -19,6 +19,10 @@ export interface GroundLayer {
   opaque?: boolean;
   /** Água: a textura desliza nesta direção (tiles por segundo). */
   flow?: readonly [number, number];
+  /** Não recebe luz: lava e brilhos mantêm a cor na noite. */
+  unlit?: boolean;
+  /** Mistura aditiva: brilho somado ao que está embaixo (névoa, brasas). */
+  additive?: boolean;
 }
 
 /** Ferramentas da grade de máscaras (um pixel = 1/RES de tile, com margem em volta da grade). */
@@ -152,7 +156,7 @@ export function groundLayers(zone: ParsedZone, margin: number): GroundLayers {
     if (o.map && o.tiles) o.map.repeat.set(TW / o.tiles, TH / o.tiles);
     if (o.map && o.flow) water.push({ map: o.map, vx: o.flow[0], vy: o.flow[1] });
     const alphaMap = maskTexture(o.alpha);
-    const mat = new THREE.MeshLambertMaterial({
+    const params = {
       map: o.map,
       color: o.color ?? 0xffffff,
       opacity: o.opacity ?? 1,
@@ -163,7 +167,9 @@ export function groundLayers(zone: ParsedZone, margin: number): GroundLayers {
       polygonOffset: !o.opaque,
       polygonOffsetFactor: -o.order,
       polygonOffsetUnits: -o.order,
-    });
+      blending: o.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    };
+    const mat = o.unlit ? new THREE.MeshBasicMaterial(params) : new THREE.MeshLambertMaterial(params);
     const m = new THREE.Mesh(new THREE.PlaneGeometry(TW, TH).rotateX(-Math.PI / 2), mat);
     m.position.y = o.y;
     m.renderOrder = o.order;

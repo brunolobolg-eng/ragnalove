@@ -11,7 +11,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 const TEX_DIR = 'textures/';
 
 /** Peças por grupo. O cenário sorteia uma peça do grupo a cada cópia (ver BiomeScenery.ts e BridgeScenery.ts). */
-export const KIT: Record<'arvore' | 'pedra' | 'arenito' | 'arbusto' | 'tronco' | 'ruina' | 'marco', string[]> = {
+export const KIT: Record<string, string[]> = {
   arvore: ['arvore_a', 'arvore_b', 'arvore_c', 'arvore_d', 'arvore_e'],
   pedra: ['pedra_a', 'pedra_b', 'pedra_c', 'pedra_d'],
   arenito: ['arenito_a', 'arenito_b', 'arenito_c'],
@@ -19,12 +19,30 @@ export const KIT: Record<'arvore' | 'pedra' | 'arenito' | 'arbusto' | 'tronco' |
   tronco: ['tronco_a', 'tronco_b'],
   ruina: ['ruina_a', 'ruina_b'],
   marco: ['marco'],
+  // gelo (Passo da Geada, Garganta de Ferrugem)
+  neveArvore: ['neve_pinheiro_a', 'neve_pinheiro_b'],
+  neveRocha: ['neve_rocha_a', 'neve_rocha_b', 'neve_rocha_c'],
+  geloRocha: ['gelo_rocha_a', 'gelo_rocha_b'],
+  geloColuna: ['gelo_coluna_a', 'gelo_coluna_b'],
+  geloEstalagmite: ['gelo_estalagmite_a', 'gelo_estalagmite_b'],
+  geloCristal: ['gelo_cristal_a', 'gelo_cristal_b'],
+  neveMonte: ['neve_monte_a', 'neve_monte_b'],
+  arvoreMortaGelo: ['arvore_morta_gelo_a', 'arvore_morta_gelo_b'],
+  // lava (Cume das Cinzas)
+  basaltoRocha: ['basalto_rocha_a', 'basalto_rocha_b', 'basalto_rocha_c'],
+  basaltoColuna: ['basalto_coluna_a', 'basalto_coluna_b', 'basalto_coluna_c'],
+  lavaPilar: ['lava_pilar_a', 'lava_pilar_b'],
+  lavaArvore: ['lava_arvore_a', 'lava_arvore_b'],
+  lavaCristal: ['lava_cristal_a', 'lava_cristal_b'],
 };
+
+/** Material de uma malha: com luz (padrão) ou sem luz, para o que brilha (lava, cristais). */
+type KitMat = THREE.MeshLambertMaterial | THREE.MeshBasicMaterial;
 
 /** Uma malha da peça e o seu material. */
 interface KitPart {
   geo: THREE.BufferGeometry;
-  mat: THREE.MeshLambertMaterial;
+  mat: KitMat;
 }
 
 /** Peça pronta: base em y = 0, centrada em x/z = 0; 1 unidade = 1 tile. */
@@ -69,8 +87,9 @@ export function loadTexture(url: string, linear = false): THREE.Texture {
 }
 
 /** Material de uma peça: textura do dono com a cor por vértice (sombra embaixo e variação entre as faces). */
-function matOf(file: string): THREE.MeshLambertMaterial {
-  return new THREE.MeshLambertMaterial({ map: loadTexture(`${TEX_DIR}${file}.webp`), vertexColors: true });
+function matOf(file: string, unlit = false): KitMat {
+  const map = loadTexture(`${TEX_DIR}${file}.webp`);
+  return unlit ? new THREE.MeshBasicMaterial({ map, vertexColors: true }) : new THREE.MeshLambertMaterial({ map, vertexColors: true });
 }
 
 /** Gerador determinístico (mulberry32): a mesma semente sempre sai a mesma peça. */
@@ -191,9 +210,9 @@ function tree(seed: number, bark: string, leaf: string, lobes: number, spread: n
 }
 
 /** Rocha: esfera achatada com relevo, base no chão e a textura de pedra projetada nas faces. */
-function rock(seed: number, tex: string): KitPiece {
+function rock(seed: number, tex: string, detail = 2, bottom = 0.55, top = 1): KitPiece {
   const r = rng(seed);
-  const geo = new THREE.IcosahedronGeometry(0.6, 2);
+  const geo = new THREE.IcosahedronGeometry(0.6, detail);
   const pos = geo.getAttribute('position');
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
@@ -206,7 +225,7 @@ function rock(seed: number, tex: string): KitPiece {
   geo.translate(0, -geo.boundingBox!.min.y, 0);
   geo.computeVertexNormals();
   boxUV(geo, 0.9);
-  shade(geo, r, 0.55, 1);
+  shade(geo, r, bottom, top);
   return { parts: [{ geo, mat: matOf(tex) }] };
 }
 
@@ -259,6 +278,94 @@ function waystone(): KitPiece {
   return { parts: [{ geo, mat: matOf('pedras/pedra_colunas') }] };
 }
 
+/** Pinheiro com neve: três andares de copa escura com capas de neve por cima, sobre o tronco. */
+function snowPine(seed: number): KitPiece {
+  const r = rng(seed);
+  const trunk = new THREE.CylinderGeometry(0.06, 0.11, 1.0, 6, 1, true).toNonIndexed().translate(0, 0.5, 0);
+  scaleUV(trunk, 1, 1.4);
+  shade(trunk, r, 0.5, 1);
+  const green: THREE.BufferGeometry[] = [];
+  const snow: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < 3; i++) {
+    const base = 0.6 + i * 0.55;
+    const rad = 0.8 - i * 0.2;
+    const h = 1.25 - i * 0.14;
+    green.push(new THREE.ConeGeometry(rad, h, 7, 1).toNonIndexed().translate(0, base + h / 2, 0));
+    snow.push(new THREE.ConeGeometry(rad * 0.5, h * 0.42, 7, 1).toNonIndexed().translate(0, base + h * 0.79, 0));
+  }
+  const gGeo = mergeGeometries(green)!;
+  boxUV(gGeo, 1.2);
+  shade(gGeo, r, 0.42, 1);
+  const sGeo = mergeGeometries(snow)!;
+  boxUV(sGeo, 0.9);
+  shade(sGeo, r, 0.85, 1);
+  return { parts: [{ geo: trunk, mat: matOf('arvores/tronco_casca') }, { geo: gGeo, mat: matOf('arvores/copa_verde_escura') }, { geo: sGeo, mat: matOf('gelo/piso_neve_clara') }] };
+}
+
+/** Coluna prismática (gelo ou basalto): cilindro de poucos lados, com a textura de parede no sentido vertical. */
+function column(seed: number, tex: string, sides: number, h: number, rTop: number, rBottom: number, unlit = false): KitPiece {
+  const r = rng(seed);
+  const geo = new THREE.CylinderGeometry(rTop, rBottom, h, sides, 3, false).toNonIndexed().translate(0, h / 2, 0);
+  scaleUV(geo, 1, h * 0.9);
+  shade(geo, r, 0.5, 1);
+  return { parts: [{ geo, mat: matOf(tex, unlit) }] };
+}
+
+/** Cacho de cristais: losangos verticais de tamanhos variados, com a ponta de baixo no chão. */
+function crystal(seed: number, tex: string, unlit: boolean): KitPiece {
+  const r = rng(seed);
+  const parts: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < 5; i++) {
+    const a = r() * Math.PI * 2;
+    const d = 0.12 + r() * 0.22;
+    const h = 0.9 + r() * 0.9;
+    const w = 0.16 + r() * 0.12;
+    const g = new THREE.OctahedronGeometry(1, 0).toNonIndexed().scale(w, h, w).translate(0, h, 0);
+    g.rotateZ((r() - 0.5) * 0.35);
+    g.rotateX((r() - 0.5) * 0.35);
+    g.translate(Math.cos(a) * d, 0, Math.sin(a) * d);
+    parts.push(g);
+  }
+  const geo = mergeGeometries(parts)!;
+  boxUV(geo, 0.8);
+  shade(geo, r, 0.6, 1);
+  return { parts: [{ geo, mat: matOf(tex, unlit) }] };
+}
+
+/** Monte de neve: bolha achatada, com a textura de neve, apoiada no chão. */
+function snowPile(seed: number): KitPiece {
+  const r = rng(seed);
+  const geo = canopy(seed, { lobes: 3, spread: 0.35, top: 0.16, radius: 0.36 });
+  geo.scale(1, 0.7, 1);
+  geo.computeBoundingBox();
+  geo.translate(0, -geo.boundingBox!.min.y, 0);
+  geo.computeVertexNormals();
+  boxUV(geo, 0.8);
+  shade(geo, r, 0.8, 1);
+  return { parts: [{ geo, mat: matOf('gelo/piso_neve_clara') }] };
+}
+
+/** Árvore morta, sem folhas: tronco torto e galhos finos com a casca da textura. */
+function deadTree(seed: number, bark: string, unlit = false): KitPiece {
+  const r = rng(seed);
+  const trunk = new THREE.CylinderGeometry(0.05, 0.12, 1.7, 6, 2, true).toNonIndexed().translate(0, 0.85, 0);
+  scaleUV(trunk, 1, 2.2);
+  const branches: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < 4; i++) {
+    const len = 0.8 - i * 0.12;
+    const b = new THREE.CylinderGeometry(0.02, 0.05, len, 4, 1, true).toNonIndexed().translate(0, len / 2, 0);
+    b.rotateZ(0.9 - i * 0.25);
+    b.rotateY(i * 1.9 + r() * 0.6);
+    b.translate(0, 0.9 + i * 0.22, 0);
+    branches.push(b);
+  }
+  const bGeo = mergeGeometries(branches)!;
+  shade(trunk, r, 0.6, 1);
+  shade(bGeo, r, 0.6, 1);
+  const m = matOf(bark, unlit);
+  return { parts: [{ geo: trunk, mat: m }, { geo: bGeo, mat: m }] };
+}
+
 /** Construtores das peças (cada uma é feita na primeira vez que aparece). */
 const BUILD: Record<string, () => KitPiece> = {
   arvore_a: () => tree(11, 'arvores/tronco_casca', 'arvores/copa_verde', 5, 0.5),
@@ -280,6 +387,38 @@ const BUILD: Record<string, () => KitPiece> = {
   ruina_a: () => ruin(113, 'pedras/pedra_colunas'),
   ruina_b: () => ruin(127, 'pedras/pedra_blocos'),
   marco: () => waystone(),
+  // gelo: pinheiros com neve, pedras de neve e de gelo, colunas e cristais
+  neve_pinheiro_a: () => snowPine(211),
+  neve_pinheiro_b: () => snowPine(223),
+  // pedras de neve mais escuras na base e menos brancas no topo: destacam da neve do chão
+  neve_rocha_a: () => rock(227, 'gelo/parede_rocha_neve_a', 2, 0.42, 0.8),
+  neve_rocha_b: () => rock(229, 'gelo/parede_rocha_neve_b', 2, 0.42, 0.8),
+  neve_rocha_c: () => rock(233, 'gelo/parede_rocha_neve_c', 2, 0.42, 0.8),
+  gelo_rocha_a: () => rock(239, 'gelo/parede_gelo_cristal', 1),
+  gelo_rocha_b: () => rock(241, 'gelo/parede_gelo_pilar', 1),
+  gelo_coluna_a: () => column(251, 'gelo/parede_gelo_pilar', 7, 2.6, 0.36, 0.5),
+  gelo_coluna_b: () => column(257, 'gelo/parede_gelo_estalactite_b', 6, 2.2, 0.3, 0.46),
+  gelo_estalagmite_a: () => column(263, 'gelo/parede_gelo_estalactite_a', 5, 1.4, 0.04, 0.28),
+  gelo_estalagmite_b: () => column(269, 'gelo/parede_gelo_estalactite_a', 5, 1.1, 0.03, 0.24),
+  gelo_cristal_a: () => crystal(271, 'gelo/parede_gelo_cristal', false),
+  gelo_cristal_b: () => crystal(277, 'gelo/parede_gelo_cristal', false),
+  neve_monte_a: () => snowPile(281),
+  neve_monte_b: () => snowPile(283),
+  arvore_morta_gelo_a: () => deadTree(293, 'arvores/tronco_retorcido_b'),
+  arvore_morta_gelo_b: () => deadTree(307, 'arvores/tronco_hera_b'),
+  // lava: basalto, colunas e árvores queimadas com veias incandescentes, cristais que brilham
+  basalto_rocha_a: () => rock(311, 'vulcao/piso_basalto'),
+  basalto_rocha_b: () => rock(313, 'vulcao/piso_basalto_veias'),
+  basalto_rocha_c: () => rock(317, 'vulcao/piso_lava_rochosa'),
+  basalto_coluna_a: () => column(331, 'vulcao/parede_basalto_colunas_a', 6, 2.3, 0.42, 0.5),
+  basalto_coluna_b: () => column(337, 'vulcao/parede_basalto_colunas_b', 6, 2.0, 0.38, 0.46),
+  basalto_coluna_c: () => column(347, 'vulcao/parede_basalto_colunas_c', 5, 1.7, 0.34, 0.42),
+  lava_pilar_a: () => column(349, 'vulcao/parede_lava_pilar_a', 6, 2.6, 0.4, 0.5, true),
+  lava_pilar_b: () => column(353, 'vulcao/parede_lava_colunas', 7, 2.2, 0.36, 0.44, true),
+  lava_arvore_a: () => deadTree(359, 'vulcao/parede_lava_colunas', true),
+  lava_arvore_b: () => deadTree(367, 'vulcao/parede_lava_pilar_a', true),
+  lava_cristal_a: () => crystal(373, 'vulcao/ambiente_lava_brilho', true),
+  lava_cristal_b: () => crystal(379, 'vulcao/ambiente_lava_brilho', true),
 };
 
 const cache = new Map<string, KitPiece>();

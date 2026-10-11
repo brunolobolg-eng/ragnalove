@@ -1,0 +1,428 @@
+{
+  "origem": "Folha 23 do dono (texturas de terreno, caminhos, água, pedras, madeira, muros, telhados e pisos)",
+  "arquivos": [
+    {
+      "arquivo": "terreno_grama_flores_a.webp",
+      "categoria": "terreno",
+      "painel": "TERRENO / GRAMA",
+      "linha": 1,
+      "coluna": 1,
+      "largura": 124,
+      "altura": 124
+    },
+    {
+      "arquivo": "terreno_grama_verde_a.webp",
+      "categoria": "terreno",
+      "painel": "TERRENO / GRAMA",
+      "linha": 1,
+      "coluna": 2,
+      "largura": 122,
+      "altura": 122
+    },
+    {
+      "arquivo": "terreno_grama_folhas.webp",
+      "categoria": "terreno",
+      "painel": "TERRENO / GRAMA",
+      "linha": 1,
+      "coluna": 3,
+      "largura": 122,
+      "altura": 122
+    },
+    {
+      "arquivo": "terreno_grama_flores_b.webp",
+      "categoria": "terreno",
+      "painel": "TERRENO / GRAMA",
+      "linha": 2,
+      "coluna": 1,
+      "largura": 119,
+      "altura": 119
+    },
+    {
+      "arquivo": "terreno_terra_gramada.webp",
+      "categoria": "terreno",
+      "painel": "TERRENO / GRAMA",
+      "linha": 2,
+      "coluna": 2,
+      "largura": 119,
+      "altura": 119
+    },
+    {
+      "arquivo": "terreno_terra.webp",
+      "categoria": "terreno",
+      "painel": "TERRENO / GRAMA",
+      "linha": 3,
+      "coluna": 1,
+      "largura": 121,
+      "altura": 121
+    },
+    {
+      "arquivo": "terreno_grama_mato.webp",
+      "categoria": "terreno",
+      "painel": "TERRENO / GRAMA",
+      "linha": 3,
+      "coluna": 2,
+      "largura": 121,
+      "altura": 121
+    },
+    {
+      "arquivo": "terreno_grama_flores_c.webp",
+      "categoria": "terreno",
+      "painel": "TERRENO / GRAMA",
+      "linha": 3,
+      "coluna": 3,
+      "largura": 121,
+      "altura": 121
+    },
+    {
+      "arquivo": "caminho_terra_gramada_a.webp",
+      "categoria": "caminho",
+      "painel": "CAMINHOS / ESTRADAS",
+      "linha": 1,
+      "coluna": 1,
+      "largura": 115,
+      "altura": 115
+    },
+    {
+      "arquivo": "caminho_terra_gramada_b.webp",
+      "categoria": "caminho",
+      "painel": "CAMINHOS / ESTRADAS",
+      "linha": 1,
+      "coluna": 2,
+      "largura": 101,
+      "altura": 101
+    },
+    {
+      "arquivo": "caminho_terra_pedras.webp",
+      "categoria": "caminho",
+      "painel": "CAMINHOS / ESTRADAS",
+      "linha": 1,
+      "coluna": 3,
+      "largura": 110,
+      "altura": 110
+    },
+    {
+      "arquivo": "caminho_calcamento_cinza.webp",
+      "categoria": "caminho",
+      "painel": "CAMINHOS / ESTRADAS",
+      "linha": 2,
+      "coluna": 1,
+      "largura": 115,
+      "altura": 115
+    },
+    {
+      "arquivo": "caminho_terra_gramada_c.webp",
+      "categoria": "caminho",
+      "painel": "CAMINHOS / ESTRADAS",
+      "linha": 2,
+      "coluna": 2,
+      "largura": 101,
+      "altura": 101
+    },
+    {
+      "arquivo": "caminho_calcamento_bloco.webp",
+      "categoria": "caminho",
+      "painel": "CAMINHOS / ESTRADAS",
+      "linha": 2,
+      "coluna": 3,
+      "largura": 110,
+      "altura": 110
+    },
+    {
+      "arquivo": "agua_funda_a.webp",
+      "categoria": "agua",
+      "painel": "ÁGUA",
+      "linha": 1,
+      "coluna": 1,
+      "largura": 115,
+      "altura": 115
+    },
+    {
+      "arquivo": "agua_funda_b.webp",
+      "categoria": "agua",
+      "painel": "ÁGUA",
+      "linha": 1,
+      "coluna": 2,
+      "largura": 113,
+      "altura": 113
+    },
+    {
+      "arquivo": "agua_funda_c.webp",
+      "categoria": "agua",
+      "painel": "ÁGUA",
+      "linha": 2,
+      "coluna": 3,
+      "largura": 111,
+      "altura": 111
+    },
+    {
+      "arquivo": "agua_rasa.webp",
+      "categoria": "agua",
+      "painel": "ÁGUA",
+      "linha": 2,
+      "coluna": 1,
+      "largura": 86,
+      "altura": 86
+    },
+    {
+      "arquivo": "pedra_cascalho.webp",
+      "categoria": "pedra",
+      "painel": "PEDRAS / ROCHAS",
+      "linha": 1,
+      "coluna": 1,
+      "largura": 115,
+      "altura": 115
+    },
+    {
+      "arquivo": "pedra_blocos_cinza.webp",
+      "categoria": "pedra",
+      "painel": "PEDRAS / ROCHAS",
+      "linha": 1,
+      "coluna": 3,
+      "largura": 122,
+      "altura": 122
+    },
+    {
+      "arquivo": "pedra_musgo_a.webp",
+      "categoria": "pedra",
+      "painel": "PEDRAS / ROCHAS",
+      "linha": 2,
+      "coluna": 1,
+      "largura": 113,
+      "altura": 113
+    },
+    {
+      "arquivo": "pedra_fissurada.webp",
+      "categoria": "pedra",
+      "painel": "PEDRAS / ROCHAS",
+      "linha": 2,
+      "coluna": 2,
+      "largura": 112,
+      "altura": 112
+    },
+    {
+      "arquivo": "pedra_rochosa_a.webp",
+      "categoria": "pedra",
+      "painel": "PEDRAS / ROCHAS",
+      "linha": 2,
+      "coluna": 3,
+      "largura": 113,
+      "altura": 113
+    },
+    {
+      "arquivo": "pedra_musgo_b.webp",
+      "categoria": "pedra",
+      "painel": "PEDRAS / ROCHAS",
+      "linha": 3,
+      "coluna": 2,
+      "largura": 114,
+      "altura": 114
+    },
+    {
+      "arquivo": "pedra_rochas_grandes.webp",
+      "categoria": "pedra",
+      "painel": "PEDRAS / ROCHAS",
+      "linha": 3,
+      "coluna": 3,
+      "largura": 118,
+      "altura": 118
+    },
+    {
+      "arquivo": "madeira_tabuas_verticais.webp",
+      "categoria": "madeira",
+      "painel": "MADEIRA / CONSTRUÇÕES",
+      "linha": 1,
+      "coluna": 1,
+      "largura": 89,
+      "altura": 89
+    },
+    {
+      "arquivo": "madeira_tabuas_horizontais_a.webp",
+      "categoria": "madeira",
+      "painel": "MADEIRA / CONSTRUÇÕES",
+      "linha": 2,
+      "coluna": 1,
+      "largura": 107,
+      "altura": 107
+    },
+    {
+      "arquivo": "madeira_tabuas_horizontais_b.webp",
+      "categoria": "madeira",
+      "painel": "MADEIRA / CONSTRUÇÕES",
+      "linha": 1,
+      "coluna": 2,
+      "largura": 69,
+      "altura": 69
+    },
+    {
+      "arquivo": "madeira_assoalho.webp",
+      "categoria": "madeira",
+      "painel": "MADEIRA / CONSTRUÇÕES",
+      "linha": 2,
+      "coluna": 3,
+      "largura": 61,
+      "altura": 61
+    },
+    {
+      "arquivo": "muro_pedra_tijolo.webp",
+      "categoria": "muro",
+      "painel": "CERCA / MUROS",
+      "linha": 1,
+      "coluna": 3,
+      "largura": 100,
+      "altura": 100
+    },
+    {
+      "arquivo": "telhado_telha_vermelha.webp",
+      "categoria": "telhado",
+      "painel": "TELHADOS / EDIFICAÇÕES",
+      "linha": 1,
+      "coluna": 1,
+      "largura": 97,
+      "altura": 97
+    },
+    {
+      "arquivo": "telhado_ardosia_azul.webp",
+      "categoria": "telhado",
+      "painel": "TELHADOS / EDIFICAÇÕES",
+      "linha": 1,
+      "coluna": 2,
+      "largura": 103,
+      "altura": 103
+    },
+    {
+      "arquivo": "telhado_telha_verde.webp",
+      "categoria": "telhado",
+      "painel": "TELHADOS / EDIFICAÇÕES",
+      "linha": 1,
+      "coluna": 3,
+      "largura": 81,
+      "altura": 81
+    },
+    {
+      "arquivo": "telhado_pedra_cinza.webp",
+      "categoria": "telhado",
+      "painel": "TELHADOS / EDIFICAÇÕES",
+      "linha": 2,
+      "coluna": 1,
+      "largura": 99,
+      "altura": 99
+    },
+    {
+      "arquivo": "telhado_palha.webp",
+      "categoria": "telhado",
+      "painel": "TELHADOS / EDIFICAÇÕES",
+      "linha": 2,
+      "coluna": 2,
+      "largura": 57,
+      "altura": 57
+    },
+    {
+      "arquivo": "piso_pedra_irregular_a.webp",
+      "categoria": "piso",
+      "painel": "PISOS / PAVIMENTAÇÃO",
+      "linha": 1,
+      "coluna": 1,
+      "largura": 42,
+      "altura": 42
+    },
+    {
+      "arquivo": "piso_pedra_irregular_b.webp",
+      "categoria": "piso",
+      "painel": "PISOS / PAVIMENTAÇÃO",
+      "linha": 2,
+      "coluna": 1,
+      "largura": 42,
+      "altura": 42
+    },
+    {
+      "arquivo": "piso_pedra_irregular_c.webp",
+      "categoria": "piso",
+      "painel": "PISOS / PAVIMENTAÇÃO",
+      "linha": 1,
+      "coluna": 3,
+      "largura": 39,
+      "altura": 39
+    },
+    {
+      "arquivo": "piso_pedra_irregular_d.webp",
+      "categoria": "piso",
+      "painel": "PISOS / PAVIMENTAÇÃO",
+      "linha": 2,
+      "coluna": 2,
+      "largura": 39,
+      "altura": 39
+    },
+    {
+      "arquivo": "piso_pedra_clara.webp",
+      "categoria": "piso",
+      "painel": "PISOS / PAVIMENTAÇÃO",
+      "linha": 1,
+      "coluna": 4,
+      "largura": 54,
+      "altura": 54
+    },
+    {
+      "arquivo": "piso_pedra_clara_b.webp",
+      "categoria": "piso",
+      "painel": "PISOS / PAVIMENTAÇÃO",
+      "linha": 1,
+      "coluna": 6,
+      "largura": 75,
+      "altura": 75
+    },
+    {
+      "arquivo": "piso_medalhao.webp",
+      "categoria": "piso",
+      "painel": "PISOS / PAVIMENTAÇÃO",
+      "linha": 1,
+      "coluna": 5,
+      "largura": 74,
+      "altura": 74
+    },
+    {
+      "arquivo": "piso_losango.webp",
+      "categoria": "piso",
+      "painel": "PISOS / PAVIMENTAÇÃO",
+      "linha": 2,
+      "coluna": 3,
+      "largura": 56,
+      "altura": 56
+    },
+    {
+      "arquivo": "piso_losango_b.webp",
+      "categoria": "piso",
+      "painel": "PISOS / PAVIMENTAÇÃO",
+      "linha": 3,
+      "coluna": 3,
+      "largura": 91,
+      "altura": 91
+    },
+    {
+      "arquivo": "piso_lajota_grande_a.webp",
+      "categoria": "piso",
+      "painel": "PISOS / PAVIMENTAÇÃO",
+      "linha": 3,
+      "coluna": 1,
+      "largura": 55,
+      "altura": 55
+    },
+    {
+      "arquivo": "piso_lajota_grande_b.webp",
+      "categoria": "piso",
+      "painel": "PISOS / PAVIMENTAÇÃO",
+      "linha": 3,
+      "coluna": 2,
+      "largura": 59,
+      "altura": 59
+    },
+    {
+      "arquivo": "piso_xadrez_marmore.webp",
+      "categoria": "piso",
+      "painel": "PISOS / PAVIMENTAÇÃO",
+      "linha": 3,
+      "coluna": 4,
+      "largura": 96,
+      "altura": 96
+    }
+  ]
+}
