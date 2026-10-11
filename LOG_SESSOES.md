@@ -145,7 +145,8 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - Montagem da batalha antes/depois (medir2): Passo da Geada 164 → 139 ms, Garganta de Ferrugem 133 → 152 ms, Cume das Cinzas 150 → 130 ms. Dentro do ruído (±40 ms).
 - **Pendências:**
   1. **Desempenho na GPU real:** os testes rodaram em navegador por software (swiftshader), que não mede bem. Medir no PC do dono (F9) com muitas magias ao mesmo tempo.
-  2. **Passivas (19) e estados sem evento** (atordoar, lentidão, puxão, atraso): não ganham efeito novo. Precisariam de um evento próprio na simulação (muda o núcleo; exige decisão).
+  2. **Passivas e estados sem evento:** das 19 passivas, só as que disparam evento (cura, bloqueio, combustão) ganham efeito. Os estados (atordoar, lentidão, puxão, atraso) não têm evento próprio na simulação; precisariam de um (muda o núcleo; exige decisão).
+  2b. **Cobertura:** 42 das 43 habilidades ativas e as 3 magias inimigas têm receita. A Flecha Precisa não tem (o evento é o da flecha comum).
   3. **Julgamento:** o desenho do golpe usa 5 de 9 tiles (existe no despachante antigo); a camada nova só dá o círculo nos raios.
   4. **Corrente Elétrica** usa a receita da Tempestade (o evento não diz qual habilidade é). Se o dono quiser outra cor, é uma receita nova com a chave `storm:chainLightning`, mas o evento não traz o nome.
   5. **Flecha Precisa e Tiro Duplo** não têm golpe novo: o evento de flecha é o mesmo do ataque básico (sem como separar).
