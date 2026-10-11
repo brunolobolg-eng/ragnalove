@@ -308,27 +308,20 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   riverDressing(root, zone, X, Z);
 
   // ---------------- Fogo: braseiros, lanternas e tochas ----------------
-  const lights: THREE.PointLight[] = [];
-  const flames: { pos: THREE.Vector3; size: number; light?: THREE.PointLight; glow: THREE.Sprite; phase: number }[] = [];
+  // Só o clarão (sprite e brilho do bloom). Sem luz pontual: cada lâmpada custava uma conta por pixel em todo o cenário.
+  const flames: { pos: THREE.Vector3; size: number; glow: THREE.Sprite; phase: number }[] = [];
   const glowMat = new THREE.SpriteMaterial({ map: softCircle(), color: new THREE.Color(2.4, 1.1, 0.35), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-  const addFlame = (pos: THREE.Vector3, size: number, withLight: boolean) => {
+  const addFlame = (pos: THREE.Vector3, size: number) => {
     const glow = new THREE.Sprite(glowMat);
     glow.position.copy(pos);
     glow.scale.setScalar(size * 3.2);
     glow.renderOrder = 5;
     root.add(glow);
-    let light: THREE.PointLight | undefined;
-    if (withLight) {
-      light = new THREE.PointLight(0xff8a3a, 3.2, 7.5, 1.4);
-      light.position.copy(pos).add(new THREE.Vector3(0, 0.3, 0));
-      root.add(light);
-      lights.push(light);
-    }
-    flames.push({ pos, size, light, glow, phase: r() * 10 });
+    flames.push({ pos, size, glow, phase: r() * 10 });
   };
   // fogueiras do acampamento nas margens
-  for (const f of BANK_FIRES) addFlame(f, 0.4, true);
-  for (const l of BANK_LANTERNS) addFlame(l, 0.12, false);
+  for (const f of BANK_FIRES) addFlame(f, 0.4);
+  for (const l of BANK_LANTERNS) addFlame(l, 0.12);
   const brazier = (x: number, z: number) => {
     const g = new THREE.Group();
     g.position.set(x, 0, z);
@@ -340,7 +333,7 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
     coals.position.y = 0.95;
     g.add(ped, bowl, coals);
     root.add(g);
-    addFlame(new THREE.Vector3(x, 1.05, z), 0.36, true);
+    addFlame(new THREE.Vector3(x, 1.05, z), 0.36);
   };
   const lantern = (x: number, z: number) => {
     const g = new THREE.Group();
@@ -355,7 +348,7 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
     lid.position.set(0, 1.86, -0.36);
     g.add(post, arm, box, lid);
     root.add(g);
-    addFlame(new THREE.Vector3(x, 1.66, z - 0.36), 0.16, false);
+    addFlame(new THREE.Vector3(x, 1.66, z - 0.36), 0.16);
   };
   for (const p of zone.props) {
     if (p.kind === 'brazier') {
@@ -372,7 +365,7 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
       const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.16), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.0, 1.3, 0.5) }));
       lamp.position.set(x, 1.0, z);
       root.add(lamp);
-      addFlame(new THREE.Vector3(x, 1.0, z), 0.12, false);
+      addFlame(new THREE.Vector3(x, 1.0, z), 0.12);
     }
   }
   // tochas no alto da muralha e nos pilares do portão
@@ -384,7 +377,7 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
     torch.position.set(x, y - 0.3, wallZ - 0.55);
     torch.rotation.x = -0.35;
     root.add(torch);
-    addFlame(new THREE.Vector3(x, y, wallZ - 0.65), 0.2, near);
+    addFlame(new THREE.Vector3(x, y, wallZ - 0.65), 0.2);
   }
 
   // ---------------- Corvos ----------------
@@ -430,7 +423,6 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   let t = 0;
   let smokeAcc = 0;
   let flameAcc = 0;
-  const lightsOn = { v: true };
   const C_FLAME = new THREE.Color(3.2, 1.4, 0.35);
   const C_FLAME_END = new THREE.Color(0.7, 0.12, 0.02);
   const C_SMOKE = new THREE.Color(0.09, 0.09, 0.11);
@@ -438,10 +430,8 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
 
   return {
     group: root,
-    setLights(on: boolean) {
-      lightsOn.v = on;
-      for (const l of lights) l.visible = on;
-    },
+    // as tochas não têm luz pontual: nada a ligar ou desligar (o clarão continua em todos os presets)
+    setLights() {},
     update(dt: number, particles: ParticleLayer) {
       t += dt;
       const WU = waterMat.uniforms;
@@ -460,7 +450,6 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
       for (const f of flames) {
         const k = 0.82 + Math.sin(t * 13 + f.phase) * 0.08 + Math.sin(t * 7.3 + f.phase * 2) * 0.1;
         f.glow.scale.setScalar(f.size * 3.2 * k);
-        if (f.light) f.light.intensity = 3.2 * k;
         if (emit && f.size > 0.15)
           particles.glow.emit({
             pos: f.pos,
