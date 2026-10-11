@@ -235,6 +235,10 @@ export const MAGE_FX = {
     /** a cúpula apaga entre fadeAt e fadeAt + fadeTime (s) */
     fadeAt: 0.45,
     fadeTime: 0.8,
+    /** dissolução da cúpula: escala do ruído que se desfaz, largura da frente e brilho da frente que avança */
+    dissolveScale: 2.6,
+    dissolveWidth: 0.12,
+    dissolveGlow: 1.4,
     /** duração total (s) */
     life: 1.3,
   },

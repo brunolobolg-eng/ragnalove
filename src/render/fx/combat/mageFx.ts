@@ -5,6 +5,7 @@ import type { Ribbon } from '../kit/Ribbons';
 import { disposeFxGroup, fxSprite, jaggedPath, Pillar } from '../kit/Shapes';
 import { VFX } from '../kit/vfxSettings';
 import { fxTexture } from '../kit/vfxTextures';
+import { RUIDO_3D_GLSL } from '../../materials/glsl';
 import type { CombatVisualCtx } from './CombatVisualCtx';
 
 /**
@@ -81,12 +82,21 @@ const DOME_FRAG = /* glsl */ `
   uniform vec3 uColor; uniform float uAlpha; uniform float uFlash; uniform float uTime;
   uniform float uRimPow; uniform float uRimGain; uniform float uBandFreq; uniform float uBandSpeed;
   uniform float uBaseAlpha; uniform float uRimAlpha; uniform float uBandAlpha; uniform float uCoreGain; uniform float uFlashGain;
+  uniform float uDissolve; uniform float uDissolveScale; uniform float uDissolveWidth; uniform float uDissolveGlow;
   varying vec3 vN; varying vec3 vV; varying vec3 vP;
+  ${RUIDO_3D_GLSL}
   void main() {
     float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), uRimPow);
     float band = 0.5 + 0.5 * sin(vP.y * uBandFreq - uTime * uBandSpeed);
     float a = (uBaseAlpha + f * (uRimAlpha + uBandAlpha * band)) * uAlpha;
     vec3 col = uColor * (uCoreGain + f * uRimGain) + vec3(uFlash * uFlashGain);
+    // dissolução: um ruído que se desfaz apaga a cúpula por partes; a frente que avança fica acesa
+    float n = ruido3(vP * uDissolveScale + vec3(0.0, uTime * 0.3, 0.0));
+    float sobra = smoothstep(uDissolve - uDissolveWidth, uDissolve, n);
+    float frente = 1.0 - smoothstep(0.0, uDissolveWidth, abs(n - uDissolve));
+    float ativa = smoothstep(0.0, 0.05, uDissolve) * (1.0 - uDissolve);
+    a *= sobra;
+    col += uColor * frente * uDissolveGlow * ativa;
     gl_FragColor = vec4(col, a);
   }
 `;
@@ -319,6 +329,10 @@ export class HolyShieldFx extends MageFx {
         uBandAlpha: { value: D.bandAlpha },
         uCoreGain: { value: D.coreGain },
         uFlashGain: { value: D.flashGain },
+        uDissolve: { value: 0 },
+        uDissolveScale: { value: B.dissolveScale },
+        uDissolveWidth: { value: B.dissolveWidth },
+        uDissolveGlow: { value: B.dissolveGlow },
       },
       vertexShader: DOME_VERT,
       fragmentShader: DOME_FRAG,
@@ -355,8 +369,9 @@ export class HolyShieldFx extends MageFx {
     const grow = easeOut(clamp01((t - B.domeAt) / B.domeGrow));
     this.dome.scale.setScalar(B.domeRadius * (B.domeMin + (1 - B.domeMin) * grow));
     const appear = clamp01((t - B.domeAt) / B.domeFadeIn);
-    const vanish = 1 - clamp01((t - B.fadeAt) / B.fadeTime);
-    this.uni.uAlpha.value = B.domeAlpha * appear * vanish;
+    this.uni.uAlpha.value = B.domeAlpha * appear;
+    // a cúpula se desfaz por um ruído, de fadeAt a fadeAt + fadeTime (antes era um apagamento uniforme)
+    this.uni.uDissolve.value = clamp01((t - B.fadeAt) / B.fadeTime);
     this.uni.uFlash.value = t >= B.popAt ? clamp01(1 - (t - B.popAt) / B.flashTime) : 0;
     this.uni.uTime.value = t;
   }
