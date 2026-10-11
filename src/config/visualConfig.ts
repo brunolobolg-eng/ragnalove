@@ -363,14 +363,14 @@ export const ACT_DRESSING = {
 };
 
 /**
- * Menu principal (tela de título): a arte `tela-entrada.jpg` enche a tela; por cima, os botões, o
- * painel de Ranking e o slogan recortados da mesma arte, com as áreas clicáveis e os valores vivos. Coordenadas em pixels da imagem original (x, y, largura, altura).
+ * Menu principal (tela de título): a arte da temporada vigente (`temporadas.ts`) enche a tela; por cima, os botões,
+ * o painel de Ranking e o slogan recortados da mesma arte, com as áreas clicáveis e os valores vivos. Coordenadas em
+ * pixels da arte de referência (x, y, largura, altura): toda arte de temporada usa esta composição.
  */
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
   version: 'v0.8c',
-  image: 'tela-entrada.jpg',
   width: 1672,
   height: 941,
   /**
