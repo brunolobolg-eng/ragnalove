@@ -250,7 +250,10 @@ export function buildEmperium(zone: ParsedZone, X: (x: number) => number, Z: (y:
   runaGrupo.add(runa);
   group.add(runaGrupo);
   // raio de luz: dois planos cruzados no eixo do cristal, com a arte do dono, em modo aditivo
-  const raioMat = new THREE.MeshBasicMaterial({ map: loadTexture('textures/bastiao/emperium_raio.jpg'), color: new THREE.Color(1.6, 1.6, 1.6), transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  // a coluna de luz da arte fica 3,8% à esquerda do centro da imagem: a textura é deslocada para ela cair no eixo
+  const raioTex = loadTexture('textures/bastiao/emperium_raio.jpg');
+  raioTex.offset.x = -0.038;
+  const raioMat = new THREE.MeshBasicMaterial({ map: raioTex, color: new THREE.Color(1.6, 1.6, 1.6), transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   for (const giro of [0, Math.PI / 2]) {
     const plano = new THREE.Mesh(new THREE.PlaneGeometry(5, 16), raioMat);
     plano.position.y = CENTRO_Z * ESCALA + 8; // a base do raio fica no centro do cristal
