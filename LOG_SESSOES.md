@@ -432,6 +432,40 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - O interruptor de luzes do cenário serve bem como gancho de preset para efeitos caros de cenário.
   - Conferir o eixo antes de escrever o shader: a altura do cristal está no eixo Z do modelo, não no Y.
 
+## 2026-10-11 — Pacote de shaders: água, escudo sagrado e ruído compartilhado (v0.11, em andamento)
+- **Pedido do dono:** seguir com as próximas melhorias do pacote, na ordem da auditoria: água (fase 4C), magias (fase 4B), depois materiais (espera mapas do dono) e atmosfera.
+- **Entregue:**
+  - **Água** (`src/render/scenery/groundLayers.ts`, `src/render/BoardView.ts`, `VISUAL_CONFIG.agua`): ondulação discreta nas camadas de água com fluxo (rio, lago e poças), reflexo do céu nas bordas de visão e brilho nas cristas. Sem geometria nova. Liga só nos presets médio e alto, pelo mesmo interruptor do cenário.
+  - **Escudo Sagrado** (`src/render/fx/combat/mageFx.ts`, `MAGE_FX.holyShield`): a cúpula se desfaz por um ruído entre `fadeAt` e `fadeAt + fadeTime`, com a frente acesa, em vez de apagar de uma vez. Vale em todos os presets.
+  - **Ruído compartilhado** (`src/render/materials/glsl.ts`): o ruído 3D saiu de dentro do cristal e agora é usado também pelo escudo.
+- **Decisões:**
+  - **D38 — Reflexo da água em 0,07 (era 0,14):** com 0,14 o fosso clareava e perdia saturação. Em 0,07 o efeito fica sutil e as cristas continuam legíveis. É só `VISUAL_CONFIG.agua.reflexo`.
+  - **D39 — Parâmetros da dissolução mantidos** (`dissolveScale 2.6`, `dissolveWidth 0.12`, `dissolveGlow 1.4`): na ampliação 3× o padrão lê como dissolução, com pedaços e borda acesa.
+  - **D40 — Cúpula pequena no zoom do jogo (pendente do dono):** no zoom mínimo a cúpula é pequena, e a diferença para o código anterior fica em cerca de 0,5% dos pixels no instante de 0,9 s. Para ficar mais visível, o caminho é aumentar `domeRadius` ou `domeAlpha` em `config/fx/mage.ts`. Não mudei, porque muda a leitura da magia.
+  - **D41 — Verificação com quadros exatos:** as capturas antigas esperavam quadros pelo contador `__vgFrames`, que pegava quadros a mais conforme a latência do navegador. Duas capturas idênticas diferiam em 1,8% dos pixels. Agora o avanço é por `__vgBudget` (passos exatos), e a região de controle (pedra) fica igual nos dois lados (0,00).
+- **Correção da validação anterior do escudo:** as capturas do escudo feitas antes deste registro não mostravam a cúpula. A party do Bastião não tem mago, e o efeito da cúpula é escolhido pela classe de quem lança. A captura agora trata o lançador como mago só na visualização (`vg.view.kinds`), o mesmo caminho do jogo quando um mago conjura. Para isolar a cúpula, os heróis somem pelo `sim.isVisible`, porque o `GameView` zera a visibilidade das unidades a cada quadro.
+- **Testes:**
+  - `npm run build`, `npm run sim:check` (determinístico: true) e `npm run bastion:check` passam.
+  - **Escudo** (zoom mínimo, heróis ocultos, quadros exatos): erros 0. Antes e depois são iguais em 0,4 s, como esperado, porque a dissolução começa em 0,45 s. Em 0,9 s o depois muda 0,49% dos pixels em 1× e 2,9% na ampliação 3×. Em 1,2 s, 0,07% e 0,31%. `uDissolve` mede 0, 0,563 e 0,938, batendo com a curva.
+  - **Água** (Bastião, quadros exatos): erros 0; chamadas e triângulos iguais; programas 52 → 53. No fosso de perto, a diferença média é (6,3; 4,8; 6,4) com reflexo 0,07, contra (8,6; 5,9; 8,0) com 0,14. Pedra de controle: 0,00.
+  - **Emperium** (preset alto, refeito após o refactor do ruído): erros 0; 256 chamadas e 1,2 milhão de triângulos sem horda; 976 chamadas com horda de 120; 705 chamadas de perto, com 52, 54 e 54 programas. Os números batem com a validação anterior, e os veios comparados lado a lado estão iguais.
+- **Limitações:**
+  - FPS e memória não medidos (renderização por software).
+  - Sem mapas de normal nem de rugosidade no projeto: a fase 3 (materiais) fica parada até o dono enviar os mapas.
+  - O cristal segue com opacidade 0,88, e isso esconde inimigos atrás dele. Sem mudança, por decisão do dono.
+  - Não há zona de pântano de verdade, então a névoa do pântano não tem onde ser validada.
+  - Vale: a captura antiga mostrou 2 chamadas e 128 triângulos a mais numa visão geral. Não foi refeita com quadros exatos nem investigada.
+- **Pendências:**
+  1. Dono: a cúpula deve ficar mais visível no zoom do jogo? (D40)
+  2. Dono: mapas de normal e de rugosidade (pedra e madeira), para a fase 3.
+  3. Dono: opacidade do cristal, para proteger a leitura dos inimigos.
+  4. FPS no PC com o F9 nos três presets.
+  5. Sombra 4096 no preset alto (teste no PC) e luzes pontuais de cenário que ainda são reais (portão, paliçada e `ObjectView`).
+- **Lições:**
+  - Captura que espera quadros pelo tempo não é exata. Para comparar antes e depois, avançar por passos (`__vgBudget`) e conferir uma região de controle que não pode mudar (tem que dar 0,00).
+  - Antes de comparar um efeito, confirmar que ele apareceu na cena. A cúpula não existia nas capturas, e a diferença que se via era de outra coisa.
+  - Para ocultar unidades numa captura, usar `sim.isVisible`. Ocultar o nó não adianta, porque o `GameView` redefine a visibilidade a cada quadro.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

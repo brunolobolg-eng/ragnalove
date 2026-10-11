@@ -23,6 +23,8 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - Painel de desenvolvimento (F9): mostra chamadas de desenho, triângulos e luzes da cena, para medir antes de mexer no visual.
 - Ponte: tochas e fogueiras ficam só com o clarão, sem iluminar o chão. A cena tem 12 luzes a menos por quadro.
 - Emperium: o cristal ganha veios de energia que sobem devagar, com um pulso lento, nos presets médio e alto. No preset baixo, ele segue como antes.
+- Água do rio, do lago e das poças ganha ondulação discreta e reflexo do céu, nos presets médio e alto.
+- Escudo Sagrado: a cúpula se desfaz em pedaços, com a borda acesa, em vez de sumir de uma vez.
 
 ## 2026-10-11 — v0.10
 - Álbum de cartas refeito no layout da folha de referência do dono: lateral com o herói, cartas encontradas e barra de progresso, filtros de raridade com gemas, cartas equipadas e a fusão de 10 Normais.

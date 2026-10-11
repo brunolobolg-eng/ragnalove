@@ -85,7 +85,7 @@ export const VISUAL_CONFIG = {
     escala: 0.9, // tamanho da ondulação (quanto maior, ondas mais curtas)
     velocidade: 0.12, // velocidade com que a ondulação desliza
     ondulacao: 0.8, // quanto a superfície inclina a luz (0 = água lisa)
-    reflexo: 0.14, // reflexo do céu nas bordas de visão (fresnel)
+    reflexo: 0.07, // reflexo do céu nas bordas de visão (fresnel); com 0.14 o fosso clareava demais
     brilho: 0.18, // brilho nas cristas da ondulação
     corCeu: 0xcfeeff, // cor do céu refletido
   },
