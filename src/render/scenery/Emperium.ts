@@ -3,12 +3,15 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { ParsedZone } from '../../config/zones';
 import { glowTexture, sparkTexture } from '../fx/kit/vfxTextures';
 import { loadTexture } from './naturKit';
+import { criarMaterialCristal, type MaterialCristal } from '../materials/cristal';
+import { VISUAL_CONFIG } from '../../config/visualConfig';
 
 /**
  * O Emperium (zona com `castle`): o minério do centro do castelo, alvo da horda. Usa o modelo do dono
  * (public/models/roguard_emperium_crystal.glb). O cristal é regularizado (anéis simétricos, para não parecer torto
  * ao girar), ganha um degradê de azul para aqua, brilho translúcido, borda luminosa e núcleo central. A luz (halo,
- * faíscas e raio) fica centrada no eixo. Tudo gira no mesmo lugar. Só visual: o alvo é o tile 'E' do mapa.
+ * faíscas e raio) fica centrada no eixo. Nos presets médio e alto, veios de energia (shader, em `materials/cristal.ts`)
+ * sobem pelo cristal com um pulso lento. Tudo gira no mesmo lugar. Só visual: o alvo é o tile 'E' do mapa.
  */
 
 const MODELO = 'models/roguard_emperium_crystal.glb';
@@ -149,14 +152,13 @@ function materialBorda(): THREE.ShaderMaterial {
 }
 
 /** Cópia do modelo para uma zona: o cristal é regularizado, colorido e translúcido, com borda e núcleo no eixo. */
-function montarCopia(origem: THREE.Group, mats: { nucleo: THREE.Material; borda: THREE.Material }): THREE.Group {
+function montarCopia(origem: THREE.Group, mats: { nucleo: THREE.Material; borda: THREE.Material; cristal: MaterialCristal }): THREE.Group {
   const copia = origem.clone(true);
   const malhas: THREE.Mesh[] = [];
   copia.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) malhas.push(o as THREE.Mesh);
   });
   const materialSolido = new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, specular: 0xd6fbff, shininess: 70, emissive: 0x0c3a9c, emissiveIntensity: 0.5 });
-  const materialCristal = new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, specular: 0xd6fbff, shininess: 90, emissive: 0x0c3a9c, emissiveIntensity: 0.55, transparent: true, opacity: 0.88, depthWrite: false });
   // fragmentos: espaçados igualmente em volta do eixo (o arquivo os deixa de um lado só), com o raio e a altura do modelo
   const fragmentos = malhas.filter((m) => m.name.includes('Floating_Shard')).sort((a, b) => a.name.localeCompare(b.name));
   fragmentos.forEach((malha, i) => {
@@ -178,7 +180,10 @@ function montarCopia(origem: THREE.Group, mats: { nucleo: THREE.Material; borda:
     }
     if (malha.name.includes('Main_Crystal')) {
       malha.geometry = colorirPorAltura(comNormaisPlanas(regularizarAneis(malha.geometry)));
-      malha.material = materialCristal;
+      malha.geometry.computeBoundingBox();
+      const caixa = malha.geometry.boundingBox!;
+      mats.cristal.setAltura(caixa.min.z, caixa.max.z);
+      malha.material = mats.cristal.material;
       malha.renderOrder = 20;
       const borda = new THREE.Mesh(malha.geometry, mats.borda);
       borda.scale.setScalar(1.03);
@@ -202,7 +207,11 @@ function montarCopia(origem: THREE.Group, mats: { nucleo: THREE.Material; borda:
  * Monta o Emperium no centro dos tiles 'E' da zona. `X` e `Z` convertem tile em mundo (mesmo sistema do cenário).
  * Se o modelo não carregar, o cenário segue sem o minério (o alvo da horda continua no mapa).
  */
-export function buildEmperium(zone: ParsedZone, X: (x: number) => number, Z: (y: number) => number): { group: THREE.Group; update: (dt: number) => void } {
+export function buildEmperium(
+  zone: ParsedZone,
+  X: (x: number) => number,
+  Z: (y: number) => number,
+): { group: THREE.Group; update: (dt: number) => void; setDetalhe: (ligado: boolean) => void } {
   const group = new THREE.Group();
   const alvo = zone.city;
   const cx = alvo.reduce((soma, t) => soma + t.x, 0) / Math.max(1, alvo.length);
@@ -218,6 +227,11 @@ export function buildEmperium(zone: ParsedZone, X: (x: number) => number, Z: (y:
   const mats = {
     nucleo: new THREE.MeshBasicMaterial({ color: 0xd8f8ff, transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false }),
     borda: materialBorda(),
+    // cristal com veios de energia (shader): o degradê vai da base azul ao topo, passando pelo ciano
+    cristal: criarMaterialCristal(
+      { vertexColors: true, flatShading: true, specular: 0xd6fbff, shininess: 90, emissive: 0x0c3a9c, emissiveIntensity: 0.55, transparent: true, opacity: 0.88, depthWrite: false },
+      { base: COR_BASE, meio: VISUAL_CONFIG.emperium.veinMid, topo: COR_TOPO },
+    ),
   };
   carregarModelo()
     .then((origem) => orientado.add(montarCopia(origem, mats)))
@@ -266,6 +280,7 @@ export function buildEmperium(zone: ParsedZone, X: (x: number) => number, Z: (y:
     group,
     update(dt: number) {
       t += dt;
+      mats.cristal.update(dt);
       girador.rotation.y += dt * GIRO;
       girador.position.y = Math.sin(t * 1.3) * SUBIDA;
       runaGrupo.rotation.y += dt * 0.15;
@@ -273,6 +288,10 @@ export function buildEmperium(zone: ParsedZone, X: (x: number) => number, Z: (y:
       mats.nucleo.opacity = 0.42 + Math.sin(t * 2.4) * 0.1;
       (halo.material as THREE.SpriteMaterial).opacity = 0.42 + Math.sin(t * 1.6) * 0.08;
       for (const f of faiscas) (f.sprite.material as THREE.SpriteMaterial).opacity = 0.35 + 0.5 * (0.5 + 0.5 * Math.sin(t * 3 + f.fase));
+    },
+    // presets: os veios de energia ligam no médio e no alto (são o efeito mais caro do minério)
+    setDetalhe(ligado: boolean) {
+      mats.cristal.setVeios(ligado);
     },
   };
 }

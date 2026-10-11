@@ -63,7 +63,8 @@ function buildCastleWalls(zone: ParsedZone): CityGateHandle {
   }
   const emperio = buildEmperium(zone, X, Z);
   root.add(emperio.group);
-  return { group: root, update: (dt) => emperio.update(dt), setLights: () => {} };
+  // o interruptor de luzes do cenário também liga os veios do Emperium (médio e alto), como nas luzes das tochas
+  return { group: root, update: (dt) => emperio.update(dt), setLights: (on) => emperio.setDetalhe(on) };
 }
 
 export function buildCityGate(zone: ParsedZone, theme: ZoneTheme): CityGateHandle {

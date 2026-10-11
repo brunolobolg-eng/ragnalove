@@ -71,6 +71,15 @@ export const VISUAL_CONFIG = {
     manualHold: 1.5, // s sem seguir depois que o jogador mexe na câmera
     shadowHalf: 17, // meia-largura da área de sombras em volta do foco (tiles)
   },
+  /** Emperium: veios de energia dentro do cristal (shader), pulso lento e brilho controlado. Só visual. */
+  emperium: {
+    veinScale: 2.2, // densidade dos veios (quanto maior, mais veios)
+    veinSharpness: 10, // quanto maior, veios mais finos
+    veinFlow: 0.12, // velocidade com que a energia sobe pelo cristal
+    veinBrightness: 1.1, // brilho do veio (acima de 1, só o pico entra no bloom)
+    pulseDepth: 0.22, // variação do pulso lento (0 = sem pulso)
+    veinMid: 0x3fd9ff, // cor do meio do degradê (ciano)
+  },
   /** Direção do sol (de onde a luz vem) — o deserto usa sol baixo de fim de tarde (sombras longas). */
   sun: [-7, 18, 9] as [number, number, number],
 };
