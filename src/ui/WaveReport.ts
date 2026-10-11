@@ -10,6 +10,8 @@ import { NODE_COLOR, nodeIconUrl } from './nodeArt';
 
 const NAME: Record<string, string> = HERO_NAME;
 const ENEMY: Record<string, string> = { grunt: 'comuns', runner: 'rápidos', brute: 'pesados', necro: 'necromantes', elite: 'elite', boss: 'chefe', boss2: 'chefe', orcboss: 'chefe' };
+/** Cor de cada tipo de inimigo na barra de composição (mesma leitura das raridades do jogo). */
+const KIND_COLOR: Record<string, string> = { runner: '#ffd23f', grunt: '#b8bcc4', brute: '#ff7a3a', necro: '#b55cff', elite: '#3f8fff', boss: '#ff3b3b', boss2: '#ff3b3b', orcboss: '#ff3b3b' };
 
 /** Herói na coluna da party (estado no fim da onda). */
 export interface NightHero {
@@ -33,7 +35,7 @@ export interface NightReportVM {
   heroes: NightHero[];
   /** Itens que caíram (com ícone do jogo). */
   items: Item[];
-  /** Blocos extras no centro (nova classe, herói que se juntou, pontuação da Sobrevivência...). */
+  /** Blocos extras (nova classe, herói que se juntou, pontuação da Sobrevivência...). */
   extraHtml?: string;
   phase: { phase: number; total: number; region: string; act: string; node: NodeType };
   bank: { zeni: number; souls: number };
@@ -59,10 +61,14 @@ const classIcon = (k: HeroKind) => {
 /** Silhueta do castelo (ameaça à cidade). */
 const CASTLE = `<svg class="nr-castle" viewBox="0 0 120 50" aria-hidden="true"><path d="M2 50V30h6v-6h5v6h6V18h5v-6h4v6h5v12h7V22h5v-8l4-6 4 6v8h5v8h7V18h5v-6h4v6h5v12h6v-6h5v6h6v20Z"/></svg>`;
 const MOON = `<svg class="nr-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z"/><circle cx="17" cy="6" r="1"/><circle cx="20.5" cy="9.5" r=".7"/></svg>`;
+const STAR = `<svg class="nr-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.8 6.2.9-4.5 4.4 1 6.2L12 17.4 6.5 20.3l1-6.2L3 9.7l6.2-.9Z"/></svg>`;
+const SKULL = `<svg class="nr-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8c0 2.6 1.3 4.6 3 5.8V19h2.5v-1.5h1V19h3v-1.5h1V19H17v-2.2c1.7-1.2 3-3.2 3-5.8a8 8 0 0 0-8-8Zm-3.5 9a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4Zm7 0a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4Z"/></svg>`;
+const CROWN = `<svg class="nr-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5Z"/></svg>`;
 
 /**
- * Relatório da Noite (depois de cada horda), no visual de jornada (azul-marinho + dourado):
- * party à esquerda, relatório no centro (desempenho, ameaça à cidade, recompensas) e a fase à direita.
+ * Relatório da Noite (depois de cada horda), visual primeiro: um cartão só, sem rolagem.
+ * Números e símbolos no lugar de frases; detalhes ficam no tooltip (passar o mouse).
+ * Ordem: estatísticas, party, cidade, itens, extras e rodapé com fase e botões.
  */
 export class NightReport {
   readonly el: HTMLElement;
@@ -87,19 +93,18 @@ export class NightReport {
   show(vm: NightReportVM, buttons: NightButton[]): void {
     this.handlers = buttons.map((b) => b.onClick);
     const btns = buttons
-      .map((b, i) => `<button data-k="${i}" class="${b.primary ? 'nr-go' : 'nr-alt'}"${b.disabled ? ' disabled' : ''}>${b.label.replace(/\s*➜\s*$/, '')}${b.primary ? '<i>➜</i>' : ''}</button>`)
+      .map((b, i) => `<button data-k="${i}" class="${b.primary ? 'nr-go au-btn gold' : 'nr-alt au-btn'}"${b.disabled ? ' disabled' : ''}>${b.label.replace(/\s*➜\s*$/, '')}${b.primary ? '<i>➜</i>' : ''}</button>`)
       .join('');
     this.el.innerHTML = `
-      <aside class="nr-party">${vm.heroes.map((h) => heroRow(h, vm.portraits)).join('')}</aside>
-      <section class="nr-main" role="dialog" aria-label="${esc(vm.title)}">
-        <header class="nr-title">${MOON}<h2>${vm.title}</h2></header>
-        ${performance(vm)}
+      <section class="nr-card au-frame" role="dialog" aria-label="${esc(vm.title)}">
+        <header class="nr-head">${MOON}<h2>${esc(vm.title)}</h2></header>
+        ${stats(vm.report)}
+        ${party(vm)}
         ${city(vm.report)}
-        ${rewards(vm)}
+        ${loot(vm.items)}
         ${vm.extraHtml ? `<div class="nr-extra">${vm.extraHtml}</div>` : ''}
-        <nav class="nr-btns">${btns}</nav>
-      </section>
-      <aside class="nr-side">${phaseCard(vm)}</aside>`;
+        <footer class="nr-foot">${phase(vm)}<nav class="nr-btns">${btns}</nav></footer>
+      </section>`;
     this.el.hidden = false;
   }
 
@@ -108,112 +113,87 @@ export class NightReport {
   }
 }
 
-function heroRow(h: NightHero, portraits: Record<string, string>): string {
-  const hp = h.maxHp ? Math.max(0, Math.min(1, h.hp / h.maxHp)) : 0;
-  return `<div class="nr-hero ${h.dead ? 'dead' : ''} ${h.leveled ? 'up' : ''}" style="--hc:${hex(HERO_INFO[h.kind].color)}">
-    <div class="nr-pic"><img src="${portraits[h.kind] ?? ''}" alt=""><img class="nr-cls" src="${classIcon(h.kind)}" alt=""></div>
-    <div class="nr-hinfo">
-      <div class="nr-hname"><b>${NAME[h.kind]}</b><span>Nv. ${h.level}</span></div>
-      <div class="nr-bar hp"><i style="width:${hp * 100}%"></i><span>${h.dead ? 'Caído' : `${fmt(h.hp)} / ${fmt(h.maxHp)}`}</span></div>
-      <div class="nr-bar xp"><i style="width:${Math.max(0, Math.min(1, h.exp)) * 100}%"></i><span>EXP ${Math.round(h.exp * 100)}%</span></div>
-      ${h.leveled ? `<em class="nr-lvup">⬆ Subiu para o nível ${h.level}!</em>` : ''}
-    </div>
+/** Quatro números que resumem a noite (abatidos, almas, EXP e Zen), sem frases. */
+function stats(r: WaveReport): string {
+  return `<div class="nr-stats">
+    <div class="nr-stat" title="Inimigos eliminados nesta noite">${SKULL}<b>${fmt(r.enemiesKilled)}</b></div>
+    <div class="nr-stat" title="Almas coletadas"><i class="soul-ico big"></i><b>${fmt(r.soulsCollected)}</b></div>
+    <div class="nr-stat exp" title="EXP para a party">${STAR}<b>+${fmt(r.expEarned)}</b></div>
+    <div class="nr-stat" title="Zen ganho nesta noite"><i class="zeni-ico big"></i><b>+${fmt(r.zeniEarned)}</b></div>
   </div>`;
 }
 
-function performance(vm: NightReportVM): string {
+/** Party: retrato com a cor do herói, barra de vida e barra de dano (dourada). Coroa no que mais causou dano. */
+function party(vm: NightReportVM): string {
   const r = vm.report;
+  const best = r.damageDealtByUnit.reduce<{ kind: string; v: number } | undefined>((m, d) => (d.amount > (m?.v ?? 0) ? { kind: d.kind, v: d.amount } : m), undefined);
   const total = r.damageDealtByUnit.reduce((s, d) => s + d.amount, 0);
-  const best = (list: { kind: string; amount?: number; count?: number }[]) =>
-    list.reduce<{ kind: string; v: number } | undefined>((m, x) => ((x.amount ?? x.count ?? 0) > (m?.v ?? 0) ? { kind: x.kind, v: x.amount ?? x.count ?? 0 } : m), undefined)?.kind;
-  const topDmg = best(r.damageDealtByUnit);
-  const topTank = best(r.damageTakenByUnit);
-  const topSkill = best(r.skillsUsedByUnit);
-  const kinds = vm.heroes.map((h) => h.kind);
-  const cards = kinds
-    .map((k) => {
-      const dmg = r.damageDealtByUnit.find((d) => d.kind === k)?.amount ?? 0;
-      const share = total ? dmg / total : 0;
-      const tags = [k === topDmg && total ? '⚔ Maior dano' : '', k === topTank ? '🛡 Tanque' : '', k === topSkill ? '✦ Habilidades' : ''].filter(Boolean);
-      return `<div class="nr-perf" style="--hc:${hex(HERO_INFO[k].color)}" title="${fmt(dmg)} de dano causado">
-        <img class="nr-ppic" src="${vm.portraits[k] ?? ''}" alt="">
-        <div class="nr-pinfo">
-          <div class="nr-pname"><b>${NAME[k]}</b></div>
-          <div class="nr-pbar"><i style="width:${share * 100}%"></i></div>
-          <div class="nr-pnum"><span>${fmt(dmg)} dano</span><b>${Math.round(share * 100)}%</b></div>
-          ${tags.length ? `<div class="nr-tags">${tags.map((t) => `<em>${t}</em>`).join('')}</div>` : ''}
-        </div>
-      </div>`;
-    })
-    .join('');
-  return `<section class="nr-sec">
-    <h3><span class="nr-ico">⚔</span>Desempenho da Party</h3>
-    <div class="nr-perfs">${cards}</div>
-    <div class="nr-kills"><span>☠ <b>${fmt(r.enemiesKilled)}</b> inimigos eliminados</span><span><i class="soul-ico"></i><b>${fmt(r.soulsCollected)}</b> almas coletadas</span></div>
-  </section>`;
+  return `<div class="nr-party">${vm.heroes.map((h) => heroRow(h, vm, best?.kind, total)).join('')}</div>`;
 }
 
+function heroRow(h: NightHero, vm: NightReportVM, topKind: string | undefined, total: number): string {
+  const dmg = vm.report.damageDealtByUnit.find((d) => d.kind === h.kind)?.amount ?? 0;
+  const share = total ? dmg / total : 0;
+  const hp = h.maxHp ? Math.max(0, Math.min(1, h.hp / h.maxHp)) : 0;
+  const mvp = h.kind === topKind && total > 0;
+  const tip = `${NAME[h.kind]} · Nv. ${h.level}\n${fmt(dmg)} de dano (${Math.round(share * 100)}%)\nVida ${h.dead ? 'caído' : `${fmt(h.hp)} / ${fmt(h.maxHp)}`}\nEXP ${Math.round(h.exp * 100)}%`;
+  return `<div class="nr-hero ${h.dead ? 'dead' : ''} ${h.leveled ? 'up' : ''}" style="--hc:${hex(HERO_INFO[h.kind].color)}" title="${esc(tip)}">
+    <div class="nr-pic"><img src="${vm.portraits[h.kind] ?? ''}" alt=""><img class="nr-cls" src="${classIcon(h.kind)}" alt=""></div>
+    <b>${NAME[h.kind]}</b>
+    <div class="au-bar sm hp"><i style="width:${hp * 100}%"></i></div>
+    <div class="au-bar sm dmg"><i style="width:${share * 100}%"></i></div>
+    ${mvp ? `<em class="nr-crown">${CROWN}</em>` : ''}
+    ${h.leveled ? '<em class="nr-up">▲</em>' : ''}
+  </div>`;
+}
+
+/** Cidade: barra de vida, composição de quem chegou (um pedaço por tipo), dois números e um selo de estado. */
 function city(r: WaveReport): string {
   const S = GAME_CONFIG.cityDefense.states;
   const frac = r.cityMaxHp ? r.cityHpRemaining / r.cityMaxHp : 0;
   const state = r.cityHpRemaining <= 0 ? 'fallen' : frac < S.critical ? 'critical' : frac < S.pressure ? 'danger' : frac < S.safe ? 'warn' : 'safe';
-  const stateTxt = state === 'fallen' ? 'A cidade caiu!' : state === 'critical' || state === 'danger' ? 'A cidade está em perigo crítico!' : state === 'warn' ? 'A cidade está sob pressão.' : 'Cidade segura.';
-  const kinds = Object.entries(r.reachedByKind)
-    .map(([k, n]) => `${n} ${ENEMY[k] ?? k}`)
-    .join(' • ');
+  const stateTxt =
+    r.enemiesReachedCity === 0 && state === 'safe' ? 'Defesa perfeita' : state === 'fallen' ? 'Caiu' : state === 'critical' || state === 'danger' ? 'Em perigo' : state === 'warn' ? 'Sob pressão' : 'Segura';
   const threat = Math.round(r.cityThreatPercent * 100);
-  const lines =
-    r.enemiesReachedCity === 0
-      ? '<p class="nr-perfect">✦ Defesa perfeita! Nenhum inimigo alcançou a cidade.</p>'
-      : `<p><b class="nr-hl">${r.enemiesReachedCity} inimigo${r.enemiesReachedCity > 1 ? 's alcançaram' : ' alcançou'} a cidade</b>${kinds ? ` <span class="nr-dim">(${kinds})</span>` : ''}</p>
-         <p>A cidade sofreu <b>${fmt(r.cityDamageTaken)}</b> de dano (${threat}% da vida total)</p>`;
-  return `<section class="nr-sec nr-city ${state}">
-    <h3><span class="nr-ico">♜</span>Ameaça à Cidade</h3>
-    <div class="nr-cityrow"><div class="nr-citytxt">${lines}</div><div class="nr-cityart">${CASTLE}${state !== 'safe' ? '<span class="nr-alert">!</span>' : ''}</div></div>
-    <div class="nr-bar threat"><i style="width:${Math.min(100, threat)}%"></i><span>Ameaça da noite: ${threat}%</span></div>
-    <div class="nr-bar city ${state}"><i style="width:${Math.max(0, frac * 100)}%"></i><span>Vida da cidade: ${fmt(r.cityHpRemaining)} / ${fmt(r.cityMaxHp)}</span></div>
-    <div class="nr-state ${state}">${stateTxt}</div>
-  </section>`;
-}
-
-function rewards(vm: NightReportVM): string {
-  const r = vm.report;
-  const zeni = r.zeniEarned + (vm.zeniBonus ?? 0);
-  const items = vm.items.length
-    ? vm.items
-        .map((it) => {
-          const info = RARITY_INFO[it.rarity as Rarity];
-          const name = itemName(it);
-          const sub = `${ITEM_KIND_LABEL[itemKind(it)] ?? SLOT_LABEL[it.slot]} · ${info.label}`;
-          return `<div class="nr-item r-${it.rarity}" style="--rc:${info.color}" title="${esc([name, ...itemLines(it)].join('\n'))}">
-            <img src="${itemIconUrl(it)}" alt=""><div><b>${name}${it.refine ? ` +${it.refine}` : ''}</b><em>${sub}</em></div></div>`;
-        })
-        .join('')
-    : '<p class="nr-dim nr-noitem">Nenhum item caiu nesta noite.</p>';
-  return `<section class="nr-sec">
-    <h3><span class="nr-ico">✦</span>Recompensas</h3>
-    <div class="nr-gains">
-      <span><b class="nr-star">★</b>+${fmt(r.expEarned)} EXP <small>para a party</small></span>
-      <span><i class="soul-ico big"></i>+${fmt(r.soulsCollected)} <small>almas</small></span>
-      <span><i class="zeni-ico"></i>+${fmt(zeni)} Zen${vm.zeniBonus ? ` <small>(inclui ${fmt(vm.zeniBonus)} de bônus)</small>` : ''}</span>
+  const comp = Object.entries(r.reachedByKind)
+    .filter(([, n]) => n > 0)
+    .map(([k, n]) => `<i style="flex:${n};background:${KIND_COLOR[k] ?? '#7fd1ff'}" title="${n} ${ENEMY[k] ?? k}"></i>`)
+    .join('');
+  return `<section class="nr-city ${state}" title="Ameaça da noite: ${threat}%">
+    <div class="nr-castle-wrap">${CASTLE}${state !== 'safe' ? '<em class="nr-alert">!</em>' : ''}</div>
+    <div class="nr-city-main">
+      <div class="au-bar city ${state}"><i style="width:${Math.max(0, frac * 100)}%"></i><b>${fmt(r.cityHpRemaining)} / ${fmt(r.cityMaxHp)}</b></div>
+      <div class="nr-comp">${comp || '<i class="nr-none"></i>'}</div>
     </div>
-    <div class="nr-items">${items}</div>
+    <div class="nr-num" title="Inimigos que alcançaram a cidade"><b class="${r.enemiesReachedCity ? 'bad' : 'good'}">${fmt(r.enemiesReachedCity)}</b><small>alcançaram</small></div>
+    <div class="nr-num" title="Dano que a cidade sofreu"><b class="${r.cityDamageTaken ? 'bad' : 'good'}">−${fmt(r.cityDamageTaken)}</b><small>dano</small></div>
+    <span class="nr-state">${stateTxt}</span>
   </section>`;
 }
 
-function phaseCard(vm: NightReportVM): string {
+/** Itens que caíram: uma moldura por item, na cor da raridade. Nome e detalhes no tooltip. */
+function loot(items: Item[]): string {
+  if (!items.length) return '<p class="nr-none-txt">Nenhum item caiu nesta noite.</p>';
+  const shown = items.slice(0, 6);
+  const more = items.length - shown.length;
+  const tiles = shown
+    .map((it) => {
+      const name = itemName(it);
+      const tip = [name, `${ITEM_KIND_LABEL[itemKind(it)] ?? SLOT_LABEL[it.slot]} · ${RARITY_INFO[it.rarity as Rarity].label}`, ...itemLines(it)].join('\n');
+      return `<div class="au-slot r-${it.rarity} nr-tile" title="${esc(tip)}"><img src="${itemIconUrl(it)}" alt="">${it.refine ? `<em>+${it.refine}</em>` : ''}</div>`;
+    })
+    .join('');
+  return `<div class="nr-loot">${tiles}${more > 0 ? `<div class="nr-more" title="Mais ${more} item(ns) na bolsa">+${more}</div>` : ''}</div>`;
+}
+
+/** Rodapé: fase em bolinhas (região e ato no tooltip) e o banco do jogador em números. */
+function phase(vm: NightReportVM): string {
   const p = vm.phase;
   const dots = Array.from({ length: p.total }, (_, i) => `<i class="${i + 1 < p.phase ? 'done' : i + 1 === p.phase ? 'now' : ''}"></i>`).join('');
-  return `<div class="nr-card">
-      <div class="nr-phase">
-        <img src="${nodeIconUrl(p.node)}" alt="" style="--nc:${NODE_COLOR[p.node]}">
-        <div><b>Fase ${p.phase} de ${p.total}</b><span>${p.region}</span><small>${p.act}</small></div>
-      </div>
+  return `<div class="nr-phase" title="${esc(`${NODE_LABEL[p.node]} · ${p.region} · ${p.act}`)}">
+      <img src="${nodeIconUrl(p.node)}" alt="" style="--nc:${NODE_COLOR[p.node]}">
+      <b>Fase ${p.phase}/${p.total}</b>
       <div class="nr-dots">${dots}</div>
-      <div class="nr-node" style="--nc:${NODE_COLOR[p.node]}">${NODE_LABEL[p.node]}</div>
-    </div>
-    <div class="nr-card nr-bank">
-      <span><i class="zeni-ico"></i><b>${fmt(vm.bank.zeni)}</b> Zen</span>
-      <span><i class="soul-ico big"></i><b>${fmt(vm.bank.souls)}</b> almas</span>
+      <span class="nr-bank" title="Zen e almas no bolso"><i class="zeni-ico"></i>${fmt(vm.bank.zeni)} <i class="soul-ico"></i>${fmt(vm.bank.souls)}</span>
     </div>`;
 }

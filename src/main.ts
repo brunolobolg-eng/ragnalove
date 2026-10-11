@@ -35,6 +35,7 @@ import {
 } from './core/run/run';
 import { OBJECT_RULES } from './core/sim/objects';
 import { NightReport, type NightReportVM } from './ui/WaveReport';
+import { applyKit } from './ui/kit';
 import { CHARSELECT_ART, MUSIC, POSTFX, VICTORY_TITLES, VISUAL_CONFIG } from './config/visualConfig';
 import type { PostFxSituation } from './render/fx/kit/PostFX';
 import type { WaveReport } from './core/sim/types';
@@ -88,7 +89,7 @@ import {
   clearInventory,
   type Profile,
 } from './core/progression/profile';
-import { rollItem } from './core/progression/equipment';
+import { rollItem, type Rarity, type Slot } from './core/progression/equipment';
 import { Rng } from './core/sim/rng';
 import { tileToWorld } from './render/coords';
 import type { DevApi } from './debug/DebugPanel';
@@ -535,6 +536,7 @@ function refreshHeroArt(k: HeroKind): void {
   hud.setFullBody(k, FULL_BODY[k]!);
 }
 hud.setParty(run.party, run.dead);
+applyKit(); // arte do kit (variáveis --kit-*) antes de qualquer tela
 const resultModal = new NightReport();
 const roulette = new Roulette((n) => audio.sfx(n));
 const eventModal = new Modal('event');
@@ -1160,6 +1162,32 @@ function nightVM(report: WaveReport, title: string, items: Item[], before: Recor
     phase: { phase: phaseNumber(run), total: totalPhases(), region: REGION_BY_ID[node.region].name, act: currentAct(run).name, node: run.choice ?? 'horde' },
     bank: { zeni: profile.zeni, souls: profile.souls },
   };
+}
+
+/** Relatório de exemplo para conferir a tela no desenvolvimento (só entra no __vg; fora do build de produção). */
+function reportPreview(): void {
+  const ks = (Object.keys(PORTRAITS) as HeroKind[]).slice(0, 4);
+  const dmg = [5871, 2100, 900, 300];
+  const r: WaveReport = {
+    night: 6, victory: true, cityFallen: false,
+    damageDealtByUnit: ks.map((k, i) => ({ kind: k, amount: dmg[i] ?? 100 })),
+    damageTakenByUnit: ks.map((k) => ({ kind: k, amount: 120 })),
+    skillsUsedByUnit: ks.map((k) => ({ kind: k, count: 4 })),
+    enemiesKilled: 126, enemiesReachedCity: 38, reachedByKind: { runner: 9, grunt: 20, brute: 6, necro: 2, raydric: 1 },
+    cityDamageTaken: 136, cityHpRemaining: 699, cityMaxHp: 1000, cityThreatPercent: 0.14,
+    soulsCollected: 143, zeniEarned: 422, expEarned: 288, itemsDropped: [],
+  };
+  const forms: [Rarity, Slot][] = [['epic', 'weapon'], ['rare', 'amulet'], ['common', 'armor'], ['uncommon', 'boots'], ['legendary', 'ring'], ['common', 'head'], ['mythic', 'offhand']];
+  const items = forms.map(([rarity, slot], i) => rollItem(debugRng, 0, `rep-${i}-${debugRng.int(1e9)}`, { rarity, slot }));
+  const vm: NightReportVM = {
+    title: 'Relatório da Noite 6', report: r, zeniBonus: 67, portraits: PORTRAITS,
+    heroes: ks.map((k, i) => ({ kind: k, level: 6 - (i % 2), leveled: i === 0, dead: i === 3, hp: i === 3 ? 0 : 60 - i * 12, maxHp: 70, exp: 0.3 + i * 0.15 })),
+    items,
+    phase: { phase: 3, total: 5, region: 'Dunas Vermelhas', act: 'Ato I', node: 'horde' },
+    bank: { zeni: 12345, souls: 678 },
+    extraHtml: `<div class="unlock"><img src="${PORTRAITS[ks[1]] ?? ''}" alt=""><div><b>Nova classe desbloqueada: ${NAME_PT[ks[1]]}!</b><small>Disponível ao iniciar uma nova jornada.</small></div></div>`,
+  };
+  resultModal.show(vm, [{ label: 'Continuar ➜', primary: true, onClick: () => resultModal.hide() }]);
 }
 
 /** Fim de onda: aplica EXP/níveis/almas/drops no perfil, coleta os itens do chão. Recompensa paga 1× por nó (paidKey); rejogar após crash mostra o relatório sem pagar de novo. */
@@ -2221,7 +2249,7 @@ if (desktopBalance)
 // No build de produção o Vite troca `import.meta.env.DEV` por `false`, este bloco
 // é eliminado e o módulo de debug não entra no pacote da Steam.
 if (import.meta.env.DEV) {
-  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close() }; // inspeção no console (dev)
+  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview }; // inspeção no console (dev)
   void import('./debug/DebugPanel').then(({ installDebug }) => installDebug(hudRoot, devApi(), (h, t, fn) => panels.addButton(h, t, fn)));}
 
 // ---------- Dev Lab (F8): só com devtools (dev ou devtools.txt no executável) ----------
