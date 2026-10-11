@@ -6,6 +6,7 @@ O histórico técnico de cada versão está no `CHANGELOG.md`; o estado atual do
 Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisões, pendências e commits.
 
 ## Pendências em aberto (resumo)
+- **O Último Bastião (v0.11, em andamento):** fundação pronta e testada no core (sem tela, sem mapa próprio). Próxima etapa: mapa do Bastião com área de construção e portão. Decisões D1–D7 abaixo esperam confirmação do dono (principalmente a carteira separada, D1, e os valores iniciais, D7).
 - **Álbum de cartas e dica da revelação (v0.10):** Feiticeira e Bruxa não têm ícone de classe na folha 32 (usam o retrato); cartas não têm nível no jogo (o "Nv." da imagem virou ×N); conferir no PC do dono o álbum com cartas reais e a dica do pacote.
 - **Kit de interface nos menus (v0.9):** conferir visualmente no PC do dono o pacote de cartas e as configurações (não conferidos nesta rodada); a moldura do mítico é dourada porque a arte do vermelho está no miolo (decisão de arte); silhuetas de amuleto e anel saíram irregulares, e brinco e cinto não têm silhueta própria; a muralha do guerreiro não tem textura no arquivo do kit (decisão: textura própria ou a do cenário). Ranking do menu é arte da tela inicial, não foi trocado (v0.9).
 - **Pacote de efeitos nas magias (v0.8g):** passivas e estados sem evento ficam sem efeito novo; desempenho precisa ser medido na GPU do dono; o 7z original espera permissão para ir à branch `fontes` (v0.8g).
@@ -190,6 +191,44 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 - **Testes:** `npm run build` e `npm run sim:check` (determinístico: true). No navegador (dev, 1600×900 e 1280×720): álbum sem rolagem, troca de classe, busca, filtro, paginação, equipar, desequipar e fundir 10 sem erro de console; dica da carta revelada aparece dentro da tela. Um defeito achado no teste (fundo branco ao passar o mouse sobre a carta, por uma regra global de botão) foi corrigido.
 - **Commits:** o commit desta versão.
 - **Pendências:** pedir ao dono os ícones de Feiticeira e Bruxa para a folha de classes; conferir no PC do dono o álbum com cartas reais e a dica do pacote; a faixa de citação da lateral (imagem 33) não entrou. Seguem as pendências de v0.9 (configurações, janela de batalha e silhuetas de amuleto, anel, brinco e cinto).
+
+## 2026-10-11 — O Último Bastião: auditoria e fundação (v0.11, em andamento)
+- **Pedido do dono:** novo modo de defesa de cidade persistente (preparação → invasão → recuperação → aprimoramento), reaproveitando o Vanguarda e sem recriar o jogo. Pediu auditoria antes de qualquer mudança e entrega por etapas.
+- **Auditoria (resumo):**
+  - Já existia e foi reaproveitado: horda com campo de fluxo; objetos com vida e quebra (`objects.ts`); muralha do Guerreiro; armadilhas da Arqueira; vida do núcleo (`cityDefense`, ameaça por inimigo); planejamento com ferramentas, destaque de tiles e reinício da simulação ao mudar a formação; recompensa de onda paga uma vez (`paidKey`); save com migração.
+  - Não existia: cidade persistente entre jornadas; construção com custo, reparo e reembolso; torre que atira sozinha; projetos permanentes; chave de save própria.
+  - Riscos achados: `shieldWall` é caso especial em 6 pontos (muralha do Guerreiro e a contagem que libera a habilidade). Por isso as muralhas da cidade têm tipo próprio, `bastionWall`. A grade é global (`applyZone` muda `GAME_CONFIG.board` e `wave`): duas simulações com zonas diferentes não podem rodar ao mesmo tempo. A horda comum só quebra obstáculos da lista `WALL_BREAKERS`. O Electron tinha lista fixa de chaves de save (`run`, `meta`).
+- **Decisões (proposta, o dono pode trocar):**
+  - **D1 — Carteira própria do modo:** a cidade tem o próprio perfil (heróis, Zen). Não divide Zen com a jornada: não mexe no save da jornada e a cidade grava tudo numa só escrita atômica.
+  - **D2 — Só Zen:** nenhum material novo. Reparo = investido × fração perdida × 0,5 (mínimo 2 Zen). Reconstruir = investido × 0,8, sempre mais que reparar. Remover devolve 50% da parte que resta; destruída não devolve.
+  - **D3 — Caminho:** muralhas e torres são quebráveis, então a horda sempre passa, quebrando. Só o próprio mapa pode cortar a rota (a checagem fica como guarda).
+  - **D4 — Derrota:** a tentativa termina, a cidade persiste (dano e destruição). O núcleo não volta sozinho: repara-se pagando. Socorro de 150 Zen, no máximo a cada 2 tentativas, se nem o reparo mínimo (10% do núcleo) der para pagar.
+  - **D5 — Projetos:** Castelo básico (grátis); Torres de tiro (200 Zen, exige a Arqueira na party); Reforços estruturais (150 Zen, 2 ondas vencidas, +25% de vida nas muralhas).
+  - **D6 — Recompensa de onda:** a mesma da jornada (Zen dos abates + bônus de onda limpa). Não há tabela nova.
+  - **D7 — Valores iniciais (calibrar com o dono):** muralha 30 Zen, 120 de vida (+60 por nível, até o nível 3). Torre 120 Zen, 100 de vida (+40 por nível), 14 de dano a cada 1,2 s, alcance 6 tiles.
+- **Entregue (Etapa 2 inteira e parte da Etapa 3):**
+  - Dados do modo (`src/config/bastion.ts`).
+  - Estado, criação e migração da cidade (`src/core/bastion/bastion.ts`).
+  - Regras puras (`src/core/bastion/rules.ts`): colocação com todas as validações antes de gastar, custos, reparo e reconstrução, aprimoramento, remoção com reembolso, projetos, núcleo, socorro e aplicação de onda idempotente.
+  - Rota: grade estática da zona e checagem por BFS com as regras de passo da horda (`src/core/bastion/route.ts`).
+  - Simulação: as estruturas entram na onda com a vida que têm; as muralhas são quebráveis (a horda ataca); as torres atiram no inimigo visível mais próximo, com recarga e linha de visão; destruída não bloqueia nem atira; a vida final volta para a cidade (`fortificationStates`). Tiro de torre entra no relatório como fonte "tower".
+  - Save próprio: chave `bastion` (arquivo próprio no executável; localStorage em dev). `SaveStore`, `electron/main.cjs` e o tipo da janela foram atualizados.
+  - Visual: muralha da cidade usa o mesmo desenho da muralha do Guerreiro; torre usa a peça `Tower_Round` do kit do dono. Os dois só aparecem quando a batalha do Bastião existir.
+- **Testes:**
+  - `npm run bastion:check`: 72 checagens, todas passando (dados, migração, colocação, custos, projetos, ondas, socorro e simulação com muralhas, torres e estruturas destruídas).
+  - `npm run build`: passa.
+  - `npm run sim:check`: resultados das 13 zonas idênticos à linha de base, antes e depois.
+  - Navegador (DEV, 1280×720): batalha da ponte com 16 muralhas erguidas pelo caminho refatorado (`ObjectView`): sem erro de console; captura do planejamento mostra as muralhas do kit no lugar.
+- **Pendências (próximas etapas):**
+  1. Mapa próprio do Bastião (zona com área de construção, portão e portais). Etapa 3.
+  2. Inimigos atacarem estruturas que não estão no caminho (hoje só quebram o que bloqueia). Decidir se entra.
+  3. Armadilhas da Arqueira persistentes (hoje somem ao disparar). Não entraram.
+  4. Serviços urbanos (loja, forja, templo) reaproveitando as funções da jornada, com a carteira do modo. Etapa 5.
+  5. Tela de construção e recuperação, entrada no menu, arrastar e girar linhas de muralha. Etapa 6.
+  6. Expansões de terreno e progressão por etapa com requisitos reais. Etapa 4.
+  7. Melhorias temporárias de combate (encerram com a tentativa): ainda não existe nenhuma.
+  8. Balanceamento: custos e dano das torres com o dono (D7). Carteira separada (D1): confirmar.
+- **Commits:** o commit desta versão.
 
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.

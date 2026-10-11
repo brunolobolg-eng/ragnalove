@@ -80,6 +80,7 @@ src/core/sim/         Simulation.ts (loop, dano, ondas), types.ts (Unit, SimEven
 src/core/archetypes/  um arquivo por classe + registry.ts
 src/core/progression/ attributes.ts, equipment.ts, skills.ts, profile.ts
 src/core/run/         run.ts (jornada, nós, recompensas), records.ts (ranking)
+src/core/bastion/    O Último Bastião: estado da cidade (bastion.ts), regras de colocação/custo/reparo (rules.ts), rota (route.ts); dados em config/bastion.ts
 src/core/grid/        Board, pathfinding (flow field), patterns
 src/config/           gameConfig, visualConfig, heroes, world, zones, balance (gerado pelo editor)
 src/render/           Stage, GameView, BoardView, units/ (modelos), fx/ (efeitos), scenery/

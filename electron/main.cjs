@@ -210,7 +210,7 @@ ipcMain.handle('vg:balance-import', async (e) => {
 // então troca o arquivo — uma queda de luz no meio nunca deixa o save pela metade. A versão anterior
 // fica como cópia de segurança (.bak): se o principal estiver ilegível, o jogo abre pela cópia.
 // Síncrono de propósito: arquivos pequenos, e o jogo só segue quando o save está garantido.
-const SAVE_KEYS = new Set(['run', 'meta']);
+const SAVE_KEYS = new Set(['run', 'meta', 'bastion']);
 const saveFile = (key, ext = 'json') => path.join(app.getPath('userData'), 'saves', `${key}.${ext}`);
 
 function readSave(key) {
@@ -227,7 +227,7 @@ function readSave(key) {
 }
 
 ipcMain.on('vg:save-read', (e) => {
-  e.returnValue = { run: readSave('run'), meta: readSave('meta') };
+  e.returnValue = { run: readSave('run'), meta: readSave('meta'), bastion: readSave('bastion') };
 });
 
 ipcMain.on('vg:save-write', (e, key, text) => {

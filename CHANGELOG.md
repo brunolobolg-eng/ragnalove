@@ -2,6 +2,15 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-11 — v0.11 (em andamento)
+- Início do modo O Último Bastião: uma cidade que persiste entre tentativas. Estruturas, dano, projetos e a vida do núcleo ficam salvos num arquivo próprio, sem mexer na jornada.
+- Muralhas e torres com custo: construir, reparar (custo proporcional ao dano), reconstruir (sempre mais caro que reparar), aprimorar em três níveis e remover com reembolso parcial.
+- Projetos permanentes com pré-requisitos: Castelo básico, Torres de tiro (com a Arqueira na party) e Reforços estruturais.
+- Socorro contra a derrota severa, para a cidade nunca travar sem Zen.
+- Na batalha, a horda quebra as muralhas que estão no caminho, e as torres atiram sozinhas no inimigo visível mais próximo. Estrutura destruída não bloqueia nem atira.
+- O modo ainda não aparece no menu: falta o mapa próprio, a tela de construção e a recuperação entre ondas (próximas etapas).
+- As jornadas atuais não mudam: a saída de referência da simulação continua idêntica.
+
 ## 2026-10-11 — v0.10
 - Álbum de cartas refeito no layout da folha de referência do dono: lateral com o herói, cartas encontradas e barra de progresso, filtros de raridade com gemas, cartas equipadas e a fusão de 10 Normais.
 - Abas por herói com a cor de cada classe (guerreiro, mago, arqueira, assassino, feiticeira e bruxa), que também colorem o nome e a barra da lateral.

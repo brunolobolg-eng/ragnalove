@@ -3,7 +3,7 @@ import { ARCHETYPES } from '../archetypes/registry';
 import { Board } from '../grid/Board';
 import { FlowField, canStep, stepCost } from '../grid/pathfinding';
 import { DIRS8, chebyshev, isDiagonal, type Vec2 } from '../grid/types';
-import { OBJECT_RULES, makeObject } from './objects';
+import { OBJECT_RULES, WALL_BREAKERS, makeObject } from './objects';
 import { ATTRIBUTES_CONFIG, computeStats, type HeroStats } from '../progression/attributes';
 import { LOOT_CONFIG, dropChance, gearBonus, itemName, rollItem, type Item } from '../progression/equipment';
 import { expToNext, starterWeapon, type WaveResult } from '../progression/profile';
@@ -55,6 +55,32 @@ export interface SimOptions {
   cityMaxHp?: number;
   /** Ids (índice + 1 no MAP_CONFIG) dos objetos já acionados nesta fase. */
   usedObjects?: number[];
+  /** Estruturas persistentes da cidade (Bastião) que entram nesta onda, com a vida que têm agora. */
+  fortifications?: Fortification[];
+}
+
+/** Estrutura da cidade levada para a onda: vida atual e, se for torre, o tiro. */
+export interface Fortification {
+  /** Id da estrutura na cidade (volta em `fortificationStates`). */
+  id: number;
+  kind: 'wall' | 'tower';
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  /** Só torres: dano por tiro, alcance (tiles) e recarga (ticks). */
+  shot?: { damage: number; range: number; cooldownTicks: number };
+}
+
+/** Torre da cidade ativa na onda (o corpo dela é o objeto `objectId`). */
+interface Tower {
+  objectId: number;
+  x: number;
+  y: number;
+  damage: number;
+  range: number;
+  cooldownTicks: number;
+  readyTick: number;
 }
 
 /** Eventos que contam como uso de habilidade no relatório. */
@@ -63,7 +89,9 @@ const PROJECTILES = new Set<DamageSource>(['bolt', 'arrow', 'pierce', 'spell']);
 
 /** O que cada herói traz da progressão para a onda. */
 /** Dano contínuo/ambiental: nunca é crítico. */
-const NO_CRIT = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'debug', 'curse', 'combust', 'enchant', 'reflect', 'frost']);
+const NO_CRIT = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'debug', 'curse', 'combust', 'enchant', 'reflect', 'frost', 'tower']);
+/** Ids dos objetos das estruturas da cidade (Bastião): longe dos ids do mapa e das muralhas da onda. */
+const FORT_OBJECT_BASE = 1000000;
 /** Fontes que o Ápice Sombrio (Bruxa) amplia. */
 const APEX_SOURCES = new Set<DamageSource>(['shadow', 'curse', 'frost']);
 /** Máximo de Névoas Gélidas ativas por Bruxa (a nova substitui a mais antiga). */
@@ -135,6 +163,14 @@ export class Simulation {
   readonly objects = new Map<number, MapObject>();
   /** Cura contínua da party (altar/fogueira), HP por segundo. */
   blessRegen = 0;
+
+  // ---- Bastião: estruturas da cidade ----
+  /** Entrada recebida (inclui as destruídas): para devolver a vida final de cada uma. */
+  private readonly fortInput: Fortification[] = [];
+  /** Id da estrutura -> id do objeto na simulação (só as que entraram na onda). */
+  private readonly fortObjects = new Map<number, number>();
+  /** Torres ativas: atiram sozinhas no inimigo visível mais próximo. */
+  private readonly towers: Tower[] = [];
 
   // ---- campos de fluxo: cidade (todos), pesados (quebram obstáculos), provocação, party (reserva) ----
   private readonly heavyFlow: FlowField;
@@ -231,6 +267,8 @@ export class Simulation {
     }
     // Objetos já acionados no planejamento desta fase (óleo, tocha, bênçãos...)
     for (const id of opts.usedObjects ?? []) this.useObject(id);
+    // Estruturas da cidade (Bastião): depois da party, para não cobrir um herói que já está no posto
+    for (const f of opts.fortifications ?? []) this.addFortification(f);
   }
 
   // ---------- Objetos do mapa ----------
@@ -607,7 +645,7 @@ export class Simulation {
     else if (sourceId !== undefined) {
       const src = this.units.get(sourceId);
       if (src?.team === 'party') this.dealt[src.kind] = (this.dealt[src.kind] ?? 0) + applied;
-    }
+    } else if (source === 'tower') this.dealt.tower = (this.dealt.tower ?? 0) + applied;
     this.emit(crit ? { type: 'damage', unitId: u.id, amount, source, sourceId, crit } : { type: 'damage', unitId: u.id, amount, source, sourceId });
     // Limite da Morte: parte do dano que o marcado levou volta para quem bateu (golpe direto; não contínuo)
     if (u.team === 'enemy' && (u.markedUntil ?? 0) > this.tick && (u.markReflect ?? 0) > 0 && !CONTINUOUS.has(source)) {
@@ -866,7 +904,61 @@ export class Simulation {
   /** Muralha de pé no tile: todos os inimigos a atacam para passar (custo de "quebrar"). */
   private wallPass(x: number, y: number): number {
     const o = this.objects.get(this.board.objectAt(x, y));
-    return o && o.type === 'shieldWall' && o.state !== 'broken' ? GAME_CONFIG.pathing.breakCost : -1;
+    return o && WALL_BREAKERS.has(o.type) && o.state !== 'broken' ? GAME_CONFIG.pathing.breakCost : -1;
+  }
+
+  // ---------- Bastião: estruturas da cidade (muralhas e torres) ----------
+
+  /**
+   * Põe uma estrutura persistente da cidade na onda, com a vida que tem agora. Destruída (hp 0) não vira
+   * objeto: não bloqueia nem atira. Tile sem chão livre, com herói ou no portão é ignorado (a vida volta igual).
+   */
+  private addFortification(f: Fortification): void {
+    this.fortInput.push(f);
+    if (f.hp <= 0 || !this.board.isWalkable(f.x, f.y) || this.unitAt(f.x, f.y) || this.board.isCity(f.x, f.y)) return;
+    const o = makeObject(FORT_OBJECT_BASE + f.id, { type: f.kind === 'tower' ? 'bastionTower' : 'bastionWall', x: f.x, y: f.y });
+    o.hp = f.hp;
+    o.maxHp = f.maxHp;
+    this.objects.set(o.id, o);
+    this.syncObject(o);
+    this.fortObjects.set(f.id, o.id);
+    if (f.kind === 'tower' && f.shot) {
+      this.towers.push({ objectId: o.id, x: f.x, y: f.y, damage: f.shot.damage, range: f.shot.range, cooldownTicks: f.shot.cooldownTicks, readyTick: 0 });
+    }
+  }
+
+  /** Vida de cada estrutura da cidade ao fim da onda (0 = destruída). Mesmos ids da entrada. */
+  fortificationStates(): { id: number; hp: number }[] {
+    return this.fortInput.map((f) => {
+      const oid = this.fortObjects.get(f.id);
+      const o = oid !== undefined ? this.objects.get(oid) : undefined;
+      if (!o) return { id: f.id, hp: Math.max(0, f.hp) };
+      return { id: f.id, hp: o.state === 'broken' ? 0 : Math.max(0, Math.ceil(o.hp)) };
+    });
+  }
+
+  /** Cada torre intacta atira no inimigo visível mais próximo do alcance (empate: menor id), com recarga. */
+  private fireTowers(): void {
+    if (this.towers.length === 0) return;
+    const foes = this.visibleEnemies();
+    for (const t of this.towers) {
+      const o = this.objects.get(t.objectId);
+      if (!o || o.state === 'broken' || this.tick < t.readyTick) continue;
+      let best: Unit | undefined;
+      let bestD = Infinity;
+      for (const e of foes) {
+        if (!e.alive) continue;
+        const d = Math.hypot(e.x - t.x, e.y - t.y);
+        if (d > t.range || d >= bestD) continue;
+        if (!this.hasLineOfSight({ x: t.x, y: t.y }, e)) continue;
+        best = e;
+        bestD = d;
+      }
+      if (!best) continue;
+      t.readyTick = this.tick + t.cooldownTicks;
+      this.emit({ type: 'towerShot', objectId: t.objectId, from: { x: t.x, y: t.y }, to: { x: best.x, y: best.y }, targetId: best.id });
+      this.damage(best, t.damage, 'tower');
+    }
   }
 
   // ---------- Armadilhas da Arqueira ----------
@@ -1218,6 +1310,7 @@ export class Simulation {
       if (before) for (const [k, v] of Object.entries(u.cooldowns)) if (v !== before[k] && v > this.tick) u.cooldowns[k] = this.tick + Math.max(1, Math.round((v - this.tick) / speed));
     }
 
+    this.fireTowers();
     this.applyBurn();
     this.tickDots();
     this.tickFrostMists();

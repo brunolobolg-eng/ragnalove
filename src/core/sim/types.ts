@@ -154,7 +154,9 @@ export type DamageSource = 'burn' | 'cleave' | 'melee' | 'bolt' | 'bash' | 'debu
   // Guerreiro (Cavaleiro Rúnico): Lâmina Encantada (bônus mágico), Onda Sônica, Cem Lanças, Cortador de Vento, dano devolvido
   | 'enchant' | 'wave' | 'spear' | 'wind' | 'reflect'
   // Bruxa (magias novas): gelo (Névoa Gélida, Geada Negra) — nunca critica
-  | 'frost';
+  | 'frost'
+  // Bastião: torre da cidade (tiro automático, sem autor na party) — nunca critica
+  | 'tower';
 
 /** Névoa Gélida (Bruxa): área no chão que pulsa dano de gelo nos inimigos dentro. Fora do sistema de hazards. */
 export interface FrostMist {
@@ -238,6 +240,8 @@ export type SimEvent =
   | { type: 'sandstorm'; on: boolean }
   /** Objeto criado durante a onda (Muralha do Guerreiro). */
   | { type: 'objectSpawn'; object: MapObject }
+  /** Torre do Bastião atirou: do tile da torre (from) até o alvo (to). Só apresentação. */
+  | { type: 'towerShot'; objectId: number; from: Vec2; to: Vec2; targetId: number }
   /** Armadilha armada / disparada. */
   | { type: 'trapSet'; trap: Trap }
   | { type: 'trapTrigger'; trapId: number; x: number; y: number; targetId: number; kind?: TrapKind; radius?: number }

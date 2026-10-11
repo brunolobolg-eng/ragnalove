@@ -1,14 +1,16 @@
 /**
- * Save do jogador: jornada em andamento ('run') e conquistas/recordes ('meta').
+ * Save do jogador: jornada em andamento ('run'), conquistas/recordes ('meta') e a cidade do
+ * Último Bastião ('bastion', arquivo próprio: a cidade persiste entre jornadas e tentativas).
  * Executável: arquivos em userData/saves, gravados pelo Electron de forma atômica e com cópia de
  * segurança (.bak). Na primeira abertura desta versão, o save das versões anteriores (localStorage)
  * é copiado para os arquivos — e continua lá, intocado, como mais uma cópia.
  * Fora do executável (só desenvolvimento): localStorage.
  * Leitura vem de um cache em memória; cada gravação vai direto para o disco.
  */
-export type SaveKey = 'run' | 'meta';
+export type SaveKey = 'run' | 'meta' | 'bastion';
 
-const LEGACY: Record<SaveKey, string> = { run: 'vanguarda.run.v1', meta: 'vanguarda.meta.v1' };
+const LEGACY: Record<SaveKey, string> = { run: 'vanguarda.run.v1', meta: 'vanguarda.meta.v1', bastion: 'vanguarda.bastion.v1' };
+const KEYS: SaveKey[] = ['run', 'meta', 'bastion'];
 let cache: Record<SaveKey, string | null> | undefined;
 
 function legacyGet(key: SaveKey): string | null {
@@ -22,10 +24,10 @@ function legacyGet(key: SaveKey): string | null {
 function load(): Record<SaveKey, string | null> {
   if (cache) return cache;
   const disk = window.vanguardaDesktop?.save;
-  if (!disk) return (cache = { run: legacyGet('run'), meta: legacyGet('meta') });
+  if (!disk) return (cache = { run: legacyGet('run'), meta: legacyGet('meta'), bastion: legacyGet('bastion') });
   const files = disk.read();
-  cache = { run: files.run, meta: files.meta };
-  for (const key of ['run', 'meta'] as SaveKey[]) {
+  cache = { run: files.run, meta: files.meta, bastion: files.bastion ?? null };
+  for (const key of KEYS) {
     if (cache[key] !== null) continue;
     const old = legacyGet(key);
     if (old === null) continue;
