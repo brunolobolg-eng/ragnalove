@@ -4,6 +4,7 @@ import { NODE_COLOR, nodeIconUrl } from './nodeArt';
 import { ACTS, BIOME_LABEL, NODE_LABEL, REGIONS, REGION_BY_ID, type NodeType } from '../config/world';
 import { MAP_ART } from '../config/visualConfig';
 import { HeroCard, type HeroCardVM } from './HeroCard';
+import { kitIcon } from './kit';
 
 /**
  * Mapa-múndi de Aurenthal: terreno pintado em canvas (original), grade de regiões por cima,
@@ -267,7 +268,7 @@ export class WorldMap {
     if (this.card.kind) this.card.open(this.cb.heroCard(this.card.kind));
     this.panel.innerHTML = `
       <div class="win wm-card">
-        <div class="win-title"><span>${act.name}</span><i class="dots"></i></div>
+        <div class="win-title"><i class="au-ico"><img src="${kitIcon('ico_compass')}" alt=""></i><span>${act.name}</span><i class="dots"></i></div>
         <div class="win-body">
           <div class="wm-phase">Fase ${s.phase} de ${s.totalPhases}</div>
           <div class="wm-dots">${dots}</div>
@@ -275,7 +276,7 @@ export class WorldMap {
         </div>
       </div>
       <div class="win wm-card">
-        <div class="win-title"><span>Party</span><i class="dots"></i></div>
+        <div class="win-title"><i class="au-ico"><img src="${kitIcon('ico_group')}" alt=""></i><span>Party</span><i class="dots"></i></div>
         <div class="win-body">
           ${heroes}
           <div class="wm-bank"><span><i class="zeni-ico"></i>${s.zeni.toLocaleString('pt-BR')} Zen</span><span><i class="soul-ico"></i>${s.souls} almas</span>${s.cityMaxHp ? `<span class="wm-city ${s.cityHp! / s.cityMaxHp < 0.4 ? 'low' : ''}" title="Vida da cidade — repare no Templo das cidades">🏰 ${s.cityHp}/${s.cityMaxHp}</span>` : ''}</div>
