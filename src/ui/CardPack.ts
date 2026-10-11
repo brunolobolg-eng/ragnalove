@@ -78,8 +78,8 @@ export class CardPack {
       </div>
       <p class="pk-hint">Arraste o topo do pacote para rasgar</p>
       <div class="pk-foot">
-        <button class="pk-reveal-all" data-c="all" hidden>Revelar todas</button>
-        <button class="big-act primary pk-save" data-c="close" disabled>Guardar na coleção ➜</button>
+        <button class="au-btn pk-reveal-all" data-c="all" hidden>Revelar todas</button>
+        <button class="au-btn gold pk-save" data-c="close" disabled>Guardar na coleção ➜</button>
       </div>`;
     this.el.hidden = false;
     this.fx = new CardPackFx(this.el.querySelector<HTMLCanvasElement>('.pk-fx')!);

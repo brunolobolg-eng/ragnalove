@@ -1,4 +1,5 @@
 import { QUALITY_LABEL, type FpsCap, type QualityPreset, type SettingsStore } from '../settings/Settings';
+import { kitIcon } from './kit';
 
 /** Ícones originais em SVG, no mesmo tom dourado/azulado do HUD. */
 const ICON_AUDIO = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
@@ -79,9 +80,9 @@ export class SettingsPanels {
 
   private win(id: PanelId, title: string, body: string): HTMLElement {
     const w = document.createElement('div');
-    w.className = 'win settings-win';
+    w.className = 'win au-frame settings-win';
     w.hidden = true;
-    w.innerHTML = `<div class="win-title"><span>${title}</span><button class="x" data-close title="Fechar (Esc)">×</button></div><div class="win-body">${body}</div>`;
+    w.innerHTML = `<div class="win-title"><i class="au-ico"><img src="${kitIcon('ico_gear')}" alt=""></i><span>${title}</span><button class="au-x" data-close title="Fechar (Esc)">×</button></div><div class="win-body">${body}</div>`;
     w.querySelector('[data-close]')!.addEventListener('click', () => this.toggle(id));
     return w;
   }
@@ -110,7 +111,7 @@ export class SettingsPanels {
 
   private buildVideo(): HTMLElement {
     const presets = (Object.keys(QUALITY_LABEL) as QualityPreset[])
-      .map((p) => `<button class="seg" data-preset="${p}">${QUALITY_LABEL[p]}</button>`)
+      .map((p) => `<button class="seg au-tab" data-preset="${p}">${QUALITY_LABEL[p]}</button>`)
       .join('');
     const w = this.win(
       'video',
@@ -124,11 +125,11 @@ export class SettingsPanels {
        <label class="set-row check"><input type="checkbox" data-video="grain"><span>Granulado de filme (bem leve)</span></label>
        <label class="set-row check"><input type="checkbox" data-video="reduceFlashes"><span>Reduzir flashes (acessibilidade)</span></label>
        <div class="set-row"><span>Limite de FPS</span><div class="segs">
-         <button class="seg" data-fps="30">30</button><button class="seg" data-fps="60">60</button><button class="seg" data-fps="0">Sem limite</button></div></div>
+         <button class="seg au-tab" data-fps="30">30</button><button class="seg au-tab" data-fps="60">60</button><button class="seg au-tab" data-fps="0">Sem limite</button></div></div>
        <label class="set-row check"><input type="checkbox" data-video="vsync"><span>V-Sync</span></label>
        <label class="set-row check"><input type="checkbox" data-video="showFps"><span>Mostrar FPS</span></label>
        <small class="set-note">${window.vanguardaDesktop ? 'V-Sync: a mudança vale ao reabrir o jogo.' : 'V-Sync: no navegador fica sempre ligado; vale na versão desktop.'}</small>
-       <button class="set-reset" data-reset>Restaurar padrões</button>`,
+       <button class="set-reset au-btn" data-reset>Restaurar padrões</button>`,
     );
     w.addEventListener('input', (e) => {
       const el = e.target as HTMLInputElement;

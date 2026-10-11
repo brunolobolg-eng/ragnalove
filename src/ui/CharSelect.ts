@@ -65,7 +65,7 @@ export class CharSelect {
       <div class="cs-divider"><span>Escolha seu campeão</span></div>
       <section class="cs-detail"></section>
       <canvas class="cs-fx"></canvas>
-      <div class="cs-actions"><button data-a="back">Voltar</button><button class="primary" data-a="go">Começar jornada ➜</button></div>`;
+      <div class="cs-actions"><button class="au-btn" data-a="back">Voltar</button><button class="au-btn gold" data-a="go">Começar jornada ➜</button></div>`;
     document.body.appendChild(this.el);
     const canvas = this.el.querySelector<HTMLCanvasElement>('.cs-3d')!;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });

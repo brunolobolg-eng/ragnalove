@@ -128,7 +128,7 @@ export class MainMenu {
     if (this.card === 'options' && id !== 'options') this.hooks.onCloseOptions();
     this.card = id;
     card.className = `mm-card mm-card-${id}`;
-    card.innerHTML = `<button class="mm-x" data-card="close" title="Fechar (Esc)">×</button>${CARDS[id] ?? ''}`;
+    card.innerHTML = `<button class="au-x" data-card="close" title="Fechar (Esc)">×</button>${CARDS[id] ?? ''}`;
     card.hidden = false;
   }
 
@@ -154,7 +154,7 @@ export class MainMenu {
 const CARDS: Record<string, string> = {
   options: `<h2>Opções</h2>
     <p class="mm-dim">As mesmas configurações de dentro do jogo.</p>
-    <div class="mm-card-actions"><button class="mm-btn" data-card="audio">Áudio</button><button class="mm-btn" data-card="video">Vídeo e efeitos</button></div>
+    <div class="mm-card-actions"><button class="au-btn" data-card="audio">Áudio</button><button class="au-btn" data-card="video">Vídeo e efeitos</button></div>
     <p class="mm-dim">Tela cheia: <b>F11</b>.</p>`,
   info: `<h2>ROguard</h2>
     <p>RPG tático de hordas. Posicione a party, monte o funil com barreiras e muralhas e segure a horda antes que ela invada a cidade.

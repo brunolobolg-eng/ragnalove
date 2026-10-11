@@ -7,6 +7,7 @@ import { SKILL_ICONS } from './icons';
 import { itemIconUrl } from './itemArt';
 import { HERO_INFO, HERO_NAME, HERO_ORDER } from '../config/heroes';
 import { type HeroKind } from '../core/progression/skills';
+import { kitIcon } from './kit';
 
 export type { HeroKind };
 const ALL_HEROES: HeroKind[] = HERO_ORDER;
@@ -104,6 +105,12 @@ const PORTRAIT: Record<string, string> = {
   sorcerer: 'sprites/portrait_sorcerer.png', warlock: 'sprites/portrait_warlock.png', assassin: 'sprites/portrait_assassin.png',
 };
 
+/** Silhueta de cada slot vazio da ficha: peça do kit (máscara que o CSS tinge). Brinco e cinto ainda não têm a sua. */
+const KIT_GHOST: Partial<Record<Slot, string>> = {
+  head: 'ghost_head', armor: 'ghost_armor', cloak: 'ghost_cloak', weapon: 'ghost_weapon', boots: 'ghost_boots',
+  amulet: 'ghost_amulet', offhand: 'ghost_offhand', ring: 'ghost_ring',
+};
+
 /**
  * HUD no estilo das janelas clássicas de MMO isométrico: janelas azul-acinzentadas
  * translúcidas com barra de título, barras finas de HP, barra de atalhos com ícones
@@ -169,7 +176,7 @@ export class Hud {
     m.querySelector('.om-desc')!.textContent = desc;
     this.objHandlers = actions.map((a) => a.onClick);
     m.querySelector('.om-acts')!.innerHTML = actions.length
-      ? actions.map((a, i) => `<button data-om="${i}" class="${i === 0 ? 'primary' : ''}"${a.disabled ? ' disabled' : ''}>${a.label}</button>`).join('')
+      ? actions.map((a, i) => `<button data-om="${i}" class="au-btn${i === 0 ? ' gold' : ''}"${a.disabled ? ' disabled' : ''}>${a.label}</button>`).join('')
       : '<small class="om-none">Efeito passivo (acontece durante a onda).</small>';
     m.hidden = false;
     const w = m.offsetWidth;
@@ -311,14 +318,14 @@ export class Hud {
     root.innerHTML = `
       <div class="region-title"><img class="rt-emb" src="emblem.png" alt=""><div><b>Aurenthal</b><span class="rt-zone"></span></div></div>
       <div class="party-bar"></div>
-      <div class="win charwin rog" hidden>
-        <div class="win-title"><span>Ficha do Herói</span><button class="x" data-act="char-close">×</button></div>
+      <div class="win au-frame charwin rog" hidden>
+        <div class="win-title"><i class="au-ico"><img src="${kitIcon('ico_shield')}" alt=""></i><span>Ficha do Herói</span><button class="au-x" data-act="char-close" title="Fechar (C)">×</button></div>
         <div class="win-body char-body"></div>
         <div class="cw-tip" hidden></div>
       </div>
 
-      <div class="win tactics">
-        <div class="win-title"><span>Objetivo</span><i class="dots"></i></div>
+      <div class="win au-frame tactics">
+        <div class="win-title"><i class="au-ico"><img src="${kitIcon('ico_compass')}" alt=""></i><span>Objetivo</span></div>
         <div class="obj-line">◆ Defenda a cidade: derrote a horda antes que ela alcance o portão.</div>
         <div class="win-body">
           <div class="wave-line"><span class="wave">Fase 1</span><span class="kills"></span></div>
@@ -327,27 +334,27 @@ export class Hud {
           <div class="zeni-line" title="Zen: moeda para atributos, redistribuição, lojas e refino"><i class="zeni-ico"></i><span>Zen</span><b class="zeni-total">0</b></div>
           <div class="phase"></div>
           <div class="plan-only tool-chips" data-group="tool" title="Selecione e clique no chão — ou arraste direto no campo">
-            ${ALL_HEROES.map((k, i) => `<button data-tool="${k}" class="${i === 0 ? 'on' : ''}" title="Posicionar ${NAME[k]}">${NAME[k]}</button>`).join('')}
-            <button data-tool="wall" title="Muralha do Guerreiro">🧱 Muralha</button>
-            <button data-tool="barrier" title="Barreira de Fogo 1">🔥1</button>
-            <button data-tool="barrier2" title="Barreira de Fogo 2">🔥2</button>
-            <button data-tool="barrier3" title="Barreira de Fogo 3">🔥3</button>
+            ${ALL_HEROES.map((k, i) => `<button data-tool="${k}" class="au-tab${i === 0 ? ' on' : ''}" title="Posicionar ${NAME[k]}">${NAME[k]}</button>`).join('')}
+            <button class="au-tab" data-tool="wall" title="Muralha do Guerreiro">🧱 Muralha</button>
+            <button class="au-tab" data-tool="barrier" title="Barreira de Fogo 1">🔥1</button>
+            <button class="au-tab" data-tool="barrier2" title="Barreira de Fogo 2">🔥2</button>
+            <button class="au-tab" data-tool="barrier3" title="Barreira de Fogo 3">🔥3</button>
           </div>
           <div class="row">
-            <button data-act="char">Personagem (C)<span class="badge" hidden></span></button>
-            <button data-act="skills">Habilidades (K)</button>
+            <button class="au-btn" data-act="char">Personagem (C)<span class="badge" hidden></span></button>
+            <button class="au-btn" data-act="skills">Habilidades (K)</button>
           </div>
-          <div class="row"><button class="retreat" data-act="retreat" hidden>🏳 Recuar e coletar prêmios</button></div>
+          <div class="row"><button class="au-btn danger retreat" data-act="retreat" hidden>🏳 Recuar e coletar prêmios</button></div>
           <div class="row plan-only">
-            <button data-act="reset" title="Volta a party para a posição inicial da zona">↺ Reposicionar</button>
-            <button class="primary" data-act="start" hidden>Iniciar horda</button>
+            <button class="au-btn" data-act="reset" title="Volta a party para a posição inicial da zona">↺ Reposicionar</button>
+            <button class="au-btn gold" data-act="start" hidden>Iniciar horda</button>
           </div>
           <div class="row speed" data-group="speed">
             <span class="lbl">Vel.</span>
-            <button data-speed="1" class="on" title="Tecla 1">1×</button>
-            <button data-speed="2" title="Tecla 2">2×</button>
-            <button data-speed="3" title="Tecla 3">3×</button>
-            <button data-speed="4" title="Tecla 4">4×</button>
+            <button data-speed="1" class="au-tab on" title="Tecla 1">1×</button>
+            <button data-speed="2" class="au-tab" title="Tecla 2">2×</button>
+            <button data-speed="3" class="au-tab" title="Tecla 3">3×</button>
+            <button data-speed="4" class="au-tab" title="Tecla 4">4×</button>
           </div>
         </div>
       </div>
@@ -378,8 +385,8 @@ export class Hud {
         <div class="nb-track"><div class="nb-stars"></div><div class="nb-party">🛡️</div><div class="nb-boss" title="Chefe da horda">💀</div></div>
         <span class="nb-sun" title="Amanhecer">☀️</span>
       </div>
-      <div class="obj-menu win" hidden>
-        <div class="win-title"><span class="om-title"></span><button class="x" data-om="close">×</button></div>
+      <div class="obj-menu win au-frame" hidden>
+        <div class="win-title"><span class="om-title"></span><button class="au-x" data-om="close" title="Fechar">×</button></div>
         <div class="win-body"><p class="om-desc"></p><div class="om-acts"></div></div>
       </div>
       <div class="plan-hint" hidden></div>
@@ -730,11 +737,12 @@ export class Hud {
     const slotCell = (s: Slot) => {
       const it = h.equipment[s];
       if (!it) {
-        const ghost = ghostIcon(s);
-        return `<div class="cw-slot empty" data-tip="slot:${s}"><img src="${ghost}" alt=""><small>${SLOT_LABEL[s]}</small></div>`;
+        const g = KIT_GHOST[s];
+        const ghost = g ? `<i class="au-ghost" style="--g:var(--kit-${g})"></i>` : `<img class="au-ghost-old" src="${ghostIcon(s)}" alt="">`;
+        return `<div class="cw-slot au-slot empty" data-tip="slot:${s}">${ghost}<small>${SLOT_LABEL[s]}</small></div>`;
       }
       const info = RARITY_INFO[it.rarity];
-      return `<button class="cw-slot r-${it.rarity}" data-c="unequip" data-slot="${s}" data-tip="eq:${s}" style="--rc:${info.color}"${dis(vm.editable)}>
+      return `<button class="cw-slot au-slot r-${it.rarity}" data-c="unequip" data-slot="${s}" data-tip="eq:${s}" style="--rc:${info.color}"${dis(vm.editable)}>
         <img src="${itemIconUrl(it)}" alt="">${it.refine ? `<em>+${it.refine}</em>` : ''}</button>`;
     };
     const L: Slot[] = ['head', 'earring', 'amulet', 'armor', 'cloak'];
@@ -743,7 +751,7 @@ export class Hud {
     const attrs = ATTR_KEYS.map((k) => {
       const gear = h.gearAttrs[k] ? `<em>+${h.gearAttrs[k]}</em>` : '<em></em>';
       return `<div class="cw-attr" data-tip="attr:${k}"><span>${ATTR_LABEL[k]}</span><b>${h.attrs[k]}</b>${gear}
-        <button data-c="plus" data-key="${k}" data-n="1" title="+1 ponto"${dis(vm.editable && h.points > 0)}>+</button><button class="p5" data-c="plus" data-key="${k}" data-n="5" title="+5 pontos (ou o que sobrar)"${dis(vm.editable && h.points > 0)}>+5</button></div>`;
+        <button class="au-btn" data-c="plus" data-key="${k}" data-n="1" title="+1 ponto"${dis(vm.editable && h.points > 0)}>+</button><button class="au-btn p5" data-c="plus" data-key="${k}" data-n="5" title="+5 pontos (ou o que sobrar)"${dis(vm.editable && h.points > 0)}>+5</button></div>`;
     }).join('');
     const derived = h.derived.map(([a, b]) => `<div class="cw-drv"><span>${a}</span><b>${b}</b></div>`).join('');
     // de onde vem cada bônus: por item equipado (base + rolagens + refino)
@@ -760,19 +768,20 @@ export class Hud {
     const cells = bagItems.map((it) => {
       const info = RARITY_INFO[it.rarity];
       const usable = canUse(h.kind, it);
-      return `<button class="cw-cell r-${it.rarity}${usable ? '' : ' nouse'}" data-c="equip" data-id="${it.id}" data-tip="inv:${it.id}" style="--rc:${info.color}"${dis(vm.editable && usable)}>
+      return `<button class="cw-cell au-slot r-${it.rarity}${usable ? '' : ' nouse'}" data-c="equip" data-id="${it.id}" data-tip="inv:${it.id}" style="--rc:${info.color}"${dis(vm.editable && usable)}>
         <img src="${itemIconUrl(it)}" alt="">${it.refine ? `<em>+${it.refine}</em>` : ''}</button>`;
     });
     const minCells = 36;
-    while (cells.length < minCells || cells.length % 6) cells.push('<div class="cw-cell void"></div>');
-    const flt = (id: typeof F, label: string) => `<button data-c="filter" data-f="${id}" class="${F === id ? 'on' : ''}">${label}</button>`;
+    while (cells.length < minCells || cells.length % 6) cells.push('<div class="cw-cell au-slot empty void"></div>');
+    const flt = (id: typeof F, label: string) => `<button data-c="filter" data-f="${id}" class="au-tab${F === id ? ' on' : ''}">${label}</button>`;
     this.charWin.querySelector('.char-body')!.innerHTML = `
       <div class="cw">
-        <section class="cw-panel cw-char">
+        <section class="cw-panel au-sec cw-char">
           <div class="cw-tabs">${tabs}</div>
           <div class="cw-doll">
             <div class="cw-col">${L.map(slotCell).join('')}</div>
             <div class="cw-model ${bestRefine >= 5 ? 'aura' : ''}">
+              <span class="hc-medal" aria-hidden="true"></span>
               <div class="cw-name"><b>${NAME[h.kind]}</b><span>Nv. ${h.level} · ${ROLE[h.kind]}</span></div>
               ${this.fullBody[h.kind] ? `<img src="${this.fullBody[h.kind]}" alt="">` : `<img class="flat" src="${PORTRAIT[h.kind] ?? ''}" alt="">`}
               <i class="cw-plat"></i>
@@ -780,14 +789,14 @@ export class Hud {
             <div class="cw-col">${R.map(slotCell).join('')}</div>
           </div>
           <div class="cw-stats">
-            <div class="cw-box"><div class="cw-sub">Atributos <span>Pontos: <b>${h.points}</b></span></div>${attrs}
+            <div class="cw-box au-sec"><div class="cw-sub">Atributos <span>Pontos: <b>${h.points}</b></span></div>${attrs}
               <div class="cw-hint">${vm.editable ? 'Refazer pontos: Mestre de Armas (cidade).' : 'Distribua pontos entre as fases.'}</div></div>
-            <div class="cw-box"><div class="cw-sub">Status</div><div class="cw-drvs">${derived}</div></div>
-            <div class="cw-box"><div class="cw-sub">Bônus dos equipamentos <small>cada item soma nos atributos acima</small></div>${bonus || '<div class="cw-dim">Nenhum item equipado.</div>'}</div>
+            <div class="cw-box au-sec"><div class="cw-sub">Status</div><div class="cw-drvs">${derived}</div></div>
+            <div class="cw-box au-sec"><div class="cw-sub">Bônus dos equipamentos <small>cada item soma nos atributos acima</small></div>${bonus || '<div class="cw-dim">Nenhum item equipado.</div>'}</div>
 
           </div>
         </section>
-        <section class="cw-panel cw-bag">
+        <section class="cw-panel au-sec cw-bag">
           <div class="cw-sub big">Bolsa <span>${vm.inventory.length} itens</span></div>
           <div class="cw-filter">${flt('all', 'Todos')}${flt('weapon', 'Armas')}${flt('armor', 'Armaduras')}${flt('accessory', 'Acessórios')}</div>
           <div class="cw-grid">${cells.join('')}</div>

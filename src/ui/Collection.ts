@@ -107,16 +107,16 @@ export class Collection {
     const freeNormals = NORMALS.reduce((s, d) => s + freeCopies(this.cards, d.id), 0);
     const defs = CARD_CATALOG.filter((d) => this.filter === 'all' || d.rarity === this.filter).sort((a, b) => (MINIBOSSES.includes(a) || a.rarity === 'mvp' ? 0 : 1) - (MINIBOSSES.includes(b) || b.rarity === 'mvp' ? 0 : 1));
     const ownedKinds = CARD_CATALOG.filter((d) => (this.cards.owned[d.id] ?? 0) > 0).length;
-    this.el.innerHTML = `<section class="win cards-win">
+    this.el.innerHTML = `<section class="au-frame cards-win">
       <div class="win-title"><i class="au-ico">🃏</i><span>Coleção de cartas</span><button class="au-x" data-c="close" title="Fechar (Esc)">×</button></div>
       <div class="win-body">
-        <div class="tabs-row">${HERO_ORDER.map((h) => `<button data-c="hero" data-h="${h}" class="${h === this.hero ? 'on' : ''}">${HERO_NAME[h]}</button>`).join('')}
+        <div class="tabs-row">${HERO_ORDER.map((h) => `<button data-c="hero" data-h="${h}" class="au-tab${h === this.hero ? ' on' : ''}">${HERO_NAME[h]}</button>`).join('')}
           <span class="sk-bank">Runs vencidas: <b>${this.runsWon}</b> · Slots: <b>${list.length}/${slots}</b></span></div>
         <p class="hint">Bônus atual de ${HERO_NAME[this.hero]}: <b>${bonusTxt}</b> <small>(vale a partir da próxima jornada)</small></p>
         <h4>Equipada — clique para remover</h4>
         <div class="build-row">${list.length ? list.map((id, i) => `<button class="mini-card" data-c="unequip" data-i="${i}" title="${bonusText(this.hero, id)} — clique para remover">${cardArtHtml(id, 'mc-art')}<small>${CARD_BY_ID[id]?.name}</small></button>`).join('') : '<div class="empty">Nenhuma carta equipada</div>'}</div>
         <h4>Fusão <small>(3 iguais → 1 Normal diferente · 10 Normais → 1 Mini-Boss)</small></h4>
-        <div class="acts"><button class="big-act" data-c="fuse10"${freeNormals >= 10 ? '' : ' disabled'} title="Consome 10 Normais livres">🎁 Fundir 10 Normais <span class="tag">${freeNormals}/10</span></button></div>
+        <div class="acts"><button class="au-btn" data-c="fuse10"${freeNormals >= 10 ? '' : ' disabled'} title="Consome 10 Normais livres">🎁 Fundir 10 Normais <span class="tag">${freeNormals}/10</span></button></div>
         <h4>Coleção (${ownedKinds}/${CARD_CATALOG.length})</h4>
         <div class="au-tabs">${(['all', 'normal', 'miniboss', 'mvp'] as const).map((f) => `<button class="au-tab ${this.filter === f ? 'on' : ''}" data-c="filter" data-f="${f}">${f === 'all' ? 'Todas' : RARITY[f].label}</button>`).join('')}</div>
         <div class="igrid">${defs
@@ -126,8 +126,8 @@ export class Collection {
             const r = RARITY[d.rarity];
             return `<div class="icard${owned ? '' : ' missing'}" style="--rc:${r.color}" title="${d.name} · ${r.label} · ${bonusText(this.hero, d.id)}${d.affinity.includes(this.hero) ? '' : ' — sem afinidade (metade)'}">
               ${cardArtHtml(d.id, 'ic-art')}<span>${r.label}</span><b>×${owned}</b>
-              ${owned ? `<button class="price" data-c="equip" data-id="${d.id}"${free > 0 && list.length < slots ? '' : ' disabled'}>Equipar</button>` : ''}
-              ${d.rarity === 'normal' && free >= 3 ? `<button class="price sell" data-c="fuse3" data-id="${d.id}">Fundir 3</button>` : ''}</div>`;
+              ${owned ? `<button class="au-btn price" data-c="equip" data-id="${d.id}"${free > 0 && list.length < slots ? '' : ' disabled'}>Equipar</button>` : ''}
+              ${d.rarity === 'normal' && free >= 3 ? `<button class="au-btn price sell" data-c="fuse3" data-id="${d.id}">Fundir 3</button>` : ''}</div>`;
           })
           .join('')}</div>
         <div class="toast">${this.msg}</div>

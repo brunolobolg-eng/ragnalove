@@ -2249,7 +2249,11 @@ if (desktopBalance)
 // No build de produção o Vite troca `import.meta.env.DEV` por `false`, este bloco
 // é eliminado e o módulo de debug não entra no pacote da Steam.
 if (import.meta.env.DEV) {
-  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview }; // inspeção no console (dev)
+  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview,
+    // prévias de tela (só dev): roleta de prêmio com um item lendário e o pacote de cartas (ids opcionais)
+    rouletteDemo: () => { void roulette.spin('Recompensa da primeira vitória', 'Demonstração da roleta', rollItem(debugRng, 0, `demo-roleta-${debugRng.int(1e9)}`, { rarity: 'legendary', slot: 'weapon' }), () => 'weapon'); },
+    cardPackDemo: (ids?: string[]) => cardPack.show(ids ?? rollPack(), () => {}),
+  }; // inspeção no console (dev)
   void import('./debug/DebugPanel').then(({ installDebug }) => installDebug(hudRoot, devApi(), (h, t, fn) => panels.addButton(h, t, fn)));}
 
 // ---------- Dev Lab (F8): só com devtools (dev ou devtools.txt no executável) ----------
