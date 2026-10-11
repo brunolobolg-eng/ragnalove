@@ -73,10 +73,10 @@ export const VISUAL_CONFIG = {
   },
   /** Emperium: veios de energia dentro do cristal (shader), pulso lento e brilho controlado. Só visual. */
   emperium: {
-    veinScale: 2.2, // densidade dos veios (quanto maior, mais veios)
-    veinSharpness: 10, // quanto maior, veios mais finos
+    veinScale: 2.8, // densidade dos veios (quanto maior, mais veios)
+    veinSharpness: 8, // quanto maior, veios mais finos (8 deixa a linha legível na tela)
     veinFlow: 0.12, // velocidade com que a energia sobe pelo cristal
-    veinBrightness: 1.1, // brilho do veio (acima de 1, só o pico entra no bloom)
+    veinBrightness: 1.5, // brilho do veio (acima de 1, só o pico entra no bloom)
     pulseDepth: 0.22, // variação do pulso lento (0 = sem pulso)
     veinMid: 0x3fd9ff, // cor do meio do degradê (ciano)
   },
