@@ -8,7 +8,7 @@ import type { HeroKind } from '../core/progression/skills';
  *  - Núcleo: vida máxima e Zen por HP do reparo vêm de GAME_CONFIG.cityDefense (a mesma cidade da jornada).
  *  - Ameaça de cada inimigo que chega ao portão: GAME_CONFIG.cityDefense.threat (sem tabela própria).
  *  - Recompensas: Zen dos abates (GAME_CONFIG.zeni.dropPerKill) e bônus de onda limpa (waveClearBonus).
- *  - Custos de estruturas: muralha 5 Zen (dobra a cada muralha da cidade, decisão do dono); torre 120 Zen (inicial).
+ *  - Custos de estruturas: muralha 5 Zen (dobra a cada muralha da cidade, teto de 999); torre 120 Zen (inicial).
  * Os números de estrutura, projeto e socorro são INICIAIS: calibrar com o dono antes de fechar o balanceamento.
  */
 
@@ -24,6 +24,8 @@ export interface StructureDef {
   cost: number;
   /** Quanto o preço da próxima construção do tipo multiplica por cada uma que já está na cidade (1 = preço fixo). */
   costGrowth: number;
+  /** Teto do preço da construção e do aprimoramento (sem teto se ausente). Reparo e reconstrução não têm teto. */
+  priceCap?: number;
   /** Vida do nível 1 e acréscimo por nível. */
   hp: number;
   hpPerLevel: number;
@@ -35,10 +37,11 @@ export interface StructureDef {
 export const STRUCTURES: Record<StructureKind, StructureDef> = {
   wall: {
     name: 'Muralha de pedra',
-    desc: 'Bloqueia a passagem: a horda precisa quebrá-la para seguir. Não atira. Cada muralha que já está na cidade dobra o preço da próxima.',
+    desc: 'Bloqueia a passagem: a horda precisa quebrá-la para seguir. Não atira. Cada muralha que já está na cidade dobra o preço da próxima, até 999 Zen.',
     project: 'castle',
     cost: 5,
     costGrowth: 2,
+    priceCap: 999,
     hp: 120,
     hpPerLevel: 60,
     maxLevel: 3,
@@ -94,7 +97,7 @@ export const BASTION = {
   refundRate: 0.5,
   /** Aprimorar do nível L para L+1 custa Zen base × upgradeFactor × L. */
   upgradeFactor: 1,
-  /** Pacote de cartas a cada N níveis ganhos pelos heróis do Bastião (total, nunca zera). */
+  /** Pacote de cartas a cada N ondas vencidas no Bastião (total, nunca zera). */
   packEvery: 100,
   /**
    * Socorro: sem Zen nem para o reparo mínimo do núcleo (coreMinFraction da vida), a cidade ganha Zen.

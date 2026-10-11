@@ -91,16 +91,23 @@ export interface BuildEnv {
 
 /**
  * Preço da próxima construção do tipo. O preço base dobra (costGrowth) a cada construção que já existe
- * na cidade, destruída ou não. Remover uma faz o preço cair de novo. Torre tem preço fixo.
+ * na cidade, destruída ou não, até o teto (priceCap). Remover uma faz o preço cair de novo. Torre tem preço fixo.
  */
 export function buildCostOf(b: BastionState, kind: StructureKind): number {
   const def = STRUCTURES[kind];
   const existing = b.structures.filter((s) => s.kind === kind).length;
-  return Math.round(def.cost * Math.pow(def.costGrowth, existing));
+  const price = Math.round(def.cost * Math.pow(def.costGrowth, existing));
+  return def.priceCap !== undefined ? Math.min(def.priceCap, price) : price;
 }
 
-export function upgradeCostOf(s: Structure): number {
-  return Math.round(STRUCTURES[s.kind].cost * BASTION.upgradeFactor * s.level);
+/**
+ * Preço do aprimoramento de L para L+1: o preço atual da construção do tipo (o que dobra) × o nível atual,
+ * com o mesmo teto da construção. Reparo e reconstrução não entram aqui.
+ */
+export function upgradeCostOf(b: BastionState, s: Structure): number {
+  const def = STRUCTURES[s.kind];
+  const price = buildCostOf(b, s.kind) * s.level * BASTION.upgradeFactor;
+  return Math.round(def.priceCap !== undefined ? Math.min(def.priceCap, price) : price);
 }
 
 /**
@@ -186,7 +193,7 @@ export function upgradeStructure(b: BastionState, id: number): Result<{ cost: nu
   if (!s) return fail('missing');
   if (s.hp <= 0) return fail('destroyed');
   if (s.level >= STRUCTURES[s.kind].maxLevel) return fail('maxLevel');
-  const cost = upgradeCostOf(s);
+  const cost = upgradeCostOf(b, s);
   if (b.profile.zeni < cost) return fail('zeni');
   const before = structureMaxHp(b, s);
   b.profile.zeni -= cost;
@@ -304,9 +311,7 @@ export function applyNight(b: BastionState, out: NightOutcome, key: string, card
     if (s) s.hp = Math.min(structureMaxHp(b, s), Math.max(0, f.hp));
   }
   b.coreHp = Math.min(b.coreMaxHp, Math.max(0, out.coreHp));
-  const levelsBefore = totalLevels(b);
   applyWaveResult(b.profile, out.wave);
-  b.levelsGained += totalLevels(b) - levelsBefore;
   if (out.victory) {
     addZeni(b.profile, GAME_CONFIG.zeni.waveClearBonus);
     b.profile.wavesWon = (b.profile.wavesWon ?? 0) + 1;
@@ -315,21 +320,16 @@ export function applyNight(b: BastionState, out: NightOutcome, key: string, card
   }
   if (!out.victory || b.coreHp <= 0) b.attemptEnded = true;
   b.records.bestNights = Math.max(b.records.bestNights, b.nightsInAttempt);
-  return { packs: grantLevelPacks(b, cards) };
-}
-
-/** Soma dos níveis de todos os heróis do Bastião (base para os pacotes). */
-function totalLevels(b: BastionState): number {
-  return Object.values(b.profile.heroes).reduce((soma, h) => soma + h.level, 0);
+  return { packs: grantWavePacks(b, cards) };
 }
 
 /**
- * Um pacote a cada BASTION.packEvery níveis ganhos (sem zerar). Mesmo formato do pacote da campanha.
- * A semente sai da cidade e do número do pacote: a mesma cidade sempre recebe o mesmo pacote.
+ * Um pacote a cada BASTION.packEvery ondas vencidas no Bastião (total, sem zerar). Mesmo formato do pacote
+ * da campanha. A semente sai da cidade e do número do pacote: a mesma cidade sempre recebe o mesmo pacote.
  */
-function grantLevelPacks(b: BastionState, cards: CardCollection): string[][] {
+function grantWavePacks(b: BastionState, cards: CardCollection): string[][] {
   const packs: string[][] = [];
-  while (b.levelsGained >= (b.packsGiven + 1) * BASTION.packEvery) {
+  while (b.nights >= (b.packsGiven + 1) * BASTION.packEvery) {
     const rng = new Rng((b.seed + Math.imul(b.packsGiven + 1, 7919)) >>> 0);
     const pack = rollPack(() => rng.next());
     addCards(cards, pack);

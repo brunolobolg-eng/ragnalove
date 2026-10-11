@@ -207,10 +207,10 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - **D6 — Recompensa de onda:** a mesma da jornada (Zen dos abates + bônus de onda limpa). Não há tabela nova.
   - **D7 — Valores iniciais (calibrar com o dono):** muralha 5 Zen, dobrando a cada muralha que já está na cidade (decisão do dono), 120 de vida (+60 por nível, até o nível 3). Torre 120 Zen, 100 de vida (+40 por nível), 14 de dano a cada 1,2 s, alcance 6 tiles.
   - **D8 — Cartas compartilhadas (correção do dono):** a run do Bastião não tem nada a ver com a jornada da campanha. A única coisa compartilhada são as cartas dos personagens. A coleção continua no save de meta; o Bastião copia os bônus no início de cada tentativa, igual à jornada ("vale a partir da próxima tentativa"). Nenhuma carta é gravada no save do Bastião além dessa cópia.
-  - **D9 — Muralhas (decisão do dono):** base de 5 Zen. Cada muralha que já está na cidade (destruída conta) dobra o preço da próxima; remover uma faz o preço cair. Sequência: 5, 10, 20, 40… A 10ª muralha custa 2.560 Zen e a 11ª, 5.120. Torre tem preço fixo (120, ainda inicial). Aprimorar usa o preço base (5 Zen × nível). Ajuste técnico: o piso de reparo caiu de 2 para 1 Zen e o arredondamento passou a ser para cima, senão uma muralha de 5 Zen teria o mesmo reparo para qualquer dano.
+  - **D9 — Muralhas (decisão do dono):** base de 5 Zen. Cada muralha que já está na cidade (destruída conta) dobra o preço da próxima, até o teto de **999 Zen**. Remover uma faz o preço cair. Sequência: 5, 10, 20, 40, 80, 160, 320, 640, 999, 999… Aprimorar custa o preço atual da muralha × nível, com o mesmo teto. Torre tem preço fixo (120, ainda inicial). Reparo e reconstrução seguem o que foi gasto na muralha, sem teto, para reconstruir continuar mais caro que reparar. Ajuste técnico: piso de reparo de 1 Zen e arredondamento para cima.
   - **D10 — Classes (decisão do dono):** as seis classes estão liberadas no Bastião. A party tem de 1 a 6 heróis, sem repetir.
-  - **D11 — Pacotes (decisão do dono):** o Bastião dá um pacote de cartas a cada 100 níveis ganhos pelos heróis do Bastião (somando todos, sem zerar). É o mesmo pacote da campanha (3 comuns e 2 sorteios) e vai para a coleção compartilhada. Não depende de vitória.
-  - **D12 — Slots (decisão do dono):** cada modo solta os seus. A campanha pelas vitórias da jornada (como já era); o Bastião pelas ondas vencidas, na mesma curva. Os dois somam, até 30 no total. A build de cartas é a mesma nos dois modos (uma só lista por personagem).
+  - **D11 — Pacotes (decisão do dono):** um pacote de cartas (mesmo formato da campanha: 3 comuns e 2 sorteios) a cada **100 ondas vencidas** no Bastião (total, sem zerar). Derrota não conta. O pacote vai para a coleção compartilhada.
+  - **D12 — Slots (decisão do dono):** campanha e Bastião somam os slots que cada um libera, até 30. A curva é a mesma para os dois e fica bem mais difícil depois dos cinco primeiros: 5º slot com 6 vitórias, 10º com 31, 20º com 156, 30º com 381. A tabela está em `CARD_SLOT_WINS` (cards.ts), fácil de ajustar.
 - **Entregue (Etapa 2 inteira e parte da Etapa 3):**
   - Dados do modo (`src/config/bastion.ts`).
   - Estado, criação e migração da cidade (`src/core/bastion/bastion.ts`).
@@ -220,7 +220,7 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - Save próprio: chave `bastion` (arquivo próprio no executável; localStorage em dev). `SaveStore`, `electron/main.cjs` e o tipo da janela foram atualizados.
   - Visual: muralha da cidade usa o mesmo desenho da muralha do Guerreiro; torre usa a peça `Tower_Round` do kit do dono. Os dois só aparecem quando a batalha do Bastião existir.
 - **Testes:**
-  - `npm run bastion:check`: 102 checagens, todas passando (inclui cartas, preço das muralhas, classes, pacotes e slots). Álbum da campanha no navegador: abre sem erro de console com a mudança de slots (dados, migração, colocação, custos, projetos, ondas, socorro e simulação com muralhas, torres e estruturas destruídas).
+  - `npm run bastion:check`: 111 checagens, todas passando (inclui cartas, preço das muralhas, classes, pacotes e slots). Álbum da campanha no navegador: abre sem erro de console com a mudança de slots (dados, migração, colocação, custos, projetos, ondas, socorro e simulação com muralhas, torres e estruturas destruídas).
   - `npm run build`: passa.
   - `npm run sim:check`: resultados das 13 zonas idênticos à linha de base, antes e depois.
   - Navegador (DEV, 1280×720): batalha da ponte com 16 muralhas erguidas pelo caminho refatorado (`ObjectView`): sem erro de console; captura do planejamento mostra as muralhas do kit no lugar.
@@ -233,10 +233,10 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   6. Expansões de terreno e progressão por etapa com requisitos reais. Etapa 4.
   7. Melhorias temporárias de combate (encerram com a tentativa): ainda não existe nenhuma.
   8. Balanceamento: custos e dano das torres com o dono (D7).
-  9. Confirmar o teto do pool de slots (30 no total, como a campanha) e a soma dos dois modos (D12).
-  10. Confirmar se o preço da muralha conta as que existem agora, destruídas inclusive (D9), ou todas já construídas. E se quer teto para o preço: hoje a 10ª custa 2.560 Zen.
-  11. Confirmar se aprimorar deve usar o preço base (5 Zen × nível), como está, ou o preço que dobra (D9).
-  12. Confirmar se 'níveis' do pacote (D11) é a soma dos níveis de todos os heróis do Bastião, como está.
+  9. Confirmar a curva de slots (D12). A tabela é uma proposta, fácil de mudar em `CARD_SLOT_WINS`.
+  10. **Campanha no ar:** a curva nova também vale para a campanha. Quem tem 20 vitórias passa de 30 slots para 8. As cartas já equipadas continuam (nada é tirado); só não dá para equipar mais até o limite subir. Confirmar se é isso, ou se a campanha mantém a curva antiga e só o Bastião usa a nova.
+  11. Confirmar se o aprimoramento multiplica pelo nível (como está) ou se tem preço fixo por nível.
+  12. Confirmar se reparo e reconstrução devem ter teto também (hoje não têm, D9).
 - **Commits:** o commit desta versão.
 
 ## Lições (curtas)

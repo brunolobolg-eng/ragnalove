@@ -4,7 +4,7 @@
  * 6) Ondas (idempotência, derrota e socorro) · 7) Simulação (muralhas quebráveis, torres, destruídas).
  */
 import { BASTION, PROJECTS, PROJECT_IDS, STRUCTURES } from '../src/config/bastion';
-import { addCards, cardBonusFor, cardSlots, cardSlotsPool, emptyCollection, equipCard, type CardCollection } from '../src/core/progression/cards';
+import { CARD_SLOT_WINS, addCards, cardBonusFor, cardSlots, cardSlotsPool, emptyCollection, equipCard, type CardCollection } from '../src/core/progression/cards';
 import { heroStats } from '../src/core/progression/profile';
 import { DEFAULT_SETUP, GAME_CONFIG, applyZone } from '../src/config/gameConfig';
 import { ZONES } from '../src/config/zones';
@@ -75,7 +75,7 @@ check(
 );
 check('reconstruir custa mais que reparar (taxas)', BASTION.rebuildRate > BASTION.repairRate);
 check('torre atira; muralha não', !!STRUCTURES.tower.shot && !STRUCTURES.wall.shot);
-check('muralha custa 5 e dobra; torre tem preço fixo', STRUCTURES.wall.cost === 5 && STRUCTURES.wall.costGrowth === 2 && STRUCTURES.tower.costGrowth === 1);
+check('muralha custa 5, dobra e tem teto de 999; torre tem preço fixo', STRUCTURES.wall.cost === 5 && STRUCTURES.wall.costGrowth === 2 && STRUCTURES.wall.priceCap === 999 && STRUCTURES.tower.costGrowth === 1);
 check('há terreno livre suficiente para os testes', free.length >= 4, `${free.length} tiles`);
 
 console.log('\n# 2) Estado e migração');
@@ -162,14 +162,15 @@ const rr = repairStructure(bc, w.id);
 check('reparo cobra 1 e restaura a vida toda', rr.ok && rr.cost === 1 && bc.profile.zeni === zeniAntes - 1 && w.hp === 120 && !rr.rebuilt, rr.ok ? '' : BUILD_MSG[rr.error]);
 check('reparar uma inteira é recusado', errOf(repairStructure(bc, w.id)) === 'intact');
 const up = upgradeStructure(bc, w.id);
-check('aprimorar: nível 2 custa 5 e sobe a vida máxima para 180 (o ganho entra na hora)', up.ok && up.cost === 5 && w.level === 2 && w.hp === 180 && w.invested === 10, up.ok ? '' : BUILD_MSG[up.error]);
+check('aprimorar 1→2 custa 10 (preço da próxima muralha, com esta contando, × nível 1); vida máxima 180', up.ok && up.cost === 10 && w.level === 2 && w.hp === 180 && w.invested === 15, up.ok ? '' : BUILD_MSG[up.error]);
+const up2 = upgradeStructure(bc, w.id);
+check('aprimorar 2→3 custa o dobro (20 = preço × nível 2)', up2.ok && up2.cost === 20 && w.level === 3 && w.invested === 35, up2.ok ? '' : BUILD_MSG[up2.error]);
 w.hp = 0;
 check('aprimorar destruída: recusado', errOf(upgradeStructure(bc, w.id)) === 'destroyed');
-w.level = 3;
 w.hp = structureMaxHp(bc, w);
 check('nível máximo: recusado', errOf(upgradeStructure(bc, w.id)) === 'maxLevel');
 const rm = removeStructure(bc, w.id);
-check('remover devolve metade do investido (10 → 5) e tira a construção', rm.ok && rm.refund === 5 && bc.structures.length === 0);
+check('remover devolve metade do investido (35 → 18) e tira a construção', rm.ok && rm.refund === 18 && bc.structures.length === 0);
 
 console.log('\n# 5) Projetos');
 const bj = newBastion(7, emptyCollection());
@@ -292,9 +293,9 @@ check('a próxima tentativa copia a coleção nova: o mago leva metade (+1 de Fo
 check('o guerreiro mantém o bônus cheio (+3 de Força)', comCartas.profile.heroes.warrior.cardAttrs?.str === 3);
 check('a cópia do Bastião bate com o cálculo da campanha', JSON.stringify(comCartas.profile.heroes.mage.cardAttrs) === JSON.stringify(cardBonusFor('mage', cartas)));
 
-console.log('\n# 9) Preço que dobra, classes, pacotes e slots');
+console.log('\n# 9) Preço que dobra com teto, classes, pacotes e slots');
 const bx = newBastion(7, emptyCollection());
-bx.profile.zeni = 10000;
+bx.profile.zeni = 20000;
 const precos: number[] = [];
 for (let i = 0; i < 4; i++) {
   const antes = bx.profile.zeni;
@@ -309,6 +310,15 @@ check('muralha destruída continua contando no preço (80)', buildCostOf(bx, 'wa
 removeStructure(bx, primeira.id);
 check('remover uma muralha faz o preço cair (40)', buildCostOf(bx, 'wall') === 40);
 check('torre tem preço fixo (120), mesmo com muralhas na cidade', buildCostOf(bx, 'tower') === 120);
+for (let i = 0; i < 5; i++) placeStructure(bx, env(), 'wall', free[i + 20]);
+check('com 8 muralhas na cidade, a próxima (1.280) para no teto de 999', buildCostOf(bx, 'wall') === 999);
+placeStructure(bx, env(), 'wall', free[25]);
+check('o teto segura: com 9 muralhas, a próxima ainda custa 999', buildCostOf(bx, 'wall') === 999);
+const alvo = bx.structures[1];
+const upAlvo = upgradeStructure(bx, alvo.id);
+check('aprimorar 1→2 também tem teto: custa 999', upAlvo.ok && upAlvo.cost === 999, upAlvo.ok ? '' : BUILD_MSG[upAlvo.error]);
+const upAlvo2 = upgradeStructure(bx, alvo.id);
+check('aprimorar 2→3 também para no teto (999, e não 1.998)', upAlvo2.ok && upAlvo2.cost === 999, upAlvo2.ok ? '' : BUILD_MSG[upAlvo2.error]);
 
 const bh = newBastion(7, emptyCollection());
 check('as seis classes entram na party do Bastião', setParty(bh, ['archer', 'sorcerer', 'warlock', 'assassin', 'warrior', 'mage']).ok === true && bh.party.length === 6);
@@ -316,31 +326,39 @@ check('party com herói repetido: recusada', errOf(setParty(bh, ['warrior', 'war
 check('party vazia: recusada', errOf(setParty(bh, [])) === 'partySize');
 check('party com 7 heróis: recusada', errOf(setParty(bh, ['warrior', 'mage', 'archer', 'sorcerer', 'warlock', 'assassin', 'warrior'])) === 'partySize');
 
-const ondaComNiveis = (guerreiro: number, mago: number): WaveResult => ({ souls: 0, zeni: 0, heroes: { warrior: { level: guerreiro, exp: 0 }, mage: { level: mago, exp: 0 } }, drops: [] });
+const ondaVencida = (): NightOutcome => ({ victory: true, coreHp: 1000, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } });
 const totalCartas = (c: CardCollection) => Object.values(c.owned).reduce((soma, n) => soma + n, 0);
 const bpk = newBastion(7, emptyCollection());
+bpk.nights = 98;
 const colecaoPacote = emptyCollection();
-const q1 = applyNight(bpk, { victory: true, coreHp: 1000, structures: [], wave: ondaComNiveis(50, 50) }, 'night:1:1', colecaoPacote);
-check('98 níveis ganhos ainda não dão pacote', q1 !== undefined && q1.packs.length === 0 && bpk.levelsGained === 98);
-const q2 = applyNight(bpk, { victory: true, coreHp: 1000, structures: [], wave: ondaComNiveis(51, 51) }, 'night:1:2', colecaoPacote);
-check('ao chegar a 100 níveis, sai um pacote de 5 cartas na coleção compartilhada', q2 !== undefined && q2.packs.length === 1 && q2.packs[0].length === 5 && totalCartas(colecaoPacote) === 5 && bpk.packsGiven === 1);
-const q3 = applyNight(bpk, { victory: true, coreHp: 1000, structures: [], wave: ondaComNiveis(51, 51) }, 'night:1:2', colecaoPacote);
+const q1 = applyNight(bpk, ondaVencida(), 'night:1:1', colecaoPacote);
+check('99 ondas vencidas ainda não dão pacote', q1 !== undefined && q1.packs.length === 0 && bpk.nights === 99);
+const q2 = applyNight(bpk, ondaVencida(), 'night:1:2', colecaoPacote);
+check('a 100ª onda vencida dá um pacote de 5 cartas na coleção compartilhada', q2 !== undefined && q2.packs.length === 1 && q2.packs[0].length === 5 && totalCartas(colecaoPacote) === 5 && bpk.packsGiven === 1);
+const q3 = applyNight(bpk, ondaVencida(), 'night:1:2', colecaoPacote);
 check('a mesma onda não entrega o pacote de novo', q3 === undefined && totalCartas(colecaoPacote) === 5);
+const bderrota = newBastion(7, emptyCollection());
+bderrota.nights = 99;
+const q4 = applyNight(bderrota, { victory: false, coreHp: 1000, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } }, 'night:1:3', emptyCollection());
+check('derrota não conta para o pacote (continua em 99)', q4 !== undefined && q4.packs.length === 0 && bderrota.nights === 99);
 const pacoteDaSemente = (): string => {
   const x = newBastion(99, emptyCollection());
-  x.levelsGained = 100;
+  x.nights = 99;
   const c = emptyCollection();
-  applyNight(x, { victory: true, coreHp: 1000, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } }, 'k1', c);
+  applyNight(x, ondaVencida(), 'k1', c);
   return JSON.stringify(c.owned);
 };
 check('mesma semente e mesmo estado: o pacote sai igual (determinismo)', pacoteDaSemente() === pacoteDaSemente());
 
+check('a curva tem 30 degraus (o último é o teto)', CARD_SLOT_WINS.length === 30);
+check('as cinco primeiras são fáceis: 5º slot com 6 vitórias', cardSlots(5) === 4 && cardSlots(6) === 5);
+check('depois fica bem mais difícil: 10º com 31 vitórias, 30º com 381', cardSlots(30) === 9 && cardSlots(31) === 10 && cardSlots(380) === 29 && cardSlots(381) === 30);
 check('Bastião sem ondas vencidas não solta slot', bastionCardSlots(bh) === 0);
 bh.nights = 5;
-check('5 ondas vencidas soltam 10 slots (mesma curva da campanha)', bastionCardSlots(bh) === 10);
-check('campanha com 3 vitórias e Bastião com 5 ondas: 6 + 10 = 16 slots', cardSlotsPool(3, 5) === 16);
-check('sem Bastião, o total é o da campanha (3 vitórias = 6)', cardSlotsPool(3) === cardSlots(3) && cardSlots(3) === 6);
-check('o total para em 30 slots', cardSlotsPool(20, 20) === 30);
+check('5 ondas vencidas soltam 4 slots', bastionCardSlots(bh) === 4);
+check('campanha com 3 vitórias e Bastião com 5 ondas: 3 + 4 = 7 slots (soma)', cardSlotsPool(3, 5) === 7);
+check('sem Bastião, o total é o da campanha (3 vitórias = 3 slots)', cardSlotsPool(3) === cardSlots(3) && cardSlots(3) === 3);
+check('o total para em 30 slots', cardSlotsPool(400, 400) === 30);
 
 console.log(failures ? `\n${failures} checagem(ns) falharam.` : '\nTodas as checagens do Último Bastião passaram.');
 if (failures) throw new Error(`bastionCheck: ${failures} falha(s)`);

@@ -115,10 +115,20 @@ export const revealOrder = (ids: string[]): string[] =>
     .map((x) => x.id);
 
 /** Slots por runs vencidas: 2/run até 20 (run 10), +1/run até 30 (run 20+). */
-export function cardSlots(runsWon: number): number {
-  if (runsWon <= 0) return 0;
-  if (runsWon <= 10) return runsWon * 2;
-  return Math.min(30, 20 + (runsWon - 10));
+/**
+ * Vitórias acumuladas para liberar cada slot (o 1º na vitória 1, o 2º na 2...). Os cinco primeiros são fáceis
+ * (6 vitórias); depois a conta sobe depressa (o 10º pede 31; o 20º, 156; o 30º, 381). Teto: 30 slots.
+ * Vale para a campanha e para o Bastião, que somam (cardSlotsPool). Tudo que é balanceamento fica aqui.
+ */
+export const CARD_SLOT_WINS: readonly number[] = [
+  1, 2, 3, 4, 6, 9, 13, 18, 24, 31, 39, 48, 58, 69, 81, 94, 108, 123, 139, 156, 174, 193, 213, 234, 256, 279, 303, 328, 354, 381,
+];
+
+/** Quantos slots um modo libera com `wins` vitórias (ondas vencidas no Bastião, vitórias de jornada na campanha). */
+export function cardSlots(wins: number): number {
+  let slots = 0;
+  while (slots < CARD_SLOT_WINS.length && wins >= CARD_SLOT_WINS[slots]) slots++;
+  return slots;
 }
 
 /**

@@ -9,10 +9,10 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - Socorro contra a derrota severa, para a cidade nunca travar sem Zen.
 - Na batalha, a horda quebra as muralhas que estão no caminho, e as torres atiram sozinhas no inimigo visível mais próximo. Estrutura destruída não bloqueia nem atira.
 - As cartas dos personagens são a única parte compartilhada com a campanha: o Bastião usa a mesma coleção, e equipar vale a partir da próxima tentativa.
-- Muralha do Bastião custa 5 Zen e o preço dobra a cada muralha que já está na cidade.
+- Muralha do Bastião custa 5 Zen e o preço dobra a cada muralha que já está na cidade, até o teto de 999 Zen.
 - As seis classes estão liberadas no Bastião (party de 1 a 6 heróis).
-- O Bastião dá um pacote de cartas a cada 100 níveis ganhos pelos heróis do Bastião.
-- Slots de carta: a campanha e o Bastião somam os slots que cada um libera (máximo 30).
+- O Bastião dá um pacote de cartas a cada 100 ondas vencidas.
+- Slots de carta: a campanha e o Bastião somam os slots que cada um libera, com uma curva bem mais difícil depois dos cinco primeiros (máximo 30). Vale também para a campanha.
 - O modo ainda não aparece no menu: falta o mapa próprio, a tela de construção e a recuperação entre ondas (próximas etapas).
 - As jornadas atuais não mudam: a saída de referência da simulação continua idêntica.
 
