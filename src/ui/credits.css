@@ -1,0 +1,90 @@
+/* Créditos finais: fundo azul-marinho escuro com detalhes dourados (padrão do jogo). */
+.cr-veil {
+  --cr-gold: #c9a24a;
+  --cr-text: #f3e6c4;
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 35%, #1b2a52 0%, #0a1025 60%, #040611 100%);
+  color: var(--cr-text);
+  font-family: 'Cinzel', Georgia, serif;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.cr-veil.on { opacity: 1; }
+.cr-veil[hidden] { display: none; }
+.cr-stage { position: absolute; inset: 0; }
+
+/* Slideshow: a foto ocupa a tela com borda dourada, legenda embaixo e zoom lento. */
+.cr-slide {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+.cr-slide.on { opacity: 1; }
+.cr-slide img {
+  max-width: 86vw;
+  max-height: 74vh;
+  border: 2px solid var(--cr-gold);
+  box-shadow: 0 0 40px rgba(201, 162, 74, 0.35);
+  animation: cr-zoom 6s linear forwards;
+}
+.cr-slide figcaption {
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  color: #e9d59a;
+  text-shadow: 0 2px 0 #3a2a0c;
+}
+@keyframes cr-zoom {
+  from { transform: scale(1); }
+  to { transform: scale(1.06); }
+}
+
+/* Rolagem: os nomes sobem a partir da borda de baixo até sair pelo topo. */
+.cr-roll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100vh;
+  padding-bottom: 40px;
+  text-align: center;
+  animation: cr-up linear forwards;
+}
+@keyframes cr-up {
+  to { transform: translateY(calc(-100vh - 100%)); }
+}
+.cr-title { margin: 0; font-family: 'Cinzel Decorative', 'Cinzel', serif; font-size: 56px; color: #ffe08a; text-shadow: 0 3px 0 #7a4a10, 0 0 24px rgba(255, 190, 60, 0.6); }
+.cr-sub { margin: 10px 0 0; font-size: 18px; letter-spacing: 0.12em; color: #cdbb8a; }
+.cr-thanks { margin-top: 60px; font-size: 26px; color: #ffe08a; }
+.cr-sec { margin: 56px 0 6px; font-size: 22px; letter-spacing: 0.1em; color: var(--cr-gold); }
+.cr-name { margin: 4px 0; font-size: 18px; color: var(--cr-text); }
+
+.cr-skip {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  z-index: 2;
+  padding: 8px 16px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--cr-text);
+  background: rgba(10, 16, 37, 0.8);
+  border: 1px solid var(--cr-gold);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.cr-skip:hover { background: rgba(40, 56, 100, 0.9); }
+.cr-skip.end { color: #ffe08a; font-size: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-slide img { animation: none; }
+  .cr-roll { animation: none; top: 8vh; }
+}

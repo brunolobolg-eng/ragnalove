@@ -11,6 +11,8 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { VISUAL_CONFIG, VISUAL_THEMES } from '../config/visualConfig';
 import { ACTIVE_ZONE, type ZoneTheme } from '../config/zones';
 import { GAME_CONFIG } from '../config/gameConfig';
+import { CREDITS_CONFIG } from '../config/credits';
+import { snapshotCanvas } from './Screenshot';
 
 export interface GraphicsOptions {
   pixelRatio: number; // multiplica a resolução nativa (0.5..1)
@@ -38,6 +40,8 @@ export class Stage {
   /** Aurenthal PostFX: color grading, gradiente da região, vinheta, grão e nitidez por preset. */
   readonly postfx: PostFX;
   private kickT = 0;
+  /** Foto pedida para o próximo quadro desenhado (créditos finais). */
+  private shotCb?: (dataUrl: string) => void;
   private aberr = 0;
   private time = 0;
   private readonly heat: { pos: THREE.Vector3; radius: number; strength: number }[] = [];
@@ -375,6 +379,11 @@ export class Stage {
     }
   }
 
+  /** Pede uma foto do próximo quadro desenhado (só o 3D, sem a interface). Quem pede recebe o JPEG em data URL. */
+  requestShot(cb: (dataUrl: string) => void): void {
+    this.shotCb = cb;
+  }
+
   render(dt: number): void {
     if (import.meta.env.DEV) this.renderer.info.reset();
     this.time += dt;
@@ -435,6 +444,11 @@ export class Stage {
     const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
     this.bloom.strength = this.bloomBase * this.gfx.bloomStrength * this.postfx.update(dt, this.time, size.x, size.y);
     this.composer.render(dt);
+    if (this.shotCb) {
+      const cb = this.shotCb;
+      this.shotCb = undefined;
+      cb(snapshotCanvas(this.renderer.domElement, CREDITS_CONFIG.shotWidth, CREDITS_CONFIG.shotQuality));
+    }
   }
 }
 

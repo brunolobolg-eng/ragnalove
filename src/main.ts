@@ -105,6 +105,8 @@ import type { Fortification } from './core/sim/Simulation';
 import { legendsFrom } from './ui/menu/HallOfLegends';
 import { emptyRecords, updateRecords, updateSurvivalBest, type Records } from './core/run/records';
 import { SaveStore, type SaveKey } from './save/SaveStore';
+import { addCreditShot, clearCreditShots, listCreditShots, type CreditShot } from './save/CreditShots';
+import { Credits } from './ui/Credits';
 import type { BattleSeal } from './core/run/run';
 import { SettingsStore, graphicsFrom } from './settings/Settings';
 import { AudioEngine, type SfxName } from './audio/AudioEngine';
@@ -548,6 +550,7 @@ const collection = new Collection({
   onUi: ui,
 });
 const cardPack = new CardPack((n) => audio.sfx(n));
+const credits = new Credits();
 function openCollection(bastionNights = 0): void {
   const meta = loadMetaStats();
   openCardsRef = meta.collection ?? emptyCollection();
@@ -706,6 +709,7 @@ function openCharSelect(): void {
   charSelect.open((h) => {
     charSelect.close();
     run = newRun(h);
+    void clearCreditShots().catch(() => {}); // uma jornada por vez: as fotos da anterior saem
     profile = run.profile;
     applyCardLoadout(run.profile, loadMetaStats().collection ?? emptyCollection());
     hasSavedRun = true;
@@ -965,7 +969,7 @@ function completeNode(outcome: string): void {
     addCards(meta.collection, pack);
     saveMetaStats(meta);
     saveProfile();
-    cardPack.show(pack, () => showRunEnd(true));
+    cardPack.show(pack, () => void playCredits(() => showRunEnd(true)));
     return;
   }
   openMap();
@@ -1018,6 +1022,29 @@ function openEvent(): void {
     })),
   );
   paintEventArt(eventModal.el, ev.id);
+}
+
+/** Foto da vitória de fase (quadro 3D, sem a interface) guardada para os créditos finais. */
+function requestCreditShot(): void {
+  const caption = `${VICTORY_TITLES[ZONE_STATE.current.id] ?? 'Fase Concluída'} · ${currentRegion(run).name}`;
+  stage.requestShot((dataUrl) => {
+    if (dataUrl) void addCreditShot({ caption, dataUrl }).catch(() => {});
+  });
+}
+
+/** Final da luta vencida: as fotos da jornada passam, depois os créditos; então vai para a tela de fim. */
+async function playCredits(then: () => void): Promise<void> {
+  setMode('end');
+  let shots: CreditShot[] = [];
+  try {
+    shots = await listCreditShots();
+  } catch {
+    shots = []; // sem fotos (ou sem armazenamento) os créditos rolam do mesmo jeito
+  }
+  credits.play(shots, () => {
+    void clearCreditShots().catch(() => {});
+    then();
+  });
 }
 
 function showRunEnd(victory: boolean, cityFell = false): void {
@@ -2087,6 +2114,7 @@ function frame(now: number): void {
   }
   if (sim.phase !== lastPhase) {
     lastPhase = sim.phase;
+    if (sim.phase === 'victory' && !bastionSession.active) requestCreditShot();
     const ended = sim.phase === 'victory' || sim.phase === 'defeat';
     const announce = () => {
       if (sim.phase === 'victory') hud.showVictory(VICTORY_TITLES[ZONE_STATE.current.id] ?? 'Fase Concluída', currentRegion(run).name);
@@ -2303,7 +2331,7 @@ if (desktopBalance)
 // No build de produção o Vite troca `import.meta.env.DEV` por `false`, este bloco
 // é eliminado e o módulo de debug não entra no pacote da Steam.
 if (import.meta.env.DEV) {
-  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, bastion: bastionSession, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview,
+  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, bastion: bastionSession, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview, credits, playCredits,
     // mapa do Último Bastião (só dev): grade nova em planejamento, sem horda, para conferir o cenário
     openBastionMap: () => { loadZone(ZONES[BASTION_ZONE_ID], { count: 0, boss: null, seed: 1 }); setMode('battle'); focusParty(true); },
     // qualquer zona (só dev), em planejamento e sem horda; para testar a horda: sim.start(), hud.setPlanning(false), sim.spawnEnemy()
