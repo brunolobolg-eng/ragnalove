@@ -146,6 +146,8 @@ export class BastionGhostView {
       o.receiveShadow = false;
       if (!(o instanceof THREE.Mesh)) return;
       o.material = this.fillMat;
+      // a geometria do muro é montada na prévia (não é do kit): quem a descarta é a prévia
+      if (!o.geometry.userData.compartilhado) this.disposables.push(o.geometry);
       const arestas = this.geo(new THREE.EdgesGeometry(o.geometry, VISUAL_CONFIG.bastionGhost.edgeAngle));
       o.add(new THREE.LineSegments(arestas, this.edgeMat));
     });
