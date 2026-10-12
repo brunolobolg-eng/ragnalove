@@ -25,9 +25,19 @@ export interface HudCallbacks {
   onAttr(kind: string, key: AttrKey, amount: number): void;
   onSkills(): void;
   onEquip(kind: string, itemId: string): void;
+  /** Escolhe a vocação do herói (o main pede confirmação, porque é permanente nesta jornada). */
+  onEvolve(kind: string, vocationId: string): void;
   onUnequip(kind: string, slot: Slot): void;
   /** Seleciona o herói na batalha (mostra a zona de agressão dele). */
   onSelectMember(kind: HeroKind): void;
+}
+
+/** Vocação na ficha: a escolhida, ou as duas vagas da classe (null = ainda sem desenho, "Em breve"). */
+export interface VocacaoVM {
+  /** Nível em que a escolha abre. */
+  nivel: number;
+  atual?: { nome: string; descricao: string; bonus: string };
+  vagas: ({ id: string; nome: string; descricao: string; bonus: string; motivo?: string | undefined } | null)[];
 }
 
 /** Dados da janela de personagem (atributos + equipamento), montados pelo main. */
@@ -51,6 +61,9 @@ export interface CharacterVM {
     gearAttrs: Record<AttrKey, number>;
     derived: [string, string][];
     equipment: Partial<Record<Slot, Item>>;
+    /** Nome exibido: a vocação escolhida, ou a classe base. */
+    nome: string;
+    vocacao: VocacaoVM;
   }[];
 }
 
@@ -444,6 +457,7 @@ export class Hud {
         this.renderCharacter();
       } else if (c === 'plus') cb.onAttr(k, t.dataset.key as AttrKey, Number(t.dataset.n ?? 1));
       else if (c === 'equip') cb.onEquip(k, t.dataset.id!);
+      else if (c === 'evolve') cb.onEvolve(k, t.dataset.id!);
       else if (c === 'unequip') cb.onUnequip(k, t.dataset.slot as Slot);
     });
     // dica flutuante dos itens (estilo MMO): segue o mouse
@@ -773,6 +787,19 @@ export class Hud {
     });
     const minCells = 36;
     while (cells.length < minCells || cells.length % 6) cells.push('<div class="cw-cell au-slot empty void"></div>');
+    // vocação: a escolhida, ou as duas vagas da classe (a evolução é permanente nesta jornada)
+    const voc = h.vocacao;
+    const aviso = voc.vagas.find((v) => v?.motivo)?.motivo;
+    const vocBody = voc.atual
+      ? `<div class="cw-voc-now"><b>${voc.atual.nome}</b><span>${voc.atual.descricao}</span><small>${voc.atual.bonus}</small></div>`
+      : `<div class="cw-voc-slots">${voc.vagas
+          .map((v) =>
+            v
+              ? `<div class="cw-voc-slot"><b>${v.nome}</b><span>${v.descricao}</span><small>${v.bonus}</small><button class="au-btn primary" data-c="evolve" data-id="${v.id}" title="${v.motivo ?? 'Escolha permanente nesta jornada'}"${dis(vm.editable && !v.motivo)}>Evoluir</button></div>`
+              : '<div class="cw-voc-slot empty"><b>Em breve</b><span>Vocação ainda não desenhada.</span></div>',
+          )
+          .join('')}</div><div class="cw-hint">${aviso ?? (vm.editable ? 'Escolha permanente nesta jornada.' : 'Evolução só fora da batalha.')}</div>`;
+    const vocBox = `<div class="cw-box au-sec cw-voc"><div class="cw-sub">Vocação <span>${voc.atual ? '' : `nível ${voc.nivel}`}</span></div>${vocBody}</div>`;
     const flt = (id: typeof F, label: string) => `<button data-c="filter" data-f="${id}" class="au-tab${F === id ? ' on' : ''}">${label}</button>`;
     this.charWin.querySelector('.char-body')!.innerHTML = `
       <div class="cw">
@@ -782,13 +809,14 @@ export class Hud {
             <div class="cw-col">${L.map(slotCell).join('')}</div>
             <div class="cw-model ${bestRefine >= 5 ? 'aura' : ''}">
               <span class="hc-medal" aria-hidden="true"></span>
-              <div class="cw-name"><b>${NAME[h.kind]}</b><span>Nv. ${h.level} · ${ROLE[h.kind]}</span></div>
+              <div class="cw-name"><b>${h.nome}</b><span>Nv. ${h.level} · ${ROLE[h.kind]}</span></div>
               ${this.fullBody[h.kind] ? `<img src="${this.fullBody[h.kind]}" alt="">` : `<img class="flat" src="${PORTRAIT[h.kind] ?? ''}" alt="">`}
               <i class="cw-plat"></i>
             </div>
             <div class="cw-col">${R.map(slotCell).join('')}</div>
           </div>
           <div class="cw-stats">
+            ${vocBox}
             <div class="cw-box au-sec"><div class="cw-sub">Atributos <span>Pontos: <b>${h.points}</b></span></div>${attrs}
               <div class="cw-hint">${vm.editable ? 'Refazer pontos: Mestre de Armas (cidade).' : 'Distribua pontos entre as fases.'}</div></div>
             <div class="cw-box au-sec"><div class="cw-sub">Status</div><div class="cw-drvs">${derived}</div></div>

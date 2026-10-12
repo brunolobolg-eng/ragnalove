@@ -30,6 +30,12 @@ export interface HumanoidJoints {
   armX: number;
   /** y abaixo do qual o corpo vira pernas separadas. */
   crotchY: number;
+  /** Opcional: só vira braço o vértice com |z| abaixo disto (capa e costas ficam com o tronco). */
+  armZ?: number;
+  /** Opcional: só vira braço o vértice acima desta altura (abaixo dela é quadril/coxa, não o punho). */
+  armMinY?: number;
+  /** Opcional: só vira braço o vértice abaixo desta altura (acima dela é cabelo/cabeça, não o ombro). */
+  armMaxY?: number;
 }
 
 const mirror = (v: THREE.Vector3) => new THREE.Vector3(-v.x, v.y, v.z);
@@ -80,6 +86,8 @@ export function skinHumanoid(geo: THREE.BufferGeometry, J: HumanoidJoints, bones
     const y = pos.getY(i);
     const ax = Math.abs(x);
     const s = x >= 0 ? 'L' : 'R';
+    // braço só na faixa de altura e profundidade dele (com os limites opcionais das juntas)
+    const armOk = Math.abs(pos.getZ(i)) < (J.armZ ?? Infinity) && y > (J.armMinY ?? -Infinity) && y < (J.armMaxY ?? Infinity);
     const w: [string, number][] = [];
     const chain = (names: string[], ys: number[]) => {
       // ys: y das juntas que separam os ossos (decrescente); names.length = ys.length + 1
@@ -92,7 +100,7 @@ export function skinHumanoid(geo: THREE.BufferGeometry, J: HumanoidJoints, bones
       w.push([names[names.length - 1], prev]);
     };
     const shoulderY = J.upperArm.y;
-    const isArm = y < shoulderY && ax > J.armX + Math.max(0, y - (shoulderY - 0.2)) * 0.4;
+    const isArm = armOk && y < shoulderY && ax > J.armX + Math.max(0, y - (shoulderY - 0.2)) * 0.4;
     if (y < J.crotchY + B && ax > 0.04) {
       // pernas (com a parte de cima misturando no quadril)
       const legW = 1 - smooth(J.crotchY - B, J.crotchY + B, y);
@@ -104,7 +112,7 @@ export function skinHumanoid(geo: THREE.BufferGeometry, J: HumanoidJoints, bones
       w.push(['hips', 1]); // tanga/pano no meio: acompanha o quadril
     } else if (isArm) {
       chain([`upperArm.${s}`, `foreArm.${s}`, `hand.${s}`], [J.foreArm.y, J.hand.y]);
-    } else if (y > shoulderY - 0.12 && ax > J.shoulder.x + 0.05) {
+    } else if (armOk && y > shoulderY - 0.12 && ax > J.shoulder.x + 0.05) {
       // ombreiras: metade ombro, metade braço
       w.push([`shoulder.${s}`, 0.55], [`upperArm.${s}`, 0.45]);
     } else {
@@ -404,9 +412,10 @@ export interface RiggedModel {
 
 /**
  * Prepara um GLB estático para virar personagem: junta as malhas, põe os pés em y = 0,
- * detecta as juntas, calcula os pesos e escolhe cor (textura do próprio GLB ou pintura por região).
+ * detecta as juntas (ou usa as medidas em `juntas`, que têm prioridade), calcula os pesos e escolhe cor
+ * (textura do próprio GLB ou pintura por região). `juntas` vale no espaço com os pés em y = 0 e X/Z centrados.
  */
-export function prepareRiggedModel(scene: THREE.Object3D, paint?: (x: number, y: number, z: number, h: number) => THREE.Color): RiggedModel {
+export function prepareRiggedModel(scene: THREE.Object3D, paint?: (x: number, y: number, z: number, h: number) => THREE.Color, juntas?: HumanoidJoints): RiggedModel {
   scene.updateMatrixWorld(true);
   const parts: THREE.BufferGeometry[] = [];
   let map: THREE.Texture | undefined;
@@ -426,7 +435,7 @@ export function prepareRiggedModel(scene: THREE.Object3D, paint?: (x: number, y:
   geo.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
   geo.computeVertexNormals();
   const H = bb.max.y - bb.min.y;
-  const joints = detectHumanoidJoints(geo);
+  const joints = juntas ?? detectHumanoidJoints(geo);
   const bones = humanoidBones(joints);
   skinHumanoid(geo, joints, bones);
   const pos = geo.attributes.position;

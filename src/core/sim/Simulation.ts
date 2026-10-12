@@ -116,6 +116,8 @@ export interface HeroLoadout {
   exp: number;
   /** Regras das cartas equipadas (derivadas da coleção no início da run). */
   cards?: CardRuntime[];
+  /** Modelo visual da vocação escolhida (ausente = modelo da classe). Não entra nas regras. */
+  visual?: string;
 }
 
 /**
@@ -253,6 +255,7 @@ export class Simulation {
       u.level = lo.level;
       u.exp = lo.exp;
       u.cardRules = lo.cards ?? [];
+      if (lo.visual) u.visual = lo.visual;
       u.cardCd = {};
       this.heroFinal.set(u.kind, { level: u.level, exp: u.exp });
     }

@@ -398,7 +398,7 @@ export class GameView {
   private addUnit(id: number): AnyUnitView | undefined {
     const u = this.sim.units.get(id);
     if (!u) return undefined;
-    const v = createUnitView(u.kind, u.team);
+    const v = createUnitView(u.kind, u.team, u.visual);
     v.setFacing(u.facing.x, u.facing.y, true);
     tileToWorld(u.x, u.y, v.root.position);
     this.world.add(v.root);

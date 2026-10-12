@@ -1,6 +1,6 @@
 import type { Item, Slot } from '../core/progression/equipment';
 import { RARITY_INFO, SLOT_KINDS, SLOT_LABEL, itemLines, itemName } from '../core/progression/equipment';
-import { HERO_INFO, HERO_NAME } from '../config/heroes';
+import { HERO_INFO } from '../config/heroes';
 import type { HeroKind } from '../core/progression/skills';
 import { SKILL_ICONS } from './icons';
 import { itemArtCanvas, itemIconUrl } from './itemArt';
@@ -9,6 +9,8 @@ import { kitIcon } from './kit';
 /** Resumo de um herói para a janelinha do mapa (montado pelo main). */
 export interface HeroCardVM {
   kind: HeroKind;
+  /** Nome exibido: a vocação escolhida, ou a classe base. */
+  nome: string;
   level: number;
   dead: boolean;
   hp: number;
@@ -143,10 +145,10 @@ export class HeroCard {
     const hpPct = h.maxHp ? Math.max(0, Math.min(1, h.hp / h.maxHp)) : 0;
     const emblem = SKILL_ICONS[info.area]?.() ?? '';
     this.el.innerHTML = `
-      <div class="hc au-frame ${h.dead ? 'dead' : ''}" role="dialog" aria-label="${HERO_NAME[h.kind]}">
+      <div class="hc au-frame ${h.dead ? 'dead' : ''}" role="dialog" aria-label="${h.nome}">
         <header class="hc-head">
           <span class="hc-emblem">${emblem ? `<img src="${emblem}" alt="">` : ''}</span>
-          <b>${HERO_NAME[h.kind]}</b>
+          <b>${h.nome}</b>
           <span class="hc-lv">Nv. ${h.level}</span>
           <button class="au-x" data-hc="close" title="Fechar (Esc)">×</button>
         </header>

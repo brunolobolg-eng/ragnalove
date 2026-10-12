@@ -11,6 +11,8 @@ export interface Unit {
   id: number;
   team: Team;
   kind: string; // 'mage' | 'warrior' | 'grunt' | ...
+  /** Modelo visual quando difere da classe (herói com vocação com modelo próprio). Só muda o desenho. */
+  visual?: string;
   x: number;
   y: number;
   /** Tile anterior + início/duração do movimento (para interpolação no render). */

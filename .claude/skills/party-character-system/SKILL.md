@@ -11,7 +11,7 @@ description: Party e personagens do ROguard — as 6 classes, desbloqueio, níve
 Ordem/textos em `HERO_INFO`/`HERO_ORDER` (`config/heroes.ts`); IA em `core/archetypes/<classe>.ts`.
 
 ## Progressão (`core/progression/profile.ts`, vive dentro do `RunState`)
-- `HeroProgress`: `level, exp, attrs, points, zeniPoints, skills, skillPoints, equipment`.
+- `HeroProgress`: `level, exp, attrs, points, zeniPoints, skills, skillPoints, equipment, vocation`.
 - A jornada começa com 1 herói; cada **chefe de ato** libera outro (`run.party`). Derrota total = nova jornada do zero.
 - Atributos: Força, Inteligência, Vitalidade, Destreza, Sorte. Pontos por nível; compra extra com Zeni (preço sobe);
   refazer pontos no Mestre de Armas da cidade.
@@ -23,6 +23,18 @@ Ordem/textos em `HERO_INFO`/`HERO_ORDER` (`config/heroes.ts`); IA em `core/arche
 Modelo 3D por herói em `HERO_MODELS` (visualConfig). Retrato/corpo inteiro/caminhada são renderizados do modelo
 (`CharSelect.portrait/fullBody/walkFrames`) e cacheados no main (`PORTRAITS`, `FULL_BODY`).
 Telas: `Hud` (ficha completa C), `HeroCard` (janelinha no mapa), `SkillTree` (K), `CharSelect`.
+
+## Vocações (evoluções das classes)
+- Dados em `config/vocations.ts`: `VOCATIONS[classe]` tem duas vagas (`null` = "Em breve"); `VOCATIONS_CONFIG.level` é o nível da
+  escolha (10). Vocação = `{ id, nome, descricao, bonus, modelo? }`. O Bárbaro é a primeira vaga do Guerreiro.
+- Regras em `profile.ts`: `vocationOf(kind, h)`, `evolveBlocker` → `evolve` (uma vez por jornada, nível mínimo, vaga da própria
+  classe) e `heroDisplayName` (nome na interface). `heroStats` soma o `bonus` como atributo (`computeStats`), sem contar como ponto gasto.
+- Save: `HeroProgress.vocation?` (id). `migrateProfile` tira id desconhecido ou de outra classe.
+- Visual: a unidade de batalha leva `visual` (modelo da vocação). `createUnitView` usa esse modelo só se ele estiver em `MODELS`;
+  senão usa o da classe.
+- Ficha: bloco "Vocação" em `Hud.ts` (ação `onEvolve` → confirmação no main, tom `'normal'`).
+- Não confundir com a "vocação" das **cartas** (`cards.ts`): lá o bônus é por classe base. As evoluções recebem o mesmo bônus
+  de carta, porque a classe da unidade (`kind`) não muda.
 
 ## Pet e Asas
 Ainda **não existem** como sistema (aparecem "Em breve" no HeroCard). Ao implementar: slots novos no `HeroProgress`

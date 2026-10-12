@@ -1,4 +1,3 @@
-import { HERO_NAME } from '../config/heroes';
 import type { HeroKind } from '../core/progression/skills';
 import { NODE_COLOR, nodeIconUrl } from './nodeArt';
 import { ACTS, BIOME_LABEL, NODE_LABEL, REGIONS, REGION_BY_ID, type NodeType } from '../config/world';
@@ -23,6 +22,8 @@ export interface MapState {
   cityMaxHp?: number;
   heroes: {
     kind: HeroKind;
+    /** Nome exibido: a vocação escolhida, ou a classe base. */
+    nome: string;
     level: number;
     dead: boolean;
     points: number;
@@ -257,7 +258,7 @@ export class WorldMap {
       .map(
         (h) => `<div class="wm-hero ${h.dead ? 'dead' : ''} ${open === h.kind ? 'on' : ''}" data-a="hero" data-k="${h.kind}" title="Ver equipamento e status">
           <img class="wm-pic" src="${PORTRAITS[h.kind] ?? ''}" alt="">
-          <span class="wm-who"><b>${HERO_NAME[h.kind]}</b><small>Nv. ${h.level}</small>
+          <span class="wm-who"><b>${h.nome}</b><small>Nv. ${h.level}</small>
             <span class="wm-chips"><em class="hp">♥ ${h.dead ? 0 : h.maxHp}/${h.maxHp}</em>${h.points ? `<em class="pt">${h.points} atr.</em>` : ''}${h.skillPoints ? `<em class="pt sk">${h.skillPoints} hab.</em>` : ''}</span>
           </span>
           ${h.weaponIcon ? `<img class="wm-wpn" src="${h.weaponIcon}" alt="" style="--rc:${h.weaponColor}">` : '<i class="wm-wpn none"></i>'}

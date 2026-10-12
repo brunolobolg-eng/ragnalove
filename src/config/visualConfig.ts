@@ -202,8 +202,15 @@ export interface MonsterModelVisual {
   aura?: [number, number, number];
   /** Heróis: cor do espectro ao usar habilidade. */
   ghost?: [number, number, number];
-  /** Usa as animações do personagem do jogo (o GLB traz só malha + esqueleto com os mesmos nomes de ossos). */
-  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig';
+  /**
+   * Usa as animações do personagem do jogo (o GLB traz só malha + esqueleto com os mesmos nomes de ossos).
+   * `warriorUAL` = captura UAL (descanso, andar, dano, morte) com os golpes do Guerreiro.
+   */
+  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig' | 'warriorUAL';
+  /** `auto` = GLB sem esqueleto (malha estática): o jogo põe o esqueleto humanoide (auto-rig) e usa os `clips`. */
+  rig?: 'auto';
+  /** Juntas medidas para o auto-rig (com `rig: 'auto'`); sem elas, a detecção automática decide. */
+  juntas?: RigJointsVisual;
   /** Flutuação: o corpo fica elevado este tanto (unidades do modelo) e não usa o passo de caminhada. */
   hover?: number;
   /** Respiração no ar: o corpo sobe e desce `amp` metros em `period` segundos; a sombra de contato acompanha. */
@@ -222,6 +229,59 @@ export interface MonsterModelVisual {
   /** Armas presas nos ossos da mão (para modelos que vêm de mãos vazias); accent = cor do brilho. */
   weapons?: { type: 'bow' | 'dagger' | 'axe' | 'sword' | 'greatsword' | 'shield'; bone: string; accent?: number; tilt?: number; scale?: number; pos?: [number, number, number] }[];
 }
+
+/**
+ * Juntas de um GLB sem esqueleto (auto-rig), em unidades do modelo: pés em y = 0, frente em +Z, lado esquerdo
+ * em +X (o direito é espelhado). `armX` = |x| a partir do qual o corpo vira braço; `crotchY` = altura da
+ * entreperna. Opcionais: `armZ` (só vira braço o vértice com |z| menor), `armMinY` e `armMaxY` (faixa de
+ * altura do braço): capa, cabelo e tiras de quadril seguem o tronco, não o braço.
+ */
+export interface RigJointsVisual {
+  root: [number, number, number];
+  hips: [number, number, number];
+  spine: [number, number, number];
+  chest: [number, number, number];
+  neck: [number, number, number];
+  head: [number, number, number];
+  shoulder: [number, number, number];
+  upperArm: [number, number, number];
+  foreArm: [number, number, number];
+  hand: [number, number, number];
+  thigh: [number, number, number];
+  shin: [number, number, number];
+  foot: [number, number, number];
+  armX: number;
+  crotchY: number;
+  armZ?: number;
+  armMinY?: number;
+  armMaxY?: number;
+}
+
+/**
+ * Bárbaro (versão otimizada de 1,5 MB do barbaridade.glb do dono): juntas medidas no corte da malha. É um chibi de
+ * pernas curtas e braços abertos; a detecção automática punha o quadril nos joelhos e a capa e as tiras do quadril
+ * no braço (a pele se rasgava no golpe). Medido com o giro de -90° do otimizador (frente em +Z).
+ */
+const BARBARIAN_JOINTS: RigJointsVisual = {
+  root: [0, 0, 0],
+  hips: [0, 0.36, 0],
+  spine: [0, 0.46, 0],
+  chest: [0, 0.6, 0],
+  neck: [0, 0.71, 0],
+  head: [0, 0.76, 0],
+  shoulder: [0.1, 0.62, 0],
+  upperArm: [0.15, 0.56, 0],
+  foreArm: [0.19, 0.43, 0],
+  hand: [0.22, 0.31, 0],
+  thigh: [0.09, 0.33, 0],
+  shin: [0.11, 0.13, 0],
+  foot: [0.12, 0.04, 0.02],
+  armX: 0.15,
+  crotchY: 0.19,
+  armZ: 0.07,
+  armMinY: 0.36,
+  armMaxY: 0.66,
+};
 
 /** Heróis avançados (GLB com o mesmo esqueleto padrão). Até carregar, usam o modelo de uma classe parecida. */
 export const HERO_MODELS: Record<string, MonsterModelVisual> = {
@@ -243,6 +303,9 @@ export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   warlock: { file: 'models/warlock.glb', height: 1.75, walkRate: 1, ghost: [1.6, 0.25, 0.6], clips: 'warriorRig', bind: 'ibm' },
   // Cavaleiro sombrio (modelo do V2Fun no esqueleto padrão): animações de golpe do Guerreiro (corpo a corpo)
   assassin: { file: 'models/assassin_dk.glb', height: 1.9, walkRate: 1.05, ghost: [1.6, 1.3, 0.3], clips: 'warrior', weapons: [{ type: 'dagger', bone: 'hand.R', accent: 0xc070ff }, { type: 'dagger', bone: 'hand.L', accent: 0xc070ff }] },
+  // Bárbaro (vocação do Guerreiro): modelo do dono sem esqueleto → auto-rig com as juntas medidas acima. Animações:
+  // captura UAL no descanso, andar, dano e morte; golpe e investida do Guerreiro. Machado na mão direita (o arquivo vem sem arma).
+  barbarian: { file: 'models/barbarian.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorUAL', rig: 'auto', juntas: BARBARIAN_JOINTS, weapons: [{ type: 'axe', bone: 'hand.R', tilt: 35, scale: 1.1 }] },
 };
 /** Zumbi do Ato III: coveiro, afogado, pesteado, luto e cinzas (além da cor original do modelo). */
 const ZOMBIE_SKINS = ['coveiro', 'afogado', 'pesteado', 'luto', 'cinzas'].map((n) => `models/zombie_${n}.jpg`);

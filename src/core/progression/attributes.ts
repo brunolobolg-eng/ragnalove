@@ -170,12 +170,12 @@ export interface HeroStats {
   skills: SkillLevels;
 }
 
-export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emptyGear(), skills: SkillLevels = {}, bonus: { hp?: number; mana?: number } = {}): HeroStats {
+export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emptyGear(), skills: SkillLevels = {}, bonus: { hp?: number; mana?: number; attrs?: Partial<Attrs> } = {}): HeroStats {
   const fam = familyOf(kind);
   const A = ATTRIBUTES_CONFIG;
   const base = A.base[kind] ?? emptyAttrs();
   const attrs = emptyAttrs();
-  for (const k of ATTR_KEYS) attrs[k] = attrsIn[k] + gear.attrs[k];
+  for (const k of ATTR_KEYS) attrs[k] = attrsIn[k] + gear.attrs[k] + (bonus.attrs?.[k] ?? 0);
   const d = (k: AttrKey) => Math.max(0, attrs[k] - base[k]); // pontos acima da base
 
   const mCfg = GAME_CONFIG.archetypes.mage;
