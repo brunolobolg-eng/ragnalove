@@ -682,6 +682,42 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   2. Dono, se ainda pesar, são decisões visuais: (a) sombras só no cenário fixo durante o planejamento; (b) MSAA 2× no preset Alto; (c) reduzir os triângulos das árvores e arbustos com sombra (~610 mil triângulos).
   3. Alternativa imediata: preset Médio ou Baixo em Opções → Vídeo.
 
+## 2026-10-12 — Animações: morte completa, andar no ritmo do passo e chefes com anel (v0.11, em andamento)
+- **Pedido do dono:** refinar as animações de personagens e monstros (auditoria, integração, combate, mortes), sem mudar mecânica.
+- **Auditoria (somente leitura, dois auditores + medição no navegador sem desenho):**
+  - Pacote UAL: a pasta `Universal Animation Library[Standard]` **não está no repositório**. Só existe uma cópia de trabalho fora dele (`scratchpad`, 43 animações). Os geradores (`scripts/extractUALAnims.mjs`, `scripts/retargetUALMixamo.cjs`) apontam para caminhos que não existem aqui.
+  - Clipes usados: os da UAL (morte de 2,4 s; ataque, andar e parado), os embutidos nos GLB de rato e goblin (7 nomes exatos) e os procedurais (zumbis, orcs, fallbacks).
+  - Morte: o corpo sumia em 1,76 s, mas a morte da UAL dura 2,4 s. A morte era cortada.
+  - Monstros ficavam parados durante o adiamento do impacto (0,28 s): a view pulava unidades que a simulação já tinha tirado.
+  - Andar e parado: os inimigos paravam 1 tick (0,1 s) quando presos na fila, e o andar só esperava 0,18 s antes de virar parado. Cada espera virava um piscar.
+- **Correções feitas:**
+  1. **Morte completa:** o corpo fica até o clipe de morte terminar e só então desvanece (mínimo de 0,4 s). Herói: corpo na cena por 2,80 s (antes 1,76 s).
+  2. **Morte adiada sem congelar:** o corpo segue o clipe até o golpe chegar. Verificado: o clipe avança durante a espera.
+  3. **Andar no ritmo do passo:** a velocidade do ciclo acompanha a cadência real (passo de 0,5 s = velocidade-base; passo mais longo anda mais devagar; passo curto, mais depressa). Limites de 0,5 a 1,6.
+  4. **Parado só depois de um tempo:** inimigo espera 0,45 s antes de virar parado (antes 0,18 s). Medido em 10 s de horda: quedas de andar para parado de 15 para 1; fração de tempo parado de 4,3% para 0,5%.
+  5. **Brilho de combate pelo clipe:** a duração do espectro acompanha o clipe que está tocando (antes 0,55, 0,4 e 0,85 s fixos).
+  6. **Chefe de ato com anel e sombra:** o anel de energia e a sombra usavam o nome do modelo (`ratBoss`), não o tipo da simulação (`boss`), e nunca apareciam. Verificado: anel e sombra presentes.
+  7. Anel de chefe some junto com a morte.
+- **Correção de registro (D70):** o tufão de vento do Guerreiro **nunca apareceu ao vivo**: o handler de classe consome golpe e investida antes do caso padrão do `GameView`. A condição que pus para o Bárbaro nesse ponto não tinha efeito; foi desfeita. A descrição de D70 estava errada.
+- **Testes:**
+  - `tsc`, `npm run build`, `sim:check` (determinístico), `bastion:check` e `vocation:check` passam.
+  - Horda sem desenho, 600 quadros: piscar de andar para parado (ver item 4).
+  - Morte pelo caminho do jogo (`sim.damage` + entrega dos eventos à view): herói 2,80 s, inimigo 1,76 s, clipe de morte desde o começo.
+  - Visual: quatro quadros da morte do herói (1,0 s caído; 1,8 s desvanecendo; 2,6 s fora da cena).
+  - Chefe de ato: anel e sombra presentes. Ritmo do andar: passo de 0,5 s dá 1,3 (rato) e passo de 0,3 s dá 3,84 (corredor), como calculado.
+  - Sem erro de página nem de console em nenhum teste.
+- **Limitações (dependem de clipe, dado ou rig que não está no pacote):**
+  - O dano visual ainda aparece em tempo fixo (0,26 a 0,30 s) depois do início do ataque. O pacote não traz marcadores de impacto por clipe.
+  - A barra de vida mostra o HP da simulação, que cai antes do impacto.
+  - Postura de combate própria por classe: o pacote tem `Sword_Idle` e `Spell_Simple_Idle_Loop`, mas os heróis usam rig Mixamo e precisam de clipes regenerados.
+  - Reação por direção (`Hit_Head`, `Hit_Chest`, `Hit_Knockback` existem no pacote): o jogo usa um só clipe de reação.
+  - Hit-stop congela animações e efeitos, não o deslocamento (até 0,3 s de deslizamento).
+  - Pesos de pele do bongun: só as quatro maiores influências são lidas.
+  - Nada de PC testado; GPU não medida.
+- **Pendências:**
+  1. Dono: confirmar onde está o pacote UAL no repositório (ou autorizar que o cópia de trabalho entre no repo) para integrar os clipes que faltam.
+  2. Dono: testar no PC morte e andar de monstros e dizer se o ritmo do andar combina.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

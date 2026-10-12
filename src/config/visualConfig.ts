@@ -50,7 +50,12 @@ export const VISUAL_CONFIG = {
     /** Névoa de veneno: intervalo (s) entre as baforadas sobre um inimigo envenenado. */
     poisonMist: { every: 0.3 },
   },
-  unit: { hitFlashTime: 0.22, deathTime: 1.1 },
+  /**
+   * hitFlashTime: clarão ao levar dano. deathTime: tempo do corpo até sumir (a morte espera o clipe de morte, se for mais longo).
+   * walkStepRef: passo (s) em que o andar tem a velocidade-base do modelo; passo mais lento anda mais devagar, passo mais rápido, mais depressa.
+   * walkHold / walkHoldEnemy: tempo (s) que o andar segue depois do último passo, para o parado não piscar entre passos (inimigos esperam mais na fila).
+   */
+  unit: { hitFlashTime: 0.22, deathTime: 1.1, walkStepRef: 0.5, walkHold: 0.18, walkHoldEnemy: 0.45 },
   /** Planejamento: heróis passeiam em volta do posto (raio em tiles, velocidades em tiles/s, esperas em s). */
   idleWander: { radius: 0.85, speed: 0.9, orderSpeed: 3.2, waitMin: 1.5, waitMax: 4.5, lookAtCameraAfter: 1.2 },
   /** Ordem de posição: marca no chão (duração em s). */

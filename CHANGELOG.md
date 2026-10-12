@@ -7,6 +7,9 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - O Bárbaro luta de punho: soco rápido no ataque básico e soco cruzado na investida. Sem machado e sem o arco de lâmina do Guerreiro.
 - Roleta de recompensa: um clique em qualquer lugar da tela encerra o giro na hora e mostra o prêmio.
 - Último Bastião: construir deixa de esperar o disco no executável. O save da cidade passa a ser gravado em segundo plano; a jornada continua gravando na hora.
+- Morte de heróis e monstros: o corpo fica no chão até a animação de morte terminar, e só então desaparece.
+- Monstros andam no ritmo dos próprios passos: os mais pesados andam mais devagar, e o andar não pisca mais para parado entre um passo e outro.
+- Chefes de ato voltam a ter o anel de energia e a sombra.
 
 ## 2026-10-11 — v0.11 (em andamento)
 - Início do modo O Último Bastião: uma cidade que persiste entre tentativas. Estruturas, dano, projetos e a vida do núcleo ficam salvos num arquivo próprio, sem mexer na jornada.
