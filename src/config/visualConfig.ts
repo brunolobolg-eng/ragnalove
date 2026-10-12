@@ -89,10 +89,12 @@ export const VISUAL_CONFIG = {
     panSpeed: 16, // tiles/s com teclado
     edgePan: 0, // px da borda para arrastar a câmera com o mouse (0 = desligado)
     zoomMin: 0.62,
-    /** Limite de afastamento da câmera (zoom alto = mais longe: a câmera fica em foco + offset × zoom). Antes 1.9: longe demais para ler o campo. */
-    zoomMax: 1.5,
+    /** Limite de afastamento da câmera na campanha (zoom alto = mais longe: a câmera fica em foco + offset × zoom). */
+    zoomMax: 1.9,
+    /** Último Bastião: limite de afastamento próprio (o campo de defesa fica mais perto). Só o máximo muda. */
+    bastion: { zoomMax: 1.5 },
     /** Mapas pintados (arte do dono): sem névoa, zoom maior e a câmera presa dentro da pintura. */
-    painted: { zoomStart: 1.3, zoomMin: 0.7, zoomMax: 1.5 },
+    painted: { zoomStart: 1.3, zoomMin: 0.7, zoomMax: 1.75 },
     zoomStep: 0.1,
     follow: 2.4, // suavização do seguir
     manualHold: 1.5, // s sem seguir depois que o jogador mexe na câmera
@@ -428,6 +430,28 @@ export const ACT_MONSTERS: Record<number, Record<string, string>> = {
   1: { grunt: 'goblin', runner: 'goblinRunner', brute: 'goblinBrute', necro: 'goblinNecro', elite: 'goblinElite', boss: 'goblinBoss', boss2: 'goblinBoss' },
   // elite = orc guerreiro; Senhor Orc (chefe final) = o mesmo orc, maior e com aura vermelha
   2: { grunt: 'zombie', runner: 'zombieRunner', brute: 'zombieBrute', necro: 'zombieNecro', elite: 'orcWarrior', orcboss: 'orcLord' },
+};
+
+/**
+ * Visual dos inimigos do Último Bastião (só o modelo; a simulação e os números não mudam). A horda não tem ato,
+ * então não usa ACT_MONSTERS: cada tipo sai com o seu GLB de alta qualidade do dono, nunca com a forma procedural.
+ * Comuns = zumbis (a horda chama Zumbi, Corredor e Pesado); necromante = Bongun; elite = orc com machado.
+ * Mini-chefes e chefes = os modelos dedicados. `goblinImp` (Krexx pequeno) é registrado pelo main.ts, com o GLB do Krexx.
+ */
+export const BASTION_MONSTERS: Record<string, string> = {
+  grunt: 'zombie',
+  runner: 'zombieRunner',
+  brute: 'zombieBrute',
+  raydric: 'raydric',
+  necro: 'zombieNecro',
+  elite: 'orcWarrior',
+  goblinImp: 'goblinImp',
+  goblinWarlord: 'goblinWarlord',
+  dinoBoss: 'dinoBoss',
+  goblinLeader: 'goblinLeader',
+  boss: 'ratBoss',
+  boss2: 'goblinBoss',
+  orcboss: 'orcLord',
 };
 
 /** Setas discretas no chão mostrando o caminho que a horda tende a seguir (spawn → alvo). */

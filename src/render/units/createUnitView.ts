@@ -1,9 +1,10 @@
 import { ModelUnitView, MODELS } from './model/ModelUnitView';
 import { UnitView } from './UnitView';
-import { ACT_MONSTERS, MONSTER_MODELS } from '../../config/visualConfig';
+import { ACT_MONSTERS, BASTION_MONSTERS, MONSTER_MODELS } from '../../config/visualConfig';
 import { skinKind } from './model/glbMonsters';
 import { ZONE_STATE } from '../../config/gameConfig';
 import { REGIONS } from '../../config/world';
+import { BASTION_ZONE_ID } from '../../config/bastion';
 
 /** Ato da zona em jogo (undefined fora da rota). */
 function currentAct(): number | undefined {
@@ -16,11 +17,20 @@ function currentAct(): number | undefined {
  */
 export const DEV_VISUAL: { act?: number | null; skin?: number } = {};
 
-/** Modelo 3D do inimigo conforme o ato (ratos no I, goblins no II); cai no original se o GLB ainda não carregou. */
+/**
+ * Tabela de visual dos inimigos da zona em jogo: no Último Bastião, o conjunto da horda (sem ato); na campanha,
+ * o do ato. O Dev Lab (look forçado) vence as duas.
+ */
+function enemyVisuals(): Record<string, string> | undefined {
+  if (DEV_VISUAL.act === undefined && ZONE_STATE.current.id === BASTION_ZONE_ID) return BASTION_MONSTERS;
+  const act = DEV_VISUAL.act === undefined ? currentAct() : (DEV_VISUAL.act ?? undefined);
+  return act === undefined ? undefined : ACT_MONSTERS[act];
+}
+
+/** Modelo 3D do inimigo conforme a zona (ratos no I, goblins no II, zumbis no Bastião); cai no original se o GLB ainda não carregou. */
 function actModel(kind: string, team: 'party' | 'enemy'): string {
   if (team !== 'enemy') return kind;
-  const act = DEV_VISUAL.act === undefined ? currentAct() : (DEV_VISUAL.act ?? undefined);
-  const alt = act === undefined ? undefined : ACT_MONSTERS[act]?.[kind];
+  const alt = enemyVisuals()?.[kind];
   const model = alt && MODELS[alt] ? alt : kind;
   // o sorteio de cor passa por todo inimigo com modelo (mini-chefe dino entra direto, sem ato)
   return MODELS[model] ? withSkin(model) : model;

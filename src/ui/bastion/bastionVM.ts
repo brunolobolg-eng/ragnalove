@@ -58,7 +58,7 @@ export interface BastionHordeRow {
 
 export interface BastionHubVM {
   attempt: number;
-  /** Ondas vencidas no total e na tentativa atual; melhor sequência de ondas numa tentativa. */
+  /** Ondas vencidas na tentativa atual (zera ao recomeçar); melhor sequência de ondas numa tentativa. */
   nights: number;
   nightsInAttempt: number;
   bestNights: number;
@@ -69,7 +69,7 @@ export interface BastionHubVM {
   coreRepairCost: number;
   /** A tentativa está rodando e o núcleo de pé: dá para lutar a próxima onda. */
   canStartNight: boolean;
-  /** A tentativa acabou (derrota ou núcleo caído): a próxima começa por "Nova tentativa". */
+  /** A tentativa acabou (derrota ou núcleo caído): o botão "Recomeçar do zero" zera a cidade e volta à noite 1. */
   attemptEnded: boolean;
   canNewAttempt: boolean;
   party: BastionHeroRow[];
@@ -130,7 +130,7 @@ export interface BastionReportVM {
   zeniEarned: number;
   /** Pacotes de cartas entregues nesta onda. */
   packs: number;
-  /** A tentativa acabou com esta onda (a próxima começa por "Nova tentativa"). */
+  /** A tentativa acabou com esta onda (o botão "Recomeçar do zero" começa de novo). */
   attemptEnded: boolean;
 }
 

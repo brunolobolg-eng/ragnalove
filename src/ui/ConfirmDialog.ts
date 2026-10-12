@@ -1,6 +1,8 @@
+import { registerOverlay } from './overlays';
+
 /**
  * Caixa de confirmação no estilo das janelas da HUD (ex.: ESC → voltar ao menu).
- * Enter confirma, ESC cancela. Enquanto aberta, o jogo fica pausado (quem pausa é o main).
+ * Enter confirma; ESC cancela (fecha pelo registro de janelas, junto com as outras). Enquanto aberta, o jogo fica pausado (quem pausa é o main).
  */
 export class ConfirmDialog {
   private readonly el: HTMLElement;
@@ -28,22 +30,27 @@ export class ConfirmDialog {
     this.el.addEventListener('pointerdown', (e) => {
       if (e.target === this.el) this.answer(false); // clique fora = cancelar
     });
-    // captura: roda antes de qualquer outro atalho do jogo
+    // captura: roda antes de qualquer outro atalho do jogo. O Esc não é tratado aqui: passa para o registro (fecha todas as janelas de uma vez)
     window.addEventListener(
       'keydown',
       (e) => {
-        if (this.el.hidden) return;
+        if (this.el.hidden || e.key === 'Escape') return;
         e.stopImmediatePropagation();
         e.preventDefault();
-        if (e.key === 'Escape') this.answer(false);
-        else if (e.key === 'Enter') this.answer(true);
+        if (e.key === 'Enter') this.answer(true);
       },
       true,
     );
+    registerOverlay({ isOpen: () => this.isOpen, close: () => this.close() });
   }
 
   get isOpen(): boolean {
     return !this.el.hidden;
+  }
+
+  /** Fecha como "não" (Esc e clique fora). */
+  close(): void {
+    this.answer(false);
   }
 
   /** `tone`: cor do botão de confirmar. 'danger' (vermelho, ação destrutiva) é o padrão; 'normal' é a ação principal (dourado). */

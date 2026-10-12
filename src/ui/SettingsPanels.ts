@@ -1,5 +1,6 @@
 import { QUALITY_LABEL, type FpsCap, type QualityPreset, type SettingsStore } from '../settings/Settings';
 import { kitIcon } from './kit';
+import { registerOverlay } from './overlays';
 
 /** Ícones originais em SVG, no mesmo tom dourado/azulado do HUD. */
 const ICON_AUDIO = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
@@ -43,13 +44,13 @@ export class SettingsPanels {
       this.toggle(b.dataset.open as PanelId);
       this.onUiSound();
     });
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.open) {
-        this.toggle(this.open);
-        e.stopImmediatePropagation(); // ESC fecha o painel; não abre o "voltar ao menu"
-      }
-    });
+    registerOverlay({ isOpen: () => this.isOpen, close: () => this.closeAll() }); // Esc fecha pelo registro (ui/overlays.ts)
     store.onChange(() => this.sync());
+  }
+
+  /** Há um painel de Áudio/Vídeo aberto. */
+  get isOpen(): boolean {
+    return this.open !== undefined;
   }
 
   /** Botão extra no canto (ex.: debug em build de desenvolvimento). */

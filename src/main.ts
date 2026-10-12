@@ -108,6 +108,7 @@ import { BastionSession } from './bastion/bastionSession';
 import { BastionGhostView } from './render/BastionGhostView';
 import type { Fortification } from './core/sim/Simulation';
 import { legendsFrom } from './ui/menu/HallOfLegends';
+import { closeOpenOverlays, isTextEntry, registerOverlay } from './ui/overlays';
 import { emptyRecords, updateRecords, updateSurvivalBest, type Records } from './core/run/records';
 import { SaveStore, type SaveKey } from './save/SaveStore';
 import type { BattleSeal } from './core/run/run';
@@ -488,6 +489,7 @@ const bastionSession = new BastionSession({
   },
   enterBattle: () => setMode('battle'),
   focusParty: () => focusParty(true),
+  setZoomProfile: (p) => stage.setZoomProfile(p),
   closeMenu: () => menu.close(),
   openMenu: () => menu.open(),
   setStructures: (f) => {
@@ -606,6 +608,11 @@ const resultModal = new NightReport();
 const roulette = new Roulette((n) => audio.sfx(n));
 const eventModal = new Modal('event');
 const endModal = new Modal('end');
+// Esc num relatório ou resultado de evento: aperta o botão "Continuar" (o mesmo do clique).
+// Escolha de evento e fim de jornada não fecham pelo Esc (pedem uma decisão), então não se registram como janela fechável.
+const botaoContinuar = (raiz: HTMLElement) => raiz.querySelector<HTMLButtonElement>('.nr-go:not([disabled]), button.primary:not([disabled])');
+registerOverlay({ isOpen: () => resultModal.visible && !!botaoContinuar(resultModal.el), close: () => botaoContinuar(resultModal.el)?.click() });
+registerOverlay({ isOpen: () => eventModal.visible && !!botaoContinuar(eventModal.el), close: () => botaoContinuar(eventModal.el)?.click() });
 
 /** Mapa, cidade e fim cobrem a tela; o HUD de batalha some (fica a janela de personagem e as configurações). */
 function setMode(m: Mode): void {
@@ -1827,14 +1834,30 @@ function updateCamera(dt: number): void {
     if (c) stage.follow(c);
   }
 }
-window.addEventListener('keydown', (e) => {
-  if (menu.active || mode === 'menu') return;
-  if (e.key === 'Escape') {
+/**
+ * Esc (fase de captura, antes de qualquer atalho): fecha todas as janelas abertas de uma vez (ui/overlays.ts).
+ * Sem janela aberta: no Bastião abre o menu do modo; na campanha pergunta se quer voltar ao menu.
+ * Com o foco num campo de texto, o Esc só tira o foco do campo e não fecha nada.
+ */
+window.addEventListener(
+  'keydown',
+  (e) => {
+    if (e.key !== 'Escape') return;
+    if (isTextEntry(e.target)) {
+      (e.target as HTMLElement).blur();
+      return;
+    }
     e.preventDefault();
+    e.stopImmediatePropagation();
+    if (bastionSession.escapeMove() || closeOpenOverlays()) return; // cancelar um movimento não é menu
+    if (menu.active || mode === 'menu') return;
     if (bastionSession.active) bastionSession.escape();
     else askReturnToMenu();
-    return;
-  }
+  },
+  true,
+);
+window.addEventListener('keydown', (e) => {
+  if (menu.active || mode === 'menu') return;
   if ((e.key === 'c' || e.key === 'C') && !(e.target instanceof HTMLInputElement)) hud.toggleCharacter();
   if (e.key === 'k' || e.key === 'K') openSkills();
   if (mode !== 'battle' || resultModal.visible) return;

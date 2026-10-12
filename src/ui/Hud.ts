@@ -2,6 +2,7 @@ import type { Orientation } from '../core/grid/types';
 import type { Item, Slot } from '../core/progression/equipment';
 import { ITEM_KIND_LABEL, RARITY_INFO, SLOTS, SLOT_GROUP, SLOT_KINDS, SLOT_LABEL, canUse, itemKind, itemLines, itemName } from '../core/progression/equipment';
 import { itemArtCanvas } from './itemArt';
+import { registerOverlay } from './overlays';
 import { ATTR_KEYS, ATTR_LABEL, attrHint, type AttrKey } from '../core/progression/attributes';
 import { SKILL_ICONS } from './icons';
 import { itemIconUrl } from './itemArt';
@@ -432,6 +433,15 @@ export class Hud {
     this.soulTotal = root.querySelector('.soul-total')!;
     this.zeniTotal = root.querySelector('.zeni-total')!;
     this.charWin = root.querySelector('.charwin')!;
+    // janelas flutuantes da batalha: o Esc fecha pelo registro de janelas (ui/overlays.ts)
+    registerOverlay({ isOpen: () => !this.charWin.hidden, close: () => this.toggleCharacter(false) });
+    registerOverlay({ isOpen: () => !root.querySelector<HTMLElement>('.obj-menu')!.hidden, close: () => this.hideObjectMenu() });
+    registerOverlay({
+      isOpen: () => !root.querySelector<HTMLElement>('.start-help')!.hidden,
+      close: () => {
+        root.querySelector<HTMLElement>('.start-help')!.hidden = true;
+      },
+    });
     this.charBadge = root.querySelector('[data-act="char"] .badge')!;
     root.querySelector('[data-act="char"]')!.addEventListener('click', () => this.toggleCharacter());
     root.querySelector('[data-act="skills"]')!.addEventListener('click', () => cb.onSkills());

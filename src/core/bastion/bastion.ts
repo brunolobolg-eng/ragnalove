@@ -4,8 +4,9 @@ import { applyCardLoadout, type CardCollection } from '../progression/cards';
 import type { HeroKind } from '../progression/skills';
 
 /**
- * Estado do Último Bastião (salvo à parte, na chave 'bastion'). A cidade persiste entre tentativas:
- * estruturas, dano, projetos desbloqueados, vida do núcleo, carteira (Zen) e heróis do modo ficam aqui.
+ * Estado do Último Bastião (salvo à parte, na chave 'bastion'). A cidade dura uma tentativa: estruturas, dano,
+ * projetos desbloqueados, vida do núcleo, carteira (Zen) e heróis do modo ficam aqui. A derrota zera tudo isso
+ * ao recomeçar do zero (startAttempt); recordes, tentativas, total de vitórias, semente e cartas ficam.
  * Nada é compartilhado com a jornada da campanha, exceto as CARTAS: a coleção mora no save de meta e
  * entra aqui só como cópia dos bônus, tirada no início de cada tentativa (igual à jornada).
  * Regras de colocação, custo e reparo ficam em rules.ts; este arquivo só guarda, cria e migra.
@@ -33,13 +34,13 @@ export interface BastionState {
   seed: number;
   /** Número da tentativa atual (começa em 1; sobe a cada nova preparação depois de uma derrota). */
   attempt: number;
-  /** Ondas vencidas no total (numera a horda e libera projetos por tempo). */
+  /** Ondas vencidas nesta tentativa (numera a horda e libera projetos por tempo). Zera ao recomeçar do zero. */
   nights: number;
-  /** Ondas vencidas na tentativa atual. Zera ao começar outra tentativa. */
+  /** Ondas vencidas na tentativa atual. Zera ao recomeçar do zero (hoje é igual a `nights`). */
   nightsInAttempt: number;
   /**
-   * Turno de planejamento: sobe 1 a cada noite aplicada (vitória ou derrota, ver applyNight). Só as muralhas
-   * construídas no turno atual podem ser movidas: depois da noite, elas ficam no lugar.
+   * Turno de planejamento: sobe 1 a cada noite vencida (ver applyNight); a derrota não avança. Só as muralhas
+   * construídas no turno atual podem ser movidas: depois da noite vencida, elas ficam no lugar.
    */
   turn: number;
   /** A tentativa acabou (derrota): só volta a rodar depois de `startAttempt`. */
@@ -59,10 +60,12 @@ export interface BastionState {
   nextId: number;
   /** Chave da última onda aplicada: aplicar a mesma de novo não paga nem desconta nada duas vezes. */
   paidKey?: string;
-  /** Tentativa em que o socorro foi concedido (ver BASTION.rescue). */
-  rescuedAttempt?: number;
-  records: { bestNights: number; attempts: number };
-  /** Pacotes de cartas já entregues: um a cada BASTION.packEvery ondas vencidas. */
+  /**
+   * Contagens que sobrevivem à derrota: melhor sequência, número de tentativas e `totalNights` (vitórias de todas
+   * as tentativas). O total numera os pacotes de carta e libera os slots; nunca zera.
+   */
+  records: { bestNights: number; attempts: number; totalNights: number };
+  /** Pacotes de cartas já entregues: um a cada BASTION.packEvery vitórias (records.totalNights). */
   packsGiven: number;
 }
 
@@ -85,7 +88,7 @@ export function newBastion(seed: number, cards: CardCollection, party: HeroKind[
     structures: [],
     projects: ['castle'],
     nextId: 1,
-    records: { bestNights: 0, attempts: 1 },
+    records: { bestNights: 0, attempts: 1, totalNights: 0 },
     packsGiven: 0,
   };
   b.profile.zeni = BASTION.startZeni;
@@ -107,9 +110,11 @@ export function migrateBastion(b: BastionState): BastionState {
   b.coreHp = Number.isFinite(b.coreHp) ? Math.min(b.coreMaxHp, Math.max(0, b.coreHp)) : b.coreMaxHp;
   b.seed = (b.seed ?? 1) >>> 0;
   b.nextId = Math.max(b.nextId ?? 1, ...b.structures.map((s) => s.id + 1));
-  b.records ??= { bestNights: 0, attempts: b.attempt };
+  b.records ??= { bestNights: 0, attempts: b.attempt, totalNights: b.nights };
   b.records.bestNights ??= 0;
   b.records.attempts ??= b.attempt;
+  // Save antigo não tem o total de vitórias: começa nas ondas vencidas (a tentativa única de antes). Inteiro não negativo.
+  b.records.totalNights = Number.isInteger(b.records.totalNights) && b.records.totalNights >= 0 ? b.records.totalNights : b.nights;
   b.packsGiven = Number.isFinite(b.packsGiven) && b.packsGiven >= 0 ? b.packsGiven : 0;
   // Save sem turno (antes do movimento de muralhas): começa no turno 0. Turno é inteiro não negativo.
   b.turn = Number.isInteger(b.turn) && b.turn >= 0 ? b.turn : 0;

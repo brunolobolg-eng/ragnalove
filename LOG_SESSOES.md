@@ -810,6 +810,42 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   5. Confirmar se o limite de zoom vale para a campanha também (hoje vale).
 - **Commits:** `35153a7` (feature), `742b601` (correções da revisão) e o commit de documentação desta entrada.
 
+## 2026-10-12 — Esc fecha tudo, zoom por modo, modelos da horda e derrota zera (v0.11, em andamento)
+- **Respostas do dono às decisões da entrada anterior:**
+  1. Nível da horda atravessa tentativas: "sim". **Contradição:** a resposta 3 mandou zerar tudo na derrota, inclusive o nível. Implementei a resposta mais recente (zera), e a pergunta fica aberta abaixo.
+  2. Não há limite de noites: a rotação dos chefes segue sem fim. A horda usa só modelos de alta qualidade, com prioridade para qualidade sobre desempenho.
+  3. Turno não avança na derrota. A derrota zera e o jogador recomeça do 0. O dono escolheu "Tudo, inclusive o nível da horda" entre as três opções.
+  5. Zoom: a campanha volta a 1,9 (mapa pintado 1,75). O Bastião tem limite próprio de 1,5, em `VISUAL_CONFIG.cameraControl.bastion`.
+  6. Esc fecha todos os menus de uma vez.
+- **O que foi feito:**
+  - **Zoom (commit 2182c35):** `Stage.setZoomProfile('campaign' | 'bastion')`, chamado ao entrar e sair do Bastião.
+  - **Esc (commit dc695b9):** registro de janelas em `src/ui/overlays.ts`. Um Esc fecha todas. Sem janela aberta, o padrão segue: a campanha pergunta sobre voltar ao menu; o Bastião abre o hub. Esc em campo de texto só tira o foco; Esc com o modo de mover cancela o movimento antes de tudo.
+  - **Modelos (commit aa63412):** o Bastião roda no ato 0 (ratos), mas `currentAct()` não acha região para `bastionKeep`, então `ACT_MONSTERS` nunca era aplicado: grunt, runner, brute, necro, elite, boss e boss2 saíam procedurais. Agora `BASTION_MONSTERS` (dados em `visualConfig.ts`) dá a cada tipo o seu GLB: comuns = zumbis, necromante = Bongun, elite = orc com machado, raydric e mini-chefes com os modelos dedicados, chefes com ratochefe, goblinboss e orcLord.
+  - **Derrota zera (ainda sem commit no momento desta entrada; ver commit seguinte):** `startAttempt` (Nova tentativa, agora "Recomeçar do zero") zera cidade (estruturas, projetos só o castelo, núcleo cheio), noites (a horda volta à noite 1 e os ciclos de chefe recomeçam) e heróis (perfil novo, nível 1, sem equipamento; a party escolhida é mantida). A derrota não avança o turno. Mantidos: recordes, número de tentativas, semente, coleção compartilhada e o total de vitórias (`records.totalNights`, novo), que alimenta pacotes e slots. O socorro foi removido da abertura do modo, porque o recomeço já devolve Zen e núcleo.
+- **Testes:**
+  - `tsc --noEmit`, `npm run build`: passam.
+  - `npm run sim:check`: saída idêntica à linha de base.
+  - `npm run bastion:check`: 233 ok, sem falha.
+  - `npm run bastion:path` e `npm run vocation:check`: passam.
+  - Navegador (SwiftShader): zoom campanha 1,9, Bastião 1,5, mapa pintado 1,75, zero erro de console. Esc fecha 5 janelas de uma vez. Derrota forçada com muralha: "Recomeçar do zero" leva a tentativa para 2, zera noites e estruturas, devolve 20 Zen, mantém `totalNights` em 3, sem erro.
+- **Decisões que precisam de confirmação do dono:**
+  1. Nível da horda: o "sim" (atravessa tentativas) e a resposta de zerar tudo se contradizem. Hoje vale zerar tudo.
+  2. Heróis também voltam ao nível 1 e sem equipamento ("tudo"). Se só a cidade deve zerar, muda uma linha em `startAttempt`.
+  3. Pacotes e slots contam todas as vitórias, para o recomeço não tirar slots de cartas.
+  4. Família dos comuns: zumbis, e não ratos. Colosso da Clareira = ratochefe; Colosso Solar = goblinboss; Senhor Orc = orcLord (o da campanha).
+  5. Socorro: a função `rescueIfStuck` e a configuração ficaram sem uso na abertura do modo. Podem sair.
+- **Pendências técnicas:**
+  - Bongun: `auditar_glb.cjs` aponta pose de descanso divergente do bind, mais de 4 ossos por vértice e canais STEP. O registro de `zombieNecro` não usa `bind: 'ibm'`. Se a malha sair torta no Bastião, a correção vale também para a campanha.
+  - `goblin_warlord.glb` não foi auditado (erro de byteStride no script), mas carrega no jogo.
+  - Fotos de identificação dos 13 tipos não separaram cada um com segurança no zoom padrão; falta uma foto de perto.
+- **Commits:** `2182c35` (zoom), `dc695b9` (Esc), `aa63412` (modelos) e o commit de derrota e documentação desta entrada.
+
+## 2026-10-12 — confirmações do dono sobre a derrota e remoção do socorro (v0.11, em andamento)
+- **Respostas do dono:** 1) zerar tudo (nível da horda incluído); 2) heróis e cidade zeram juntos; 3) os slots de carta não resetam (vêm do total de vitórias de todas as tentativas); 4) e 5) de acordo com as decisões de família dos monstros e de remover o socorro.
+- **Feito:** socorro removido por completo (configuração `BASTION.rescue`, `rescueIfStuck`, campo `rescuedAttempt` e os testes). Saves antigos com o campo continuam abrindo: a chave extra é ignorada.
+- **Testes:** `tsc`, `build`, `bastion:check` (229 ok, sem falha), `bastion:path`, `vocation:check` passam; `sim:check` idêntico à linha de base.
+- **Pendências técnicas que continuam:** bongun (pose e bind, ver entrada anterior) e identificação de perto dos 13 tipos no Bastião.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

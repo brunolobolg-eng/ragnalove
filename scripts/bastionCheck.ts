@@ -1,15 +1,16 @@
 /**
  * Checagem headless do Último Bastião (sem renderização). Rode: npm run bastion:check
  * 1) Dados · 2) Estado e migração · 3) Colocação · 4) Custos, reparo e reembolso · 5) Projetos ·
- * 6) Ondas (idempotência, derrota e socorro) · 7) Simulação (muralhas quebráveis, torres, destruídas) ·
+ * 6) Ondas (idempotência, derrota e recomeço do zero) · 7) Simulação (muralhas quebráveis, torres, destruídas) ·
  * 8) Cartas compartilhadas · 9) Preço, teto, classes, pacotes e slots · 10) Mapa do Último Bastião (bastionKeep) ·
  * 11) Emperium: dano de contato (vida × força ÷ 30) e a campanha segue pela ameaça por tipo ·
- * 12) Turnos e muralhas recentes (mover no turno) · 13) Horda por noite (comum, mini-chefe e MVP).
+ * 12) Turnos e muralhas recentes (mover no turno) · 13) Horda por noite (comum, mini-chefe e MVP) ·
+ * 14) Recomeçar do zero (derrota zera a cidade e os heróis; o total de vitórias, pacotes e slots não zeram).
  */
 import { BASTION, BASTION_HORDE, BASTION_ZONE_ID, PROJECTS, PROJECT_IDS, STRUCTURES } from '../src/config/bastion';
 import { hordeOf } from '../src/core/bastion/horde';
 import { CARD_SLOT_WINS, addCards, cardRuntimeFor, cardSlots, cardSlotsPool, emptyCollection, equipCard, type CardCollection } from '../src/core/progression/cards';
-import { heroStats } from '../src/core/progression/profile';
+import { createProfile, heroStats } from '../src/core/progression/profile';
 import { DEFAULT_SETUP, GAME_CONFIG, applyZone } from '../src/config/gameConfig';
 import { ZONES, parseZone } from '../src/config/zones';
 import type { WaveResult } from '../src/core/progression/profile';
@@ -30,7 +31,6 @@ import {
   repairCore,
   repairCostOf,
   repairStructure,
-  rescueIfStuck,
   startAttempt,
   unlockProject,
   upgradeStructure,
@@ -115,6 +115,22 @@ const migradoDeNovo = JSON.stringify(migrateBastion(JSON.parse(JSON.stringify(mi
 check('migração do turno e do placedTurn é idempotente', migradoDeNovo === JSON.stringify(migrado));
 for (const t of [2.5, -3, Number.POSITIVE_INFINITY]) {
   check(`turno ${t} (fracionado, negativo ou infinito) vira 0`, migrateBastion({ ...(JSON.parse(j0) as BastionState), turn: t }).turn === 0);
+}
+// Total de vitórias (records.totalNights): save antigo sem o campo começa nas ondas vencidas; valor válido fica.
+const semTotal = JSON.parse(j0) as BastionState;
+semTotal.nights = 42;
+semTotal.nightsInAttempt = 42;
+delete (semTotal.records as { totalNights?: number }).totalNights;
+check('save antigo sem totalNights: o total começa nas ondas vencidas (42)', migrateBastion(semTotal).records.totalNights === 42);
+const comTotal = JSON.parse(j0) as BastionState;
+comTotal.nights = 42;
+comTotal.records.totalNights = 77;
+check('save com totalNights válido: fica como está (77, mesmo com 42 ondas na tentativa)', migrateBastion(comTotal).records.totalNights === 77);
+for (const t of [-1, 2.5, Number.NaN]) {
+  const x = JSON.parse(j0) as BastionState;
+  x.nights = 42;
+  x.records.totalNights = t;
+  check(`totalNights ${t} (negativo, fracionado ou NaN) vira as ondas vencidas (42)`, migrateBastion(x).records.totalNights === 42);
 }
 // Construções com placedTurn variado: o valor válido fica, o inválido vira -1.
 const comPlacedTurn = (valores: unknown[]) => {
@@ -261,7 +277,7 @@ bq.party.push('archer');
 bq.profile.zeni = 999;
 check('torres sem o castelo: o pré-requisito bloqueia', errOf(unlockProject(bq, 'towers')) === 'requires');
 
-console.log('\n# 6) Ondas, derrota e socorro');
+console.log('\n# 6) Ondas, derrota e recomeço do zero');
 const bw = newBastion(7, emptyCollection());
 bw.profile.zeni = 500;
 const wr = placeStructure(bw, env(), 'wall', free[3]);
@@ -278,21 +294,13 @@ const lose: NightOutcome = { victory: false, coreHp: 0, structures: [{ id: wall.
 applyNight(bw, lose, 'night:1:2', emptyCollection());
 check('derrota: encerra a tentativa e registra o recorde', bw.attemptEnded === true && bw.records.bestNights === 1);
 check('derrota: projetos e muralha destruída continuam', bw.projects.includes('castle') && structureStatus(bw, wall) === 'destroyed');
-check('núcleo caído: não começa outra tentativa', errOf(startAttempt(bw, emptyCollection())) === 'coreDown');
-bw.profile.zeni = 0;
-check('socorro: sem Zen nem para o reparo mínimo, a cidade ganha Zen', rescueIfStuck(bw) === BASTION.rescue.zeni && bw.profile.zeni === BASTION.rescue.zeni);
-check('socorro: não repete na mesma tentativa', rescueIfStuck(bw) === 0);
+const copiaCaida = JSON.parse(JSON.stringify(bw)) as BastionState;
+check('núcleo caído: a derrota também deixa recomeçar do zero (o núcleo volta cheio)', copiaCaida.coreHp === 0 && startAttempt(copiaCaida, emptyCollection()).ok === true && copiaCaida.coreHp === copiaCaida.coreMaxHp);
+bw.profile.zeni = 200;
 const rcore = repairCore(bw, 100);
 check('núcleo: repara 100 de vida por 110 Zen', rcore.ok && rcore.cost === 110 && bw.coreHp === 100);
-check('derrota severa: a tentativa 2 começa com a cidade como estava', startAttempt(bw, emptyCollection()).ok === true && bw.attempt === 2 && bw.nightsInAttempt === 0);
-check('muralha destruída segue destruída na tentativa 2', structureStatus(bw, wall) === 'destroyed' && fortificationsOf(bw)[0].hp === 0);
-check('reconstruir a muralha custa 4 (investido 5 × 0,8)', repairCostOf(bw, wall) === 4);
-bw.coreHp = 0;
-bw.attemptEnded = true;
-bw.profile.zeni = 0;
-check('socorro: ainda no intervalo de 2 tentativas', rescueIfStuck(bw) === 0);
-bw.attempt = 3;
-check('socorro: volta a valer na tentativa 3', rescueIfStuck(bw) === BASTION.rescue.zeni);
+check('derrota severa: recomeçar abre a tentativa 2 com as noites zeradas', startAttempt(bw, emptyCollection()).ok === true && bw.attempt === 2 && bw.nights === 0 && bw.nightsInAttempt === 0);
+check('recomeçar tira a muralha destruída: a cidade volta sem construções', bw.structures.length === 0 && fortificationsOf(bw).length === 0);
 check('semente da onda: mesma cidade, mesma semente; muda com a onda', waveSeed(bw) === waveSeed(JSON.parse(JSON.stringify(bw)) as BastionState) && waveSeed(bw) !== waveSeed({ ...bw, nights: bw.nights + 1 }));
 
 console.log('\n# 7) Simulação com as estruturas da cidade');
@@ -400,6 +408,7 @@ const ondaVencida = (): NightOutcome => ({ victory: true, coreHp: 1000, structur
 const totalCartas = (c: CardCollection) => Object.values(c.owned).reduce((soma, n) => soma + n, 0);
 const bpk = newBastion(7, emptyCollection());
 bpk.nights = 98;
+bpk.records.totalNights = 98;
 const colecaoPacote = emptyCollection();
 const q1 = applyNight(bpk, ondaVencida(), 'night:1:1', colecaoPacote);
 check('99 ondas vencidas ainda não dão pacote', q1 !== undefined && q1.packs.length === 0 && bpk.nights === 99);
@@ -409,11 +418,13 @@ const q3 = applyNight(bpk, ondaVencida(), 'night:1:2', colecaoPacote);
 check('a mesma onda não entrega o pacote de novo', q3 === undefined && totalCartas(colecaoPacote) === 5);
 const bderrota = newBastion(7, emptyCollection());
 bderrota.nights = 99;
+bderrota.records.totalNights = 99;
 const q4 = applyNight(bderrota, { victory: false, coreHp: 1000, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } }, 'night:1:3', emptyCollection());
 check('derrota não conta para o pacote (continua em 99)', q4 !== undefined && q4.packs.length === 0 && bderrota.nights === 99);
 const pacoteDaSemente = (): string => {
   const x = newBastion(99, emptyCollection());
   x.nights = 99;
+  x.records.totalNights = 99;
   const c = emptyCollection();
   applyNight(x, ondaVencida(), 'k1', c);
   return JSON.stringify(c.owned);
@@ -425,7 +436,9 @@ check('as cinco primeiras são fáceis: 5º slot com 6 vitórias', cardSlots(5) 
 check('depois fica bem mais difícil: 10º com 31 vitórias, 30º com 381', cardSlots(30) === 9 && cardSlots(31) === 10 && cardSlots(380) === 29 && cardSlots(381) === 30);
 check('Bastião sem ondas vencidas não solta slot', bastionCardSlots(bh) === 0);
 bh.nights = 5;
-check('5 ondas vencidas soltam 4 slots', bastionCardSlots(bh) === 4);
+check('ondas da tentativa atual não contam para os slots (só o total de vitórias)', bastionCardSlots(bh) === 0);
+bh.records.totalNights = 5;
+check('5 vitórias somadas soltam 4 slots', bastionCardSlots(bh) === 4);
 check('campanha com 3 vitórias e Bastião com 5 ondas: 3 + 4 = 7 slots (soma)', cardSlotsPool(3, 5) === 7);
 check('sem Bastião, o total é o da campanha (3 vitórias = 3 slots)', cardSlotsPool(3) === cardSlots(3) && cardSlots(3) === 3);
 check('o total para em 30 slots', cardSlotsPool(400, 400) === 30);
@@ -583,9 +596,9 @@ check('mesma chave de noite: não avança o turno de novo', applyNight(bt12, ond
 check('outra noite vencida: turno 2', applyNight(bt12, ondaVencida(), 'noite:2', emptyCollection()) !== undefined && bt12.turn === 2);
 check('a muralha do turno 1 virou antiga no turno 2', errOf(moveStructure(bt12, env(), wN, free[21])) === 'notRecent');
 const derrotaT = applyNight(bt12, { victory: false, coreHp: 900, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } }, 'noite:3', emptyCollection());
-check('derrota também avança o turno (3)', derrotaT !== undefined && bt12.turn === 3);
+check('derrota não avança o turno (continua 2) e encerra a tentativa', derrotaT !== undefined && bt12.turn === 2 && bt12.attemptEnded === true);
 const salvoBt12 = migrateBastion(JSON.parse(JSON.stringify(bt12)) as BastionState);
-check('o turno sobrevive ao salvar e carregar', salvoBt12.turn === 3);
+check('o turno sobrevive ao salvar e carregar', salvoBt12.turn === 2);
 check(
   'save e carregar da cidade da seção 12 mantém, em cada construção, id, nível, vida, investido e turno de construção',
   JSON.stringify(fotoEstruturas(salvoBt12)) === JSON.stringify(fotoEstruturas(bt12)) && bt12.structures.some((s) => s.hp === 0) && bt12.structures.some((s) => s.placedTurn !== bt12.turn),
@@ -662,5 +675,47 @@ copia.mix[0].weight = 999;
 check('a horda devolvida é cópia: mexer nela não muda a tabela', peso('grunt') === 40 && hordeOf(1).mix[0].weight === 40);
 check('noite inválida (0 ou NaN) cai na noite 1', hordeOf(0).wave === 1 && hordeOf(Number.NaN).wave === 1);
 
-console.log(failures ? `\n${failures} checagem(ns) falharam.` : '\nTodas as checagens do Último Bastião passaram.');
+console.log('\n# 14) Recomeçar do zero (a derrota zera a cidade e os heróis; o total de vitórias não zera)');
+const semNada = (): NightOutcome => ({ victory: false, coreHp: 0, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } });
+const vitoria = (): NightOutcome => ({ victory: true, coreHp: BASTION.coreMaxHp, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } });
+const cartasR = emptyCollection();
+addCards(cartasR, ['high_orc', 'high_orc', 'requiem']);
+equipCard(cartasR, 'warrior', 'high_orc', 3);
+const antesCartas = JSON.stringify(cartasR);
+const rec = newBastion(7, cartasR, ['warrior', 'archer']);
+rec.profile.zeni = 5000;
+rec.projects.push('towers');
+const paredeR = placeStructure(rec, env(), 'wall', free[0]);
+const torreR = placeStructure(rec, env(), 'tower', free[1]);
+check('antes da derrota: muralha e torre na cidade, núcleo de pé', paredeR.ok && torreR.ok && rec.structures.length === 2 && rec.coreHp === rec.coreMaxHp);
+rec.profile.heroes.warrior.level = 6;
+rec.profile.heroes.warrior.points = 4;
+for (let i = 1; i <= 3; i++) applyNight(rec, vitoria(), `rec:v${i}`, cartasR);
+applyNight(rec, semNada(), 'rec:d', cartasR);
+check('derrota: a tentativa acaba, o núcleo cai e o turno para na 3ª vitória', rec.attemptEnded === true && rec.coreHp === 0 && rec.turn === 3 && rec.nights === 3 && rec.records.totalNights === 3);
+check('derrota com a mesma chave: não avança o turno nem paga de novo', applyNight(rec, semNada(), 'rec:d', cartasR) === undefined && rec.turn === 3);
+check('o núcleo caído não impede recomeçar do zero', rec.coreHp === 0 && startAttempt(rec, cartasR).ok === true);
+check('recomeço: tentativa 2, noites zeradas, núcleo cheio, sem construções e de volta ao castelo', rec.attempt === 2 && rec.records.attempts === 2 && rec.nights === 0 && rec.nightsInAttempt === 0 && rec.coreHp === rec.coreMaxHp && rec.structures.length === 0 && rec.projects.join() === 'castle' && rec.attemptEnded === false);
+check('recomeço: Zen inicial, heróis no nível 1 sem XP nem pontos, equipamento de origem', rec.profile.zeni === BASTION.startZeni && Object.values(rec.profile.heroes).every((h) => h.level === 1 && h.exp === 0 && h.points === 0) && JSON.stringify(rec.profile.heroes.warrior.equipment) === JSON.stringify(createProfile().heroes.warrior.equipment));
+check('recomeço: a coleção compartilhada fica igual e as cartas voltam a valer no guerreiro', JSON.stringify(cartasR) === antesCartas && (rec.profile.heroes.warrior.cards?.length ?? 0) >= 1 && JSON.stringify(rec.profile.heroes.warrior.cards) === JSON.stringify(cardRuntimeFor('warrior', cartasR)));
+check('recomeço: party escolhida, semente e turno ficam; a horda volta à noite 1', rec.party.join() === 'warrior,archer' && rec.seed === 7 && rec.turn === 3 && hordeOf(rec.nights + 1).wave === 1);
+check('recordes: melhor sequência 3, tentativas 2 e total de vitórias 3 (nada disso zera)', rec.records.bestNights === 3 && rec.records.attempts === 2 && rec.records.totalNights === 3 && rec.version === 1);
+check('recomeçar com a tentativa rodando é recusado', errOf(startAttempt(rec, cartasR)) === 'attemptRunning');
+applyNight(rec, vitoria(), 'rec2:v1', cartasR);
+applyNight(rec, semNada(), 'rec2:d', cartasR);
+check('tentativa mais curta não tira a melhor sequência (segue 3); a vitória seguinte avança o turno (4)', rec.records.bestNights === 3 && rec.nights === 1 && rec.turn === 4 && rec.records.totalNights === 4);
+const pac14 = newBastion(7, emptyCollection());
+const colecao14 = emptyCollection();
+let pacotes14 = 0;
+for (let i = 1; i <= 60; i++) pacotes14 += applyNight(pac14, vitoria(), `p14:a${i}`, colecao14)?.packs.length ?? 0;
+applyNight(pac14, semNada(), 'p14:derrota', colecao14);
+check('60 vitórias na tentativa 1: 13 slots e nenhum pacote ainda', bastionCardSlots(pac14) === 13 && pacotes14 === 0, `${bastionCardSlots(pac14)} slots`);
+check('recomeçar do zero não derruba os slots (a horda volta à noite 1; o total segue em 60)', startAttempt(pac14, colecao14).ok === true && pac14.nights === 0 && bastionCardSlots(pac14) === 13);
+for (let i = 1; i <= 39; i++) pacotes14 += applyNight(pac14, vitoria(), `p14:b${i}`, colecao14)?.packs.length ?? 0;
+check('99 vitórias somadas entre as duas tentativas: ainda nenhum pacote', pacotes14 === 0 && pac14.records.totalNights === 99 && pac14.nights === 39);
+const cemesima = applyNight(pac14, vitoria(), 'p14:b40', colecao14);
+check('a 100ª vitória, já na tentativa 2, entrega um pacote de 5 cartas', cemesima?.packs.length === 1 && cemesima.packs[0].length === 5 && pac14.packsGiven === 1 && totalCartas(colecao14) === 5);
+check('com 100 vitórias somadas: 16 slots', bastionCardSlots(pac14) === cardSlots(100) && cardSlots(100) === 16);
+
+console.log(failures ?`\n${failures} checagem(ns) falharam.` : '\nTodas as checagens do Último Bastião passaram.');
 if (failures) throw new Error(`bastionCheck: ${failures} falha(s)`);

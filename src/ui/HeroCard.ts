@@ -5,6 +5,7 @@ import type { HeroKind } from '../core/progression/skills';
 import { SKILL_ICONS } from './icons';
 import { itemArtCanvas, itemIconUrl } from './itemArt';
 import { kitIcon } from './kit';
+import { registerOverlay } from './overlays';
 
 /** Resumo de um herói para a janelinha do mapa (montado pelo main). */
 export interface HeroCardVM {
@@ -98,16 +99,7 @@ export class HeroCard {
       else if (a === 'skills') this.cb.onSkills(k);
       else if (a === 'abandon') this.cb.onAbandon();
     });
-    addEventListener(
-      'keydown',
-      (e) => {
-        if (e.key === 'Escape' && !this.el.hidden) {
-          this.close();
-          e.stopImmediatePropagation(); // não abre o "voltar ao menu" junto
-        }
-      },
-      true,
-    );
+    registerOverlay({ isOpen: () => this.visible, close: () => this.close() }); // Esc fecha pelo registro (ui/overlays.ts)
   }
 
   get visible(): boolean {

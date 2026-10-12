@@ -23,6 +23,7 @@ import {
 import type { HeroKind } from '../core/progression/skills';
 import { RARITY_COLOR, RARITY_LABEL, cardArtHtml, cardBaseText, cardVocationText } from './CardFace';
 import { kitIcon } from './kit';
+import { registerOverlay } from './overlays';
 
 export interface CollectionCallbacks {
   /** Persiste a coleção (meta) e atualiza o que mostra o estado. */
@@ -86,16 +87,9 @@ export class Collection {
     this.el.addEventListener('change', (e) => this.onSort(e));
     this.el.addEventListener('mouseover', (e) => this.onHover(e));
     this.el.addEventListener('mouseout', (e) => this.onLeaveGrid(e));
-    window.addEventListener('keydown', this.onKey, true);
+    // Esc fecha pelo registro de janelas (ui/overlays.ts): mesmo caminho do ×
+    registerOverlay({ isOpen: () => this.visible, close: () => this.dismiss() });
   }
-
-  /** Esc fecha a coleção (fase de captura: o Esc do resto do jogo não recebe a tecla enquanto ela está aberta). */
-  private readonly onKey = (e: KeyboardEvent): void => {
-    if (this.el.hidden || e.key !== 'Escape') return;
-    e.preventDefault();
-    e.stopPropagation();
-    this.dismiss();
-  };
 
   open(cards: CardCollection, runsWon: number, hero?: HeroKind, bastionNights = 0, onClose?: () => void): void {
     this.cards = cards;
@@ -116,7 +110,7 @@ export class Collection {
   }
 
   /** Fechamento pelo jogador (× ou Esc): fecha e chama o retorno de quem abriu. */
-  private dismiss(): void {
+  dismiss(): void {
     const volta = this.onClose;
     this.hide();
     volta?.();

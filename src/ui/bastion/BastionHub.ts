@@ -131,12 +131,12 @@ export class BastionHub {
         <section class="au-sec bs-acts">
           <button class="au-btn" data-act="build">Construir</button>
           <button class="au-btn gold" data-act="night"${vm.canStartNight ? '' : ' disabled'}>Iniciar noite</button>
-          ${vm.canNewAttempt ? `<button class="au-btn${vm.attemptEnded ? ' gold' : ''}" data-act="new-attempt">Nova tentativa</button>` : ''}
+          ${vm.canNewAttempt ? `<button class="au-btn${vm.attemptEnded ? ' gold' : ''}" data-act="new-attempt">Recomeçar do zero</button>` : ''}
           <button class="au-btn" data-act="repair-core"${coreRepair ? '' : ' disabled'}>${zenLabel('Reparar núcleo', vm.coreRepairCost, 'inteiro')}</button>
           <button class="au-btn" data-act="cards">Cartas</button>
           <button class="au-btn" data-act="exit">Sair do modo</button>
         </section>
-        ${vm.attemptEnded ? `<p class="bs-note">A tentativa acabou.${vm.canNewAttempt ? ' Comece outra com Nova tentativa.' : ''}</p>` : ''}
+        ${vm.attemptEnded ? `<p class="bs-note">A tentativa acabou.${vm.canNewAttempt ? ' Use Recomeçar do zero para voltar à noite 1.' : ''}</p>` : ''}
       </aside>`;
   }
 

@@ -6,6 +6,7 @@ import { ZONES, parseZone } from '../config/zones';
 import { findStructure, migrateBastion, newBastion, structureMaxHp, structureStatus, type BastionState, type Structure } from '../core/bastion/bastion';
 import { hordeOf, type HordeWave } from '../core/bastion/horde';
 import { bastionBuildEnv } from '../core/bastion/route';
+import { registerOverlay } from '../ui/overlays';
 import {
   BUILD_MSG,
   applyNight,
@@ -22,7 +23,6 @@ import {
   repairCore,
   repairCostOf,
   repairStructure,
-  rescueIfStuck,
   setParty,
   startAttempt,
   unlockProject,
@@ -57,6 +57,8 @@ export interface BastionDeps {
   setRun(r: RunState): void;
   profile(): Profile;
   setProfile(p: Profile): void;
+  /** Limite de zoom da câmera: o Bastião tem o próprio; ao sair, a campanha volta ao dela. */
+  setZoomProfile(p: 'campaign' | 'bastion'): void;
   sim(): Simulation;
   /** Carrega o mapa do Bastião com a semente da próxima noite e a horda dela (tropa e chefe, se houver). */
   loadMap(seed: number, wave: WaveOptions): void;
@@ -76,7 +78,7 @@ export interface BastionDeps {
   heroTiles(): Vec2[];
   cards(): CardCollection;
   saveCards(c: CardCollection): void;
-  /** Abre a coleção de cartas com os slots calculados pelas noites do Bastião. `onClose` roda quando o jogador a fecha. */
+  /** Abre a coleção de cartas com os slots calculados pelas vitórias do Bastião (de todas as tentativas). `onClose` roda quando o jogador a fecha. */
   openCollection(bastionNights: number, onClose: () => void): void;
   /** A coleção de cartas está aberta: o Esc e o Espaço são dela, não do Bastião. */
   isCollectionOpen(): boolean;
@@ -133,14 +135,14 @@ export class BastionSession {
       onBuild: () => this.openBuild(),
       onNight: () => this.startNight(),
       onRepairCore: () => this.act(repairCore(this.state()), 'Núcleo reparado.'),
-      onNewAttempt: () => this.act(startAttempt(this.state(), this.d.cards()), 'Nova tentativa começou.'),
+      onNewAttempt: () => this.newAttempt(),
       onUnlock: (id) => this.act(unlockProject(this.state(), id), 'Projeto desbloqueado.'),
       onParty: (party) => this.setParty(party),
       onRepairStructure: (id) => this.repair(id),
       onUpgradeStructure: (id) => this.act(upgradeStructure(this.state(), id), 'Construção aprimorada.'),
       onCards: () => {
         this.hub.close();
-        this.d.openCollection(this.state().nights, () => this.backFromCards());
+        this.d.openCollection(this.state().records.totalNights, () => this.backFromCards());
       },
       onExit: () => this.exit(),
     });
@@ -154,6 +156,9 @@ export class BastionSession {
       onBackToHub: () => this.backToHub(),
     });
     this.report = new BastionReport();
+    // janelas do modo (o Esc fecha): menu do Bastião e barra de construção; o relatório se registra sozinho
+    registerOverlay({ isOpen: () => this.hub.visible, close: () => this.hub.close() });
+    registerOverlay({ isOpen: () => this.build.visible, close: () => this.build.close() });
   }
 
   /** Modo ativo: a jornada está guardada e a batalha usa a cidade do Bastião. */
@@ -170,27 +175,22 @@ export class BastionSession {
   open(): void {
     this.enter();
     this.d.closeMenu();
-    const b = this.state();
-    const salvo = rescueIfStuck(b);
-    if (salvo > 0) {
-      this.msg = `Socorro: a cidade recebeu ${salvo} Zen.`;
-      this.save();
-    }
     this.planning();
     this.hub.open(this.hubVM());
   }
 
-  /** Esc durante o modo: fecha a barra de construção, ou sai do menu do modo, ou abre o menu do modo. */
+  /** Esc durante a escolha de um movimento: cancela o movimento (não é menu, então vem antes das janelas). Devolve true se cancelou. */
+  escapeMove(): boolean {
+    if (this.moving === undefined) return false;
+    this.cancelMove('Movimento cancelado.');
+    return true;
+  }
+
+  /** Esc sem nenhuma janela aberta (o main fecha as janelas antes): abre o menu do modo, no planejamento. */
   escape(): void {
     if (this.d.isCollectionOpen()) return; // a coleção fecha com o próprio Esc
-    if (this.moving !== undefined) {
-      this.cancelMove('Movimento cancelado.');
-      return;
-    }
     if (!this.ctx || this.report.visible || this.d.sim().phase === 'running') return;
-    if (this.build.visible) this.backToHub();
-    else if (this.hub.visible) this.exit();
-    else this.hub.open(this.hubVM());
+    this.hub.open(this.hubVM());
   }
 
   /** Clique no campo durante o planejamento. Devolve true se o modo tratou o clique. */
@@ -239,7 +239,7 @@ export class BastionSession {
     if (!this.ctx || this.d.sim().phase !== 'setup') return;
     const b = this.state();
     if (!canStartNight(b)) {
-      this.msg = b.coreHp <= 0 ? BUILD_MSG.coreDown : 'Comece uma nova tentativa antes de defender a cidade.';
+      this.msg = b.coreHp <= 0 ? BUILD_MSG.coreDown : 'Recomece do zero antes de defender a cidade.';
       this.refresh();
       return;
     }
@@ -308,6 +308,7 @@ export class BastionSession {
     this.d.setOverlay(undefined);
     this.d.setRun(this.ctx.run);
     this.d.setProfile(this.ctx.profile);
+    this.d.setZoomProfile('campaign');
     this.ctx = undefined;
     this.kind = undefined;
     this.selected = undefined;
@@ -359,6 +360,7 @@ export class BastionSession {
     r.usedObjects = [];
     this.d.setRun(r);
     this.d.setProfile(b.profile);
+    this.d.setZoomProfile('bastion');
   }
 
   /** Depois de qualquer ação: grava, recria o planejamento (se estiver nele) e atualiza as telas abertas. */
@@ -376,6 +378,28 @@ export class BastionSession {
   private act(res: Done, ok: string): void {
     this.msg = res.ok ? ok : BUILD_MSG[res.error];
     this.touch();
+  }
+
+  /**
+   * Recomeçar do zero (depois de uma derrota): a cidade e os heróis voltam ao início (ver startAttempt). A run
+   * guardada aponta para o perfil novo, e o planejamento é refeito (mapa e horda da noite 1).
+   */
+  private newAttempt(): void {
+    const r = startAttempt(this.state(), this.d.cards());
+    if (!r.ok) {
+      this.msg = BUILD_MSG[r.error];
+      this.touch();
+      return;
+    }
+    const b = this.state();
+    this.selected = undefined;
+    this.leaveMove();
+    this.d.run().profile = b.profile;
+    this.d.setProfile(b.profile);
+    this.msg = 'Tudo recomeçou do zero.';
+    this.save();
+    this.planning();
+    this.refresh();
   }
 
   /** Repara (ou reconstrói, se destruída). Reconstruir com herói parado na casa é recusado antes de gastar Zen. */
@@ -630,7 +654,7 @@ export class BastionSession {
       coreRepairCost: b.coreHp >= b.coreMaxHp ? 0 : coreRepairCost(b.coreMaxHp - b.coreHp),
       canStartNight: canStartNight(b),
       attemptEnded: !!b.attemptEnded,
-      canNewAttempt: !!b.attemptEnded && b.coreHp > 0,
+      canNewAttempt: !!b.attemptEnded,
       party: HERO_ORDER.map((kind) => ({ kind, name: HERO_NAME[kind], selected: b.party.includes(kind) })),
       structures: b.structures.map((s) => this.structureRow(b, s)),
       projects: PROJECT_IDS.map((id) => this.projectRow(b, id)),

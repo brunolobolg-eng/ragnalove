@@ -4,6 +4,7 @@ import { heroEquipped, heroStats, toggleSkillSlot } from '../core/progression/pr
 import { GAME_CONFIG } from '../config/gameConfig';
 import { manaToNextSlot, slotCost, slotCount, usesSlot } from '../core/progression/skillSlots';
 import { SKILL_ICONS } from './icons';
+import { registerOverlay } from './overlays';
 import { HERO_NAME } from '../config/heroes';
 
 /**
@@ -66,11 +67,12 @@ export class SkillTree {
       }
       this.render();
     });
+    // K fecha a árvore; o Esc fecha pelo registro de janelas (ui/overlays.ts), junto com as outras
     window.addEventListener(
       'keydown',
       (e) => {
         if (this.el.hidden) return;
-        if (e.key === 'Escape' || e.key === 'k' || e.key === 'K') {
+        if (e.key === 'k' || e.key === 'K') {
           e.stopImmediatePropagation();
           e.preventDefault();
           this.close();
@@ -78,6 +80,7 @@ export class SkillTree {
       },
       true,
     );
+    registerOverlay({ isOpen: () => this.visible, close: () => this.close() });
   }
 
   get visible(): boolean {

@@ -2,7 +2,7 @@ import { BASTION, PROJECTS, STRUCTURES, type StructureKind } from '../../config/
 import { GAME_CONFIG } from '../../config/gameConfig';
 import type { Board } from '../grid/Board';
 import { chebyshev, type Vec2 } from '../grid/types';
-import { addZeni, applyWaveResult, type WaveResult } from '../progression/profile';
+import { addZeni, applyWaveResult, createProfile, type WaveResult } from '../progression/profile';
 import { addCards, applyCardLoadout, cardSlots, rollPack, type CardCollection } from '../progression/cards';
 import { HERO_ORDER } from '../../config/heroes';
 import type { HeroKind } from '../progression/skills';
@@ -67,7 +67,7 @@ export const BUILD_MSG: Record<BuildError, string> = {
   requires: 'Falta desbloquear um projeto anterior.',
   nights: 'Ondas vencidas insuficientes.',
   heroNeeded: 'O herói deste projeto precisa estar na party.',
-  coreDown: 'O núcleo caiu: repare-o antes de começar outra tentativa.',
+  coreDown: 'O núcleo caiu: recomece do zero para defender a cidade.',
   attemptRunning: 'A tentativa ainda não acabou.',
   partySize: 'A party tem de ter de 1 a 6 heróis.',
   partyDuplicate: 'Um herói não pode entrar duas vezes na party.',
@@ -291,30 +291,24 @@ export function repairCore(b: BastionState, hp?: number): Result<{ cost: number;
 }
 
 /**
- * Socorro contra a derrota severa: núcleo caído e sem Zen nem para o reparo mínimo. Concede Zen
- * (no máximo uma vez a cada BASTION.rescue.everyAttempts tentativas). Devolve o Zen concedido (0 = nada).
- */
-export function rescueIfStuck(b: BastionState): number {
-  if (b.coreHp > 0) return 0;
-  const minCost = coreRepairCost(Math.ceil(b.coreMaxHp * BASTION.rescue.coreMinFraction));
-  if (b.profile.zeni >= minCost) return 0;
-  if (b.rescuedAttempt !== undefined && b.attempt - b.rescuedAttempt < BASTION.rescue.everyAttempts) return 0;
-  b.rescuedAttempt = b.attempt;
-  addZeni(b.profile, BASTION.rescue.zeni);
-  return BASTION.rescue.zeni;
-}
-
-/**
- * Começa outra tentativa a partir do estado salvo (a cidade não reinicia sozinha). As cartas são copiadas
- * da coleção compartilhada com a campanha: como na jornada, equipar só vale a partir da próxima tentativa.
+ * Recomeça do zero depois de uma derrota (a tentativa acabou). Zera a cidade e os heróis do modo: estruturas,
+ * projetos (só o castelo), noites (a horda volta à noite 1), núcleo cheio, Zen inicial e perfil novo (heróis
+ * no nível 1, sem equipamento). Mantém a semente, o turno, a party escolhida, os recordes, o número de tentativas,
+ * o total de vitórias (cartas e pacotes) e a coleção compartilhada, que não é tocada. As cartas são copiadas
+ * da coleção, como na jornada: equipar só vale a partir daqui.
  */
 export function startAttempt(b: BastionState, cards: CardCollection): Result {
   if (!b.attemptEnded) return fail('attemptRunning');
-  if (b.coreHp <= 0) return fail('coreDown');
   b.attemptEnded = false;
   b.attempt++;
-  b.nightsInAttempt = 0;
   b.records.attempts++;
+  b.nights = 0;
+  b.nightsInAttempt = 0;
+  b.structures = [];
+  b.projects = ['castle'];
+  b.coreHp = b.coreMaxHp;
+  b.profile = createProfile();
+  b.profile.zeni = BASTION.startZeni;
   applyCardLoadout(b.profile, cards);
   return { ok: true };
 }
@@ -346,12 +340,12 @@ export interface NightResult {
  * Aplica o resultado de uma onda à cidade. Idempotente pela chave da onda: aplicar de novo (reabrir o
  * relatório, recarregar o jogo) não paga Zen, não desconta vida, não entrega pacote e não avança o turno outra vez.
  * Devolve undefined se a chave já tinha sido aplicada. `cards` é a coleção compartilhada com a campanha.
- * Cada noite aplicada (vitória ou derrota) avança o turno: as muralhas do turno anterior ficam no lugar.
+ * Só uma noite vencida avança o turno (e o total de vitórias): as muralhas do turno anterior ficam no lugar.
+ * A derrota não avança nada disso; ela acaba a tentativa, e recomeçar do zero zera a cidade (startAttempt).
  */
 export function applyNight(b: BastionState, out: NightOutcome, key: string, cards: CardCollection): NightResult | undefined {
   if (b.paidKey === key) return undefined;
   b.paidKey = key;
-  b.turn++;
   for (const f of out.structures) {
     const s = findStructure(b, f.id);
     if (s) s.hp = Math.min(structureMaxHp(b, s), Math.max(0, f.hp));
@@ -363,6 +357,8 @@ export function applyNight(b: BastionState, out: NightOutcome, key: string, card
     b.profile.wavesWon = (b.profile.wavesWon ?? 0) + 1;
     b.nights++;
     b.nightsInAttempt++;
+    b.records.totalNights++;
+    b.turn++;
   }
   if (!out.victory || b.coreHp <= 0) b.attemptEnded = true;
   b.records.bestNights = Math.max(b.records.bestNights, b.nightsInAttempt);
@@ -370,12 +366,13 @@ export function applyNight(b: BastionState, out: NightOutcome, key: string, card
 }
 
 /**
- * Um pacote a cada BASTION.packEvery ondas vencidas no Bastião (total, sem zerar). Mesmo formato do pacote
- * da campanha. A semente sai da cidade e do número do pacote: a mesma cidade sempre recebe o mesmo pacote.
+ * Um pacote a cada BASTION.packEvery vitórias no Bastião, somadas em todas as tentativas (records.totalNights,
+ * sem zerar). Mesmo formato do pacote da campanha. A semente sai da cidade e do número do pacote: a mesma
+ * cidade sempre recebe o mesmo pacote.
  */
 function grantWavePacks(b: BastionState, cards: CardCollection): string[][] {
   const packs: string[][] = [];
-  while (b.nights >= (b.packsGiven + 1) * BASTION.packEvery) {
+  while (b.records.totalNights >= (b.packsGiven + 1) * BASTION.packEvery) {
     const rng = new Rng((b.seed + Math.imul(b.packsGiven + 1, 7919)) >>> 0);
     const pack = rollPack(() => rng.next());
     addCards(cards, pack);
@@ -394,7 +391,10 @@ export function setParty(b: BastionState, party: HeroKind[]): Result {
   return { ok: true };
 }
 
-/** Slots que o Bastião solta para a coleção compartilhada: a mesma curva da campanha, pelas ondas vencidas. */
+/**
+ * Slots que o Bastião solta para a coleção compartilhada: a mesma curva da campanha, pelas vitórias de todas as
+ * tentativas (records.totalNights). Derrota e recomeço não tiram slot.
+ */
 export function bastionCardSlots(b: BastionState): number {
-  return cardSlots(b.nights);
+  return cardSlots(b.records.totalNights);
 }
