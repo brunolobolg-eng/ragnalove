@@ -846,6 +846,14 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 - **Testes:** `tsc`, `build`, `bastion:check` (229 ok, sem falha), `bastion:path`, `vocation:check` passam; `sim:check` idêntico à linha de base.
 - **Pendências técnicas que continuam:** bongun (pose e bind, ver entrada anterior) e identificação de perto dos 13 tipos no Bastião.
 
+## 2026-10-12 — muralhas com o módulo do castelo e faixa lateral fechada no Bastião (v0.11, em andamento)
+- **Pedido do dono (screenshot):** os monstros andavam pelo lado do forte e as muralhas do jogador pareciam peças de lego.
+- **Caminho:** medido, a volta é o caminho aberto mais curto. Com o portão oeste fechado, a horda dá a volta pela faixa de 1 tile entre o fosso e a muralha oeste e entra pelo norte ou sul. Não é travamento nem deriva. O dono escolheu tampar a faixa no mapa.
+- **Por que rocha e não raiz:** a primeira tentativa usou 11 raízes (`roots`). Um pesado quebra a raiz e a volta volta. Troquei por rochas (`R`, parede de terreno com decoração de rocha), que já existem no jogo e não quebram. São 11 tiles, e saíram 11 tiles de lote de construção (850 para 839).
+- **Muralha:** as muralhas do jogador agora são uma peça só por trecho, com a mesma peça, altura e espessura das muralhas do castelo. Muralhas vizinhas se emendam em retas, cantos, T e cruzes. Muralha isolada de um tile ainda fica curta: falta uma peça de um tile da arte do dono.
+- **Testes:** `tsc`, `build`, `bastion:check`, `bastion:path` (seções 7 e 8 novas) e `vocation:check` passam. `sim:check`: só a linha bastionKeep mudou (abatidos 25 → 28, invasões 35 → 32), as outras idênticas. Navegador: sem erro de console.
+- **Pendências:** confirmar com o dono se as rochas ficaram bem vistas de perto na faixa; peça de muralha de um tile da arte do dono; ver se o layout real dele tem um terceiro bloco (fechar o portão exige 3 muralhas, porque os tiles x=22 não são construíveis).
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.
