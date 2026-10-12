@@ -1,10 +1,10 @@
 /**
  * Créditos finais (só ao vencer a luta final). Primeiro passam as fotos que o próprio jogo tirou ao vencer
- * cada fase (zoom lento e legenda), depois os créditos sobem na tela. "Pular" ou Esc encerra a qualquer momento.
- * A tela só mostra a lista pronta: não decide nada.
+ * cada fase (zoom lento e legenda); depois o roteiro de cenas (config/credits.ts), uma de cada vez, cada uma
+ * com o seu tempo. "Pular" ou Esc encerra a qualquer momento. A tela só mostra o roteiro pronto: não decide nada.
  */
 import './credits.css';
-import { CREDITS_CONFIG, CREDITS_TEAM } from '../config/credits';
+import { CREDITS_CONFIG, CREDITS_SCRIPT } from '../config/credits';
 import type { CreditShot } from '../save/CreditShots';
 
 export class Credits {
@@ -28,7 +28,7 @@ export class Credits {
     document.body.appendChild(this.el);
   }
 
-  /** Começa os créditos. Sem fotos, vai direto para a rolagem. `onDone` roda uma vez, ao terminar ou pular. */
+  /** Começa os créditos. Sem fotos, vai direto para o roteiro. `onDone` roda uma vez, ao terminar ou pular. */
   play(shots: CreditShot[], onDone: () => void): void {
     this.onDone = onDone;
     this.el.hidden = false;
@@ -38,7 +38,7 @@ export class Credits {
   }
 
   private slide(shots: CreditShot[], i: number): void {
-    if (i >= shots.length) return this.roll();
+    if (i >= shots.length) return this.cena(0);
     const shot = shots[i];
     const fig = document.createElement('figure');
     fig.className = 'cr-slide';
@@ -53,23 +53,38 @@ export class Credits {
     this.later(() => this.slide(shots, i + 1), CREDITS_CONFIG.slideMs);
   }
 
-  private roll(): void {
-    const roll = document.createElement('div');
-    roll.className = 'cr-roll';
-    roll.style.animationDuration = `${CREDITS_CONFIG.rollMs}ms`;
-    roll.innerHTML =
-      '<h2 class="cr-title">ROguard</h2><p class="cr-sub">Crônicas das Almas Roubadas</p>' +
-      CREDITS_TEAM.map((sec) => `<h3 class="cr-sec">${sec.titulo}</h3>${sec.nomes.map((n) => `<p class="cr-name">${n}</p>`).join('')}`).join('') +
-      '<p class="cr-sub cr-thanks">Obrigado por jogar</p>';
-    this.stage.replaceChildren(roll);
+  /** Uma cena do roteiro: aparece, fica o seu tempo e some. A última fica na tela até o jogador continuar. */
+  private cena(i: number): void {
+    const cena = CREDITS_SCRIPT[i];
+    if (!cena) return this.end();
+    const el = document.createElement('div');
+    el.className = cena.apagao ? 'cr-cena apagao' : 'cr-cena';
+    for (const l of cena.linhas) {
+      const p = document.createElement('p');
+      p.className = `cr-linha cr-${l.estilo}`;
+      p.textContent = l.texto;
+      el.append(p);
+    }
+    this.stage.replaceChildren(el);
+    requestAnimationFrame(() => el.classList.add('on'));
+    if (i === CREDITS_SCRIPT.length - 1) return this.later(() => this.end(), CREDITS_CONFIG.endDelayMs);
     this.later(() => {
-      this.skip.textContent = 'Continuar ➜';
-      this.skip.classList.add('end');
-    }, CREDITS_CONFIG.rollMs);
+      el.classList.remove('on');
+      this.later(() => this.cena(i + 1), CREDITS_CONFIG.fadeMs);
+    }, cena.ms);
+  }
+
+  private end(): void {
+    this.skip.textContent = 'Continuar ➜';
+    this.skip.classList.add('end');
   }
 
   private later(fn: () => void, ms: number): void {
-    this.timers.push(window.setTimeout(fn, ms));
+    this.timers.push(
+      window.setTimeout(() => {
+        if (!this.el.hidden) fn();
+      }, ms),
+    );
   }
 
   private finish(): void {
