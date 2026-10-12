@@ -641,6 +641,24 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   1. Dono: testar no PC (construir, mover herói, iniciar horda) e dizer o que ainda trava ou quais erros aparecem na horda.
   2. Se ainda pesar: reduzir os triângulos do cenário do Bastião (grama e muros). Precisa de decisão visual sua.
 
+## 2026-10-12 — Bárbaro com socos e roleta que encerra no clique (v0.11, em andamento)
+- **Pedido do dono:** (1) clicar no meio da tela durante a roleta deve encerrar o giro na hora; (2) o machado do Bárbaro ficou ruim: trocar por socos, usando as animações do pacote Universal Animation Library (Standard) que o dono enviou.
+- **D68 — Socos com a UAL:** `Punch_Jab` (soco rápido, no golpe básico) e `Punch_Cross` (soco cruzado, na investida) entram no conjunto `barbarianUAL`. Descanso, andar, dano e morte seguem da UAL; a conjuração segue o procedural do Guerreiro. O Bárbaro não tem arma: o registro não traz mais `weapons`.
+- **D69 — Extração:** `scripts/extractUALAnims.mjs` passou a extrair os dois socos, e `ualClips.ts` foi regerado. A regeneração só acrescenta clipes; o único trecho trocado é a união de tipos. O pacote da UAL não está no repositório: o script aponta para a pasta dele.
+- **D70 — Sem arco de lâmina:** o Bárbaro não ganha o tufão de vento do golpe nem o arco da investida do Guerreiro. O impacto segue com o efeito normal de dano.
+- **D71 — Roleta:** um clique em qualquer lugar da tela durante o giro encerra o giro no quadro seguinte. O prêmio aparece, e o botão Pegar só libera depois disso.
+- **Testes:**
+  - `npm run build`, `sim:check` (determinístico), `vocation:check` e `bastion:check` passam.
+  - Bárbaro no Chromium, em quadros determinísticos com câmera de batalha: repouso sem arma, soco rápido com o braço à frente e soco cruzado com os dois braços. Sem erro de página nem de console.
+  - Roleta no mapa, com clique real do mouse: o prêmio aparece 65 ms depois do clique (antes o giro levava 5,2 s), e o botão Pegar, clicado com o mouse, fecha o véu.
+- **Limitações:**
+  - Com o menu principal aberto (a demonstração F9 da roleta, no menu inicial), o clique não chega ao véu: a camada do menu (z-index 100) fica acima da roleta (75). O problema já existia; as recompensas reais abrem no mapa, onde o clique funciona. Não foi alterado.
+  - A pose foi conferida em quadros parados, e o brilho de combate cobre parte do corpo. A fluidez em tempo real só se confirma no PC.
+- **Pendências:**
+  1. Dono: testar no PC o ritmo do soco (0,87 s) e dizer se combina com o combate.
+  2. Dono: arte nova do retrato e do corpo inteiro do Bárbaro (ainda do Guerreiro, com escudo).
+  3. Dono: autorizar mover o original de 24,5 MB do `public/` da `main` para a branch `fontes`, zipado.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.
