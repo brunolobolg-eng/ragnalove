@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { HERO_MODELS, MONSTER_MODELS } from '../../../config/visualConfig';
-import { archerClips, fitHips, gruntClips, hoverClips, mageClips, warriorClips, type ClipName } from './anims';
+import { HERO_MODELS, MONSTER_MODELS, type RigJointsVisual } from '../../../config/visualConfig';
+import { archerClips, fitHips, gruntClips, hoverClips, mageClips, warriorClips, warriorClipsUAL, type ClipName } from './anims';
+import { prepareRiggedModel, type HumanoidJoints } from './autoRig';
 import { ualMixamoClips } from './ualMixamo';
 import { warriorRigClips } from './warriorAnims';
 import { MIXAMO_CULTIST_REST } from './mixamoRest';
@@ -119,6 +120,7 @@ const GAME_CLIPS = {
   brute: (b: BoneDef[]) => gruntClips(b, 'brute'),
   cultist: cultistClips,
   warriorRig: warriorRigClips,
+  warriorUAL: warriorClipsUAL,
 };
 
 /** Textura alternativa no mesmo atlas: herda orientação, espaço de cor e filtros da textura do GLB. */
@@ -314,6 +316,41 @@ function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.Animation
   return { model, clips };
 }
 
+/** Juntas do registro (arrays) → vetores do auto-rig. */
+function juntasDoRegistro(j: RigJointsVisual): HumanoidJoints {
+  const v = (a: [number, number, number]) => new THREE.Vector3(...a);
+  return {
+    root: v(j.root),
+    hips: v(j.hips),
+    spine: v(j.spine),
+    chest: v(j.chest),
+    neck: v(j.neck),
+    head: v(j.head),
+    shoulder: v(j.shoulder),
+    upperArm: v(j.upperArm),
+    foreArm: v(j.foreArm),
+    hand: v(j.hand),
+    thigh: v(j.thigh),
+    shin: v(j.shin),
+    foot: v(j.foot),
+    armX: j.armX,
+    crotchY: j.crotchY,
+    armZ: j.armZ,
+    armMinY: j.armMinY,
+    armMaxY: j.armMaxY,
+  };
+}
+
+/**
+ * GLB sem esqueleto (ex.: malha gerada por IA): o auto-rig põe os ossos e os pesos (com as juntas do registro,
+ * se houver) e os clipes vêm do jogo, como nos outros heróis e monstros.
+ */
+function toAutoRigged(gltf: { scene: THREE.Object3D }, gameClips: keyof typeof GAME_CLIPS, juntas?: RigJointsVisual): LoadedGlb {
+  const rig = prepareRiggedModel(gltf.scene, undefined, juntas ? juntasDoRegistro(juntas) : undefined);
+  const model: BuiltModel = { geometry: rig.geometry, bones: rig.bones, glows: [], height: rig.height, map: rig.map };
+  return { model, clips: GAME_CLIPS[gameClips](rig.bones) };
+}
+
 /**
  * Clipes que vieram no GLB, com as trilhas renomeadas para os nomes de osso do jogo
  * (o GLTFLoader tira o "." de "upperArm.L"; o nome original está no userData do nó).
@@ -345,8 +382,15 @@ export async function loadMonsterModels(onLoaded?: (kind: string) => void): Prom
     Object.entries({ ...MONSTER_MODELS, ...HERO_MODELS }).map(async ([kind, v]) => {
       try {
         // mesmo arquivo com animações diferentes (zumbi comum/rápido/pesado) = entradas separadas no cache
-        const key = `${v.file}|${v.clips ?? ''}|${v.bind ?? ''}`;
-        if (!files.has(key)) files.set(key, loader.loadAsync(v.file).then((g: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }) => toBuiltModel(g, v.clips, v.bind === 'ibm')));
+        const key = `${v.file}|${v.clips ?? ''}|${v.bind ?? ''}|${v.rig ?? ''}`;
+        if (!files.has(key)) {
+          files.set(
+            key,
+            loader.loadAsync(v.file).then((g: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }) =>
+              v.rig === 'auto' && v.clips ? toAutoRigged(g, v.clips, v.juntas) : toBuiltModel(g, v.clips, v.bind === 'ibm'),
+            ),
+          );
+        }
         const { model, clips: baseClips } = await files.get(key)!;
         // flutuação: o andar vira o balanço elevado (cópia: o arquivo pode ser compartilhado por outros tipos)
         const clips = v.hover ? hoverClips(baseClips, model.bones, v.hover) : baseClips;

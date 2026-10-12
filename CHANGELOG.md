@@ -36,6 +36,8 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - O rodapé da versão ganhou caixa própria sobre a versão antiga da arte, e a engrenagem foi para o canto inferior esquerdo.
 - Vocações: cada classe tem duas evoluções. Ao nível 10, o herói escolhe uma delas na ficha, uma vez por jornada. O Bárbaro é a primeira vocação do Guerreiro; as outras vagas ainda estão em aberto.
 - O Bárbaro soma Força e Vitalidade. O nome da vocação aparece na ficha, no cartão do herói e no mapa.
+- O Bárbaro ganhou o modelo do dono, em versão otimizada de 1,5 MB. O jogo cria o esqueleto e usa as animações do Guerreiro para andar, golpear, receber dano e morrer.
+- Modelos sem esqueleto podem usar o auto-rig com juntas medidas (registro com `rig: 'auto'`).
 
 ## 2026-10-11 — v0.10
 - Álbum de cartas refeito no layout da folha de referência do dono: lateral com o herói, cartas encontradas e barra de progresso, filtros de raridade com gemas, cartas equipadas e a fusão de 10 Normais.

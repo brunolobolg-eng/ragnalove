@@ -5,19 +5,22 @@
 // 3) malha simplificada (mantém ossos, UVs e silhueta);
 // 4) textura em WebP de até 1024 px (regra de personagens do projeto);
 // 5) limpeza (deduplicação e remoção de itens sem uso).
-// Uso: node otimizar_glb.mjs <entrada.glb> <saída.glb> <razão 0..1> <erro>
+// 0) lê GLB comprimido (meshopt), põe posições e normais em float32 e, se pedido, gira em Y para a frente ir a +Z.
+// Uso: node otimizar_glb.mjs <entrada.glb> <saída.glb> <razão 0..1> <erro> [giro Y em graus]
+//   giro: o auto-rig e o jogo assumem o personagem olhando para +Z (esquerda em +X). Modelo que olha para +X: -90.
 // Dependências (NÃO estão no package.json do jogo): instale numa pasta à parte e rode o script de lá:
 //   npm i @gltf-transform/core @gltf-transform/extensions @gltf-transform/functions meshoptimizer sharp
 // Exemplo que gerou a bruxinha (63 MB → 2,4 MB, 39 mil triângulos): razão 0.08, erro 0.02.
-import { Accessor, NodeIO } from '@gltf-transform/core';
+import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { dedup, prune, simplify, textureCompress } from '@gltf-transform/functions';
 import { MeshoptDecoder, MeshoptSimplifier } from 'meshoptimizer';
 import sharp from 'sharp';
 
-const [src, dst, ratioArg, errorArg] = process.argv.slice(2);
+const [src, dst, ratioArg, errorArg, giroArg] = process.argv.slice(2);
 const ratio = Number(ratioArg ?? 0.1);
 const error = Number(errorArg ?? 0.01);
+const giro = Number(giroArg ?? 0);
 // lê também GLB com compressão meshopt (EXT_meshopt_compression, saída do gltfpack, ex.: o original do Bárbaro);
 // sem o decodificador a leitura falha com "Please install extension dependency, meshopt.decoder"
 await MeshoptDecoder.ready;
@@ -41,7 +44,31 @@ const report = async (label, doc) => {
   }
   const influences = root.listMeshes().some((m) => m.listPrimitives().some((p) => p.getAttribute('JOINTS_1'))) ? 'mais de 4 (ainda)' : '4 ou menos';
   console.log(`[${label}] vértices ${verts}, triângulos ${Math.round(tris)}, animações ${root.listAnimations().length}, texturas: ${tex.join(' | ') || '-'}, influências: ${influences}`);
+  // caixa da malha (X, Y, Z): confere o tamanho e a orientação (frente em +Z)
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (const m of root.listMeshes()) for (const p of m.listPrimitives()) {
+    const a = p.getAttribute('POSITION')?.getArray();
+    if (!a) continue;
+    for (let i = 0; i < a.length; i += 3) for (let k = 0; k < 3; k++) {
+      min[k] = Math.min(min[k], a[i + k]);
+      max[k] = Math.max(max[k], a[i + k]);
+    }
+  }
+  console.log(`[${label}] caixa X ${min[0].toFixed(3)}..${max[0].toFixed(3)}, Y ${min[1].toFixed(3)}..${max[1].toFixed(3)}, Z ${min[2].toFixed(3)}..${max[2].toFixed(3)}`);
 };
+
+// atributo quantizado (byte/int16 normalizado) → float32; já float não muda
+const DIVISOR = { 5120: 127, 5121: 255, 5122: 32767, 5123: 65535 };
+function paraFloat(acc) {
+  if (acc.getComponentType() === 5126) return;
+  const div = acc.getNormalized() ? DIVISOR[acc.getComponentType()] ?? 1 : 1;
+  const src = acc.getArray();
+  const out = new Float32Array(src.length);
+  for (let i = 0; i < src.length; i++) out[i] = src[i] / div;
+  acc.setArray(out);
+  acc.setNormalized(false);
+}
 
 // mantém só os 4 pesos maiores de cada vértice (entre os conjuntos 0, 1 e 2) e renormaliza para somar 1
 function keepFourInfluences(prim) {
@@ -86,6 +113,41 @@ const doc = await io.read(src);
 // a entrada decodificada não deve ser recomprimida: a saída é GLB sem meshopt (o carregador do jogo não tem o decodificador)
 for (const ext of doc.getRoot().listExtensionsUsed()) if (ext.extensionName === 'EXT_meshopt_compression') ext.dispose();
 await report('entrada', doc);
+// 0) atributos quantizados viram float32 (o auto-rig recalcula normais e lê posições como números)
+for (const mesh of doc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) {
+  for (const semantic of ['POSITION', 'NORMAL', 'TEXCOORD_0']) {
+    const acc = prim.getAttribute(semantic);
+    if (acc) paraFloat(acc);
+  }
+}
+// giro em Y (graus): cada acessor é girado uma única vez, mesmo se for compartilhado
+if (giro) {
+  const t = (giro * Math.PI) / 180;
+  const c = Math.cos(t);
+  const s = Math.sin(t);
+  const girados = new Set();
+  for (const mesh of doc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) for (const semantic of ['POSITION', 'NORMAL']) {
+    const acc = prim.getAttribute(semantic);
+    if (!acc || girados.has(acc)) continue;
+    girados.add(acc);
+    const a = acc.getArray();
+    for (let i = 0; i < a.length; i += 3) {
+      const x = a[i];
+      const z = a[i + 2];
+      a[i] = x * c + z * s;
+      a[i + 2] = -x * s + z * c;
+    }
+    if (semantic === 'NORMAL') {
+      for (let i = 0; i < a.length; i += 3) {
+        const l = Math.hypot(a[i], a[i + 1], a[i + 2]) || 1;
+        a[i] /= l;
+        a[i + 1] /= l;
+        a[i + 2] /= l;
+      }
+    }
+  }
+  console.log(`giro em Y: ${giro}°`);
+}
 
 // 1) influências: 4 por vértice, renormalizadas
 let lost = 0;

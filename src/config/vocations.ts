@@ -32,6 +32,7 @@ export const VOCATIONS: Record<HeroKind, [VocationDef | null, VocationDef | null
       nome: 'Bárbaro',
       descricao: 'Evolução do Guerreiro que troca a disciplina do escudo pela fúria: mais força e mais vida para segurar a linha de frente.',
       bonus: { str: 3, vit: 2 },
+      modelo: 'barbarian',
     },
     null,
   ],

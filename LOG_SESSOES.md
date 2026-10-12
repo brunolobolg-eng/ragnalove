@@ -600,10 +600,31 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - As habilidades do Bárbaro são, por enquanto, a árvore do Guerreiro.
   - Nomes na árvore de habilidades, na cidade e no relatório continuam com o nome da classe.
 - **Pendências:**
-  1. Dono: o `barbaridade.glb` está em `public/barbaridade.glb` na `main` (24,5 MB, 2 milhões de triângulos, texturas de 8192 px, **sem esqueleto e sem animações**). Falta otimizar e dar animação ao modelo. O original deve sair do repositório e ir zipado para a branch `fontes`, o que precisa de autorização.
+  1. Dono: o `barbaridade.glb` está em `public/barbaridade.glb` na `main` (24,5 MB, 2 milhões de triângulos, texturas de 8192 px, **sem esqueleto e sem animações**). ~~Falta otimizar e dar animação ao modelo~~ (feito na entrada seguinte). O original deve sair do repositório e ir zipado para a branch `fontes`, o que precisa de autorização.
   2. Dono: confirmar a segunda vaga do Guerreiro. O Cavaleiro Rúnico (conjunto de teste) é a candidata natural.
   3. Dono: o nível 10 e o bônus do Bárbaro (+3 Força, +2 Vitalidade) são provisórios.
   4. Dono: desenhar as onze vagas restantes (nomes, modelos e habilidades).
+
+## 2026-10-12 — Bárbaro: modelo do dono com animação (v0.11, em andamento)
+- **Pedido do dono:** o `barbaridade.glb` entra como o Bárbaro, a evolução do Guerreiro.
+- **Problema do arquivo:** original de 24,5 MB, com 2 milhões de triângulos, texturas de 8192 px, **sem esqueleto e sem animação**. Sem tratamento, o Bárbaro entraria parado.
+- **D65 — Auto-rig com juntas medidas:** o projeto já põe esqueleto em malha estática humanoide (auto-rig, usado nos chefes). A detecção automática errou neste chibi: quadril na altura dos joelhos, capa e tiras do quadril presas ao braço. Por isso as juntas foram medidas à mão no corte da malha (`BARBARIAN_JOINTS` em `visualConfig.ts`), com três limites opcionais para o braço (`armZ`, `armMinY`, `armMaxY`). Sem esses campos, o auto-rig age como antes.
+- **D66 — Registro `rig: 'auto'`:** o carregador (`glbMonsters.ts`) põe o esqueleto em GLB estático e usa os clipes do jogo. Clipes do Bárbaro: `warriorUAL` (captura UAL no descanso, andar, dano e morte; golpe, investida e conjuração do Guerreiro).
+- **D67 — Otimização:** `public/models/barbarian.glb` tem 1,5 MB, 39.758 triângulos e texturas WebP de 1024 px (cor, normal e ORM). O otimizador lê o original comprimido com meshopt, grava em float32 e gira em Y pelo quinto argumento (`-90` para modelo que olha para +X). A limpeza de nomes saiu do script: ela apagava os nomes dos ossos, que o carregador usa.
+- **Código:** `autoRig.ts` (parâmetros opcionais; sem eles, igual ao anterior), `glbMonsters.ts` (ramo `rig: 'auto'`), `visualConfig.ts` (`RigJointsVisual`, `BARBARIAN_JOINTS`, entrada `barbarian`) e `vocations.ts` (`modelo: 'barbarian'`).
+- **Testes:** `npm run build`, `sim:check` (determinístico), `vocation:check` e `bastion:check` passam. Batalha no Chromium: a unidade do Guerreiro evoluído sai com o modelo `barbarian`, sem erro de página nem de console. O subagente verificou idle, andar, golpe, dano e morte em quadros seguidos; o golpe mostra o arco de ataque, sem rasgo.
+- **Limitações:**
+  - Retrato e corpo inteiro ainda são os do Guerreiro, com escudo. Isso contradiz a descrição "troca o escudo pela fúria" e precisa de arte nova do dono.
+  - O arquivo vem com as mãos vazias. Machado ou espada entram pelo campo `weapons` do registro.
+  - A câmera do jogo mostra as costas do herói; a frente só aparece na vitrine.
+  - No golpe, o bracelete da manga que bate fica largo, como placa. É geometria do arquivo, não rasgo.
+  - As juntas foram medidas à mão: um chibi novo pode precisar das suas.
+- **Pendências:**
+  1. Dono: testar no PC, principalmente a câmera de jogo e a fluidez do golpe.
+  2. Dono: dizer se o auto-rig serve. Se não servir, o caminho de melhor qualidade é um GLB com esqueleto no padrão do `guerreiro.glb`.
+  3. Dono: arte nova de retrato e corpo inteiro do Bárbaro, sem escudo.
+  4. Dono: arma do Bárbaro (machado, espada ou punhos).
+  5. Dono: autorizar mover o original de 24,5 MB do `public/` da `main` para a branch `fontes`, zipado. Ainda não foi feito.
 
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
