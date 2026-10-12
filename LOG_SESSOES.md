@@ -746,6 +746,29 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 - **Pendências:**
   1. Dono: testar no PC o soco e a reação forte do Bárbaro, e dizer se o soco parece bem visto de perto.
 
+## 2026-10-12 — Montar Defesa travava: erro de barreira matava o laço; chão em camadas mais leve (v0.11, em andamento)
+- **Pedido do dono:** o Montar Defesa segue travado. Menus respondem, mas o Emperium para de girar e iniciar a horda também trava.
+- **Causa (verificada, não só lida):** no Bastião a party padrão é Guerreiro + Mago, e o setup começa sem barreira (`barriers: []` em `src/config/zones.ts`). Com o Mago na formação, `linePlan` devolvia `{ plan: undefined }` e `lineTiles` lia `plan.orientation`: **TypeError a cada quadro** ao (a) passar o mouse sobre um tile vazio do campo (`pointermove` → `grabbableAt`) ou (b) selecionar um dos botões de Barreira de Fogo da barra (`drawOverlay`, a cada quadro). `frame()` não tinha `try/catch` e só agendava o próximo quadro no fim, então o laço morria e a cena congelava com os menus ainda clicáveis. Só recarregar a página resolvia.
+- **Antes e depois (Chromium headless, mesma máquina):**
+  - HEAD `e631cd7`: clicar no botão de Barreira gera `reading 'orientation'` e 0 quadros em 3 s. Mouse sobre o campo gera o erro e os quadros caem de 2 para 0.
+  - Com a correção: nenhum erro nos dois gatilhos, e o laço segue (43 quadros durante o movimento do mouse). Forçando um erro em todo quadro, o laço segue (241 quadros em 4 s), com um aviso no console e um na HUD.
+- **Correções:**
+  1. `linePlan` devolve `undefined` quando não há barreira; `lineTiles`, `isLineEnd`, `rotateLine` e `grabbableAt` deixam de quebrar. Guardas também em `onOrientation`, `placeTool` e no destaque do hover (`drawOverlay`).
+  2. A ferramenta de barreira só fica disponível se o setup tem a barreira (`toolAvailable`). Antes aparecia na barra e não fazia nada.
+  3. `frame()` agenda o próximo quadro antes do trabalho e envolve o desenho em `try/catch` (`drawFrame` + `reportFrameError`, um aviso por mensagem). Isso é rede de segurança: a causa acima é a correção.
+- **Desempenho (o outro lado do problema):** o chão tinha 10 camadas transparentes do tamanho do mapa, e cada pixel era misturado até 10 vezes, mesmo com a máscara vazia (40 a 99% dos tiles de cada camada são vazios). Agora cada camada desenha só os tiles com tinta, com 1 tile de margem para a amostragem bilinear. UV e normal seguem o plano original, então a imagem não muda.
+  - Medido no Bastião (SwiftShader, só como proporção): 0,27 para 0,40 fps. Com o chão transparente desligado, teto do ganho: 0,49.
+  - Visual: recorte ampliado 3x idêntico. Diferença de pixels de 1 a 8 níveis, no ruído de precisão. Controle com o mesmo código: diferença média 0,011, contra 0,41 da mudança fora da região do herói, sem forma de costura. Zonas de floresta usam o mesmo chão, então também ganham.
+- **Hipóteses descartadas por medição:** compilação de shader na noite (pré-compilar não muda o início); vazamento de cena (3 entradas, mesmos 695 mil triângulos); pool de partículas (ocultar não muda); brilhos e Emperium isolados (não mudam nada).
+- **Presets no Bastião (SwiftShader, depois da correção):** Alto 0,40 fps, Médio 0,51, Baixo 0,98. O padrão do jogo é Alto.
+- **Investigação:** workflow com quatro frentes (cena, pipeline de render, laço de quadros, início da noite), cada causa refutada por um revisor cético. Confirmou o laço (era a hipótese mais forte). Refutou o decor como causa do travamento: ele custa fps, mas não para o quadro.
+- **Testes:** `npm run build`, `npm run sim:check` (determinístico), `npm run vocation:check`. Regressão: horda normal com Mago e 3 barreiras (mouse sobre 16 tiles, sem erro); fluxo do Bastião (construir 8 muralhas, iniciar a noite, recarregar com o save, nova noite, sem erro).
+- **Limitações:** SwiftShader não é a GPU do dono, então os números valem só como proporção. Nada foi testado no PC.
+- **Decisões e pendências do dono:**
+  1. Barreira de Fogo no Bastião: hoje a ferramenta fica oculta no Bastião, porque o campo não tem barreira. Dar barreiras ao padrão do Bastião muda o balanço do Mago, então depende de aval.
+  2. Testar no PC (`BAIXAR_DO_GITHUB.bat`, depois `ATUALIZAR_JOGO.bat`). Se o campo ainda estiver lento, testar a Qualidade Médio ou Baixo em Opções → Vídeo e dizer o fps.
+  3. Próximos cortes de custo, se precisar, por ordem e sempre medindo antes: camadas de água sem sombra; sombra do mapa atualizada só quando a câmera ou a construção muda; MSAA 2x no preset Alto; sombra só em árvores e muralha (decor pequeno sem sombra); decor em blocos espaciais para o recorte de tela.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

@@ -359,8 +359,8 @@ let selectedKind: HeroKind | undefined;
 const hud = new Hud(document.getElementById('hud')!, {
   onTool: (t) => selectTool(t),
   onOrientation: (o) => {
-    const bi = Math.max(0, barrierIndex(tool));
-    setup.barriers[bi].orientation = o;
+    const b = setup.barriers[Math.max(0, barrierIndex(tool))];
+    if (b) b.orientation = o;
   },
   onRetreat: () => {
     if (sim.phase === 'running') sim.endSurvival();
@@ -1465,7 +1465,8 @@ const wallLength = () => SKILL_NUM.shieldWall(Math.max(1, lvOf(profile.heroes.wa
 /** Linha (centro + orientação) de uma ferramenta de linha: barreira ou muralha. */
 function linePlan(t: Tool): { plan: { x: number; y: number; orientation: Orientation }; len: number } | undefined {
   const bi = barrierIndex(t);
-  if (bi >= 0) return { plan: setup.barriers[bi], len: heroStats(profile, 'mage').barrierLength };
+  // sem barreira no setup (a party não tem Mago, ou o modo não criou uma): não há linha para pegar nem desenhar
+  if (bi >= 0) return setup.barriers[bi] ? { plan: setup.barriers[bi], len: heroStats(profile, 'mage').barrierLength } : undefined;
   if (t === 'wall' && setup.wall) return { plan: setup.wall, len: wallLength() };
   return undefined;
 }
@@ -1538,7 +1539,8 @@ function openObjectMenu(id: number, cx: number, cy: number): void {
 /** A ferramenta existe nesta fase? (barreiras só com o Mago vivo na party; muralha só com a habilidade) */
 function toolAvailable(t: Tool): boolean {
   const alive = (h: HeroKind) => setup.members.some((m) => m.archetype === h) && !run.dead.includes(h);
-  if (t.startsWith('barrier')) return alive('mage');
+  // a barreira só entra na paleta se o setup tem a peça (no Último Bastião a party tem Mago, mas o setup começa sem barreira)
+  if (t.startsWith('barrier')) return alive('mage') && !!setup.barriers[barrierIndex(t)];
   if (t === 'wall') return wallActive();
   return alive(t as HeroKind);
 }
@@ -1567,8 +1569,11 @@ function placeTool(t: Tool, at: Vec2): void {
   if (!toolAvailable(t)) return;
   const bi = barrierIndex(t);
   if (bi >= 0) {
-    setup.barriers[bi].x = at.x;
-    setup.barriers[bi].y = at.y;
+    const b = setup.barriers[bi];
+    if (b) {
+      b.x = at.x;
+      b.y = at.y;
+    }
     return;
   }
   if (t === 'wall') {
@@ -1892,7 +1897,7 @@ function drawOverlay(): void {
         const gi = barrierIndex(grab);
         if (gi >= 0) bv.mark(sim.board.clip(linePattern(setup.barriers[gi], setup.barriers[gi].orientation, ms.barrierLength)), C_HOVER, 0.55);
         else bv.mark([hover], C_HOVER, 0.8);
-      } else if (sel >= 0 && hasMage && !drag?.rotate) {
+      } else if (sel >= 0 && hasMage && !drag?.rotate && setup.barriers[sel]) {
         bv.mark(sim.board.clip(linePattern(hover, setup.barriers[sel].orientation, ms.barrierLength)), C_BARRIER2, drag ? 0.7 : 0.35);
       } else if ((drag?.tool ?? tool) === 'wall' && wallActive() && !drag?.rotate) {
         bv.mark(sim.board.clip(linePattern(hover, setup.wall?.orientation ?? 'H', wallLength())), C_WALL, drag ? 0.75 : 0.4);
@@ -2078,11 +2083,30 @@ function postFxSituation(): PostFxSituation {
   return 'battle';
 }
 
+/** Quadro do jogo. O próximo é agendado antes do trabalho: um erro neste quadro não para o laço (a cena não congela). */
 function frame(now: number): void {
+  requestAnimationFrame(frame);
+  try {
+    drawFrame(now);
+  } catch (err) {
+    reportFrameError(err);
+  }
+}
+
+/** Erro de quadro: aparece uma vez por mensagem (console e registro da HUD); o jogo segue. */
+const erroRepetido = new Set<string>();
+function reportFrameError(err: unknown): void {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (erroRepetido.has(msg)) return;
+  erroRepetido.add(msg);
+  console.error('Erro num quadro do jogo (o laço segue):', err);
+  hud.log(`Erro de desenho (o jogo segue): ${msg}`, 'warn');
+}
+
+function drawFrame(now: number): void {
   // Limite de FPS: pula o frame se ainda não deu o intervalo (margem de 1 ms para não perder vsync).
   const cap = settings.value.video.fpsCap;
   if (cap > 0 && now - lastDrawn < 1000 / cap - 1) {
-    requestAnimationFrame(frame);
     return;
   }
   lastDrawn = now;
@@ -2141,7 +2165,6 @@ function frame(now: number): void {
 
   // Menu principal, mapa, cidade e fim de jornada cobrem a tela: a cena 3D não é desenhada.
   if (menu.active || mode === 'map' || mode === 'city' || mode === 'end' || mode === 'select') {
-    requestAnimationFrame(frame);
     return;
   }
   updateCamera(dt);
@@ -2150,7 +2173,6 @@ function frame(now: number): void {
   drawOverlay();
   updateStatus();
   stage.render(dt);
-  requestAnimationFrame(frame);
 }
 
 // ---------- HUD: só lê o estado da simulação ----------
