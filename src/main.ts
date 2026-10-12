@@ -6,6 +6,7 @@ import { TEST_ZONE, TEST_ZONE_ID } from './dev/DevLab/skillArenaZone';
 import { warmFxTextures } from './render/fx/kit/vfxTextures';
 import { loadFortress } from './render/scenery/fortress';
 import { ACTS, EVENTS, REGION_BY_ID, NODE_LABEL, type NodeType } from './config/world';
+import { AURA, auraCampanhaLiberada } from './config/auras';
 import {
   HEROES,
   HERO_NAME,
@@ -759,12 +760,21 @@ function chooseNode(t: NodeType): void {
   else openEvent();
 }
 
+/**
+ * Opções da onda da campanha com a chance de aura dos monstros: só com os três heróis que se liberam
+ * jogando desbloqueados (config/auras.ts). Sobrevivência fica sem auras.
+ */
+function campaignWave(wave: WaveOptions): WaveOptions {
+  if (wave.endless) return wave;
+  return { ...wave, auraChance: auraCampanhaLiberada(loadMetaStats()) ? AURA.chanceCampanha : 0 };
+}
+
 function enterBattle(t: NodeType): void {
   cinePlayed = false;
   cinePause = false;
   cinePromise = undefined;
   const { zone, wave } = battleFor(run, t);
-  loadZone(zone, wave);
+  loadZone(zone, campaignWave(wave));
   setMode('battle');
   const reg = currentRegion(run);
   hud.setStage(`Fase ${phaseNumber(run)}/${totalPhases()} · ${NODE_LABEL[t]}`, `${reg.name} — ${currentAct(run).name.split(' — ')[0]}`);
@@ -2500,7 +2510,7 @@ function devLabApi(): DevLabApi {
     run.nights = s.nights;
     run.reports = s.reports;
     const bw = battleFor(run, run.choice ?? 'horde');
-    loadZone(bw.zone, bw.wave);
+    loadZone(bw.zone, campaignWave(bw.wave));
     saveProfile();
   };
   /** Setup da party numa zona (mesma regra do loadZone), sem os heróis caídos. */

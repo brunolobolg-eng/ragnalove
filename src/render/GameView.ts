@@ -21,6 +21,7 @@ import type { FxKit } from './fx/kit/FxKit';
 import { FireBarrierFX } from './fx/FireBarrierFX';
 import { ParticleLayer } from './fx/Particles';
 import { PackFx } from './fx/pack/PackFx';
+import { MonsterAuras } from './auras/MonsterAuraView';
 import { MagicVfx } from './fx/pack/magicVfx';
 import { SoulFX } from './fx/SoulFX';
 import { FloatText } from './fx/FloatText';
@@ -118,6 +119,8 @@ export class GameView {
   /** Efeitos do pacote de VFX (círculos, golpes, auras, faíscas) e a camada que os dispara. */
   private readonly pack: PackFx;
   private readonly magic: MagicVfx;
+  /** Auras dos monstros portadores (anel, faixa na cor do tipo e brasas da queimação). */
+  private readonly aurasMonstro: MonsterAuras;
   private units = new Map<number, AnyUnitView>();
   private kinds = new Map<number, string>();
   private visuals = new Map<number, string>();
@@ -295,6 +298,8 @@ export class GameView {
     this.pack.setScale(stage.projScale());
     // compila os shaders do pacote agora, não no primeiro golpe da batalha
     this.pack.warm(stage.renderer, stage.camera);
+    this.aurasMonstro = new MonsterAuras(this.pack);
+    this.aurasMonstro.warm(stage.renderer, stage.camera);
     this.magic = new MagicVfx({
       pack: this.pack,
       world: this.world,
@@ -406,6 +411,7 @@ export class GameView {
     this.oneShots = [];
     this.particles.clear();
     this.pack.reset();
+    this.aurasMonstro.reset();
     this.ribbons.clear();
     this.decals.clear();
     this.vfx.clear();
@@ -1157,6 +1163,7 @@ export class GameView {
     this.fading = this.fading.filter((f) => !f.done);
     for (const o of this.oneShots) o.update(dt);
     this.pack.update(dt);
+    this.aurasMonstro.update(dt, this.sim, this.units, this.stage.camera);
     this.magic.update(dt);
     this.poisonMist.update(dt, this.sim.units.values(), (u) => this.units.get(u.id)?.root.position, this.kit);
     for (const l of this.loot) l.update(dt, this.stage.camera);

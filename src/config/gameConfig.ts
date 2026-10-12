@@ -201,6 +201,8 @@ export const GAME_CONFIG = {
     /** Multiplicador da ameaça à cidade (por ato). */
     threatMult: 1,
     endless: false,
+    /** Chance de cada monstro comum nascer portador de aura (AURA, em config/auras.ts). 0 = sem auras. */
+    auraChance: 0,
     /** Planejamento: a horda começa sozinha depois destes segundos (contagem na tela). */
     autoStartSeconds: 10,
     /**
@@ -474,6 +476,8 @@ export interface WaveOptions {
   endless?: boolean;
   /** Peso da ameaça à cidade (GAME_CONFIG.cityDefense.threatActMult). */
   threatMult?: number;
+  /** Chance de cada monstro comum nascer portador de aura (AURA, em config/auras.ts). Ausente = 0. */
+  auraChance?: number;
 }
 
 /**
@@ -505,6 +509,7 @@ export function applyZone(zone: ZoneDef, o: WaveOptions = {}): void {
   w.dmgMult = o.dmgMult ?? 1;
   w.threatMult = o.threatMult ?? 1;
   w.endless = !!o.endless;
+  w.auraChance = o.auraChance ?? 0;
   ZONE_STATE.current = zone;
 }
 
