@@ -80,6 +80,7 @@ export function newBastion(seed: number, cards: CardCollection, party: HeroKind[
     records: { bestNights: 0, attempts: 1 },
     packsGiven: 0,
   };
+  b.profile.zeni = BASTION.startZeni;
   applyCardLoadout(b.profile, cards);
   return b;
 }

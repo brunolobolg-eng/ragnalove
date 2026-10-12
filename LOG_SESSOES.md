@@ -535,6 +535,35 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   2. Guardar o original de 9,3 MB zipado na branch `fontes`, se o dono autorizar.
   3. Registrar o decodificador meshopt no `scripts/otimizar_glb.mjs`.
 
+## 2026-10-12 — Montar Defesa jogável: menu, construção e noites (v0.11, em andamento)
+- **Pedido do dono:** menu principal do Montar Defesa e modo funcional; engrenagem discreta no canto do menu; fundo de menu por temporada (a imagem nova ainda não chegou como arquivo).
+- **Modo (`src/bastion/bastionSession.ts`):** entra pelo botão Montar Defesa do menu. Enquanto roda, a jornada (run e perfil) fica guardada e a batalha usa a cidade do modo; o save da jornada não é gravado. Save próprio (chave `bastion`).
+  - **D50 — Hub do modo:** cidade (núcleo, Zen, noites), Construir, Iniciar noite, Nova tentativa, Reparar núcleo, Cartas e Sair; abas Estruturas, Projetos e Heróis.
+  - **D51 — Barra de construção no planejamento:** Muralha de pedra (5 Zen, dobra a cada muralha da cidade) e Torre de tiro (120 Zen, com o projeto Torres de tiro e a Arqueira). Clique numa casa da área liberada constrói; clique numa construção seleciona e mostra reparar, aprimorar e remover.
+  - **D52 — Noite:** só pelo botão, sem relógio automático. A batalha usa as construções da cidade e a semente da onda. No fim, `applyNight` aplica vida, Zen, progressão e pacotes, e o relatório mostra "Horda repelida" ou "A horda invadiu".
+  - **D53 — Esc:** no planejamento abre o hub; no hub sai ao menu; na barra de construção volta ao hub.
+  - **D54 — Zen inicial provisório: 20** (`BASTION.startZeni`), o bastante para as primeiras quatro muralhas antes da primeira onda. Valor a calibrar com o dono.
+  - **D55 — Cartas:** a coleção é a mesma da jornada. O botão Cartas abre a coleção com os slots contados pelas ondas vencidas no Bastião.
+- **Menu:** engrenagem discreta no canto (ícone `ico_gear` do kit) abre as Opções. O botão Montar Defesa entra no lugar de Opções, com rótulo provisório por cima do botão pintado (a arte atual não tem o botão). Fundo por temporada em `src/config/temporadas.ts` (`temporadaAtual`): a temporada 1 segue com a arte atual até a imagem nova chegar.
+- **Achados:**
+  - Sem Zen inicial, a cidade nova não conseguia construir nada antes da primeira onda. Por isso o D54.
+  - `onCanvasClick` devolve verdadeiro também quando a colocação é recusada: o clique é consumido e o motivo aparece no painel.
+  - A jornada-sombra precisa ter a vida do núcleo e a party sincronizadas antes de cada batalha; sem isso, a batalha seguinte reabria com a vida antiga.
+  - No navegador de teste (renderização em software) a noite anda a ~0,4 tick/s: uma noite completa levaria ~16 min. Por isso o teste de ponta a ponta encerra a noite por vitória forçada. A duração real foi validada pelo `sim:check` (bastionKeep: vitória em 388 ticks).
+  - Os avisos `THREE.BufferGeometry.toNonIndexed` no console são anteriores ao modo (chamadas do cenário e da arte de kit).
+- **Testes:** `npm run build`, `npm run sim:check` (determinístico) e `npm run bastion:check` passam. Teste de ponta a ponta no Chromium: menu e engrenagem, hub, construir (2 muralhas gravadas; a terceira recusada por Zen), noite com vitória forçada, relatório, volta ao hub, Esc para o menu, save da jornada intacto, cidade salva com 1 noite e 2 muralhas.
+- **Limitações:**
+  - Se o jogo fechar no meio de uma noite, a noite recomeça do planejamento (sem selo, ao contrário da jornada).
+  - A formação dos heróis não é guardada entre noites: volta ao padrão a cada planejamento.
+  - Serviços urbanos (loja, forja, templo) não entram: são a Etapa 5 do plano do Bastião.
+  - Com uma estrutura selecionada, o painel de construção rola, e os botões de aprimorar e remover podem ficar abaixo da área visível.
+  - Custos, vida, ondas e o crescimento de dificuldade por noite ainda não foram calibrados com o dono.
+- **Pendências:**
+  1. Dono: confirmar o Zen inicial (D54), os custos e a curva de dificuldade do Bastião.
+  2. Imagem nova da tela de entrada (não chegou como arquivo) e retirada do rótulo provisório do Montar Defesa.
+  3. Revisar a barra de construção com estrutura selecionada (compactar textos ou rolagem melhor).
+  4. Guardar a formação dos heróis entre noites e criar um selo para retomar a noite depois de fechar o jogo.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

@@ -22,6 +22,8 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - As jornadas atuais não mudam: a saída de referência da simulação continua idêntica.
 - Painel de desenvolvimento (F9): mostra chamadas de desenho, triângulos e luzes da cena, para medir antes de mexer no visual.
 - Ponte: tochas e fogueiras ficam só com o clarão, sem iluminar o chão. A cena tem 12 luzes a menos por quadro.
+- Montar Defesa é jogável: o menu do Último Bastião tem construção de muralhas e torres no mapa, reparo, aprimoramento, projetos, party e cartas. Cada noite termina com um relatório, e a cidade guarda vida, Zen e construções entre as tentativas.
+- A tela de entrada ganhou uma engrenagem discreta no canto, que abre as Opções.
 - As muralhas dos mapas (cidade, portões, castelo do Último Bastião e vila) usam a peça de muro de pedra do dono, com torres e ameias. Ponte, floresta, planície, dunas, montanhas e cinzas ganham o mesmo muro.
 - As torres dos portões seguem a mesma pedra, e a paliçada de madeira da floresta saiu. As rochas naturais e a muralha do guerreiro continuam como estavam.
 - Emperium: o cristal ganha veios de energia que sobem devagar, com um pulso lento, nos presets médio e alto. No preset baixo, ele segue como antes.
