@@ -6,12 +6,18 @@
  * 4) Sem estrutura de pé: o mesmo resultado de antes (campanha intacta).
  * 5) Determinismo: a mesma montagem duas vezes dá o mesmo resultado.
  * 6) Alvo sem caminho aberto: monstro travado num herói murado (anel e corredor) anda ou quebra a parede.
- * 7) Custo: tempo por tick com e sem estruturas (só informa a razão).
+ * 7) Portão oeste fechado ou estreito: a horda anda pelo caminho aberto mais curto (sem deriva presa na parede).
+ * 8) Faixa lateral fechada (raízes): com o portão oeste fechado a horda ataca a muralha e não dá a volta pelo
+ *    norte nem pelo sul; com o portão aberto, entra pelo oeste; os outros portais seguem chegando ao Emperium.
+ * 9) Custo: tempo por tick com e sem estruturas (só informa a razão).
  */
-import { DEFAULT_SETUP, applyZone, type PartySetup } from '../src/config/gameConfig';
+import { DEFAULT_SETUP, GAME_CONFIG, applyZone, type PartySetup } from '../src/config/gameConfig';
 import { ZONES } from '../src/config/zones';
 import { Simulation, type Fortification } from '../src/core/sim/Simulation';
 import type { Unit } from '../src/core/sim/types';
+import type { Board } from '../src/core/grid/Board';
+import { FlowField, canStep, stepCost } from '../src/core/grid/pathfinding';
+import { DIRS8, type Vec2 } from '../src/core/grid/types';
 
 let failures = 0;
 const check = (label: string, cond: boolean, extra = '') => {
@@ -193,7 +199,229 @@ check('corredor fechado: cada monstro da fila anda ou quebra a parede em até 60
 const RING2 = ringRun();
 check('anel: duas execuções idênticas', RING2.sig === RING.sig && RING2.focusTakes === RING.focusTakes && RING2.steps[0] === RING.steps[0], `t1 ${RING.steps[0]} passos · t2 ${RING2.steps[0]} passos`);
 
-console.log('\n# 7) Custo (informativo)');
+console.log('\n# 7) Portão oeste do castelo: a volta é o caminho aberto (regressão)');
+// Último Bastião: o portão oeste são os tiles (22, 25..27) e o portal oeste fica em (5, 26). Herói longe da rota.
+const KEEP = ZONES.bastionKeep;
+const KEEP_PORTAL: Vec2 = { x: 5, y: 26 };
+const KEEP_ALONE: PartySetup = { members: [{ archetype: 'warrior', x: 44, y: 11 }], barriers: [] };
+const WEST_2: Vec2[] = [{ x: 23, y: 25 }, { x: 23, y: 27 }];
+const WEST_3: Vec2[] = [{ x: 23, y: 25 }, { x: 23, y: 26 }, { x: 23, y: 27 }];
+
+/** Entrada da cidade por onde o monstro entrou: O, L (portões laterais), N ou S. */
+function openingOf(p: Vec2): string {
+  if (p.x === 22 && p.y >= 25 && p.y <= 27) return 'O';
+  if (p.x === 37 && p.y >= 25 && p.y <= 27) return 'L';
+  if (p.y === 18 && p.x >= 29 && p.x <= 31) return 'N';
+  if (p.y === 34 && p.x >= 29 && p.x <= 31) return 'S';
+  return '';
+}
+
+/** Menor número de passos (8 direções, regra de canto) de um tile até um tile da cidade, pelos tiles abertos. */
+function minSteps(board: Board, from: Vec2): number {
+  const goal = new Set(board.cityTiles().map((g) => g.y * board.width + g.x));
+  const dist = new Map<number, number>([[from.y * board.width + from.x, 0]]);
+  const q: Vec2[] = [from];
+  for (let h = 0; h < q.length; h++) {
+    const p = q[h];
+    const dp = dist.get(p.y * board.width + p.x)!;
+    if (goal.has(p.y * board.width + p.x)) return dp;
+    for (const d of DIRS8) {
+      if (!canStep(board, p, d)) continue;
+      const n = { x: p.x + d.x, y: p.y + d.y };
+      if (!dist.has(n.y * board.width + n.x)) {
+        dist.set(n.y * board.width + n.x, dp + 1);
+        q.push(n);
+      }
+    }
+  }
+  return Infinity;
+}
+
+interface Walk {
+  arrived: boolean;
+  opening: string;
+  /** Custo andado / custo do caminho aberto mais curto (mesmo custo do campo de fluxo). */
+  ratio: number;
+  /** Passos andados menos o mínimo de passos pelos tiles abertos. */
+  extraSteps: number;
+  /** Maior espera parado com um passo livre que desce o campo. */
+  idleRun: number;
+  /** Maior sequência de passos que não aproximam o monstro do Emperium (volta junto ao castelo). */
+  lateralRun: number;
+}
+
+/** Até 8 tiles livres em volta do portal (o mais perto primeiro), onde nascem os monstros do teste. */
+function portalTiles(sim: Simulation, portal: Vec2): Vec2[] {
+  const board = sim.board;
+  const tiles: Vec2[] = [];
+  for (let r = 0; r <= 2 && tiles.length < 8; r++)
+    for (let dy = -r; dy <= r; dy++)
+      for (let dx = -r; dx <= r; dx++) {
+        const x = portal.x + dx, y = portal.y + dy;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || tiles.length >= 8) continue;
+        if (board.isWalkable(x, y) && !board.isCity(x, y) && !sim.unitAt(x, y)) tiles.push({ x, y });
+      }
+  return tiles;
+}
+
+/** Oito monstros nascem no portal (sem onda natural) e andam até a cidade com as muralhas dadas. */
+function walkWest(walls: Vec2[], portal: Vec2 = KEEP_PORTAL): Walk[] {
+  applyZone(KEEP, { count: 1 });
+  const fort: Fortification[] = walls.map((t, i) => ({ id: 700 + i, kind: 'wall', x: t.x, y: t.y, hp: WALL_HP, maxHp: WALL_HP }));
+  const sim = new Simulation(KEEP_ALONE, 9001, {}, { fortifications: fort });
+  sim.start();
+  sim.step();
+  // a onda natural solta no primeiro tick (count 1): tira esse monstro, fica só a turma de teste
+  for (const u of [...sim.units.values()]) if (u.team === 'enemy') sim.debugRemove(u.id);
+  const board = sim.board;
+  const goals = board.cityTiles();
+  const field = new FlowField(board);
+  field.compute(goals, GAME_CONFIG.pathing);
+  const tiles = portalTiles(sim, portal);
+  const mine = tiles.map((t) => sim.spawnEnemyAt('grunt', t.x, t.y, 1e6)).filter((u): u is Unit => !!u);
+  const dist = (a: Vec2, b: Vec2) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+  const toGoal = (p: Vec2) => Math.min(...goals.map((g) => dist(p, g)));
+  interface Acc { last: Vec2; path: Vec2[]; cost: number; moves: number; lateralRun: number; maxLateral: number; idleRun: number; maxIdle: number; done: boolean; arrived: boolean }
+  const acc = new Map<number, Acc>(mine.map((u) => [u.id, { last: { x: u.x, y: u.y }, path: [{ x: u.x, y: u.y }], cost: 0, moves: 0, lateralRun: 0, maxLateral: 0, idleRun: 0, maxIdle: 0, done: false, arrived: false }]));
+  const addStep = (a: Acc, to: Vec2) => {
+    a.cost += stepCost(board, to, { x: Math.sign(to.x - a.last.x), y: Math.sign(to.y - a.last.y) }, GAME_CONFIG.pathing);
+    a.moves++;
+    if (toGoal(to) >= toGoal(a.last)) {
+      a.lateralRun++;
+      a.maxLateral = Math.max(a.maxLateral, a.lateralRun);
+    } else a.lateralRun = 0;
+    a.idleRun = 0;
+    a.last = to;
+    a.path.push(to);
+  };
+  const freeDown = (u: Unit) => {
+    const here = field.at(u.x, u.y);
+    return DIRS8.some((d) => {
+      const nx = u.x + d.x, ny = u.y + d.y;
+      return board.isWalkable(nx, ny) && canStep(board, u, d) && !sim.unitAt(nx, ny) && field.at(nx, ny) < here;
+    });
+  };
+  for (let i = 0; i < 900 && sim.phase === 'running' && [...acc.values()].some((a) => !a.done); i++) {
+    const attacked = new Set<number>();
+    for (const e of sim.step()) if (e.type === 'melee' && e.unitId !== undefined) attacked.add(e.unitId);
+    for (const u of mine) {
+      const a = acc.get(u.id)!;
+      if (a.done) continue;
+      if (!u.alive) {
+        // entrou na cidade: o último passo (no portão) também conta
+        if (u.x !== a.last.x || u.y !== a.last.y) addStep(a, { x: u.x, y: u.y });
+        a.done = true;
+        a.arrived = board.isCity(u.x, u.y);
+        continue;
+      }
+      if (u.x !== a.last.x || u.y !== a.last.y) {
+        addStep(a, { x: u.x, y: u.y });
+        continue;
+      }
+      if (u.nextActTick <= sim.tick && !attacked.has(u.id) && freeDown(u)) {
+        a.idleRun++;
+        a.maxIdle = Math.max(a.maxIdle, a.idleRun);
+      } else a.idleRun = 0;
+    }
+  }
+  return mine.map((u) => {
+    const a = acc.get(u.id)!;
+    const start = a.path[0];
+    const opening = a.path.map(openingOf).find((o) => o) ?? '';
+    return { arrived: a.arrived, opening, ratio: a.cost / field.at(start.x, start.y), extraSteps: a.moves - minSteps(board, start), idleRun: a.maxIdle, lateralRun: a.maxLateral };
+  });
+}
+
+/** Custo do caminho aberto do portal oeste com essas muralhas (campo de fluxo do próprio tabuleiro). */
+function openCostWith(walls: Vec2[]): number {
+  applyZone(KEEP, { count: 1 });
+  const fort: Fortification[] = walls.map((t, i) => ({ id: 800 + i, kind: 'wall', x: t.x, y: t.y, hp: WALL_HP, maxHp: WALL_HP }));
+  const sim = new Simulation(KEEP_ALONE, 9001, {}, { fortifications: fort });
+  const field = new FlowField(sim.board);
+  field.compute(sim.board.cityTiles(), GAME_CONFIG.pathing);
+  return field.at(KEEP_PORTAL.x, KEEP_PORTAL.y);
+}
+
+applyZone(KEEP, { count: 1 });
+const keepBase = new Simulation(KEEP_ALONE, 9001, {}, {});
+// tiles livres ao lado do portão oeste (x 21 a 24, y 22 a 30): onde o jogador pode pôr muralha
+const nearWest: Vec2[] = [];
+for (let x = 21; x <= 24; x++) for (let y = 22; y <= 30; y++) if (keepBase.board.isWalkable(x, y) && !keepBase.board.isCity(x, y)) nearWest.push({ x, y });
+const cost0 = openCostWith([]);
+let worstPair = 0;
+let pairs = 0;
+for (let i = 0; i < nearWest.length; i++)
+  for (let j = i + 1; j < nearWest.length; j++) {
+    worstPair = Math.max(worstPair, openCostWith([nearWest[i], nearWest[j]]) - cost0);
+    pairs++;
+  }
+
+const W2 = walkWest(WEST_2);
+const W3 = walkWest(WEST_3);
+check('2 blocos no portão oeste: os 8 monstros entram pelo portão oeste', W2.length === 8 && W2.every((w) => w.arrived && w.opening === 'O'), `${W2.filter((w) => w.arrived && w.opening === 'O').length} de ${W2.length} pelo O`);
+check('2 blocos: nenhum par de muralhas ao lado do portão desvia o caminho em mais de 4 de custo', worstPair <= 4, `${pairs} pares · maior desvio +${worstPair}`);
+check('2 blocos: ninguém dá a volta junto ao castelo (sequência lateral até 2)', W2.every((w) => w.lateralRun <= 2), `maior sequência ${Math.max(...W2.map((w) => w.lateralRun))}`);
+check('2 blocos: custo andado no máximo 25% acima do caminho aberto mais curto', W2.every((w) => w.arrived && w.ratio <= 1.25), `maior razão ${Math.max(...W2.map((w) => w.ratio)).toFixed(2)}`);
+// Com a faixa lateral tampada por raízes (ver zones.ts), não há caminho aberto: a volta pelo norte ou pelo sul acabou.
+const closedCost = openCostWith(WEST_3);
+check('3 blocos fecham o portão oeste: nenhum caminho aberto até o Emperium (a horda não tem volta)', closedCost >= FlowField.INF, closedCost >= FlowField.INF ? 'sem caminho aberto' : `custo ${closedCost}`);
+check('3 blocos: nenhum monstro entra pelo norte ou pelo sul', W3.every((w) => w.opening !== 'N' && w.opening !== 'S'), `entradas ${[...new Set(W3.map((w) => w.opening || '-'))].join('/')}`);
+check('3 blocos: ninguém para com passo livre descendo o campo (espera até 2 ticks)', W3.every((w) => w.idleRun <= 2), `maior espera ${Math.max(...W3.map((w) => w.idleRun))} ticks`);
+applyZone(ZONES.bridge);
+
+console.log('\n# 8) Faixa lateral fechada: o portão oeste é a única entrada pelo oeste (regressão)');
+/** Região norte e sul do castelo (fora dos canais noroeste e sudoeste): quem chega ali deu a volta. */
+const northOf = (p: Vec2) => p.x >= 19 && p.y <= 17;
+const southOf = (p: Vec2) => p.x >= 19 && p.y >= 35;
+interface Siege {
+  /** Vida de cada muralha no fim. */
+  wallHp: number[];
+  /** Golpes de inimigos em muralhas do Bastião. */
+  wallHits: number;
+  /** Monstros que chegaram ao norte e ao sul do castelo (dando a volta). */
+  north: number;
+  south: number;
+  /** Monstros que ficaram diante do portão oeste (x 21 e 22, y 25 a 27). */
+  landing: number;
+}
+/** Oito monstros do portal oeste contra as muralhas dadas, por `ticks`: vida das muralhas e quem deu a volta. */
+function siege(walls: Vec2[], ticks: number): Siege {
+  applyZone(KEEP, { count: 1 });
+  const fort: Fortification[] = walls.map((t, i) => ({ id: 900 + i, kind: 'wall', x: t.x, y: t.y, hp: WALL_HP, maxHp: WALL_HP }));
+  const sim = new Simulation(KEEP_ALONE, 9001, {}, { fortifications: fort });
+  sim.start();
+  sim.step();
+  for (const u of [...sim.units.values()]) if (u.team === 'enemy') sim.debugRemove(u.id);
+  const mine = portalTiles(sim, KEEP_PORTAL).map((t) => sim.spawnEnemyAt('grunt', t.x, t.y, 1e6)).filter((u): u is Unit => !!u);
+  const seenN = new Set<number>();
+  const seenS = new Set<number>();
+  const seenL = new Set<number>();
+  let wallHits = 0;
+  for (let i = 0; i < ticks && sim.phase === 'running'; i++) {
+    for (const e of sim.step()) if (e.type === 'melee' && e.targetId < 0 && isBastion(sim, -e.targetId)) wallHits++;
+    for (const u of mine) {
+      if (!u.alive) continue;
+      if (northOf(u)) seenN.add(u.id);
+      if (southOf(u)) seenS.add(u.id);
+      if (u.x >= 21 && u.x <= 22 && u.y >= 25 && u.y <= 27) seenL.add(u.id);
+    }
+  }
+  return { wallHp: sim.fortificationStates().map((s) => s.hp), wallHits, north: seenN.size, south: seenS.size, landing: seenL.size };
+}
+
+const SEALED = siege(WEST_3, 900);
+check('portão oeste fechado (3 muralhas): a horda ataca a muralha (golpes e vida caindo)', SEALED.wallHits > 0 && SEALED.wallHp.some((h) => h < WALL_HP), `${SEALED.wallHits} golpes · vida ${SEALED.wallHp.join('/')}`);
+check('portão oeste fechado: ninguém dá a volta pelo norte nem pelo sul', SEALED.north === 0 && SEALED.south === 0, `norte ${SEALED.north} · sul ${SEALED.south}`);
+check('portão oeste fechado: a horda se junta diante do portão (x 21 e 22, y 25 a 27)', SEALED.landing > 0, `${SEALED.landing} de 8 diante do portão`);
+const OPEN_WEST = walkWest([]);
+check('portão oeste aberto (sem muralhas): os 8 monstros entram pelo portão oeste até o Emperium', OPEN_WEST.length === 8 && OPEN_WEST.every((w) => w.arrived && w.opening === 'O'), `${OPEN_WEST.filter((w) => w.arrived && w.opening === 'O').length} de 8 pelo O`);
+for (const [nome, idx] of [['norte', 0], ['sul', 1], ['leste', 3]] as const) {
+  const r = walkWest([], KEEP.spawnPoints[idx]);
+  check(`portal ${nome} (sem muralhas) continua chegando ao Emperium`, r.length === 8 && r.every((w) => w.arrived), `${r.filter((w) => w.arrived).length} de 8`);
+}
+applyZone(ZONES.bridge);
+
+console.log('\n# 9) Custo (informativo)');
 /** Tempo médio por tick (mediana de 5 execuções, depois de um aquecimento). */
 function msPerTick(fort: Fortification[], ticks: number): number {
   const times: number[] = [];

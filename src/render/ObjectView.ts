@@ -1,11 +1,15 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Simulation } from '../core/sim/Simulation';
 import type { MapObject, SimEvent } from '../core/sim/types';
 import { OBJECT_RULES } from '../core/sim/objects';
+import { VISUAL_CONFIG } from '../config/visualConfig';
 import { tileToWorld } from './coords';
 import type { ParticleLayer } from './fx/Particles';
 import { softCircle } from './textures';
 import { fortressPiece, fortressSize } from './scenery/fortress';
+import { muroMaterial, type TrechoMuralha } from './scenery/muralhaGlb';
 
 /**
  * Objetos interativos do mapa — só visual. Lê o estado autoritativo (`sim.objects`) e reage aos
@@ -43,10 +47,15 @@ export class ObjectView {
   private readonly oilDecals = new Map<number, THREE.Mesh>();
   private readonly mudDecals = new Map<number, THREE.Mesh>();
   private readonly highlight: THREE.Mesh[] = [];
+  /** Muro de pedra da cidade (Bastião): um só mesh com todos os tiles de pé, refeito quando algum quebra. */
+  private muro?: THREE.Mesh;
+  private muroSujo = false;
   private t = 0;
 
   constructor(private readonly sim: Simulation) {
+    carregarModulo();
     for (const o of sim.objects.values()) this.build(o);
+    if (this.muroSujo) this.rebuildMuro();
   }
 
   dispose(): void {
@@ -102,6 +111,7 @@ export class ObjectView {
         if (p) this.syncState(p, false, particles);
       }
     }
+    if (this.muroSujo) this.rebuildMuro();
   }
 
   private syncState(p: Piece, silent: boolean, particles?: ParticleLayer): void {
@@ -109,6 +119,8 @@ export class ObjectView {
     if (o.state !== p.state) {
       p.state = o.state;
       p.apply?.(o.state);
+      if (o.type === 'bastionWall') this.muroSujo = true; // o muro de pedra precisa refazer o trecho sem este tile
+
       if (!silent && particles && (o.state === 'broken' || o.state === 'collapsed')) {
         const c = this.center(o).setY(0.5);
         particles.smoke.emit({ pos: c, posJitter: 0.6, vel: new THREE.Vector3(0, 1.1, 0), velJitter: 1.4, life: 1.6, size: 0.6, sizeEnd: 1.8, color: o.type === 'roots' ? new THREE.Color(0.3, 0.22, 0.12) : C_DUST, alpha: 0.7, drag: 1.2, count: 18 });
@@ -155,6 +167,8 @@ export class ObjectView {
 
   update(dt: number, particles: ParticleLayer): void {
     this.t += dt;
+    // o muro espera o modelo (muros.glb) carregar: tenta de novo a cada quadro até lá
+    if (this.muroSujo) this.rebuildMuro();
     for (const p of this.pieces.values()) {
       if (p.shake > 0) {
         p.shake = Math.max(0, p.shake - dt);
@@ -181,6 +195,26 @@ export class ObjectView {
     return vertical ? Math.PI / 2 : 0;
   }
 
+  /**
+   * Refaz o muro de pedra da cidade com todos os tiles de pé. Os tiles vizinhos viram trechos contínuos (reta, esquina,
+   * T, cruz), com a mesma peça e escala da muralha do castelo. Só visual: lê `sim.objects`, nunca escreve nele.
+   */
+  private rebuildMuro(): void {
+    if (!modulo) return; // muros.glb ainda carregando: a flag fica de pé e o próximo quadro tenta de novo
+    this.muroSujo = false;
+    const tiles = [...this.sim.objects.values()].filter((o) => o.type === 'bastionWall' && o.state !== 'broken').flatMap((o) => o.tiles);
+    this.muro?.removeFromParent();
+    this.muro?.geometry.dispose();
+    this.muro = undefined;
+    const geo = geometriaDoMuro(tiles, tileX, tileZ, VISUAL_CONFIG.muralha.alturaCastelo);
+    if (!geo) return;
+    const mesh = new THREE.Mesh(geo, muroMaterial());
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.group.add(mesh);
+    this.muro = mesh;
+  }
+
   // ---------------- Construção por tipo ----------------
 
   private build(o: MapObject, rise = false): void {
@@ -201,6 +235,7 @@ export class ObjectView {
       p.hpBar = bar;
     }
     this.pieces.set(o.id, p);
+    if (o.type === 'bastionWall') this.muroSujo = true;
     if (rise) {
       // sobe do chão
       g.scale.y = 0.05;
@@ -233,7 +268,7 @@ function flame(g: THREE.Group, y: number, size: number): { glow: THREE.Sprite; l
   return { glow, light };
 }
 
-/** Muro de pedra do kit do dono (muralha do Guerreiro e muralha do Bastião usam o mesmo desenho). */
+/** Bloco de pedra do kit do dono (muralha do Guerreiro). A muralha da cidade (Bastião) é o muro de `ObjectView.rebuildMuro`. */
 const stoneWall: Builder = (p) => {
   // muro de pedra do kit do dono (fortress.glb): cada bloco ocupa 1 tile, então a peça de 2 m é reduzida à metade;
   // quebrado, troca pela barricada danificada do mesmo kit (também reduzida a 1 tile)
@@ -252,9 +287,12 @@ const stoneWall: Builder = (p) => {
   };
 };
 
+/** Muralha da cidade (Bastião): nada por tile. O muro é o mesh único de `ObjectView.rebuildMuro`; tile quebrado vira vão. */
+const muroDeCidade: Builder = () => {};
+
 const BUILDERS: Record<MapObject['type'], Builder> = {
   shieldWall: stoneWall,
-  bastionWall: stoneWall,
+  bastionWall: muroDeCidade,
   bastionTower(p) {
     // torre redonda do kit do dono, reduzida para caber no tile (o maior lado vira 1 tile)
     const tower = fortressPiece('Tower_Round');
@@ -631,13 +669,180 @@ const BUILDERS: Record<MapObject['type'], Builder> = {
 
 /**
  * Desenho de uma construção do Bastião sem objeto da simulação (prévia do fantasma no campo): usa as mesmas
- * peças e construtores do campo, então a prévia é igual à construção de verdade. Só visual.
+ * peças e construtores do campo, então a prévia é igual à construção de verdade. Só visual. Muro solto: o módulo
+ * do castelo num tile sem vizinhos. Vazio enquanto muros.glb não carregou (o fantasma tenta de novo).
  */
 export function fortMesh(type: 'bastionWall' | 'bastionTower'): THREE.Group {
   const g = new THREE.Group();
-  // os construtores das muralhas e torres não leem o objeto: só o grupo e o estado inicial
+  if (type === 'bastionWall') {
+    const geo = geometriaDoMuro([{ x: 0, y: 0 }], (x) => x, (y) => y, VISUAL_CONFIG.muralha.alturaCastelo);
+    if (geo) {
+      const mesh = new THREE.Mesh(geo, muroMaterial());
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      g.add(mesh);
+    }
+    return g;
+  }
+  // os construtores das torres não leem o objeto: só o grupo e o estado inicial
   BUILDERS[type]({ obj: undefined as unknown as MapObject, group: g, state: 'idle', shake: 0 }, 0);
   return g;
+}
+
+// ---------------- Muro de pedra da cidade (muros.glb, o mesmo módulo do castelo) ----------------
+
+/** Módulo do castelo, já em pé (base em y = 0), medido em tiles antes de qualquer escala. */
+interface ModuloMuro {
+  geometria: THREE.BufferGeometry;
+  altura: number;
+  comprimento: number;
+  espessura: number;
+}
+
+let modulo: ModuloMuro | undefined;
+let carregando = false;
+
+/** Carrega o módulo muros.glb uma vez (o castelo e os muros do Bastião leem o mesmo arquivo e o mesmo material). */
+function carregarModulo(): void {
+  if (modulo || carregando) return;
+  carregando = true;
+  new GLTFLoader()
+    .loadAsync('models/muros.glb')
+    .then((g) => {
+      const malhas: THREE.Mesh[] = [];
+      g.scene.updateMatrixWorld(true);
+      g.scene.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh) malhas.push(o as THREE.Mesh);
+      });
+      const malha = malhas[0];
+      if (!malha) throw new Error('muros.glb sem malha');
+      // a pedra é o material compartilhado do castelo (muroMaterial): não é descartado com o ObjectView
+      const mat = muroMaterial();
+      mat.userData.compartilhado = true;
+      if (!mat.map) {
+        mat.map = (malha.material as THREE.MeshStandardMaterial).map ?? null;
+        mat.needsUpdate = true;
+      }
+      // o módulo é comprido em Z: gira para X (os trechos correm em X) e assenta a base em y = 0
+      const geometria = malha.geometry.clone().applyMatrix4(malha.matrixWorld).rotateY(Math.PI / 2);
+      geometria.computeBoundingBox();
+      const caixa = geometria.boundingBox!;
+      geometria.translate(0, -caixa.min.y, 0);
+      modulo = { geometria, altura: caixa.max.y - caixa.min.y, comprimento: caixa.max.x - caixa.min.x, espessura: caixa.max.z - caixa.min.z };
+    })
+    .catch((e) => {
+      carregando = false;
+      console.warn('muros.glb não carregou; o muro do Bastião fica sem peça', e);
+    });
+}
+
+const tileX = (x: number): number => tileToWorld(x, 0).x;
+const tileZ = (y: number): number => tileToWorld(0, y).z;
+
+/**
+ * Tiles de muro → trechos retos. Cada cadeia reta de tiles vizinhos vira um trecho. Uma ponta que encontra outro
+ * muro (esquina, T, cruz) avança meia espessura, para a junta fechar sem vão; uma ponta livre vai até a borda do
+ * tile, então um muro solto ocupa o tile inteiro. Tile sozinho na vertical e sem vizinho na horizontal sai na horizontal.
+ * Fileiras (ou colunas) vizinhas ganham um recheio no meio, para não sobrar fresta entre elas.
+ */
+function trechosDoMuro(tiles: { x: number; y: number }[], X: (x: number) => number, Z: (y: number) => number, meia: number): TrechoMuralha[] {
+  const cheio = new Set(tiles.map((t) => `${t.x},${t.y}`));
+  const tem = (x: number, y: number): boolean => cheio.has(`${x},${y}`);
+  const porLinha = new Map<number, number[]>();
+  const porColuna = new Map<number, number[]>();
+  for (const t of tiles) {
+    porLinha.set(t.y, [...(porLinha.get(t.y) ?? []), t.x]);
+    porColuna.set(t.x, [...(porColuna.get(t.x) ?? []), t.y]);
+  }
+  const cadeias = (v: number[]): number[][] => {
+    const out: number[][] = [];
+    for (const n of [...v].sort((a, b) => a - b)) {
+      const ult = out[out.length - 1];
+      if (ult && ult[ult.length - 1] === n - 1) ult.push(n);
+      else out.push([n]);
+    }
+    return out;
+  };
+  const BORDA = 0.5; // metade do tile: a ponta livre chega à borda
+  const trechos: TrechoMuralha[] = [];
+  for (const [y, xs] of porLinha) {
+    for (const c of cadeias(xs)) {
+      const ini = c[0];
+      const fim = c[c.length - 1];
+      const vizIni = tem(ini, y - 1) || tem(ini, y + 1);
+      const vizFim = tem(fim, y - 1) || tem(fim, y + 1);
+      if (c.length === 1 && vizIni) continue; // tile solto na linha, mas ligado na coluna: o trecho vertical o cobre
+      trechos.push({ a: X(ini) - (vizIni ? meia : BORDA), b: X(fim) + (vizFim ? meia : BORDA), linha: Z(y), eixo: 'x' });
+    }
+  }
+  for (const [x, ys] of porColuna) {
+    for (const c of cadeias(ys)) {
+      if (c.length < 2) continue; // tile sozinho na coluna já saiu na horizontal
+      const ini = c[0];
+      const fim = c[c.length - 1];
+      const vizIni = tem(x - 1, ini) || tem(x + 1, ini);
+      const vizFim = tem(x - 1, fim) || tem(x + 1, fim);
+      trechos.push({ a: Z(ini) - (vizIni ? meia : BORDA), b: Z(fim) + (vizFim ? meia : BORDA), linha: X(x), eixo: 'z' });
+    }
+  }
+  // muro de duas fileiras (ou colunas) vizinhas: as faces ficam a 0,24 tile uma da outra, então um recheio no meio fecha o vão
+  const pares = new Map<number, number[]>();
+  for (const t of tiles) if (tem(t.x, t.y + 1)) pares.set(t.y, [...(pares.get(t.y) ?? []), t.x]);
+  for (const [y, xs] of pares) {
+    for (const c of cadeias(xs)) trechos.push({ a: X(c[0]) - BORDA, b: X(c[c.length - 1]) + BORDA, linha: Z(y) + 0.5, eixo: 'x' });
+  }
+  const paresV = new Map<number, number[]>();
+  for (const t of tiles) if (tem(t.x + 1, t.y)) paresV.set(t.x, [...(paresV.get(t.x) ?? []), t.y]);
+  for (const [x, ys] of paresV) {
+    for (const c of cadeias(ys)) trechos.push({ a: Z(c[0]) - BORDA, b: Z(c[c.length - 1]) + BORDA, linha: X(x) + 0.5, eixo: 'z' });
+  }
+  return trechos;
+}
+
+/**
+ * Junta os módulos de cada trecho num só geometria, com a mesma conta de `muralhaRetas` (muralhaGlb.ts): número
+ * inteiro de módulos por trecho, esticados até as pontas, e escala uniforme até `altura` (a pedra não se deforma).
+ */
+function montarMuro(trechos: TrechoMuralha[], escala: number): THREE.BufferGeometry | undefined {
+  if (!modulo) return undefined;
+  const { geometria, comprimento } = modulo;
+  const girada = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const esc = new THREE.Vector3();
+  const m = new THREE.Matrix4();
+  const partes: THREE.BufferGeometry[] = [];
+  for (const t of trechos) {
+    const L = Math.abs(t.b - t.a);
+    if (L <= 0) continue;
+    const lo = Math.min(t.a, t.b);
+    const n = Math.max(1, Math.round(L / (comprimento * escala)));
+    const passo = L / n;
+    for (let i = 0; i < n; i++) {
+      const c = lo + (i + 0.5) * passo;
+      if (t.eixo === 'x') {
+        pos.set(c, 0, t.linha);
+        quat.identity();
+      } else {
+        pos.set(t.linha, 0, c);
+        quat.copy(girada);
+      }
+      esc.set(passo / comprimento, escala, escala);
+      partes.push(geometria.clone().applyMatrix4(m.compose(pos, quat, esc)));
+    }
+  }
+  if (!partes.length) return undefined;
+  const junto = mergeGeometries(partes);
+  partes.forEach((p) => p.dispose());
+  return junto ?? undefined;
+}
+
+/** Geometria do muro para os tiles dados, com a altura da muralha do castelo. Undefined sem módulo ou sem tiles. */
+function geometriaDoMuro(tiles: { x: number; y: number }[], X: (x: number) => number, Z: (y: number) => number, altura: number): THREE.BufferGeometry | undefined {
+  if (!modulo || !tiles.length) return undefined;
+  const escala = altura / modulo.altura;
+  const meia = (modulo.espessura * escala) / 2;
+  return montarMuro(trechosDoMuro(tiles, X, Z, meia), escala);
 }
 
 /** Junta geometrias sem índice (poças/lama). */
