@@ -2,6 +2,7 @@ import { MENU_VISUAL as M } from '../../config/visualConfig';
 import { HallOfLegends, type LegendValues } from './HallOfLegends';
 import { MainMenuBackground } from './MainMenuBackground';
 import { MainMenuNavigation } from './MainMenuNavigation';
+import { registerOverlay } from '../overlays';
 
 /**
  * Menu principal (jogo 100% offline: sem login, sem contas, sem salvar/carregar manual).
@@ -91,6 +92,8 @@ export class MainMenu {
       else this.hooks.onOptions(b.dataset.card as 'audio' | 'video');
     });
     window.addEventListener('keydown', this.keyHandler, true);
+    // cartão de Opções/Informações: o Esc fecha pelo registro (ui/overlays.ts), junto com o resto
+    registerOverlay({ isOpen: () => this.card !== undefined, close: () => this.closeCard() });
     this.refresh();
     this.background.start();
   }
@@ -161,12 +164,8 @@ export class MainMenu {
 
   /** O menu "engole" as teclas para o jogo não reagir por baixo dele. */
   private readonly keyHandler = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') return; // Esc é do registro de janelas (main.ts), que também fecha o cartão
     e.stopImmediatePropagation();
-    if (e.key === 'Escape') {
-      if (this.card) this.closeCard();
-      e.preventDefault();
-      return;
-    }
     if (this.card) return;
     if (this.nav.key(e)) e.preventDefault();
   };

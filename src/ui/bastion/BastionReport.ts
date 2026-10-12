@@ -1,5 +1,6 @@
 import './bastion.css';
 import type { BastionReportVM } from './bastionVM';
+import { registerOverlay } from '../overlays';
 
 const fmt = (n: number): string => n.toLocaleString('pt-BR');
 const frac = (v: number, max: number): number => (max > 0 ? Math.min(1, Math.max(0, v / max)) : 0);
@@ -10,9 +11,9 @@ export class BastionReport {
   private readonly body: HTMLElement;
   private onDone: () => void = () => {};
 
-  /** Fase de captura: Enter/Esc são deste modal enquanto ele está aberto (o Esc central do jogo não dispara). */
+  /** Fase de captura: Enter é deste modal enquanto ele está aberto. O Esc fecha pelo registro de janelas (também chama Continuar). */
   private readonly onKey = (e: KeyboardEvent): void => {
-    if (this.root.hidden || (e.key !== 'Enter' && e.key !== 'Escape')) return;
+    if (this.root.hidden || e.key !== 'Enter') return;
     e.preventDefault();
     e.stopPropagation();
     this.finish();
@@ -36,6 +37,7 @@ export class BastionReport {
     this.body = this.root.querySelector<HTMLElement>('[data-body]')!;
     this.root.querySelector<HTMLButtonElement>('[data-act="continue"]')!.addEventListener('click', () => this.finish());
     window.addEventListener('keydown', this.onKey, true);
+    registerOverlay({ isOpen: () => this.visible, close: () => this.finish() });
   }
 
   open(vm: BastionReportVM, onClose: () => void): void {

@@ -35,6 +35,7 @@ import { investedSkillPoints, type HeroKind } from '../core/progression/skills';
 import { itemIconUrl } from './itemArt';
 import { slotCount } from '../core/progression/skillSlots';
 import { PORTRAITS } from './WorldMap';
+import { registerOverlay } from './overlays';
 
 /**
  * Cidade (versão simples): 5 barracas grandes; cada uma abre um painel só com cartas,
@@ -125,6 +126,8 @@ export class CityScreen {
       }
       this.cb.onLeave();
     });
+    // serviço aberto (loja, ferreiro…): o Esc fecha pelo registro de janelas; a cidade continua aberta
+    registerOverlay({ isOpen: () => this.npc !== undefined, close: () => this.closeService() });
   }
 
   get visible(): boolean {
@@ -145,6 +148,12 @@ export class CityScreen {
 
   close(): void {
     this.el.hidden = true;
+  }
+
+  /** Fecha o serviço aberto (× ou Esc) e volta à cidade. */
+  closeService(): void {
+    this.npc = undefined;
+    this.render();
   }
 
   refresh(): void {

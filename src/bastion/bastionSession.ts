@@ -6,6 +6,7 @@ import { ZONES, parseZone } from '../config/zones';
 import { findStructure, migrateBastion, newBastion, structureMaxHp, structureStatus, type BastionState, type Structure } from '../core/bastion/bastion';
 import { hordeOf, type HordeWave } from '../core/bastion/horde';
 import { bastionBuildEnv } from '../core/bastion/route';
+import { registerOverlay } from '../ui/overlays';
 import {
   BUILD_MSG,
   applyNight,
@@ -156,6 +157,9 @@ export class BastionSession {
       onBackToHub: () => this.backToHub(),
     });
     this.report = new BastionReport();
+    // janelas do modo (o Esc fecha): menu do Bastião e barra de construção; o relatório se registra sozinho
+    registerOverlay({ isOpen: () => this.hub.visible, close: () => this.hub.close() });
+    registerOverlay({ isOpen: () => this.build.visible, close: () => this.build.close() });
   }
 
   /** Modo ativo: a jornada está guardada e a batalha usa a cidade do Bastião. */
@@ -182,17 +186,18 @@ export class BastionSession {
     this.hub.open(this.hubVM());
   }
 
-  /** Esc durante o modo: fecha a barra de construção, ou sai do menu do modo, ou abre o menu do modo. */
+  /** Esc durante a escolha de um movimento: cancela o movimento (não é menu, então vem antes das janelas). Devolve true se cancelou. */
+  escapeMove(): boolean {
+    if (this.moving === undefined) return false;
+    this.cancelMove('Movimento cancelado.');
+    return true;
+  }
+
+  /** Esc sem nenhuma janela aberta (o main fecha as janelas antes): abre o menu do modo, no planejamento. */
   escape(): void {
     if (this.d.isCollectionOpen()) return; // a coleção fecha com o próprio Esc
-    if (this.moving !== undefined) {
-      this.cancelMove('Movimento cancelado.');
-      return;
-    }
     if (!this.ctx || this.report.visible || this.d.sim().phase === 'running') return;
-    if (this.build.visible) this.backToHub();
-    else if (this.hub.visible) this.exit();
-    else this.hub.open(this.hubVM());
+    this.hub.open(this.hubVM());
   }
 
   /** Clique no campo durante o planejamento. Devolve true se o modo tratou o clique. */
