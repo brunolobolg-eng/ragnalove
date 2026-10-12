@@ -22,11 +22,18 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - As jornadas atuais não mudam: a saída de referência da simulação continua idêntica.
 - Painel de desenvolvimento (F9): mostra chamadas de desenho, triângulos e luzes da cena, para medir antes de mexer no visual.
 - Ponte: tochas e fogueiras ficam só com o clarão, sem iluminar o chão. A cena tem 12 luzes a menos por quadro.
+- Montar Defesa é jogável: o menu do Último Bastião tem construção de muralhas e torres no mapa, reparo, aprimoramento, projetos, party e cartas. Cada noite termina com um relatório, e a cidade guarda vida, Zen e construções entre as tentativas.
+- A tela de entrada ganhou uma engrenagem discreta no canto, que abre as Opções.
+- As muralhas dos mapas (cidade, portões, castelo do Último Bastião e vila) usam a peça de muro de pedra do dono, com torres e ameias. Ponte, floresta, planície, dunas, montanhas e cinzas ganham o mesmo muro.
+- As torres dos portões seguem a mesma pedra, e a paliçada de madeira da floresta saiu. As rochas naturais e a muralha do guerreiro continuam como estavam.
 - Emperium: o cristal ganha veios de energia que sobem devagar, com um pulso lento, nos presets médio e alto. No preset baixo, ele segue como antes.
 - Água do rio, do lago e das poças ganha ondulação discreta e reflexo do céu, nos presets médio e alto.
 - Escudo Sagrado: a cúpula se desfaz em pedaços, com a borda acesa, em vez de sumir de uma vez.
 - Cartas de monstro agora dão efeitos de batalha, não mais atributos: cada carta tem um efeito para todas as classes e um bônus de vocação, que só a classe indicada recebe.
 - As cartas ganham tiers, na mesma escala dos equipamentos (Comum a Mítico); o tier define a força do efeito.
+- A tela de entrada usa a arte nova da temporada 1. Começar jornada, Montar defesa, Info e Donate funcionam; a Torre do Infinito aparece desativada.
+- O Ranking mostra os recordes por cima dos valores de exemplo da arte, com ??? enquanto não houver recorde.
+- O rodapé da versão ganhou caixa própria sobre a versão antiga da arte, e a engrenagem foi para o canto inferior esquerdo.
 
 ## 2026-10-11 — v0.10
 - Álbum de cartas refeito no layout da folha de referência do dono: lateral com o herói, cartas encontradas e barra de progresso, filtros de raridade com gemas, cartas equipadas e a fusão de 10 Normais.

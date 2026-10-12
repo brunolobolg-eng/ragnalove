@@ -21,7 +21,7 @@ const clock = (ms: number) => {
   return s >= 3600 ? `${Math.floor(s / 3600)}:${mm}:${ss}` : `${Math.floor(s / 60)}:${ss}`;
 };
 
-/** Recordes → textos do Ranking (ausente = fica o "???" da arte). `runs` = jornadas encerradas. */
+/** Recordes → textos do Ranking (ausente = "???"). `runs` = jornadas encerradas. */
 export function legendsFrom(rec: Records, runs: number): LegendValues {
   return {
     difficulty: rec.actsCleared > 0 ? ACTS[Math.min(rec.actsCleared, ACTS.length) - 1].name.split(' — ')[0] : undefined,
@@ -43,13 +43,14 @@ export class HallOfLegends {
   constructor(stage: HTMLElement) {
     const R = M.rankValues;
     const [px, py, pw] = M.pieces.right;
-    for (const [id, cy] of Object.entries(R.rows) as [LegendId, number][]) {
-      // ancorado pela direita: o fundo cobre só o texto do valor (o subtítulo da arte fica visível)
+    for (const [id, row] of Object.entries(R.rows) as [LegendId, { y: number; x: number }][]) {
+      // ancorado pela direita: a capa cobre o valor pintado (que varia de largura por linha) sem tocar o subtítulo
       const el = document.createElement('em');
       el.className = 'mm-val';
       el.style.right = `${px + pw - R.right}px`;
-      el.style.top = `${cy - R.h / 2 - py}px`;
+      el.style.top = `${row.y - R.h / 2 - py}px`;
       el.style.height = `${R.h}px`;
+      el.style.minWidth = `${R.right - row.x}px`;
       el.style.background = M.panelColor;
       el.hidden = true;
       stage.appendChild(el);
@@ -62,11 +63,10 @@ export class HallOfLegends {
   }
 
   render(values: LegendValues): void {
-    // sem recorde: fica o "???" da própria arte
+    // sem recorde: "???" (a arte traz valores de exemplo, que não podem parecer recordes reais)
     for (const [id, el] of this.values) {
-      const v = values[id];
-      el.hidden = !v;
-      el.textContent = v ?? '';
+      el.hidden = false;
+      el.textContent = values[id] ?? '???';
     }
     const tier = Object.fromEntries(DONATION_TIERS.map((t) => [t.id, t]));
     this.donors.innerHTML = SUPPORTERS.length

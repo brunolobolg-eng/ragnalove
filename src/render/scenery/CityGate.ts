@@ -1,15 +1,18 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { VISUAL_CONFIG } from '../../config/visualConfig';
 import type { ParsedZone, ZoneTheme } from '../../config/zones';
 import type { ParticleLayer } from '../fx/Particles';
 import { softCircle } from '../textures';
 import { loadTexture } from './naturKit';
 import { buildEmperium } from './Emperium';
+import { muralhaRetas, muroMaterial, trechosDeTiles } from './muralhaGlb';
 
 /**
  * Muralha e portão da cidade no lado oposto aos spawns (só visual; o bloqueio vem dos tiles
- * 'W' e a zona de ameaça dos tiles 'g' do mapa). Cada bioma tem seu material:
- * paliçada de troncos (floresta), pedra (planície/montanha/cinzas) e arenito com sol (deserto).
+ * 'W' e a zona de ameaça dos tiles 'g' do mapa). Por padrão a muralha é a peça muros.glb do dono em todos os
+ * biomas (muralhaGlb.ts); com `muralha.glb: false`, cada bioma volta ao seu material antigo: paliçada de
+ * troncos (floresta), pedra (planície/montanha/cinzas) e arenito com sol (deserto).
  */
 export interface CityGateHandle {
   group: THREE.Group;
@@ -35,31 +38,37 @@ const STYLE: Record<string, Style> = {
 };
 
 /**
- * Castelo fechado (zona com `castle`): muralha de pedra em cada tile 'W' do mapa, com ameias por cima. Os portões
- * são aberturas no muro, e o Emperium (tiles 'E', no centro) é desenhado por buildEmperium. Não usa a paliçada do
- * portão, que é uma linha só do lado oposto aos spawns.
+ * Castelo fechado (zona com `castle`): muralha de pedra ao longo dos tiles 'W' do mapa (peça muros.glb em trechos;
+ * com `muralha.glb: false`, blocos com ameias em cada tile). Os portões são aberturas no muro, e o Emperium (tiles
+ * 'E', no centro) é desenhado por buildEmperium. Não usa a paliçada do portão, que é uma linha só do lado oposto
+ * aos spawns.
  */
 function buildCastleWalls(zone: ParsedZone): CityGateHandle {
   const root = new THREE.Group();
   const X = (x: number) => x - zone.width / 2 + 0.5;
   const Z = (y: number) => y - zone.height / 2 + 0.5;
-  const blocks: THREE.BufferGeometry[] = [];
-  const ameias: THREE.BufferGeometry[] = [];
-  const pedra = loadTexture('textures/pedras/pedra_cinza.webp');
-  for (const p of zone.props) {
-    if (p.kind !== 'cityWall') continue;
-    blocks.push(new THREE.BoxGeometry(1, 1.4, 1).translate(X(p.x), 0.7, Z(p.y)));
-    if ((p.x + p.y) % 2 === 0) ameias.push(new THREE.BoxGeometry(0.42, 0.3, 0.42).translate(X(p.x), 1.55, Z(p.y)));
-  }
-  if (blocks.length) {
-    const muro = new THREE.Mesh(mergeGeometries(blocks)!, new THREE.MeshLambertMaterial({ map: pedra, color: 0xd9d3c3, flatShading: true }));
-    muro.castShadow = true;
-    root.add(muro);
-  }
-  if (ameias.length) {
-    const topo = new THREE.Mesh(mergeGeometries(ameias)!, new THREE.MeshLambertMaterial({ map: pedra, color: 0xa9a392, flatShading: true }));
-    topo.castShadow = true;
-    root.add(topo);
+  const muroTiles = zone.props.filter((p) => p.kind === 'cityWall');
+  if (VISUAL_CONFIG.muralha.glb) {
+    // muralha do castelo com a peça muros.glb: trechos retos ao longo dos tiles 'W' (as aberturas são os portões)
+    muralhaRetas(root, trechosDeTiles(muroTiles, X, Z), VISUAL_CONFIG.muralha.alturaCastelo);
+  } else {
+    const blocks: THREE.BufferGeometry[] = [];
+    const ameias: THREE.BufferGeometry[] = [];
+    const pedra = loadTexture('textures/pedras/pedra_cinza.webp');
+    for (const p of muroTiles) {
+      blocks.push(new THREE.BoxGeometry(1, 1.4, 1).translate(X(p.x), 0.7, Z(p.y)));
+      if ((p.x + p.y) % 2 === 0) ameias.push(new THREE.BoxGeometry(0.42, 0.3, 0.42).translate(X(p.x), 1.55, Z(p.y)));
+    }
+    if (blocks.length) {
+      const muro = new THREE.Mesh(mergeGeometries(blocks)!, new THREE.MeshLambertMaterial({ map: pedra, color: 0xd9d3c3, flatShading: true }));
+      muro.castShadow = true;
+      root.add(muro);
+    }
+    if (ameias.length) {
+      const topo = new THREE.Mesh(mergeGeometries(ameias)!, new THREE.MeshLambertMaterial({ map: pedra, color: 0xa9a392, flatShading: true }));
+      topo.castShadow = true;
+      root.add(topo);
+    }
   }
   const emperio = buildEmperium(zone, X, Z);
   root.add(emperio.group);
@@ -112,10 +121,19 @@ export function buildCityGate(zone: ParsedZone, theme: ZoneTheme): CityGateHandl
   addWall(right + 0.9, X(W - 1) + 0.5 + 6);
   const wall = new THREE.Mesh(mergeGeometries(geos)!, wallMat);
   const top = new THREE.Mesh(mergeGeometries(tops)!, st.palisade ? woodMat : topMat);
-  for (const m of [wall, top]) {
-    m.castShadow = true;
-    m.receiveShadow = true;
-    root.add(m);
+  if (VISUAL_CONFIG.muralha.glb) {
+    // muralha dos dois lados do portão com a peça muros.glb; a paliçada/caixas acima só valem com `muralha.glb: false`
+    const trechos = [
+      { a: X(0) - 0.5 - 6, b: left - 0.9, linha: z + 0.2, eixo: 'x' as const },
+      { a: right + 0.9, b: X(W - 1) + 0.5 + 6, linha: z + 0.2, eixo: 'x' as const },
+    ];
+    muralhaRetas(root, trechos, VISUAL_CONFIG.muralha.alturaCidade);
+  } else {
+    for (const m of [wall, top]) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+      root.add(m);
+    }
   }
 
   // ---------------- Casa do portão: torres + arco + portas abertas ----------------
@@ -127,7 +145,7 @@ export function buildCityGate(zone: ParsedZone, theme: ZoneTheme): CityGateHandl
     tower.position.x = s * (span / 2 + 0.55);
     if (st.palisade) {
       // pilares baixos (a câmera vem do lado da cidade: nada alto na frente da defesa)
-      const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.35, 1.0), woodMat);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.35, 1.0), VISUAL_CONFIG.muralha.glb ? muroMaterial() : woodMat);
       body.position.y = 0.675;
       const cap = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 6), woodMat);
       for (const [dx, dz] of [[-0.3, -0.3], [0.3, -0.3], [-0.3, 0.3], [0.3, 0.3]]) {
@@ -137,7 +155,7 @@ export function buildCityGate(zone: ParsedZone, theme: ZoneTheme): CityGateHandl
       }
       tower.add(body);
     } else {
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.7, 1.35, 12), wallMat);
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.7, 1.35, 12), VISUAL_CONFIG.muralha.glb ? muroMaterial() : wallMat);
       body.position.y = 0.675;
       const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.16, 12), topMat);
       ring.position.y = 1.42;

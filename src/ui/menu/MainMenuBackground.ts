@@ -1,10 +1,21 @@
+import { temporadaAtual } from '../../config/temporadas';
 import { MENU_VISUAL as M } from '../../config/visualConfig';
 
 export type MenuPiece = keyof typeof M.pieces;
 const PIECES = Object.keys(M.pieces) as MenuPiece[];
 
 /**
- * Fundo do menu principal: a arte `tela-entrada.jpg` enche a tela toda (sem bordas vazias;
+ * Máscara que esfuma só as bordas da peça que dão para dentro da arte. A borda que encosta na tela (peça empurrada)
+ * fica firme: além dela não há arte, e esfumar deixaria aparecer a arte de trás, fora do lugar.
+ */
+function esfumado(f: number, [x, y, w, h]: readonly number[], encostada: Record<'esq' | 'dir' | 'cima' | 'baixo', boolean>): string {
+  const faixa = (dir: string, a: boolean, b: boolean) =>
+    `linear-gradient(${dir}, ${a ? 'transparent' : '#000'}, #000 ${f}px, #000 calc(100% - ${f}px), ${b ? 'transparent' : '#000'})`;
+  return `${faixa('to right', x > 0 && !encostada.esq, x + w < M.width && !encostada.dir)}, ${faixa('to bottom', y > 0 && !encostada.cima, y + h < M.height && !encostada.baixo)}`;
+}
+
+/**
+ * Fundo do menu principal: a arte da temporada vigente enche a tela toda (sem bordas vazias;
  * corta um pouco da arte quando a tela não é 16:9). Por cima, peças recortadas da mesma arte —
  * botões (esquerda), Ranking (direita) e slogan — que ficam sempre inteiras na tela: se o corte
  * as pegaria, são empurradas para dentro. As áreas clicáveis e os valores vivos moram dentro
@@ -14,9 +25,15 @@ export class MainMenuBackground {
   private readonly stage: HTMLElement;
   readonly pieces: Record<MenuPiece, HTMLElement>;
   private running = false;
+  private readonly parent: HTMLElement;
+  /** Elementos avulsos por cima da arte (ex.: rodapé), presos a um canto da tela como as peças. */
+  private readonly floats: { el: HTMLElement; rect: readonly number[] }[] = [];
+  /** Camada de arte de cada peça (a máscara de esfumado muda com a tela: ver `resize`). */
+  private readonly arts = {} as Record<MenuPiece, HTMLElement>;
 
   constructor(parent: HTMLElement) {
-    const img = new URL(M.image, document.baseURI).href;
+    this.parent = parent;
+    const img = new URL(temporadaAtual().arte, document.baseURI).href;
     this.stage = document.createElement('div');
     this.stage.className = 'mm-stage';
     this.stage.style.width = `${M.width}px`;
@@ -26,7 +43,6 @@ export class MainMenuBackground {
 
     const make = (id: MenuPiece): HTMLElement => {
       const [x, y, w, h] = M.pieces[id];
-      const f = M.feather;
       const el = document.createElement('div');
       el.className = `mm-piece mm-piece-${id}`;
       el.style.width = `${w}px`;
@@ -36,11 +52,8 @@ export class MainMenuBackground {
       art.style.backgroundImage = `url("${img}")`;
       art.style.backgroundSize = `${M.width}px ${M.height}px`;
       art.style.backgroundPosition = `${-x}px ${-y}px`;
-      // esfuma só os lados que não encostam na borda da arte
-      const fade = (dir: string, a: boolean, b: boolean) =>
-        `linear-gradient(${dir}, ${a ? 'transparent' : '#000'}, #000 ${f}px, #000 calc(100% - ${f}px), ${b ? 'transparent' : '#000'})`;
-      art.style.setProperty('mask-image', `${fade('to right', x > 0, x + w < M.width)}, ${fade('to bottom', y > 0, y + h < M.height)}`);
       art.style.setProperty('mask-composite', 'intersect');
+      this.arts[id] = art;
       el.appendChild(art);
       parent.appendChild(el);
       return el;
@@ -55,6 +68,16 @@ export class MainMenuBackground {
     el.style.top = `${y - origin[1]}px`;
     el.style.width = `${w}px`;
     el.style.height = `${h}px`;
+    return el;
+  }
+
+  /** Põe um elemento por cima da arte, nas coordenadas da arte. Acompanha a escala e é empurrado para dentro da tela. */
+  place(el: HTMLElement, rect: readonly number[]): HTMLElement {
+    el.style.width = `${rect[2]}px`;
+    el.style.height = `${rect[3]}px`;
+    el.style.transformOrigin = '0 0';
+    this.parent.appendChild(el);
+    this.floats.push({ el, rect });
     return el;
   }
 
@@ -80,6 +103,15 @@ export class MainMenuBackground {
       const px = Math.min(Math.max(ox + x * s, 0), W - w * s);
       const py = Math.min(Math.max(oy + y * s, 0), H - h * s);
       this.pieces[id].style.transform = `translate(${px}px, ${py}px) scale(${s})`;
+      const encostada = { esq: px <= 0.5, dir: px >= W - w * s - 0.5, cima: py <= 0.5, baixo: py >= H - h * s - 0.5 };
+      this.arts[id].style.setProperty('mask-image', esfumado(M.feather, M.pieces[id], encostada));
+    }
+    // elementos avulsos por cima da arte (ex.: rodapé): a mesma regra das peças
+    for (const f of this.floats) {
+      const [x, y, w, h] = f.rect;
+      const px = Math.min(Math.max(ox + x * s, 0), W - w * s);
+      const py = Math.min(Math.max(oy + y * s, 0), H - h * s);
+      f.el.style.transform = `translate(${px}px, ${py}px) scale(${s})`;
     }
   }
 }

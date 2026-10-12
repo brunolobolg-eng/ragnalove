@@ -100,6 +100,8 @@ import { REFINE, WEAPON_USERS } from './core/progression/equipment';
 import type { HeroLoadout } from './core/sim/Simulation';
 import { slotCount } from './core/progression/skillSlots';
 import { MainMenu, type MenuState } from './ui/menu/MainMenu';
+import { BastionSession } from './bastion/bastionSession';
+import type { Fortification } from './core/sim/Simulation';
 import { legendsFrom } from './ui/menu/HallOfLegends';
 import { emptyRecords, updateRecords, updateSurvivalBest, type Records } from './core/run/records';
 import { SaveStore, type SaveKey } from './save/SaveStore';
@@ -174,6 +176,7 @@ function autoGear(): void {
 }
 function saveProfile(): void {
   autoGear();
+  if (bastionSession.active) return bastionSession.saveState(); // no Bastião, o save da jornada não é tocado
   try {
     if (!SaveStore.set(RUN_KEY, JSON.stringify(run))) hud.log('Não foi possível salvar o progresso (disco cheio ou sem permissão?).', 'warn');
   } catch {
@@ -329,8 +332,10 @@ function liveSetup(): PartySetup {
 /** Índice da barreira da ferramenta selecionada (-1 = herói). */
 const barrierIndex = (t: Tool) => (t === 'barrier' ? 0 : t === 'barrier2' ? 1 : t === 'barrier3' ? 2 : -1);
 /** Estado da run que a onda precisa: vida da cidade e objetos já acionados nesta fase. */
+/** Construções do Último Bastião que a batalha recebe (undefined fora do modo). */
+let bastionFort: Fortification[] | undefined;
 function simOpts() {
-  return { cityHp: run.cityHp, cityMaxHp: run.cityMaxHp, usedObjects: run.usedObjects ?? [] };
+  return { cityHp: run.cityHp, cityMaxHp: run.cityMaxHp, usedObjects: run.usedObjects ?? [], fortifications: bastionFort };
 }
 let sim = new Simulation(liveSetup(), undefined, loadout(), { cityHp: run.cityHp, cityMaxHp: run.cityMaxHp });
 view.bind(sim);
@@ -416,6 +421,7 @@ function menuState(): MenuState {
   };
 }
 const menu = new MainMenu({
+  onBastion: () => bastionSession.open(),
   onStart: () => {
     audio.stopMenuMusic(); // a música do menu é só da tela inicial
     audio.unlock(); // o navegador só libera som após um gesto do jogador
@@ -444,6 +450,44 @@ const menu = new MainMenu({
 
 // ---------- Fluxo da run: mapa-múndi → fase (batalha/cidade/evento) → mapa ----------
 type Mode = 'menu' | 'select' | 'map' | 'battle' | 'city' | 'event' | 'end';
+/** Último Bastião (Montar Defesa): usa a batalha e as telas da jornada, com a cidade e a carteira do modo. */
+const bastionSession = new BastionSession({
+  run: () => run,
+  setRun: (r) => {
+    run = r;
+  },
+  profile: () => profile,
+  setProfile: (p) => {
+    profile = p;
+  },
+  sim: () => sim,
+  loadMap: (seed) => loadZone(ZONES[BASTION_ZONE_ID], { boss: null, seed }),
+  rebuildSim: () => resetSim(false),
+  startNight: () => {
+    sim.start();
+    hud.setPlanning(false);
+    hud.log('A horda se aproxima!', 'warn');
+  },
+  enterBattle: () => setMode('battle'),
+  focusParty: () => focusParty(true),
+  closeMenu: () => menu.close(),
+  openMenu: () => menu.open(),
+  setStructures: (f) => {
+    bastionFort = f;
+  },
+  setOverlay: (fn) => {
+    overlayHook = fn;
+  },
+  heroTiles: () => liveSetup().members.map((m) => ({ x: m.x, y: m.y })),
+  cards: () => loadMetaStats().collection ?? emptyCollection(),
+  saveCards: (c) => {
+    const m = loadMetaStats();
+    m.collection = c;
+    saveMetaStats(m);
+  },
+  openCollection: (nights) => openCollection(nights),
+  log: (text, kind) => hud.log(text, kind),
+});
 let mode: Mode = 'menu';
 const ui = () => audio.sfx('ui');
 const worldMap = new WorldMap({
@@ -504,10 +548,10 @@ const collection = new Collection({
   onUi: ui,
 });
 const cardPack = new CardPack((n) => audio.sfx(n));
-function openCollection(): void {
+function openCollection(bastionNights = 0): void {
   const meta = loadMetaStats();
   openCardsRef = meta.collection ?? emptyCollection();
-  collection.open(openCardsRef, meta.runsWon);
+  collection.open(openCardsRef, meta.runsWon, undefined, bastionNights);
 }
 const charSelect = new CharSelect(
   () => {
@@ -716,6 +760,7 @@ let autoStartLeft = 0;
 let lastCountShown = 0;
 /** Contagem regressiva do planejamento: corre em tempo real (pausa com janelas abertas) e inicia a horda no zero. */
 function tickAutoStart(dt: number, paused: boolean): void {
+  if (bastionSession.active) autoStartLeft = 0; // no Bastião a noite começa pelo botão, nunca pelo relógio
   if (mode !== 'battle' || sim.phase !== 'setup') autoStartLeft = 0;
   if (autoStartLeft > 0 && !paused && !menu.active) {
     autoStartLeft = Math.max(0, autoStartLeft - dt);
@@ -733,6 +778,7 @@ function tickAutoStart(dt: number, paused: boolean): void {
  * Fechar o jogo ou voltar ao menu no meio não descarta mais a onda: ela recomeça igual (resumeBattle).
  */
 function startHorde(): void {
+  if (bastionSession.active) return bastionSession.startNight();
   if (sim.phase !== 'setup') return;
   autoStartLeft = 0;
   // na Arena de Skills não há selo nem save de batalha (teste isolado, sem resume)
@@ -768,7 +814,7 @@ function resumeBattle(seal: BattleSeal): void {
 // Ao fechar a janela (X, ALT+F4): grava o relógio da jornada. Queda/travamento não passa por aqui —
 // por isso o selo de batalha já está no disco desde o início da horda.
 window.addEventListener('beforeunload', () => {
-  if (hasSavedRun) SaveStore.set(RUN_KEY, JSON.stringify(run));
+  if (hasSavedRun && !bastionSession.active) SaveStore.set(RUN_KEY, JSON.stringify(run));
 });
 
 /** Centraliza a câmera na party. */
@@ -1587,6 +1633,11 @@ canvas.addEventListener('pointerleave', () => {
 });
 canvas.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
+  // Último Bastião no planejamento: construir, selecionar uma construção ou (sem nada escolhido) deixar o herói ser arrastado
+  if (bastionSession.active && mode === 'battle') {
+    const t = pickTile(e);
+    if (t && bastionSession.onCanvasClick(t)) return;
+  }
   // na horda rolando: clique num herói seleciona; com herói selecionado, clique no chão manda ele para lá
   if (sim.phase === 'running' && mode === 'battle') {
     const t = pickTile(e);
@@ -1717,7 +1768,8 @@ window.addEventListener('keydown', (e) => {
   if (menu.active || mode === 'menu') return;
   if (e.key === 'Escape') {
     e.preventDefault();
-    askReturnToMenu();
+    if (bastionSession.active) bastionSession.escape();
+    else askReturnToMenu();
     return;
   }
   if ((e.key === 'c' || e.key === 'C') && !(e.target instanceof HTMLInputElement)) hud.toggleCharacter();
@@ -2042,7 +2094,8 @@ function frame(now: number): void {
       finishWave();
     };
     // vitória: a cinemática roda no golpe final (chefe congelado antes de cair); derrota: o chefe comemora
-    if (ended && isFinalBossFight() && sim.phase === 'victory') void waitFinalCinematic().then(announce);
+    if (ended && bastionSession.active) bastionSession.onEnd();
+    else if (ended && isFinalBossFight() && sim.phase === 'victory') void waitFinalCinematic().then(announce);
     else if (ended && isFinalBossFight() && !cinePlayed) void bossCinematic(false).then(announce, announce);
     else if (ended) announce();
     else hud.setCharacter(characterVM());
@@ -2250,7 +2303,7 @@ if (desktopBalance)
 // No build de produção o Vite troca `import.meta.env.DEV` por `false`, este bloco
 // é eliminado e o módulo de debug não entra no pacote da Steam.
 if (import.meta.env.DEV) {
-  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview,
+  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, bastion: bastionSession, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview,
     // mapa do Último Bastião (só dev): grade nova em planejamento, sem horda, para conferir o cenário
     openBastionMap: () => { loadZone(ZONES[BASTION_ZONE_ID], { count: 0, boss: null, seed: 1 }); setMode('battle'); focusParty(true); },
     // qualquer zona (só dev), em planejamento e sem horda; para testar a horda: sim.start(), hud.setPlanning(false), sim.spawnEnemy()

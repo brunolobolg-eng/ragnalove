@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import type { Board } from '../../core/grid/Board';
+import { VISUAL_CONFIG } from '../../config/visualConfig';
 import { tileToWorld } from '../coords';
+import { muralhaRetas, trechosDeTiles } from './muralhaGlb';
 import {
   boardGroundTexture,
   grassTileTexture,
@@ -48,29 +50,36 @@ export function buildScenery(board: Board): THREE.Group {
   root.add(apron);
 
   // --- Muro de arenito na linha do portão (inclusive além das bordas) ---
-  const brick = sandstoneBrickTexture();
-  const wallMat = lambert({ map: brick });
-  const capMat = lambert({ color: 0xe6d8b6 });
-  const wallGeo = new THREE.BoxGeometry(1, 0.85, 0.62);
-  const capGeo = new THREE.BoxGeometry(1.04, 0.1, 0.72);
   const p = new THREE.Vector3();
   const wallXs: number[] = [];
   for (let x = -5; x < W + 5; x++) if (x < 0 || x >= W || board.isWall(x, wallRow)) wallXs.push(x);
-  const walls = new THREE.InstancedMesh(wallGeo, wallMat, wallXs.length);
-  const caps = new THREE.InstancedMesh(capGeo, capMat, wallXs.length);
-  const m = new THREE.Matrix4();
-  wallXs.forEach((x, i) => {
-    tileToWorld(x, wallRow, p);
-    const hj = ((x * 37) % 5) * 0.03; // irregularidade leve
-    m.makeTranslation(p.x, 0.425 + hj / 2, p.z);
-    walls.setMatrixAt(i, m);
-    m.makeTranslation(p.x, 0.9 + hj, p.z);
-    caps.setMatrixAt(i, m);
-  });
-  for (const im of [walls, caps]) {
-    im.castShadow = true;
-    im.receiveShadow = true;
-    root.add(im);
+  if (VISUAL_CONFIG.muralha.glb) {
+    // muro da vila com a peça muros.glb: trechos contínuos da linha do portão
+    const zLinha = tileToWorld(0, wallRow).z;
+    const tiles = wallXs.map((x) => ({ x, y: wallRow }));
+    muralhaRetas(root, trechosDeTiles(tiles, (x) => tileToWorld(x, wallRow, p).x, () => zLinha), VISUAL_CONFIG.muralha.alturaVila);
+  } else {
+    const brick = sandstoneBrickTexture();
+    const wallMat = lambert({ map: brick });
+    const capMat = lambert({ color: 0xe6d8b6 });
+    const wallGeo = new THREE.BoxGeometry(1, 0.85, 0.62);
+    const capGeo = new THREE.BoxGeometry(1.04, 0.1, 0.72);
+    const walls = new THREE.InstancedMesh(wallGeo, wallMat, wallXs.length);
+    const caps = new THREE.InstancedMesh(capGeo, capMat, wallXs.length);
+    const m = new THREE.Matrix4();
+    wallXs.forEach((x, i) => {
+      tileToWorld(x, wallRow, p);
+      const hj = ((x * 37) % 5) * 0.03; // irregularidade leve
+      m.makeTranslation(p.x, 0.425 + hj / 2, p.z);
+      walls.setMatrixAt(i, m);
+      m.makeTranslation(p.x, 0.9 + hj, p.z);
+      caps.setMatrixAt(i, m);
+    });
+    for (const im of [walls, caps]) {
+      im.castShadow = true;
+      im.receiveShadow = true;
+      root.add(im);
+    }
   }
 
   // Pilares canelados do portão (colunas com capitel escuro octogonal)

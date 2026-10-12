@@ -501,6 +501,89 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   2. Decidir se entram efeitos sobre aliados (escudo ou cura em grupo).
   3. Efeitos visuais próprios por tipo de efeito (opcional).
 
+## 2026-10-11 — Muralhas com a peça muros.glb do dono (v0.11, em andamento)
+- **Pedido:** trocar as muralhas de todos os mapas, porque as atuais estavam sem textura. Primeiro conferir a ponte (zona `bridge`, "Ponte e Portões de Valdrec") e depois aplicar nos demais.
+- **Peça:** o `muros.glb` do dono (9,3 MB, 1 milhão de triângulos, textura JPEG 4096 e mapas de rugosidade) virou `public/models/muros.glb`: 4.002 triângulos, cor em WebP 1024 (375 KB), sem mapas de rugosidade e normal, atributos em Float32 e índices inteiros. Arquivo final: 0,48 MB. O original não entrou no repositório.
+- **Decisões:**
+  - **D50 — Mesma peça em todas as muralhas.** Cada módulo tem 1 m com torres e ameias nas pontas. Ele é esticado até a altura da muralha com escala uniforme (a pedra não deforma) e repetido ao longo de cada trecho. Cada chamada gera um único InstancedMesh.
+  - **D51 — Volta por configuração.** `VISUAL_CONFIG.muralha.glb` (padrão `true`). Com `false`, voltam as muralhas antigas (caixas, paliçada e blocos com ameias).
+  - **D52 — Alturas:** cidade 1,3 e castelo 1,4 (como antes); vila 0,9.
+  - **D53 — Torres de portão em pedra.** Os corpos das torres (cilindros e blocos) usam a pedra nova, e a paliçada de madeira da floresta sai. Cúpulas e bandeiras mantêm as cores.
+  - **D54 — Não mudou:** rochas dos tiles `#` (já são rochas texturizadas do kit), a muralha que o guerreiro constrói (kit `fortress.glb`, já texturizado) e os mapas pintados, cuja muralha está na própria arte.
+  - **Castelo:** os tiles `W` viram trechos contínuos de linhas e colunas, com esquinas fechadas e as aberturas dos portões preservadas.
+  - Nada muda na grade (`zones.ts`) nem na simulação.
+- **Achados:**
+  - A auditoria (`auditar_glb.cjs`) acusa "sem esqueleto e sem animação": é esperado numa peça estática.
+  - O otimizador do projeto (`scripts/otimizar_glb.mjs`) não lê GLB comprimido com meshopt (`EXT_meshopt_compression`). A peça foi otimizada com um script à parte, fora do repositório.
+  - Um primeiro otimizador deixava os índices em Float32, e a GPU recusava a malha (`GL_INVALID_ENUM` em `glDrawElements`). Corrigido e checado pela contagem de triângulos desenhados.
+- **Medição** (`stage.sceneStats()`, antes → depois):
+  - Ponte: 281 → 279 desenhos; 125.571 → 220.083 triângulos.
+  - Castelo: 231 → 229; 1.202.538 → 1.328.682.
+  - Floresta (`crookedWood`): 257 → 255; 1.107.010 → 1.208.362.
+  - Planície (`dryCrossing`): 196 → 194; 648.688 → 758.968.
+  - Vila (`town`): 289 → 287; 95.776 → 158.944.
+  - O aumento vem dos 4.002 triângulos por módulo. Se o FPS cair no PC, a saída é otimizar com razão menor (1.500 triângulos já foi testado e mantém a silhueta).
+- **Testes:**
+  - `npm run build`, `npm run sim:check` (determinístico) e `npm run bastion:check` passam.
+  - Capturas no Chromium headless do primeiro mapa (antes/depois, normal e aproximada) e das zonas `bastionKeep`, `crookedWood`, `dryCrossing` e `town`. Sem erro de console.
+- **Limitações:**
+  - Sob a luz noturna da ponte a pedra fica mais escura que o muro antigo.
+  - Os pilares do portão da ponte continuam caixas (texturizadas), e o topo fica azulado pela luz.
+  - FPS não medido (sem GPU real aqui).
+- **Pendências:**
+  1. Dono confirmar a leitura de "muralhas" (cidade, portões, castelo e vila) e se os afloramentos `#` e a muralha do guerreiro ficam como estão.
+  2. Guardar o original de 9,3 MB zipado na branch `fontes`, se o dono autorizar.
+  3. Registrar o decodificador meshopt no `scripts/otimizar_glb.mjs`.
+
+## 2026-10-12 — Montar Defesa jogável: menu, construção e noites (v0.11, em andamento)
+- **Pedido do dono:** menu principal do Montar Defesa e modo funcional; engrenagem discreta no canto do menu; fundo de menu por temporada (a imagem nova ainda não chegou como arquivo).
+- **Modo (`src/bastion/bastionSession.ts`):** entra pelo botão Montar Defesa do menu. Enquanto roda, a jornada (run e perfil) fica guardada e a batalha usa a cidade do modo; o save da jornada não é gravado. Save próprio (chave `bastion`).
+  - **D50 — Hub do modo:** cidade (núcleo, Zen, noites), Construir, Iniciar noite, Nova tentativa, Reparar núcleo, Cartas e Sair; abas Estruturas, Projetos e Heróis.
+  - **D51 — Barra de construção no planejamento:** Muralha de pedra (5 Zen, dobra a cada muralha da cidade) e Torre de tiro (120 Zen, com o projeto Torres de tiro e a Arqueira). Clique numa casa da área liberada constrói; clique numa construção seleciona e mostra reparar, aprimorar e remover.
+  - **D52 — Noite:** só pelo botão, sem relógio automático. A batalha usa as construções da cidade e a semente da onda. No fim, `applyNight` aplica vida, Zen, progressão e pacotes, e o relatório mostra "Horda repelida" ou "A horda invadiu".
+  - **D53 — Esc:** no planejamento abre o hub; no hub sai ao menu; na barra de construção volta ao hub.
+  - **D54 — Zen inicial provisório: 20** (`BASTION.startZeni`), o bastante para as primeiras quatro muralhas antes da primeira onda. Valor a calibrar com o dono.
+  - **D55 — Cartas:** a coleção é a mesma da jornada. O botão Cartas abre a coleção com os slots contados pelas ondas vencidas no Bastião.
+- **Menu:** engrenagem discreta no canto (ícone `ico_gear` do kit) abre as Opções. O botão Montar Defesa entra no lugar de Opções, com rótulo provisório por cima do botão pintado (a arte atual não tem o botão). Fundo por temporada em `src/config/temporadas.ts` (`temporadaAtual`): a temporada 1 segue com a arte atual até a imagem nova chegar.
+- **Achados:**
+  - Sem Zen inicial, a cidade nova não conseguia construir nada antes da primeira onda. Por isso o D54.
+  - `onCanvasClick` devolve verdadeiro também quando a colocação é recusada: o clique é consumido e o motivo aparece no painel.
+  - A jornada-sombra precisa ter a vida do núcleo e a party sincronizadas antes de cada batalha; sem isso, a batalha seguinte reabria com a vida antiga.
+  - No navegador de teste (renderização em software) a noite anda a ~0,4 tick/s: uma noite completa levaria ~16 min. Por isso o teste de ponta a ponta encerra a noite por vitória forçada. A duração real foi validada pelo `sim:check` (bastionKeep: vitória em 388 ticks).
+  - Os avisos `THREE.BufferGeometry.toNonIndexed` no console são anteriores ao modo (chamadas do cenário e da arte de kit).
+- **Testes:** `npm run build`, `npm run sim:check` (determinístico) e `npm run bastion:check` passam. Teste de ponta a ponta no Chromium: menu e engrenagem, hub, construir (2 muralhas gravadas; a terceira recusada por Zen), noite com vitória forçada, relatório, volta ao hub, Esc para o menu, save da jornada intacto, cidade salva com 1 noite e 2 muralhas.
+- **Limitações:**
+  - Se o jogo fechar no meio de uma noite, a noite recomeça do planejamento (sem selo, ao contrário da jornada).
+  - A formação dos heróis não é guardada entre noites: volta ao padrão a cada planejamento.
+  - Serviços urbanos (loja, forja, templo) não entram: são a Etapa 5 do plano do Bastião.
+  - Com uma estrutura selecionada, o painel de construção rola, e os botões de aprimorar e remover podem ficar abaixo da área visível.
+  - Custos, vida, ondas e o crescimento de dificuldade por noite ainda não foram calibrados com o dono.
+- **Pendências:**
+  1. Dono: confirmar o Zen inicial (D54), os custos e a curva de dificuldade do Bastião.
+  2. ~~Imagem nova da tela de entrada e retirada do rótulo provisório do Montar Defesa~~ (feito na entrada seguinte).
+  3. Revisar a barra de construção com estrutura selecionada (compactar textos ou rolagem melhor).
+  4. Guardar a formação dos heróis entre noites e criar um selo para retomar a noite depois de fechar o jogo.
+
+## 2026-10-12 — Tela de entrada com a arte nova (temporada 1, v0.11, em andamento)
+- **Pedido do dono:** a imagem nova (`images/38.webp`, 1752×897) vira o fundo principal do menu. Os botões precisam funcionar, o Ranking mostra valores vivos e a engrenagem continua no canto.
+- **Arte e layout:** a arte está em `public/menu/temporada1.webp`, que é a temporada 1 de `config/temporadas.ts`. O layout foi medido nela e fica em `MENU_VISUAL` (`config/visualConfig.ts`), em pixels da arte: botões, peças (esquerda, Ranking e slogan), valores do Ranking, lista de apoiadores, rodapé e a linha "jornada em andamento".
+  - **D56 — Botões:** Começar jornada abre a run; Montar defesa abre o hub do Bastião; Info e Donate abrem cartões. A Torre do Infinito fica desativada ("Em breve"): sem reação ao clique e fora da navegação por teclado. Os rótulos já estão pintados na arte, então o menu não escreve texto por cima.
+  - **D57 — Ranking:** cada valor de exemplo pintado na arte é coberto por uma capa escura do jogo, ancorada à direita e na altura da linha (`rankValues`). Sem recorde, a capa mostra "???"; com recorde, mostra o valor. A lista de apoiadores segue a mesma regra (`donors`).
+  - **D58 — Peças e corte:** quando a tela corta a arte (ex.: 16:9 em janela de outra proporção), botões, Ranking e rodapé são empurrados para dentro da tela. A borda que encosta na tela não esfuma: além dela não há arte, e o esfumado deixaria aparecer a arte de trás fora do lugar.
+  - **D59 — Rodapé e engrenagem:** o rodapé é uma caixa opaca por cima da versão antiga pintada na arte ("v0.8c · jogo offline"); o cartão Info já explica o salvamento. A engrenagem foi para o canto inferior esquerdo: no superior direito ela caía sobre o enfeite do Ranking, e embaixo à esquerda não há arte.
+- **Achados:**
+  - Os valores de exemplo terminam em x≈1700. A borda direita da capa passou para 1704, e o último pixel pintado fica em ~1702.
+  - A capa de cada linha precisa de um limite esquerdo próprio: "Fase 15/15" (linha 2) começa em x≈1632, mas a legenda da linha 2 termina em ~1590, então ela começa em 1600. A legenda da linha 3 termina em ~1633, então as demais começam em 1636.
+  - Com a borda direita encostada na tela, o esfumado deixava aparecer "Ato", "ne 1" e "87." da arte de trás (corrigido por D58).
+  - Medição sem corte: a arte em 1752×897 (escala 1:1) é a referência para todas as coordenadas.
+- **Testes:** `npx tsc --noEmit`, `npm run build` e `npm run sim:check` (determinístico) passam. No Chromium: 1600×900 e 1280×720 sem nada fora da tela e sem erro no console; recorte ampliado do canto inferior direito conferido nas duas resoluções.
+- **Limitações:**
+  - A arte traz a versão antiga pintada ("v0.6.2"). Em 16:9 a caixa do rodapé cobre esse trecho. Em proporções ultralargas (21:9), que não foram testadas, um pedaço do fim da linha antiga pode aparecer à direita da caixa.
+  - As posições de `rankValues` e `versionBox` foram medidas nesta arte. Se o dono trocar a arte, é preciso medir de novo.
+- **Pendências:**
+  1. Dono: conferir no PC (16:9 e outras telas) e dizer se a engrenagem fica no canto inferior esquerdo ou volta para o superior direito.
+  2. Dono: decidir se a versão antiga pintada na arte deve ser trocada no arquivo original. Se for, a caixa do rodapé deixa de ser necessária.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

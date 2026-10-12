@@ -5,7 +5,7 @@ import { MainMenuNavigation } from './MainMenuNavigation';
 
 /**
  * Menu principal (jogo 100% offline: sem login, sem contas, sem salvar/carregar manual).
- * A tela é a arte `tela-entrada.jpg`: COMEÇAR JORNADA, OPÇÕES, INFO e DONATE ♥ já estão
+ * A tela é a arte da temporada vigente: COMEÇAR JORNADA, OPÇÕES, INFO e DONATE ♥ já estão
  * desenhados nela — o menu põe por cima as áreas clicáveis (com brilho ao passar/focar),
  * os valores do Ranking e a lista de apoiadores.
  * Só interface: quem decide o que acontece são os ganchos recebidos do main.
@@ -19,13 +19,15 @@ export interface MenuState {
 
 export interface MainMenuHooks {
   onStart(): void;
+  /** Montar Defesa: o modo do Último Bastião (cidade persistente). */
+  onBastion(): void;
   onOptions(panel: 'audio' | 'video'): void;
   onCloseOptions(): void;
   onUi(): void;
   state(): MenuState;
 }
 
-const LABEL: Record<keyof typeof M.buttons, string> = { start: 'Começar jornada', options: 'Opções', info: 'Info', donate: 'Donate' };
+const LABEL: Record<keyof typeof M.buttons, string> = { start: 'Começar jornada', bastion: 'Montar defesa', tower: 'Torre do Infinito (em breve)', info: 'Info', donate: 'Donate' };
 
 export class MainMenu {
   private readonly el: HTMLElement;
@@ -49,6 +51,12 @@ export class MainMenu {
       b.className = `mm-hot mm-hot-${id}`;
       b.dataset.id = id;
       b.setAttribute('aria-label', LABEL[id]);
+      if (id === 'tower') {
+        // Torre do Infinito: aparece na arte, mas ainda não funciona (fora da navegação e sem reação ao clique)
+        b.classList.add('mm-hot-off');
+        b.setAttribute('aria-disabled', 'true');
+        b.title = 'Em breve';
+      }
       left.appendChild(b);
       return b;
     });
@@ -57,12 +65,24 @@ export class MainMenu {
     left.appendChild(this.cont);
     this.hall = new HallOfLegends(this.background.pieces.right);
 
-    this.el.insertAdjacentHTML(
-      'beforeend',
-      `<section class="mm-card" hidden role="dialog"></section>
-      <footer class="mm-foot">${M.version} · jogo offline · salvamento automático</footer>`,
-    );
-    this.nav = new MainMenuNavigation(buttons, (id) => this.activate(id), () => this.hooks.onUi());
+    this.el.insertAdjacentHTML('beforeend', '<section class="mm-card" hidden role="dialog"></section>');
+    const foot = document.createElement('footer');
+    foot.className = 'mm-foot';
+    foot.textContent = `${M.version} · jogo offline`;
+    this.background.place(foot, M.versionBox);
+    // engrenagem discreta no canto: abre as Opções (áudio e vídeo); fora da navegação por teclado dos botões
+    const gear = document.createElement('button');
+    gear.className = 'mm-gear';
+    gear.type = 'button';
+    gear.title = 'Opções';
+    gear.setAttribute('aria-label', 'Opções');
+    gear.innerHTML = `<img src="${new URL('ui/kit/ico_gear.webp', document.baseURI).href}" alt="" draggable="false">`;
+    gear.addEventListener('click', () => {
+      this.hooks.onUi();
+      this.openCard('options');
+    });
+    this.el.appendChild(gear);
+    this.nav = new MainMenuNavigation(buttons.filter((b) => !b.classList.contains('mm-hot-off')), (id) => this.activate(id), () => this.hooks.onUi());
     this.el.querySelector('.mm-card')!.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-card]');
       if (!b) return;
@@ -118,7 +138,8 @@ export class MainMenu {
     if (id === 'start') {
       this.close();
       this.hooks.onStart();
-    } else this.openCard(id);
+    } else if (id === 'bastion') this.hooks.onBastion();
+    else this.openCard(id);
   }
 
   // ---------------------------------------------------------------- cartões (Opções / Info / Donate)

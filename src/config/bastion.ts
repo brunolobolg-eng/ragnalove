@@ -90,6 +90,8 @@ export const BASTION_ZONE_ID = 'bastionKeep';
 export const BASTION = {
   /** Vida máxima do núcleo: a mesma cidade da jornada. */
   coreMaxHp: GAME_CONFIG.cityDefense.maxHp,
+  /** Zen com que a cidade nova começa (para as primeiras muralhas, antes da primeira onda). PROVISÓRIO: calibrar com o dono. */
+  startZeni: 20,
   /** Reparo de estrutura danificada: Zen = quanto ela custou (investido) × fração perdida × repairRate. */
   repairRate: 0.5,
   /** Reconstruir estrutura destruída: Zen = investido × rebuildRate. Tem de ser sempre mais que reparar. */

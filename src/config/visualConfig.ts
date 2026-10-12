@@ -89,6 +89,8 @@ export const VISUAL_CONFIG = {
     brilho: 0.18, // brilho nas cristas da ondulação
     corCeu: 0xcfeeff, // cor do céu refletido
   },
+  /** Muralhas: peça `muros.glb` do dono (módulo de 1 m com torres e ameias). `glb: false` volta às caixas antigas. Alturas em tiles. */
+  muralha: { glb: true, alturaCidade: 1.3, alturaCastelo: 1.4, alturaVila: 0.9 },
   /** Direção do sol (de onde a luz vem) — o deserto usa sol baixo de fim de tarde (sombras longas). */
   sun: [-7, 18, 9] as [number, number, number],
 };
@@ -361,42 +363,63 @@ export const ACT_DRESSING = {
 };
 
 /**
- * Menu principal (tela de título): a arte `tela-entrada.jpg` enche a tela; por cima, os botões, o
- * painel de Ranking e o slogan recortados da mesma arte, com as áreas clicáveis e os valores vivos. Coordenadas em pixels da imagem original (x, y, largura, altura).
+ * Menu principal (tela de título): a arte da temporada vigente (`temporadas.ts`) enche a tela; por cima, os botões,
+ * o painel de Ranking e o slogan recortados da mesma arte, com as áreas clicáveis e os valores vivos. Coordenadas em
+ * pixels da arte de referência (x, y, largura, altura): toda arte de temporada usa esta composição.
  */
 export const MENU_VISUAL = {
   // Versão exibida no canto inferior da tela de entrada. Esquema do dono:
   // 0.5a, 0.5b, ... 0.5z, depois 0.6a e assim por diante (bump a cada update).
   version: 'v0.8c',
-  image: 'tela-entrada.jpg',
-  width: 1672,
-  height: 941,
+  /** Tamanho da arte de referência (as artes de temporada têm esta mesma proporção). */
+  width: 1752,
+  height: 897,
   /**
    * Peças recortadas da arte que ficam sempre inteiras na tela: quando a tela não é 16:9 e o
    * fundo é cortado, elas são empurradas para dentro (cobrindo a parte cortada da arte de fundo).
    */
   pieces: {
-    left: [0, 355, 425, 415],
-    right: [1250, 0, 422, 620],
-    title: [0, 0, 580, 140], // slogan do canto superior esquerdo
+    left: [0, 225, 440, 520],
+    right: [1330, 25, 410, 640],
+    title: [0, 0, 600, 135], // slogan do canto superior esquerdo
   } as Record<'left' | 'right' | 'title', [number, number, number, number]>,
   /** Esfumado das bordas das peças (px da imagem), para se misturarem ao fundo. */
   feather: 24,
-  /** Áreas clicáveis sobre os botões desenhados na arte. */
+  /** Áreas clicáveis sobre os botões pintados na arte. A Torre do Infinito aparece, mas está desativada. */
   buttons: {
-    start: [41, 403, 350, 90],
-    options: [41, 507, 350, 63],
-    info: [41, 583, 350, 64],
-    donate: [41, 660, 350, 64],
-  } as Record<'start' | 'options' | 'info' | 'donate', [number, number, number, number]>,
+    start: [30, 240, 378, 92],
+    bastion: [30, 343, 390, 88],
+    tower: [35, 445, 370, 84],
+    info: [30, 540, 378, 66],
+    donate: [30, 620, 378, 70],
+  } as Record<'start' | 'bastion' | 'tower' | 'info' | 'donate', [number, number, number, number]>,
   /** Linha "jornada em andamento" logo abaixo do botão Donate. */
-  continueLabel: [41, 736, 350, 26] as [number, number, number, number],
-  /** Valores do Ranking (cobrem os "???" da arte quando o recorde existe): borda direita e centro vertical de cada linha. */
-  rankValues: { right: 1634, h: 28, rows: { difficulty: 115, longest: 164, fastest: 213, damage: 264, level: 314, runs: 366 } },
-  /** Lista de apoiadores (cobre os nomes de exemplo da arte). */
-  donors: [1306, 438, 328, 106] as [number, number, number, number],
+  continueLabel: [40, 700, 340, 26] as [number, number, number, number],
+  /**
+   * Valores do Ranking (cobrem os valores de exemplo da arte). `right`: borda direita da capa. Por linha: `y` = centro
+   * vertical e `x` = borda esquerda da capa, que tem de passar do valor pintado sem encostar na legenda da mesma linha.
+   */
+  rankValues: {
+    right: 1704,
+    h: 28,
+    rows: {
+      difficulty: { y: 117, x: 1636 },
+      longest: { y: 177, x: 1600 },
+      fastest: { y: 238, x: 1636 },
+      damage: { y: 299, x: 1636 },
+      level: { y: 361, x: 1636 },
+      runs: { y: 422, x: 1636 },
+    },
+  },
+  /** Lista de apoiadores (cobre o aviso de exemplo "Nenhum apoiador ainda" da arte). */
+  donors: [1360, 522, 330, 62] as [number, number, number, number],
   /** Cor do fundo do painel na arte (os valores vivos usam a mesma, para não aparecer emenda). */
-  panelColor: 'rgb(5, 14, 28)',
+  panelColor: 'rgb(1, 9, 22)',
+  /**
+   * Rodapé com a versão do jogo: caixa escura por cima da versão antiga pintada na arte (à direita da legenda).
+   * Estreita de propósito: em 16:9 só sobra esse trecho entre a legenda e a borda da tela.
+   */
+  versionBox: [1505, 848, 170, 24] as [number, number, number, number],
 };
 
 /** Cidade (Valnor): arte de fundo e posição de cada serviço na arte (pixels da imagem; o clique vira % na tela). */
