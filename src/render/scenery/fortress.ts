@@ -78,6 +78,11 @@ function build(prefix: string): { group: THREE.Group; size: THREE.Vector3 } {
     mat.side = THREE.DoubleSide; // faces que sobrarem por ordem irregular continuam visíveis
     group.add(new THREE.Mesh(outwardFaces(o.geometry.clone().applyMatrix4(o.matrixWorld)), mat));
   });
+  // peças do cache são compartilhadas por todos os muros: quem descarta um muro não pode liberar essa geometria nem esse material
+  for (const m of group.children as THREE.Mesh[]) {
+    m.geometry.userData.compartilhado = true;
+    (m.material as THREE.Material).userData.compartilhado = true;
+  }
   const box = new THREE.Box3().setFromObject(group);
   const c = box.getCenter(new THREE.Vector3());
   // centraliza a geometria (não o grupo): assim escala e rotação giram em torno do centro da peça
