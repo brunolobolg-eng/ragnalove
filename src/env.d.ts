@@ -22,6 +22,7 @@ interface Window {
     save?: {
       read(): { run: string | null; meta: string | null; bastion: string | null };
       write(key: 'run' | 'meta' | 'bastion', text: string): boolean;
+      writeAsync(key: 'run' | 'meta' | 'bastion', text: string): Promise<boolean>;
     };
     /** Dev Lab: cenários de teste (src/dev/devlab-scenarios.json no projeto, userData no executável). */
     devlab?: {

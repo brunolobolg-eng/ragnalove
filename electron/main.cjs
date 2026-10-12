@@ -230,7 +230,8 @@ ipcMain.on('vg:save-read', (e) => {
   e.returnValue = { run: readSave('run'), meta: readSave('meta'), bastion: readSave('bastion') };
 });
 
-ipcMain.on('vg:save-write', (e, key, text) => {
+/** Grava o save de forma atômica: arquivo temporário, fsync, cópia .bak do atual (se legível) e troca. Devolve false se falhar. */
+function gravarSave(key, text) {
   try {
     if (!SAVE_KEYS.has(key) || typeof text !== 'string') throw new Error('save inválido');
     JSON.parse(text);
@@ -254,12 +255,20 @@ ipcMain.on('vg:save-write', (e, key, text) => {
       }
     }
     fs.renameSync(tmp, file);
-    e.returnValue = true;
+    return true;
   } catch (err) {
     console.error('Falha ao salvar', key, err);
-    e.returnValue = false;
+    return false;
   }
+}
+
+// Síncrono: a jornada e as conquistas esperam o disco (o selo de batalha depende disso); também usado ao fechar a janela.
+ipcMain.on('vg:save-write', (e, key, text) => {
+  e.returnValue = gravarSave(key, text);
 });
+
+// Assíncrono: a tela não espera o disco (Último Bastião). A fila de envio fica no renderer (ver SaveStore.setLazy).
+ipcMain.handle('vg:save-write-async', (_e, key, text) => gravarSave(key, text));
 
 // ---------- Dev Lab (F8): cenários de teste ----------
 // Pasta do projeto (também pelo executável dentro dela): src/dev/devlab-scenarios.json. Sem projeto: userData.

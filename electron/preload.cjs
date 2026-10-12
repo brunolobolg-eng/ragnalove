@@ -12,10 +12,14 @@ contextBridge.exposeInMainWorld('vanguardaDesktop', {
     exportFile: (data) => ipcRenderer.invoke('vg:balance-export', data),
     importFile: () => ipcRenderer.invoke('vg:balance-import'),
   },
-  /** Save do jogador em arquivo (síncrono: o jogo só segue com o save garantido no disco). */
+  /**
+   * Save do jogador em arquivo. `write` espera o disco (jornada e conquistas: o selo de batalha depende disso);
+   * `writeAsync` não espera (Último Bastião, ver SaveStore.setLazy). Ambos gravam do mesmo jeito.
+   */
   save: {
     read: () => ipcRenderer.sendSync('vg:save-read'),
     write: (key, text) => ipcRenderer.sendSync('vg:save-write', key, text),
+    writeAsync: (key, text) => ipcRenderer.invoke('vg:save-write-async', key, text),
   },
   /** Dev Lab (F8): cenários de teste salvos pelo client. */
   devlab: {

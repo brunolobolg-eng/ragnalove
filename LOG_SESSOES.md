@@ -659,6 +659,29 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   2. Dono: arte nova do retrato e do corpo inteiro do Bárbaro (ainda do Guerreiro, com escudo).
   3. Dono: autorizar mover o original de 24,5 MB do `public/` da `main` para a branch `fontes`, zipado.
 
+## 2026-10-12 — Último Bastião: construir deixa de esperar o disco no executável (v0.11, em andamento)
+- **Pedido do dono:** o modo defesa "ainda está bem travado" depois da correção de shaders.
+- **Diagnóstico (medido no Chromium, com renderização por software):**
+  - O JavaScript não pesa: em 14 s de construção, 99% do tempo do perfil fica em código nativo (renderização e driver); coleta de lixo, 42 ms.
+  - O quadro do planejamento é limitado por preenchimento de pixels: sem os passes de pós-processamento, o quadro cai de ~4,6 s para ~1,9 s; com a resolução pela metade, cai na mesma proporção. Os triângulos (1,36 milhão por quadro, dos quais ~670 mil na passagem de sombra) pesam menos: sem sombra, só ~5%.
+  - **Causa provável no executável (não reproduzível aqui):** cada ação do Bastião salvava por IPC síncrono. O processo principal faz duas leituras JSON do save, um `fsync`, uma cópia `.bak` e a troca do arquivo, e a tela fica parada até terminar. No Windows, com antivírus, isso pode levar centenas de milissegundos por construção. No navegador de teste o save vai para `localStorage`, por isso a trava não aparece lá.
+  - Tentativa descartada: MSAA só no desenho da cena, em vez de no compositor inteiro. A imagem ficou igual (diferença média de 0,03 por canal), mas o quadro não mostrou ganho confiável (a variação do ambiente chega a ±30%). Desfeita.
+- **D72 — Bastião em segundo plano:** o save do Último Bastião usa `SaveStore.setLazy`. O cache muda na hora; o disco recebe a versão mais nova em segundo plano, uma escrita por vez. Falha no disco vira aviso (`onWriteError`). Ao fechar a janela, `SaveStore.flush()` grava o que estiver pendente.
+- **D73 — Jornada e conquistas seguem síncronas:** o selo de batalha depende de o save estar no disco antes da horda. Por isso `run` e `meta` continuam com `set` (espera o disco).
+- **Código:** `src/save/SaveStore.ts` (fila), `electron/main.cjs` (gravação compartilhada, síncrona e assíncrona), `electron/preload.cjs` (`writeAsync`), `src/env.d.ts`, `src/main.ts` (aviso e flush ao fechar), `src/bastion/bastionSession.ts`.
+- **Testes:**
+  - `tsc --noEmit` e `node --check` nos arquivos do Electron passam.
+  - Teste da fila com disco simulado (12 verificações): não espera o disco; rajada de 50 vira 2 envios, com a última versão por último; falha chega ao aviso; flush grava o pendente; jornada segue síncrona.
+  - Regressão no navegador: construir grava a cidade (estruturas de 0 para 1), sem erro de página nem de console.
+- **Limitações:**
+  - O executável Electron não roda neste ambiente: o ganho de tela no Windows precisa de teste no PC.
+  - Um fechamento forçado (queda de energia, processo morto) nos milissegundos depois de uma construção pode perder só essa última ação do Bastião. O fechamento normal grava tudo.
+  - O quadro do planejamento continua pesado por causa da placa de vídeo. Nenhum visual foi alterado.
+- **Pendências:**
+  1. Dono: testar no PC construir muralhas e dizer se a trava sumiu.
+  2. Dono, se ainda pesar, são decisões visuais: (a) sombras só no cenário fixo durante o planejamento; (b) MSAA 2× no preset Alto; (c) reduzir os triângulos das árvores e arbustos com sombra (~610 mil triângulos).
+  3. Alternativa imediata: preset Médio ou Baixo em Opções → Vídeo.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.
