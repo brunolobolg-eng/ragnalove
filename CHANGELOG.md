@@ -2,6 +2,12 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-12 — v0.11 (em andamento)
+- Vocações: cada classe passa a ter duas evoluções para escolher na ficha. O Guerreiro evolui para o Bárbaro, que entra com o modelo que o dono enviou e as animações do pacote UAL.
+- O Bárbaro luta de punho: soco rápido no ataque básico e soco cruzado na investida. Sem machado e sem o arco de lâmina do Guerreiro.
+- Roleta de recompensa: um clique em qualquer lugar da tela encerra o giro na hora e mostra o prêmio.
+- Último Bastião: construir muralhas e torres deixou de travar a tela. O jogo reaproveita o que já carregou, em vez de refazer a cena a cada construção.
+
 ## 2026-10-11 — v0.11 (em andamento)
 - Início do modo O Último Bastião: uma cidade que persiste entre tentativas. Estruturas, dano, projetos e a vida do núcleo ficam salvos num arquivo próprio, sem mexer na jornada.
 - Muralhas e torres com custo: construir, reparar (custo proporcional ao dano), reconstruir (sempre mais caro que reparar), aprimorar em três níveis e remover com reembolso parcial.

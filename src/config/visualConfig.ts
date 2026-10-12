@@ -205,8 +205,9 @@ export interface MonsterModelVisual {
   /**
    * Usa as animações do personagem do jogo (o GLB traz só malha + esqueleto com os mesmos nomes de ossos).
    * `warriorUAL` = captura UAL (descanso, andar, dano, morte) com os golpes do Guerreiro.
+   * `barbarianUAL` = a mesma captura, com socos (UAL) no lugar da espada.
    */
-  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig' | 'warriorUAL';
+  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig' | 'warriorUAL' | 'barbarianUAL';
   /** `auto` = GLB sem esqueleto (malha estática): o jogo põe o esqueleto humanoide (auto-rig) e usa os `clips`. */
   rig?: 'auto';
   /** Juntas medidas para o auto-rig (com `rig: 'auto'`); sem elas, a detecção automática decide. */
@@ -304,8 +305,8 @@ export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   // Cavaleiro sombrio (modelo do V2Fun no esqueleto padrão): animações de golpe do Guerreiro (corpo a corpo)
   assassin: { file: 'models/assassin_dk.glb', height: 1.9, walkRate: 1.05, ghost: [1.6, 1.3, 0.3], clips: 'warrior', weapons: [{ type: 'dagger', bone: 'hand.R', accent: 0xc070ff }, { type: 'dagger', bone: 'hand.L', accent: 0xc070ff }] },
   // Bárbaro (vocação do Guerreiro): modelo do dono sem esqueleto → auto-rig com as juntas medidas acima. Animações:
-  // captura UAL no descanso, andar, dano e morte; golpe e investida do Guerreiro. Machado na mão direita (o arquivo vem sem arma).
-  barbarian: { file: 'models/barbarian.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorUAL', rig: 'auto', juntas: BARBARIAN_JOINTS, weapons: [{ type: 'axe', bone: 'hand.R', tilt: 35, scale: 1.1 }] },
+  // captura UAL no descanso, andar, dano e morte; socos no golpe (soco rápido) e na investida (soco cruzado). Sem arma: o arquivo vem sem ela.
+  barbarian: { file: 'models/barbarian.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'barbarianUAL', rig: 'auto', juntas: BARBARIAN_JOINTS },
 };
 /** Zumbi do Ato III: coveiro, afogado, pesteado, luto e cinzas (além da cor original do modelo). */
 const ZOMBIE_SKINS = ['coveiro', 'afogado', 'pesteado', 'luto', 'cinzas'].map((n) => `models/zombie_${n}.jpg`);

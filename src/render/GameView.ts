@@ -602,8 +602,8 @@ export class GameView {
           const fx = new CleaveFX(u, e.facing, e.tiles, e.hitTiles, this.kit, () => (this.flashTiles = { tiles, t: 0.25 }));
           this.world.add(fx.group);
           this.oneShots.push(fx);
-          // Guerreiro: tufão de vento varrendo a frente (discreto, junto da lâmina)
-          if (u.kind === 'warrior') this.arcFx(w.root.position, e.facing, VISUAL_CONFIG.arc.windCleave);
+          // Guerreiro: tufão de vento varrendo a frente (discreto, junto da lâmina). O Bárbaro não tem lâmina: sem tufão.
+          if (u.kind === 'warrior' && u.visual !== 'barbarian') this.arcFx(w.root.position, e.facing, VISUAL_CONFIG.arc.windCleave);
           this.spectre(e.unitId, 0.55);
           break;
         }
@@ -656,7 +656,7 @@ export class GameView {
           break;
         }
         case 'bash': {
-          // Investida: golpe pesado sincronizado com a descida da espada
+          // Investida: golpe pesado sincronizado com a descida da espada (no Bárbaro, o soco cruzado)
           const w = this.units.get(e.unitId);
           const u = this.sim.units.get(e.unitId);
           if (w && u) {
@@ -668,7 +668,8 @@ export class GameView {
           const fx = new BashFX(from, tileToWorld(e.x, e.y), this.kit);
           this.world.add(fx.group);
           this.oneShots.push(fx);
-          if (w && u) this.arcFx(w.root.position, u.facing, u.kind === 'warrior' ? VISUAL_CONFIG.arc.windBash : VISUAL_CONFIG.arc.stab);
+          // o Bárbaro não tem lâmina: a investida dele é só o soco, sem arco
+          if (w && u && u.visual !== 'barbarian') this.arcFx(w.root.position, u.facing, u.kind === 'warrior' ? VISUAL_CONFIG.arc.windBash : VISUAL_CONFIG.arc.stab);
           this.spectre(e.unitId, 0.6);
           break;
         }

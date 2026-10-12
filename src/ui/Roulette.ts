@@ -14,12 +14,16 @@ const FILLER_WEIGHTS: Record<Rarity, number> = { common: 52, uncommon: 30, rare:
 
 export class Roulette {
   readonly el: HTMLElement;
+  /** Clique no véu durante o giro: encerra o giro no próximo quadro (ver spin). */
+  private pular?: () => void;
 
   constructor(private readonly sound: (name: 'roulette' | 'jackpot' | 'coin') => void) {
     this.el = document.createElement('div');
     this.el.className = 'roulette-veil';
     this.el.hidden = true;
     document.body.appendChild(this.el);
+    // um único ouvinte para todas as rodadas: o clique em qualquer lugar da tela pula o giro
+    this.el.addEventListener('click', () => this.pular?.());
   }
 
   get visible(): boolean {
@@ -45,7 +49,7 @@ export class Roulette {
             <i class="rl-arrow r">›</i>
           </div>
           <div class="rl-result" hidden></div>
-          <div class="rl-btns"><button class="primary rl-take" data-k="take" disabled>Girando...</button></div>
+          <div class="rl-btns"><button class="primary rl-take" data-k="take" disabled>Girando... (clique para pular)</button></div>
         </div>`;
       this.el.hidden = false;
       const strip = this.el.querySelector<HTMLElement>('.rl-strip')!;
@@ -60,6 +64,10 @@ export class Roulette {
       let ultimo = performance.now();
       let lastIdx = -1;
       let fim = false;
+      // clique no véu: o giro vai direto ao fim (o prêmio aparece no quadro seguinte)
+      this.pular = () => {
+        if (!fim) decorrido = dur;
+      };
       const ease = (k: number) => 1 - Math.pow(1 - k, 4);
       const tick = (now: number) => {
         decorrido += Math.min(PASSO_MAX_MS, Math.max(0, now - ultimo));
@@ -94,6 +102,7 @@ export class Roulette {
       };
       btn.onclick = () => {
         if (!fim) return; // o prêmio só é entregue depois que o giro termina
+        this.pular = undefined;
         this.el.hidden = true;
         resolve();
       };

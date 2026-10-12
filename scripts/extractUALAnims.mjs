@@ -83,6 +83,9 @@ const CLIP_MAP = {
   Idle_Loop: 'idle',
   Walk_Loop: 'walk',
   Sword_Attack: 'attack',
+  // socos do Bárbaro (vocação sem arma): soco rápido e soco cruzado (investida)
+  Punch_Jab: 'punchJab',
+  Punch_Cross: 'punchCross',
   Spell_Simple_Shoot: 'cast',
   Hit_Chest: 'hit',
   Death01: 'death',

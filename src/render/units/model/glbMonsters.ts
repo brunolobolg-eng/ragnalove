@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HERO_MODELS, MONSTER_MODELS, type RigJointsVisual } from '../../../config/visualConfig';
-import { archerClips, fitHips, gruntClips, hoverClips, mageClips, warriorClips, warriorClipsUAL, type ClipName } from './anims';
+import { archerClips, barbarianClipsUAL, fitHips, gruntClips, hoverClips, mageClips, warriorClips, warriorClipsUAL, type ClipName } from './anims';
 import { prepareRiggedModel, type HumanoidJoints } from './autoRig';
 import { ualMixamoClips } from './ualMixamo';
 import { warriorRigClips } from './warriorAnims';
@@ -121,6 +121,7 @@ const GAME_CLIPS = {
   cultist: cultistClips,
   warriorRig: warriorRigClips,
   warriorUAL: warriorClipsUAL,
+  barbarianUAL: barbarianClipsUAL,
 };
 
 /** Textura alternativa no mesmo atlas: herda orientação, espaço de cor e filtros da textura do GLB. */

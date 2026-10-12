@@ -510,6 +510,12 @@ export const warriorClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationC
 export const mageClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, mageClips);
 export const archerClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, archerClips);
 
+/** Bárbaro (vocação do Guerreiro): a mesma captura UAL, com socos no lugar da espada (soco rápido no golpe, soco cruzado na investida). */
+export const barbarianClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => {
+  const raw = ualRawClips();
+  return { ...withUAL(b, warriorClips), attack: fitHips(raw.punchJab, b), heavy: fitHips(raw.punchCross, b) };
+};
+
 export function archerClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
   // Arco baixo à frente (mão esquerda), mão direita perto da aljava.
   const BASE: Pose = {
