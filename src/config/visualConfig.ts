@@ -50,7 +50,13 @@ export const VISUAL_CONFIG = {
     /** Névoa de veneno: intervalo (s) entre as baforadas sobre um inimigo envenenado. */
     poisonMist: { every: 0.3 },
   },
-  unit: { hitFlashTime: 0.22, deathTime: 1.1 },
+  /**
+   * hitFlashTime: clarão ao levar dano. deathTime: tempo do corpo até sumir (a morte espera o clipe de morte, se for mais longo).
+   * walkStepRef: passo (s) em que o andar tem a velocidade-base do modelo; passo mais lento anda mais devagar, passo mais rápido, mais depressa.
+   * walkHold / walkHoldEnemy: tempo (s) que o andar segue depois do último passo, para o parado não piscar entre passos (inimigos esperam mais na fila).
+   * heavyHitFrac: fração da vida máxima que faz um golpe ser "forte" (usa a reação forte, se o modelo tiver).
+   */
+  unit: { hitFlashTime: 0.22, deathTime: 1.1, walkStepRef: 0.5, walkHold: 0.18, walkHoldEnemy: 0.45, heavyHitFrac: 0.2 },
   /** Planejamento: heróis passeiam em volta do posto (raio em tiles, velocidades em tiles/s, esperas em s). */
   idleWander: { radius: 0.85, speed: 0.9, orderSpeed: 3.2, waitMin: 1.5, waitMax: 4.5, lookAtCameraAfter: 1.2 },
   /** Ordem de posição: marca no chão (duração em s). */
@@ -205,8 +211,9 @@ export interface MonsterModelVisual {
   /**
    * Usa as animações do personagem do jogo (o GLB traz só malha + esqueleto com os mesmos nomes de ossos).
    * `warriorUAL` = captura UAL (descanso, andar, dano, morte) com os golpes do Guerreiro.
+   * `barbarianUAL` = a mesma captura, com socos (UAL) no lugar da espada.
    */
-  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig' | 'warriorUAL';
+  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig' | 'warriorUAL' | 'barbarianUAL';
   /** `auto` = GLB sem esqueleto (malha estática): o jogo põe o esqueleto humanoide (auto-rig) e usa os `clips`. */
   rig?: 'auto';
   /** Juntas medidas para o auto-rig (com `rig: 'auto'`); sem elas, a detecção automática decide. */
@@ -304,8 +311,8 @@ export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   // Cavaleiro sombrio (modelo do V2Fun no esqueleto padrão): animações de golpe do Guerreiro (corpo a corpo)
   assassin: { file: 'models/assassin_dk.glb', height: 1.9, walkRate: 1.05, ghost: [1.6, 1.3, 0.3], clips: 'warrior', weapons: [{ type: 'dagger', bone: 'hand.R', accent: 0xc070ff }, { type: 'dagger', bone: 'hand.L', accent: 0xc070ff }] },
   // Bárbaro (vocação do Guerreiro): modelo do dono sem esqueleto → auto-rig com as juntas medidas acima. Animações:
-  // captura UAL no descanso, andar, dano e morte; golpe e investida do Guerreiro. Machado na mão direita (o arquivo vem sem arma).
-  barbarian: { file: 'models/barbarian.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorUAL', rig: 'auto', juntas: BARBARIAN_JOINTS, weapons: [{ type: 'axe', bone: 'hand.R', tilt: 35, scale: 1.1 }] },
+  // captura UAL no descanso, andar, dano e morte; socos no golpe (soco rápido) e na investida (soco cruzado). Sem arma: o arquivo vem sem ela.
+  barbarian: { file: 'models/barbarian.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'barbarianUAL', rig: 'auto', juntas: BARBARIAN_JOINTS },
 };
 /** Zumbi do Ato III: coveiro, afogado, pesteado, luto e cinzas (além da cor original do modelo). */
 const ZOMBIE_SKINS = ['coveiro', 'afogado', 'pesteado', 'luto', 'cinzas'].map((n) => `models/zombie_${n}.jpg`);

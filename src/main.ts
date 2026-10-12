@@ -829,6 +829,12 @@ function resumeBattle(seal: BattleSeal): void {
 // por isso o selo de batalha já está no disco desde o início da horda.
 window.addEventListener('beforeunload', () => {
   if (hasSavedRun && !bastionSession.active) SaveStore.set(RUN_KEY, JSON.stringify(run));
+  SaveStore.flush(); // o Bastião pode ainda estar na fila de gravação em segundo plano
+});
+
+// Gravação em segundo plano do Último Bastião: se o disco recusar, o jogador é avisado (ver SaveStore.setLazy).
+SaveStore.onWriteError((key) => {
+  if (key === 'bastion') hud.log('Não foi possível salvar o Bastião (disco cheio ou sem permissão?).', 'warn');
 });
 
 /** Centraliza a câmera na party. */

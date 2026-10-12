@@ -83,10 +83,18 @@ const CLIP_MAP = {
   Idle_Loop: 'idle',
   Walk_Loop: 'walk',
   Sword_Attack: 'attack',
+  // socos do Bárbaro (vocação sem arma): soco rápido e soco cruzado (investida)
+  Punch_Jab: 'punchJab',
+  Punch_Cross: 'punchCross',
   Spell_Simple_Shoot: 'cast',
   Hit_Chest: 'hit',
+  // reação forte (golpe pesado): cabeça para trás
+  Hit_Head: 'hitHeavy',
   Death01: 'death',
 };
+
+/** Golpes: o instante do impacto é medido a partir do clipe (ver impactoDoGolpe). */
+const IMPACT_CLIPS = new Set(['punchJab', 'punchCross', 'attack']);
 
 // ---------- matematica de quaternion ([x,y,z,w]) ----------
 const qmul = (a, b) => [
@@ -125,6 +133,31 @@ function readAccessor(bin, json, idx) {
   const dv = new DataView(bin.buffer, bin.byteOffset + off, n * 4);
   for (let i = 0; i < n; i++) out[i] = dv.getFloat32(i * 4, true);
   return out;
+}
+
+/** Ângulo (rad) entre duas orientações de mundo (quaternions [x,y,z,w]). */
+const angulo = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3])));
+
+/**
+ * Instante do impacto de um golpe: o pico da velocidade angular das mãos. O golpe atinge quando o braço está no
+ * ponto de maior velocidade (antes de desacelerar), então o dano visual sincroniza com esse instante.
+ */
+function impactoDoGolpe(nodes, frames, times) {
+  const maos = ['hand_r', 'hand_l'].map((n) => nodes.findIndex((x) => x.name === n)).filter((i) => i >= 0);
+  if (!maos.length) return null;
+  let pico = -1;
+  let instante = null;
+  for (let f = 1; f < frames.length; f++) {
+    const dt = times[f] - times[f - 1];
+    if (dt <= 0) continue;
+    let v = 0;
+    for (const i of maos) v += angulo(frames[f - 1][i], frames[f][i]) / dt;
+    if (v > pico) {
+      pico = v;
+      instante = times[f];
+    }
+  }
+  return instante;
 }
 
 function main() {
@@ -243,7 +276,9 @@ function main() {
     }
     const dur = times[times.length - 1];
     console.log(`${ualName} -> ${gameName}: ${times.length} frames, ${dur.toFixed(2)}s, ${tracks.length} tracks`);
-    clips[gameName] = { duration: dur, times, tracks };
+    const impacto = IMPACT_CLIPS.has(gameName) ? impactoDoGolpe(nodes, frames, times) : null;
+    if (impacto !== null) console.log(`  ${ualName}: impacto em ${impacto.toFixed(3)}s`);
+    clips[gameName] = { duration: dur, times, tracks, impacto };
   }
 
   const ts = genTS(clips, UAL_PELVIS_REST);
@@ -288,6 +323,10 @@ function genTS(clips, pelvisRest) {
     L.push(`  },`);
   }
   L.push('};');
+  L.push('');
+  const impactos = Object.entries(clips).filter(([, c]) => c.impacto !== null && c.impacto !== undefined);
+  L.push('/** Instante (s) do impacto de cada golpe: pico da velocidade das mãos no clipe (medido na extração). */');
+  L.push(`export const UAL_IMPACT: Partial<Record<UALClipName, number>> = { ${impactos.map(([n, c]) => `${n}: ${c.impacto.toFixed(3)}`).join(', ')} };`);
   L.push('');
   L.push('/** Clipes Three.js a partir dos dados extraidos (hips.position em espaco UAL). */');
   L.push('export function ualRawClips(): Record<UALClipName, THREE.AnimationClip> {');

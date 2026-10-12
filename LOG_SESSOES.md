@@ -641,6 +641,111 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   1. Dono: testar no PC (construir, mover herói, iniciar horda) e dizer o que ainda trava ou quais erros aparecem na horda.
   2. Se ainda pesar: reduzir os triângulos do cenário do Bastião (grama e muros). Precisa de decisão visual sua.
 
+## 2026-10-12 — Bárbaro com socos e roleta que encerra no clique (v0.11, em andamento)
+- **Pedido do dono:** (1) clicar no meio da tela durante a roleta deve encerrar o giro na hora; (2) o machado do Bárbaro ficou ruim: trocar por socos, usando as animações do pacote Universal Animation Library (Standard) que o dono enviou.
+- **D68 — Socos com a UAL:** `Punch_Jab` (soco rápido, no golpe básico) e `Punch_Cross` (soco cruzado, na investida) entram no conjunto `barbarianUAL`. Descanso, andar, dano e morte seguem da UAL; a conjuração segue o procedural do Guerreiro. O Bárbaro não tem arma: o registro não traz mais `weapons`.
+- **D69 — Extração:** `scripts/extractUALAnims.mjs` passou a extrair os dois socos, e `ualClips.ts` foi regerado. A regeneração só acrescenta clipes; o único trecho trocado é a união de tipos. O pacote da UAL não está no repositório: o script aponta para a pasta dele.
+- **D70 — Sem arco de lâmina:** o Bárbaro não ganha o tufão de vento do golpe nem o arco da investida do Guerreiro. O impacto segue com o efeito normal de dano.
+- **D71 — Roleta:** um clique em qualquer lugar da tela durante o giro encerra o giro no quadro seguinte. O prêmio aparece, e o botão Pegar só libera depois disso.
+- **Testes:**
+  - `npm run build`, `sim:check` (determinístico), `vocation:check` e `bastion:check` passam.
+  - Bárbaro no Chromium, em quadros determinísticos com câmera de batalha: repouso sem arma, soco rápido com o braço à frente e soco cruzado com os dois braços. Sem erro de página nem de console.
+  - Roleta no mapa, com clique real do mouse: o prêmio aparece 65 ms depois do clique (antes o giro levava 5,2 s), e o botão Pegar, clicado com o mouse, fecha o véu.
+- **Limitações:**
+  - Com o menu principal aberto (a demonstração F9 da roleta, no menu inicial), o clique não chega ao véu: a camada do menu (z-index 100) fica acima da roleta (75). O problema já existia; as recompensas reais abrem no mapa, onde o clique funciona. Não foi alterado.
+  - A pose foi conferida em quadros parados, e o brilho de combate cobre parte do corpo. A fluidez em tempo real só se confirma no PC.
+- **Pendências:**
+  1. Dono: testar no PC o ritmo do soco (0,87 s) e dizer se combina com o combate.
+  2. Dono: arte nova do retrato e do corpo inteiro do Bárbaro (ainda do Guerreiro, com escudo).
+  3. Dono: autorizar mover o original de 24,5 MB do `public/` da `main` para a branch `fontes`, zipado.
+
+## 2026-10-12 — Último Bastião: construir deixa de esperar o disco no executável (v0.11, em andamento)
+- **Pedido do dono:** o modo defesa "ainda está bem travado" depois da correção de shaders.
+- **Diagnóstico (medido no Chromium, com renderização por software):**
+  - O JavaScript não pesa: em 14 s de construção, 99% do tempo do perfil fica em código nativo (renderização e driver); coleta de lixo, 42 ms.
+  - O quadro do planejamento é limitado por preenchimento de pixels: sem os passes de pós-processamento, o quadro cai de ~4,6 s para ~1,9 s; com a resolução pela metade, cai na mesma proporção. Os triângulos (1,36 milhão por quadro, dos quais ~670 mil na passagem de sombra) pesam menos: sem sombra, só ~5%.
+  - **Causa provável no executável (não reproduzível aqui):** cada ação do Bastião salvava por IPC síncrono. O processo principal faz duas leituras JSON do save, um `fsync`, uma cópia `.bak` e a troca do arquivo, e a tela fica parada até terminar. No Windows, com antivírus, isso pode levar centenas de milissegundos por construção. No navegador de teste o save vai para `localStorage`, por isso a trava não aparece lá.
+  - Tentativa descartada: MSAA só no desenho da cena, em vez de no compositor inteiro. A imagem ficou igual (diferença média de 0,03 por canal), mas o quadro não mostrou ganho confiável (a variação do ambiente chega a ±30%). Desfeita.
+- **D72 — Bastião em segundo plano:** o save do Último Bastião usa `SaveStore.setLazy`. O cache muda na hora; o disco recebe a versão mais nova em segundo plano, uma escrita por vez. Falha no disco vira aviso (`onWriteError`). Ao fechar a janela, `SaveStore.flush()` grava o que estiver pendente.
+- **D73 — Jornada e conquistas seguem síncronas:** o selo de batalha depende de o save estar no disco antes da horda. Por isso `run` e `meta` continuam com `set` (espera o disco).
+- **Código:** `src/save/SaveStore.ts` (fila), `electron/main.cjs` (gravação compartilhada, síncrona e assíncrona), `electron/preload.cjs` (`writeAsync`), `src/env.d.ts`, `src/main.ts` (aviso e flush ao fechar), `src/bastion/bastionSession.ts`.
+- **Testes:**
+  - `tsc --noEmit` e `node --check` nos arquivos do Electron passam.
+  - Teste da fila com disco simulado (12 verificações): não espera o disco; rajada de 50 vira 2 envios, com a última versão por último; falha chega ao aviso; flush grava o pendente; jornada segue síncrona.
+  - Regressão no navegador: construir grava a cidade (estruturas de 0 para 1), sem erro de página nem de console.
+- **Limitações:**
+  - O executável Electron não roda neste ambiente: o ganho de tela no Windows precisa de teste no PC.
+  - Um fechamento forçado (queda de energia, processo morto) nos milissegundos depois de uma construção pode perder só essa última ação do Bastião. O fechamento normal grava tudo.
+  - O quadro do planejamento continua pesado por causa da placa de vídeo. Nenhum visual foi alterado.
+- **Pendências:**
+  1. Dono: testar no PC construir muralhas e dizer se a trava sumiu.
+  2. Dono, se ainda pesar, são decisões visuais: (a) sombras só no cenário fixo durante o planejamento; (b) MSAA 2× no preset Alto; (c) reduzir os triângulos das árvores e arbustos com sombra (~610 mil triângulos).
+  3. Alternativa imediata: preset Médio ou Baixo em Opções → Vídeo.
+
+## 2026-10-12 — Animações: morte completa, andar no ritmo do passo e chefes com anel (v0.11, em andamento)
+- **Pedido do dono:** refinar as animações de personagens e monstros (auditoria, integração, combate, mortes), sem mudar mecânica.
+- **Auditoria (somente leitura, dois auditores + medição no navegador sem desenho):**
+  - Pacote UAL: a pasta `Universal Animation Library[Standard]` **não está no repositório**. Só existe uma cópia de trabalho fora dele (`scratchpad`, 43 animações). Os geradores (`scripts/extractUALAnims.mjs`, `scripts/retargetUALMixamo.cjs`) apontam para caminhos que não existem aqui.
+  - Clipes usados: os da UAL (morte de 2,4 s; ataque, andar e parado), os embutidos nos GLB de rato e goblin (7 nomes exatos) e os procedurais (zumbis, orcs, fallbacks).
+  - Morte: o corpo sumia em 1,76 s, mas a morte da UAL dura 2,4 s. A morte era cortada.
+  - Monstros ficavam parados durante o adiamento do impacto (0,28 s): a view pulava unidades que a simulação já tinha tirado.
+  - Andar e parado: os inimigos paravam 1 tick (0,1 s) quando presos na fila, e o andar só esperava 0,18 s antes de virar parado. Cada espera virava um piscar.
+- **Correções feitas:**
+  1. **Morte completa:** o corpo fica até o clipe de morte terminar e só então desvanece (mínimo de 0,4 s). Herói: corpo na cena por 2,80 s (antes 1,76 s).
+  2. **Morte adiada sem congelar:** o corpo segue o clipe até o golpe chegar. Verificado: o clipe avança durante a espera.
+  3. **Andar no ritmo do passo:** a velocidade do ciclo acompanha a cadência real (passo de 0,5 s = velocidade-base; passo mais longo anda mais devagar; passo curto, mais depressa). Limites de 0,5 a 1,6.
+  4. **Parado só depois de um tempo:** inimigo espera 0,45 s antes de virar parado (antes 0,18 s). Medido em 10 s de horda: quedas de andar para parado de 15 para 1; fração de tempo parado de 4,3% para 0,5%.
+  5. **Brilho de combate pelo clipe:** a duração do espectro acompanha o clipe que está tocando (antes 0,55, 0,4 e 0,85 s fixos).
+  6. **Chefe de ato com anel e sombra:** o anel de energia e a sombra usavam o nome do modelo (`ratBoss`), não o tipo da simulação (`boss`), e nunca apareciam. Verificado: anel e sombra presentes.
+  7. Anel de chefe some junto com a morte.
+- **Correção de registro (D70):** o tufão de vento do Guerreiro **nunca apareceu ao vivo**: o handler de classe consome golpe e investida antes do caso padrão do `GameView`. A condição que pus para o Bárbaro nesse ponto não tinha efeito; foi desfeita. A descrição de D70 estava errada.
+- **Testes:**
+  - `tsc`, `npm run build`, `sim:check` (determinístico), `bastion:check` e `vocation:check` passam.
+  - Horda sem desenho, 600 quadros: piscar de andar para parado (ver item 4).
+  - Morte pelo caminho do jogo (`sim.damage` + entrega dos eventos à view): herói 2,80 s, inimigo 1,76 s, clipe de morte desde o começo.
+  - Visual: quatro quadros da morte do herói (1,0 s caído; 1,8 s desvanecendo; 2,6 s fora da cena).
+  - Chefe de ato: anel e sombra presentes. Ritmo do andar: passo de 0,5 s dá 1,3 (rato) e passo de 0,3 s dá 3,84 (corredor), como calculado.
+  - Sem erro de página nem de console em nenhum teste.
+- **Limitações (dependem de clipe, dado ou rig que não está no pacote):**
+  - O dano visual ainda aparece em tempo fixo (0,26 a 0,30 s) depois do início do ataque. O pacote não traz marcadores de impacto por clipe. *(Resolvido para o Bárbaro e os dinossauros; ver a entrada seguinte.)*
+  - A barra de vida mostra o HP da simulação, que cai antes do impacto. *(Resolvido; ver a entrada seguinte.)*
+  - Postura de combate própria por classe: o pacote tem `Sword_Idle` e `Spell_Simple_Idle_Loop`, mas os heróis usam rig Mixamo e precisam de clipes regenerados.
+  - Reação por direção (`Hit_Head`, `Hit_Chest`, `Hit_Knockback` existem no pacote): o jogo usa um só clipe de reação.
+  - Hit-stop congela animações e efeitos, não o deslocamento (até 0,3 s de deslizamento).
+  - Pesos de pele do bongun: só as quatro maiores influências são lidas.
+  - Nada de PC testado; GPU não medida.
+- **Pendências:**
+  1. Dono: confirmar onde está o pacote UAL no repositório (ou autorizar que o cópia de trabalho entre no repo) para integrar os clipes que faltam. *(Resolvido: o dono respondeu "1 sim" e o pacote foi copiado para o repositório.)*
+  2. Dono: testar no PC morte e andar de monstros e dizer se o ritmo do andar combina.
+
+## 2026-10-12 — Animações: impacto no golpe, reação forte e pacote UAL no repositório (v0.11, em andamento)
+- **Pedido do dono:** "1 sim", para copiar o pacote UAL para o repositório. Assim o extrator reproduz os clipes.
+- **Pacote no repositório:** `Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb` (7,6 MB, 43 animações, 65 ossos), abaixo do limite de 8 MB. Não entra no build: o jogo lê os clipes de `src/render/units/model/ualClips.ts`, gerado por `scripts/extractUALAnims.mjs`.
+- **Mapeamento:** `Punch_Jab` → golpe rápido do Bárbaro; `Punch_Cross` → investida; `Hit_Head` → reação forte (`hitHeavy`); `Sword_Attack` → ataque (disponível, ainda sem conjunto que o use). Dinossauros e bongun usam o `Punch_Jab` pelo retarget Mixamo (mesma duração, 0,867 s).
+- **Instante do impacto medido no clipe** (pico de velocidade da mão): `punchJab` 0,167 s, `punchCross` 0,233 s, `Sword_Attack` 0,400 s (`UAL_IMPACT`). Cada modelo leva o seu (`ModelDef.impact`, preenchido a partir de `SET_IMPACT` em `anims.ts`). Sem medida, vale o tempo padrão de 0,28 s.
+- **Correções:**
+  1. **Dano no impacto:** o número e a reação saem no instante do golpe, não em tempo fixo. Medido: o golpe do Bárbaro sai no quadro de 0,183 s (0,167 s mais um quadro de arredondamento); o do dinossauro, igual.
+  2. **Barra de vida no impacto:** antes, a barra descia no instante do golpe, antes do número. Agora mostra a vida de antes até o impacto e a nova depois. A simulação passa `hpBefore`/`hpAfter` no evento de dano (campos opcionais; eventos de demonstração não os têm). Medido: barra em 100% até o impacto e em 60% depois (vida da simulação: 60).
+  3. **Reação forte:** golpe com 20% ou mais da vida máxima (`heavyHitFrac`) troca a reação do Bárbaro para `hitHeavy`. Medido: disparou 0,283 s após o golpe.
+  4. **Ataque repetido:** o segundo golpe recomeça do zero (antes, continuava do meio do clipe). Medido: 0,1 s antes do segundo golpe e 0 logo depois.
+  5. **Dinossauros:** o ataque toca o clipe de soco, e o dano sai no impacto (medido).
+- **Testes:**
+  - `tsc`, `npm run build`, `npm run sim:check` (determinístico) e `npm run vocation:check` passam.
+  - `scripts/validateUAL.ts` agora inclui o conjunto do Bárbaro (socos e `hitHeavy`): todas as faixas apontam para ossos que existem; o quadril desloca no máximo 0,12 m (na morte), contra o limite de 0,6 m.
+  - Sem desenho (`impacto_barbaro`, `impacto_dino`, `verif_anim`, `morte_teste2`): tempos e barra conferidos, sem erro de página nem de console.
+  - Com desenho (print): soco com inimigo colado (número 40 no quadro de 0,25 s, depois do impacto) e reação forte (`hitHeavy`, número 61 no impacto). Visto de cima, a extensão do braço no soco fica pouco legível.
+  - Linha do tempo de 600 quadros: não comparada com as referências guardadas. Cada execução sorteia outra horda (as duas referências antigas já divergem entre si), então essa comparação não prova nada. A prova de que a simulação não mudou é o `sim:check`.
+- **Limitações (ainda valem):**
+  - Reações de direção (`Hit_Chest`, `Hit_Knockback`): não integradas; a simulação não tem knockback.
+  - Postura de combate própria por classe: pendente (precisa de clipes do rig Mixamo regenerados).
+  - Corredor (`Sprint`): não integrado; os monstros usam o andar com cadência.
+  - Guerreiro comum, mago e arqueira: sem medida de impacto (usam 0,28 s).
+  - Hit-stop congela animação e efeitos, não o deslocamento.
+  - `scripts/retargetUALMixamo.cjs` ainda aponta para um caminho temporário do Windows; não foi regenerado nesta entrega.
+  - PC e GPU não medidos.
+- **Pendências:**
+  1. Dono: testar no PC o soco e a reação forte do Bárbaro, e dizer se o soco parece bem visto de perto.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

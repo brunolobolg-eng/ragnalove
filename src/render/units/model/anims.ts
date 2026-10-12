@@ -353,7 +353,7 @@ export { mirror };
  * `heavy` e `cast` continuam procedurais porque o momento do impacto visual
  * (CLEAVE_IMPACT/BASH_IMPACT) foi coreografado para eles.
  */
-import { UAL_PELVIS_REST, ualRawClips } from './ualClips';
+import { UAL_IMPACT, UAL_PELVIS_REST, ualRawClips } from './ualClips';
 
 /**
  * Altura ABSOLUTA de descanso de um osso (sobe a cadeia aplicando rests).
@@ -509,6 +509,25 @@ function withUAL(bones: BoneDef[], proc: (b: BoneDef[]) => Record<ClipName, THRE
 export const warriorClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, warriorClips);
 export const mageClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, mageClips);
 export const archerClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, archerClips);
+
+/** Bárbaro (vocação do Guerreiro): a mesma captura UAL, com socos no lugar da espada (soco rápido no golpe, soco cruzado na investida). */
+export const barbarianClipsUAL = (b: BoneDef[]): ClipSet => {
+  const raw = ualRawClips();
+  return { ...withUAL(b, warriorClips), attack: fitHips(raw.punchJab, b), heavy: fitHips(raw.punchCross, b), hitHeavy: fitHips(raw.hitHeavy, b) };
+};
+
+/** Conjunto de clipes com a reação forte opcional (golpe pesado: cabeça para trás, só onde a UAL a fornece). */
+export type ClipSet = Record<ClipName, THREE.AnimationClip> & { hitHeavy?: THREE.AnimationClip };
+
+/**
+ * Instante (s) do impacto de cada golpe, por conjunto de clipes: o dano visual espera esse momento
+ * (o golpe atinge quando a mão chega ao pico). Conjunto sem entrada usa o tempo padrão do jogo.
+ */
+export const SET_IMPACT: Partial<Record<string, { attack?: number; heavy?: number }>> = {
+  barbarianUAL: { attack: UAL_IMPACT.punchJab, heavy: UAL_IMPACT.punchCross },
+  // dino e bongun: o ataque é o soco da UAL (Punch_Jab) retargetado
+  cultist: { attack: UAL_IMPACT.punchJab, heavy: UAL_IMPACT.punchJab },
+};
 
 export function archerClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
   // Arco baixo à frente (mão esquerda), mão direita perto da aljava.

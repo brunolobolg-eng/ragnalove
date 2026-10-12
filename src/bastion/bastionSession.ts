@@ -296,8 +296,9 @@ export class BastionSession {
     return this.b;
   }
 
+  /** Grava em segundo plano (SaveStore.setLazy): construir não espera o disco. Falha no disco chega pelo aviso de main.ts. */
   private save(): void {
-    if (!SaveStore.set(SAVE_KEY, JSON.stringify(this.state()))) this.d.log('Não foi possível salvar o Bastião (disco cheio ou sem permissão?).', 'warn');
+    if (!SaveStore.setLazy(SAVE_KEY, JSON.stringify(this.state()))) this.d.log('Não foi possível salvar o Bastião (disco cheio ou sem permissão?).', 'warn');
   }
 
   /** Guarda a jornada e troca para a cidade do Bastião (run com a party, a carteira e a vida do núcleo do modo). */

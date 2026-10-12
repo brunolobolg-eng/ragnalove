@@ -25,6 +25,8 @@ export interface ModelDef {
   weapons?: WeaponAttach[];
   /** Flutuação: sobe e desce `amp` metros em `period` segundos (a sombra de contato acompanha). */
   float?: { amp: number; period: number };
+  /** Instante (s) do impacto de cada golpe, quando o conjunto de clipes tem medida (SET_IMPACT em anims.ts). */
+  impact?: { attack?: number; heavy?: number };
 }
 
 export const MODELS: Record<string, ModelDef> = {
@@ -131,6 +133,14 @@ export class ModelUnitView {
   private actionT = -1;
   private actionDur = 0.5;
   private dyingT = -1;
+  /** Duração do clipe de morte (s): o corpo fica até ele acabar. */
+  private readonly deathSec: number;
+  /** Reação forte (golpe pesado), só nos conjuntos que a têm. */
+  private readonly hitHeavyAction?: THREE.AnimationAction;
+  /** Instante do impacto de cada golpe no conjunto (s); sem entrada, o tempo padrão do jogo. */
+  private readonly impact?: { attack?: number; heavy?: number };
+  /** Duração (s) do passo atual: o andar acompanha o deslocamento real. */
+  private stepSec: number = VISUAL_CONFIG.unit.walkStepRef;
   private walkHold = 0;
   private hpShown = 1;
   private hpVisible: boolean;
@@ -140,14 +150,20 @@ export class ModelUnitView {
   burning = 0;
   done = false;
 
+  /**
+   * `kind` é o modelo visual (ex.: 'ratBoss'); `simKind` é o tipo da simulação (ex.: 'boss'). Chefe e elite
+   * de ato ganham anel e sombra pelo tipo da simulação, porque o modelo visual tem outro nome.
+   */
   constructor(
     readonly kind: string,
     readonly team: 'party' | 'enemy',
+    private readonly simKind: string = kind,
   ) {
     this.def = MODELS[kind];
     this.float = this.def.float;
     const { model, clips } = assets(kind);
     this.hpVisible = team === 'party';
+    this.deathSec = clips.death.duration;
     this.u = createUnitUniforms();
     if (team === 'enemy') {
       this.u.uRim.value = 0.3;
@@ -163,7 +179,7 @@ export class ModelUnitView {
     this.mesh.add(sk.root);
     this.mesh.bind(sk.skeleton, IDENTITY);
     // sombra projetada só de heróis e chefes: a horda não paga a 2ª passagem de desenho (a sombra de contato já existe)
-    this.castsShadow = team === 'party' || GAME_CONFIG.bossKinds.includes(kind);
+    this.castsShadow = team === 'party' || GAME_CONFIG.bossKinds.includes(this.simKind);
     this.mesh.castShadow = this.castsShadow;
     this.mesh.frustumCulled = false;
     this.materials.push(body);
@@ -180,7 +196,7 @@ export class ModelUnitView {
       this.materials.push(this.spectreMat);
       this.model.add(this.spectre);
       // chefes: anel de energia no chão, girando sob os pés (o mesmo traço das magias)
-      if (team === 'enemy' && GAME_CONFIG.bossKinds.includes(kind)) {
+      if (team === 'enemy' && GAME_CONFIG.bossKinds.includes(this.simKind)) {
         this.auraRing = flatPlane(this.root, energyRingTexture(), AURA_VISUAL.ringWidth, 1, { y: 0.02, opacity: 0, color: spectreColor, renderOrder: 4 });
       }
     }
@@ -215,6 +231,13 @@ export class ModelUnitView {
       }
       this.actions[name] = a;
     }
+    const heavy = (clips as { hitHeavy?: THREE.AnimationClip }).hitHeavy;
+    if (heavy) {
+      this.hitHeavyAction = this.mixer.clipAction(heavy);
+      this.hitHeavyAction.setLoop(THREE.LoopOnce, 1);
+      this.hitHeavyAction.clampWhenFinished = true;
+    }
+    this.impact = this.def.impact;
     this.base = this.current = this.actions.idle;
     this.current.time = Math.random() * clips.idle.duration; // horda fora de sincronia
     this.current.play();
@@ -267,23 +290,58 @@ export class ModelUnitView {
     if (instant) this.yaw = this.targetYaw;
   }
 
-  hit(): void {
+  /** Reação ao dano. `heavy` = golpe forte: usa a reação forte do modelo, quando ele a tem. */
+  hit(heavy = false): void {
     this.flash = VISUAL_CONFIG.unit.hitFlashTime;
     if (!this.hpLocked) this.hpVisible = true;
     // não interrompe golpe/magia: o tranco só entra se estiver parado ou andando
-    if (this.current === this.base) this.oneShot('hit');
+    if (this.current !== this.base || this.dyingT >= 0) return;
+    if (heavy && this.hitHeavyAction) this.to(this.hitHeavyAction, 0.06);
+    else this.oneShot('hit');
   }
 
   attack(style: 'swing' | 'heavy' = 'swing'): void {
+    const name: ClipName = style === 'heavy' ? 'heavy' : 'attack';
     this.actionT = 0;
-    this.actionDur = this.team === 'party' ? 0.55 : 0.4;
-    this.oneShot(style === 'heavy' ? 'heavy' : 'attack');
+    // o brilho de combate acompanha o clipe que está tocando (não um tempo fixo)
+    this.actionDur = this.clipSec(name, this.team === 'party' ? 0.55 : 0.4);
+    this.replay(this.actions[name]);
   }
 
   cast(): void {
     this.actionT = 0;
-    this.actionDur = 0.85;
-    this.oneShot('cast');
+    this.actionDur = this.clipSec('cast', 0.85);
+    this.replay(this.actions.cast);
+  }
+
+  /**
+   * Toca o golpe do início, mesmo que o mesmo golpe esteja no meio (ataque repetido antes do fim do clipe):
+   * assim o impacto sai no instante certo, e não no resto do clipe anterior.
+   */
+  private replay(a: THREE.AnimationAction): void {
+    if (this.dyingT >= 0) return;
+    if (a === this.current) {
+      a.reset();
+      a.play();
+      return;
+    }
+    this.to(a, 0.06);
+  }
+
+  /** Instante (s) do impacto do golpe `style` no conjunto do modelo; `undefined` = sem medida (usa o tempo padrão). */
+  impactSec(style: 'attack' | 'heavy'): number | undefined {
+    return this.impact?.[style];
+  }
+
+  /** Duração (s) do clipe, limitada a um intervalo razoável para o brilho de combate; sem clipe, o valor de reserva. */
+  private clipSec(name: ClipName, fallback: number): number {
+    const d = this.actions[name]?.getClip().duration;
+    return d ? THREE.MathUtils.clamp(d, 0.3, 1.5) : fallback;
+  }
+
+  /** Duração (s) do passo atual: o andar acompanha a cadência real do deslocamento. */
+  setStep(seconds: number): void {
+    this.stepSec = seconds > 0 ? seconds : VISUAL_CONFIG.unit.walkStepRef;
   }
 
   /** Tela de seleção/retratos: sem barra de vida. */
@@ -331,16 +389,18 @@ export class ModelUnitView {
     this.yaw += d * Math.min(1, dt * 12);
     this.model.rotation.y = this.yaw;
 
-    // Andar ↔ parado (com pequena tolerância entre passos para não "piscar" o idle)
+    // Andar ↔ parado: o parado só entra depois de um tempo sem passo (inimigo parado na fila não pisca o idle)
     const moving = moveT < 1;
-    this.walkHold = moving ? 0.18 : Math.max(0, this.walkHold - dt);
+    const hold = this.team === 'enemy' ? VISUAL_CONFIG.unit.walkHoldEnemy : VISUAL_CONFIG.unit.walkHold;
+    this.walkHold = moving ? hold : Math.max(0, this.walkHold - dt);
     const wantBase = moving || this.walkHold > 0 ? this.actions.walk : this.actions.idle;
     if (this.dyingT < 0 && wantBase !== this.base) {
       const onBase = this.current === this.base;
       this.base = wantBase;
       if (onBase) this.to(wantBase, 0.2);
     }
-    this.actions.walk.timeScale = this.def.walkRate;
+    // o ciclo de passos acompanha a cadência do deslocamento: passo mais lento = andar mais lento (o pé não desliza)
+    this.actions.walk.timeScale = this.def.walkRate * THREE.MathUtils.clamp(VISUAL_CONFIG.unit.walkStepRef / this.stepSec, 0.5, 1.6);
     this.mixer.update(dt);
 
     // Capa: mola simples guiada pela velocidade + brisa (camada física por cima da animação)
@@ -363,15 +423,18 @@ export class ModelUnitView {
 
     if (this.dyingT >= 0) {
       this.dyingT += dt;
-      const T = VISUAL_CONFIG.unit.deathTime * 1.6;
+      // o corpo fica até o clipe de morte acabar (o UAL tem 2,4 s) e só então some, com pelo menos 0,4 s de desvanecimento
+      const T = Math.max(VISUAL_CONFIG.unit.deathTime * 1.6, this.deathSec + 0.4);
+      const hold = Math.max(this.deathSec, T * 0.55);
       const k = Math.min(1, this.dyingT / 0.5);
-      const op = Math.max(0, 1 - Math.max(0, this.dyingT - T * 0.55) / (T * 0.45));
+      const op = Math.max(0, 1 - Math.max(0, this.dyingT - hold) / (T - hold));
       this.u.uOpacity.value = op;
       this.u.uTint.value.setRGB(1 - k * 0.35, 1 - k * 0.45, 1 - k * 0.45);
       this.u.uRim.value = 0.4 * (1 - k);
       this.contact.material.opacity = 0.38 * op;
       this.mesh.castShadow = this.castsShadow && op > 0.5;
       if (this.spectre) this.spectre.visible = false;
+      if (this.auraRing) this.auraRing.visible = false;
       if (this.dyingT >= T) this.done = true;
       return;
     }

@@ -60,5 +60,5 @@ export type AnyUnitView = UnitView | ModelUnitView;
 /** `visual` = modelo da vocação do herói; sem ele (ou ainda não carregado) usa o da classe. */
 export function createUnitView(kind: string, team: 'party' | 'enemy', visual?: string): AnyUnitView {
   const key = team === 'party' && visual && MODELS[visual] ? visual : kind;
-  return MODELS[key] ? new ModelUnitView(actModel(key, team), team) : new UnitView(kind, team);
+  return MODELS[key] ? new ModelUnitView(actModel(key, team), team, kind) : new UnitView(kind, team);
 }

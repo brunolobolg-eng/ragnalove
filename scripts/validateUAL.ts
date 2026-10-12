@@ -10,7 +10,7 @@
  */
 import * as THREE from 'three';
 import { instantiateSkeleton } from '../src/render/units/model/ModelBuilder';
-import { archerClips, archerClipsUAL, gruntClips, mageClips, mageClipsUAL, warriorClips, warriorClipsUAL, type ClipName } from '../src/render/units/model/anims';
+import { archerClips, archerClipsUAL, barbarianClipsUAL, gruntClips, mageClips, mageClipsUAL, warriorClips, warriorClipsUAL, type ClipName } from '../src/render/units/model/anims';
 
 let failures = 0;
 const fail = (msg: string): void => {
@@ -77,6 +77,8 @@ async function main(): Promise<void> {
   const { buildWarrior, buildMage, buildArcher, buildGrunt } = await import('../src/render/units/model/characters');
   const w = buildWarrior();
   checkClips('warrior UAL', warriorClipsUAL(w.bones), w.bones);
+  // Bárbaro: socos (Punch_Jab/Punch_Cross) e a reação forte (hitHeavy, só este conjunto a tem)
+  checkClips('barbarian UAL (socos + reação forte)', barbarianClipsUAL(w.bones) as Record<ClipName, THREE.AnimationClip>, w.bones);
   const m = buildMage();
   checkClips('mage UAL', mageClipsUAL(m.bones), m.bones);
   const a = buildArcher();

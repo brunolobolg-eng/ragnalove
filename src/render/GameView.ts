@@ -145,8 +145,10 @@ export class GameView {
   private readonly ribbons: RibbonPool;
   private readonly decals: DecalLayer;
   private hitStopT = 0;
-  /** Reações de dano esperando o golpe/projétil acertar (sincroniza impacto com a animação). */
+  /** Eventos esperando o golpe/projétil acertar (sincroniza impacto com a animação, dano e morte). */
   private deferred: { t: number; events: SimEvent[] }[] = [];
+  /** Vida que a barra mostra enquanto há dano pendente: a de antes do golpe, e a nova só no acerto. Sem entrada = vida ao vivo. */
+  private shownHp = new Map<number, number>();
   /** Equipamentos no chão até o fim da onda. */
   private loot: LootFX[] = [];
   private readonly world = new THREE.Group();
@@ -409,6 +411,7 @@ export class GameView {
     this.vfx.clear();
     this.sandVfx = undefined;
     this.deferred = [];
+    this.shownHp.clear();
     this.hitStopT = 0;
     this.frozen.clear();
     this.fury.clear();
@@ -465,7 +468,7 @@ export class GameView {
     const delay = new Map<number, number>();
     for (const e of events) {
       if (e.type === 'bolt') delay.set(e.targetId, FrostBoltFX.impactDelay(this.boltFrom(e), tileToWorld(e.to.x, e.to.y, undefined, 0.6)));
-      else if (e.type === 'bash') delay.set(e.targetId, this.sim.units.get(e.unitId)?.kind === 'assassin' ? VISUAL_CONFIG.strike.impactAt : BASH_IMPACT);
+      else if (e.type === 'bash') delay.set(e.targetId, this.sim.units.get(e.unitId)?.kind === 'assassin' ? VISUAL_CONFIG.strike.impactAt : this.impactOf(e.unitId, 'heavy') ?? BASH_IMPACT);
       else if (e.type === 'meteor') {
         // o meteoro demora a cair: com autor (Feiticeira), os inimigos da área reagem na queda; aliados como antes
         for (const u of this.sim.units.values()) {
@@ -483,7 +486,7 @@ export class GameView {
       else if (e.type === 'soulEcho') for (const id of e.targetIds) delay.set(id, WARLOCK_NEW_FX.echo.blowAt);
       else if (e.type === 'blackFrost') for (const id of e.targetIds) delay.set(id, WARLOCK_NEW_FX.blackFrost.spikeAt);
       else if (e.type === 'arrow') delay.set(e.targetId, ArrowFX.impactDelay(this.bowTip(e.unitId, e.from), tileToWorld(e.to.x, e.to.y, undefined, 0.6)));
-      else if (e.type === 'melee') delay.set(e.targetId, MELEE_IMPACT);
+      else if (e.type === 'melee') delay.set(e.targetId, this.impactOf(e.unitId, 'attack') ?? MELEE_IMPACT);
       else if (e.type === 'execute') delay.set(e.targetId, EXECUTE_IMPACT);
       // Cavaleiro Rúnico: o número só aparece quando o efeito chega (a onda voa, a lança cai, o giro passa)
       else if (e.type === 'sonicWave') delay.set(e.targetId, WARRIOR_RUNIC_FX.sonic.flight);
@@ -529,10 +532,29 @@ export class GameView {
         d = delay.get(e.fromId);
         if (d !== undefined) victimTiles.set(`${e.x},${e.y}`, d);
       } else if (e.type === 'exp' || e.type === 'drop') d = victimTiles.get(`${e.x},${e.y}`);
-      if (d !== undefined) this.deferred.push({ t: d, events: [e] });
-      else now.push(e);
+      if (d !== undefined) {
+        if (e.type === 'damage' && e.hpBefore !== undefined && !this.shownHp.has(e.unitId)) this.shownHp.set(e.unitId, e.hpBefore);
+        this.deferred.push({ t: d, events: [e] });
+      } else now.push(e);
     }
     return now;
+  }
+
+  /** Golpe do autor no conjunto do modelo (instante do impacto em s); `undefined` = tempo padrão do jogo. */
+  private impactOf(unitId: number, style: 'attack' | 'heavy'): number | undefined {
+    const v = this.units.get(unitId);
+    return v instanceof ModelUnitView ? v.impactSec(style) : undefined;
+  }
+
+  /** Fração de vida desenhada: a do golpe pendente (antes do acerto) ou a ao vivo. */
+  private hpFracOf(u: { id: number; hp: number; maxHp: number }): number {
+    return (this.shownHp.get(u.id) ?? u.hp) / u.maxHp;
+  }
+
+  /** Golpe acertou: a barra passa à vida nova; sem outro dano pendente, volta a seguir a vida ao vivo. */
+  private landBar(unitId: number, hp: number): void {
+    this.shownHp.set(unitId, hp);
+    if (!this.deferred.some((d) => d.events.some((e) => e.type === 'damage' && e.unitId === unitId))) this.shownHp.delete(unitId);
   }
 
   handle(events: SimEvent[], immediate = false): void {
@@ -617,7 +639,8 @@ export class GameView {
         case 'damage': {
           const v = this.units.get(e.unitId);
           if (!v) break;
-          v.hit();
+          const alvo = this.sim.units.get(e.unitId);
+          v.hit(!!alvo && e.amount >= alvo.maxHp * VISUAL_CONFIG.unit.heavyHitFrac);
           this.damageNumber(e.unitId, e.amount, e.source, v.root.position, e.sourceId);
           if (e.crit && e.source !== 'arrow') this.float('CRÍTICO!', v.root.position.clone().setY(1.5), '#ffd84a', 0.3);
           if (e.source === 'burn') v.burning = 0.6;
@@ -1049,25 +1072,34 @@ export class GameView {
     const dt = this.hitStopT > 0 ? gameDt * 0.05 : gameDt;
     this.hitStopT = Math.max(0, this.hitStopT - gameDt);
     if (this.deferred.length) {
-      const ready: SimEvent[] = [];
+      const ready: { events: SimEvent[] }[] = [];
       this.deferred = this.deferred.filter((d) => {
         d.t -= dt;
         if (d.t > 0) return true;
-        ready.push(...d.events);
+        ready.push(d);
         return false;
       });
-      if (ready.length) this.handle(ready, true);
+      const events = ready.flatMap((d) => d.events);
+      // a barra de vida só muda quando o golpe acerta
+      for (const e of events) if (e.type === 'damage' && e.hpAfter !== undefined) this.landBar(e.unitId, e.hpAfter);
+      if (events.length) this.handle(events, true);
     }
     const camQ = this.stage.camera.quaternion;
     const p0 = this.interp0;
     const p1 = this.interp1;
     for (const [id, v] of this.units) {
       const u = this.sim.units.get(id);
-      if (!u) continue;
+      if (!u) {
+        // morte já decidida na simulação, impacto ainda a caminho: o corpo segue o clipe até o golpe (não congela)
+        v.update(dt, 1, 0, camQ);
+        continue;
+      }
       // neblina: inimigo escondido até um herói chegar perto (ou a tocha clarear)
       v.root.visible = this.sim.isVisible(u);
       // O passo começa no tick em que foi decidido; interpola até completar.
       const t = THREE.MathUtils.clamp((renderTick - u.moveStartTick) / u.moveTicks, 0, 1);
+      // o andar acompanha a cadência real do passo (passo lento = andar lento)
+      if (v instanceof ModelUnitView) v.setStep(u.moveTicks / GAME_CONFIG.sim.tickRate);
       tileToWorld(u.prevX, u.prevY, p0);
       tileToWorld(u.x, u.y, p1);
       const e = t * t * (3 - 2 * t);
@@ -1077,10 +1109,10 @@ export class GameView {
       // Planejamento: heróis passeiam perto do posto e vão andando até onde o jogador mandar.
       if (u.team === 'party' && this.sim.phase === 'setup') {
         const walking = this.idleStep(u.kind, u, v, dt);
-        v.update(dt, walking ? 0 : 1, u.hp / u.maxHp, camQ);
+        v.update(dt, walking ? 0 : 1, this.hpFracOf(u), camQ);
         continue;
       }
-      v.update(dt, t, u.hp / u.maxHp, camQ);
+      v.update(dt, t, this.hpFracOf(u), camQ);
     }
     // Estados contínuos: gelo, fúria, cura e aura de refino
     for (const [id, left] of this.frozen) {
