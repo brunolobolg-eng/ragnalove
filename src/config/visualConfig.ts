@@ -304,8 +304,8 @@ export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   // Cavaleiro sombrio (modelo do V2Fun no esqueleto padrão): animações de golpe do Guerreiro (corpo a corpo)
   assassin: { file: 'models/assassin_dk.glb', height: 1.9, walkRate: 1.05, ghost: [1.6, 1.3, 0.3], clips: 'warrior', weapons: [{ type: 'dagger', bone: 'hand.R', accent: 0xc070ff }, { type: 'dagger', bone: 'hand.L', accent: 0xc070ff }] },
   // Bárbaro (vocação do Guerreiro): modelo do dono sem esqueleto → auto-rig com as juntas medidas acima. Animações:
-  // captura UAL no descanso, andar, dano e morte; golpe e investida do Guerreiro. O arquivo não traz arma na mão.
-  barbarian: { file: 'models/barbarian.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorUAL', rig: 'auto', juntas: BARBARIAN_JOINTS },
+  // captura UAL no descanso, andar, dano e morte; golpe e investida do Guerreiro. Machado na mão direita (o arquivo vem sem arma).
+  barbarian: { file: 'models/barbarian.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorUAL', rig: 'auto', juntas: BARBARIAN_JOINTS, weapons: [{ type: 'axe', bone: 'hand.R', tilt: 35, scale: 1.1 }] },
 };
 /** Zumbi do Ato III: coveiro, afogado, pesteado, luto e cinzas (além da cor original do modelo). */
 const ZOMBIE_SKINS = ['coveiro', 'afogado', 'pesteado', 'luto', 'cinzas'].map((n) => `models/zombie_${n}.jpg`);

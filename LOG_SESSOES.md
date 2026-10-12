@@ -615,7 +615,7 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 - **Testes:** `npm run build`, `sim:check` (determinístico), `vocation:check` e `bastion:check` passam. Batalha no Chromium: a unidade do Guerreiro evoluído sai com o modelo `barbarian`, sem erro de página nem de console. O subagente verificou idle, andar, golpe, dano e morte em quadros seguidos; o golpe mostra o arco de ataque, sem rasgo.
 - **Limitações:**
   - Retrato e corpo inteiro ainda são os do Guerreiro, com escudo. Isso contradiz a descrição "troca o escudo pela fúria" e precisa de arte nova do dono.
-  - O arquivo vem com as mãos vazias. Machado ou espada entram pelo campo `weapons` do registro.
+  - O Bárbaro empunha um machado na mão direita (campo `weapons` do registro: `tilt` 35°, `scale` 1,1, como o machado do orc). Conferido em jogo de costas, com câmera de batalha; o ajuste fino fica para o teste no PC.
   - A câmera do jogo mostra as costas do herói; a frente só aparece na vitrine.
   - No golpe, o bracelete da manga que bate fica largo, como placa. É geometria do arquivo, não rasgo.
   - As juntas foram medidas à mão: um chibi novo pode precisar das suas.
@@ -623,7 +623,7 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   1. Dono: testar no PC, principalmente a câmera de jogo e a fluidez do golpe.
   2. Dono: dizer se o auto-rig serve. Se não servir, o caminho de melhor qualidade é um GLB com esqueleto no padrão do `guerreiro.glb`.
   3. Dono: arte nova de retrato e corpo inteiro do Bárbaro, sem escudo.
-  4. Dono: arma do Bárbaro (machado, espada ou punhos).
+  4. ~~Dono: arma do Bárbaro~~ (machado, escolhido pelo dono nesta entrega).
   5. Dono: autorizar mover o original de 24,5 MB do `public/` da `main` para a branch `fontes`, zipado. Ainda não foi feito.
 
 ## Lições (curtas)
