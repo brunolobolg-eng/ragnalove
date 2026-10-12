@@ -432,6 +432,28 @@ export const ACT_MONSTERS: Record<number, Record<string, string>> = {
   2: { grunt: 'zombie', runner: 'zombieRunner', brute: 'zombieBrute', necro: 'zombieNecro', elite: 'orcWarrior', orcboss: 'orcLord' },
 };
 
+/**
+ * Visual dos inimigos do Último Bastião (só o modelo; a simulação e os números não mudam). A horda não tem ato,
+ * então não usa ACT_MONSTERS: cada tipo sai com o seu GLB de alta qualidade do dono, nunca com a forma procedural.
+ * Comuns = zumbis (a horda chama Zumbi, Corredor e Pesado); necromante = Bongun; elite = orc com machado.
+ * Mini-chefes e chefes = os modelos dedicados. `goblinImp` (Krexx pequeno) é registrado pelo main.ts, com o GLB do Krexx.
+ */
+export const BASTION_MONSTERS: Record<string, string> = {
+  grunt: 'zombie',
+  runner: 'zombieRunner',
+  brute: 'zombieBrute',
+  raydric: 'raydric',
+  necro: 'zombieNecro',
+  elite: 'orcWarrior',
+  goblinImp: 'goblinImp',
+  goblinWarlord: 'goblinWarlord',
+  dinoBoss: 'dinoBoss',
+  goblinLeader: 'goblinLeader',
+  boss: 'ratBoss',
+  boss2: 'goblinBoss',
+  orcboss: 'orcLord',
+};
+
 /** Setas discretas no chão mostrando o caminho que a horda tende a seguir (spawn → alvo). */
 export const PATH_ARROWS = {
   enabled: true,
