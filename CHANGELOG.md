@@ -3,6 +3,14 @@
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
 ## 2026-10-12 — v0.11 (em andamento)
+- Último Bastião: prévia translúcida da muralha ou torre no tile do cursor, verde quando pode e vermelha com o motivo.
+- Muralhas podem ser erguidas em qualquer ponto do mapa; as torres continuam nos lotes azuis.
+- A horda só quebra uma muralha quando não tem outro caminho até o portão. Muralhas podem fechar todos os caminhos.
+- Muralha construída no planejamento da noite pode ser movida até a noite começar; depois fica fixa.
+- Próxima horda no menu: noites comuns, mini-chefe a cada 5 noites e MVP a cada 10, com todos os inimigos do jogo.
+- Zoom da câmera limitado: não afasta tanto.
+- Heróis não entram em tile com construção. Reconstruir com herói no tile é recusado.
+- Cartas abertas pelo Bastião voltam ao menu ao fechar; Esc fecha a Coleção.
 - Vocações: cada classe passa a ter duas evoluções para escolher na ficha. O Guerreiro evolui para o Bárbaro, que entra com o modelo que o dono enviou e as animações do pacote UAL.
 - O Bárbaro luta de punho: soco rápido no ataque básico e soco cruzado na investida. Sem machado e sem o arco de lâmina do Guerreiro.
 - Roleta de recompensa: um clique em qualquer lugar da tela encerra o giro na hora e mostra o prêmio.
