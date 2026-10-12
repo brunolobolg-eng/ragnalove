@@ -197,6 +197,14 @@ export class Simulation {
   private tauntActive = false;
   private partyFlowTick = -1;
 
+  // ---- variantes abertas (Bastião): a estrutura da cidade de pé é intransponível; a horda só a quebra sem caminho aberto ----
+  private readonly flowOpen: FlowField;
+  private readonly heavyFlowOpen: FlowField;
+  private readonly tauntFlowOpen: FlowField;
+  private readonly partyFlowOpen: FlowField;
+  /** Há estrutura da cidade de pé nesta onda? Sem ela, cada passo segue o caminho de antes (sem variantes). */
+  private openOn = false;
+
   // ---- tempestade de areia ----
   private stormUntil = 0;
 
@@ -241,6 +249,10 @@ export class Simulation {
     this.heavyFlow = new FlowField(this.board);
     this.tauntFlow = new FlowField(this.board);
     this.partyFlow = new FlowField(this.board);
+    this.flowOpen = new FlowField(this.board);
+    this.heavyFlowOpen = new FlowField(this.board);
+    this.tauntFlowOpen = new FlowField(this.board);
+    this.partyFlowOpen = new FlowField(this.board);
     this.rng = new Rng(seed);
     this.lootRng = new Rng((seed ^ 0x9e3779b9) >>> 0);
     this.combatRng = new Rng((seed * 7 + 13) >>> 0);
@@ -960,6 +972,31 @@ export class Simulation {
     return o && WALL_BREAKERS.has(o.type) && o.state !== 'broken' ? GAME_CONFIG.pathing.breakCost : -1;
   }
 
+  /** Estrutura da cidade (Bastião) de pé neste tile: os campos abertos não passam por ela. */
+  private bastionStandingAt(x: number, y: number): boolean {
+    const o = this.objects.get(this.board.objectAt(x, y));
+    return !!o && (o.type === 'bastionWall' || o.type === 'bastionTower') && o.state !== 'broken';
+  }
+
+  /** Passagem do campo aberto de muralhas: a de `wallPass`, mas a estrutura da cidade de pé é intransponível. */
+  private openWallPass(x: number, y: number): number {
+    return this.bastionStandingAt(x, y) ? -1 : this.wallPass(x, y);
+  }
+
+  /** Passagem do campo aberto dos pesados: a de `passCost`, mas a estrutura da cidade de pé é intransponível. */
+  private openPassCost(x: number, y: number): number {
+    return this.bastionStandingAt(x, y) ? -1 : this.passCost(x, y);
+  }
+
+  /** Alguma estrutura da cidade (desta onda) ainda está de pé? */
+  private bastionStanding(): boolean {
+    for (const oid of this.fortObjects.values()) {
+      const o = this.objects.get(oid);
+      if (o && o.state !== 'broken') return true;
+    }
+    return false;
+  }
+
   // ---------- Bastião: estruturas da cidade (muralhas e torres) ----------
 
   /**
@@ -1630,13 +1667,29 @@ export class Simulation {
     }
   }
 
-  /** Campos de fluxo até o portão da cidade: só recalcula quando a grade muda. */
+  /**
+   * Campos de fluxo até o portão da cidade: só recalcula quando a grade muda. Com estrutura do Bastião de pé,
+   * recalcula também as variantes abertas (mesma invalidação); sem ela, nada extra roda.
+   */
   private refreshCityFlows(): void {
     if (this.board.version === this.flowVersion) return;
     const P = GAME_CONFIG.pathing;
+    this.openOn = this.bastionStanding();
     this.flow.compute(this.cityGoals, P, (x, y) => this.wallPass(x, y));
     this.heavyFlow.compute(this.cityGoals, P, (x, y) => this.passCost(x, y));
+    if (this.openOn) {
+      this.flowOpen.compute(this.cityGoals, P, (x, y) => this.openWallPass(x, y));
+      this.heavyFlowOpen.compute(this.cityGoals, P, (x, y) => this.openPassCost(x, y));
+    }
     this.flowVersion = this.board.version;
+  }
+
+  /**
+   * Campo de provocação/foco para o monstro: o aberto se ele ainda alcança o alvo sem quebrar estrutura
+   * do Bastião; senão, o de quebra (como antes).
+   */
+  private tauntField(u: Unit): FlowField {
+    return this.openOn && this.tauntFlowOpen.at(u.x, u.y) < FlowField.INF ? this.tauntFlowOpen : this.tauntFlow;
   }
 
   /** Obstáculo que os pesados/chefes atravessam quebrando (custo extra), ou -1. */
@@ -1666,7 +1719,11 @@ export class Simulation {
       if (f) taunters.set(f.id, f);
     }
     this.tauntActive = taunters.size > 0;
-    if (this.tauntActive) this.tauntFlow.compute([...taunters.values()], GAME_CONFIG.pathing, (x, y) => this.wallPass(x, y));
+    if (this.tauntActive) {
+      const goals = [...taunters.values()];
+      this.tauntFlow.compute(goals, GAME_CONFIG.pathing, (x, y) => this.wallPass(x, y));
+      if (this.openOn) this.tauntFlowOpen.compute(goals, GAME_CONFIG.pathing, (x, y) => this.openWallPass(x, y));
+    }
 
     for (const u of this.sortedUnits('enemy')) {
       if (!u.alive) continue;
@@ -1687,7 +1744,7 @@ export class Simulation {
           this.enemyAttack(u, taunter, g);
           continue;
         }
-        const plan = this.planStep(u, this.tauntFlow, false);
+        const plan = this.planStep(u, this.tauntField(u), false);
         if (plan.best) this.moveEnemy(u, plan.best, g);
         else {
           const adj = this.adjacentHero(u, party);
@@ -1704,7 +1761,7 @@ export class Simulation {
           this.enemyAttack(u, focus, g);
           continue;
         }
-        const plan = this.planStep(u, this.tauntFlow, false);
+        const plan = this.planStep(u, this.tauntField(u), false);
         if (plan.best) this.moveEnemy(u, plan.best, g);
         else u.nextActTick = this.tick + 1;
         continue;
@@ -1722,18 +1779,24 @@ export class Simulation {
       }
       // 3) Padrão: foca a cidade (desce o campo de fluxo até o portão)
       const breaker = this.breaker(u);
+      // `flow` é o campo de quebra (como antes); `open`, a variante que não atravessa estrutura da cidade
       let flow = breaker ? this.heavyFlow : this.flow;
+      let open = this.openOn ? (breaker ? this.heavyFlowOpen : this.flowOpen) : undefined;
       if (hunt || flow.at(u.x, u.y) >= FlowField.INF) {
         // sem caminho até a cidade (bloqueado) ou cerco: vai atrás da party
         if (this.partyFlowTick !== this.tick) {
           this.partyFlow.compute(party, GAME_CONFIG.pathing, (x, y) => this.wallPass(x, y));
+          if (this.openOn) this.partyFlowOpen.compute(party, GAME_CONFIG.pathing, (x, y) => this.openWallPass(x, y));
           this.partyFlowTick = this.tick;
         }
         flow = this.partyFlow;
+        open = this.openOn ? this.partyFlowOpen : undefined;
       }
+      // Estrutura do Bastião só é quebrada sem caminho aberto até o alvo: se o monstro ainda alcança, segue o aberto
+      const field = open && open.at(u.x, u.y) < FlowField.INF ? open : flow;
       // monstros comuns rumo à cidade "derivam" para os lados: a horda se espalha pelo caminho
-      const drift = breaker || flow !== this.flow ? undefined : this.driftOf(u);
-      const plan = this.planStep(u, flow, breaker, drift);
+      const drift = breaker || (field !== this.flow && field !== this.flowOpen) ? undefined : this.driftOf(u);
+      const plan = this.planStep(u, field, breaker, drift);
       // pesado/chefe: obstáculo destrutível no melhor caminho → quebra
       if (plan.breakTarget) {
         const o = plan.breakTarget;

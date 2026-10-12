@@ -1,5 +1,5 @@
 import './bastion.css';
-import type { BastionHeroRow, BastionHubHooks, BastionHubVM, BastionStructureRow } from './bastionVM';
+import type { BastionHeroRow, BastionHordeRow, BastionHubHooks, BastionHubVM, BastionStructureRow } from './bastionVM';
 
 /** Tamanho da party (regra do core: de 1 a 6 heróis). A tela só desliga o toggle que a quebraria. */
 const PARTY_MAX = 6;
@@ -16,6 +16,7 @@ const fmt = (n: number): string => n.toLocaleString('pt-BR');
 const frac = (v: number, max: number): number => (max > 0 ? Math.min(1, Math.max(0, v / max)) : 0);
 const STATUS: Record<BastionStructureRow['status'], string> = { intact: 'Inteira', damaged: 'Danificada', destroyed: 'Destruída' };
 const zenLabel = (verb: string, cost: number, none: string): string => `${verb} · ${cost > 0 ? `${fmt(cost)} Zen` : none}`;
+const TIER_LABEL: Record<BastionHordeRow['tier'], string> = { comum: 'Comum', mini: 'Mini-chefe', mvp: 'MVP' };
 const upLabel = (s: BastionStructureRow): string =>
   s.upgradeCost !== undefined ? zenLabel('Aprimorar', s.upgradeCost, '') : `Aprimorar · ${s.status === 'destroyed' ? 'indisponível' : 'nível máximo'}`;
 const meter = (v: number, max: number, label: string, text = '', cls = ''): string =>
@@ -126,6 +127,7 @@ export class BastionHub {
           <p class="bs-kv"><span>Noites vencidas</span><b>${fmt(vm.nights)}</b></p>
           <p class="bs-sub">Nesta tentativa: ${fmt(vm.nightsInAttempt)} · Melhor sequência: ${fmt(vm.bestNights)}</p>
         </section>
+        ${this.horde(vm.nextHorde)}
         <section class="au-sec bs-acts">
           <button class="au-btn" data-act="build">Construir</button>
           <button class="au-btn gold" data-act="night"${vm.canStartNight ? '' : ' disabled'}>Iniciar noite</button>
@@ -136,6 +138,17 @@ export class BastionHub {
         </section>
         ${vm.attemptEnded ? `<p class="bs-note">A tentativa acabou.${vm.canNewAttempt ? ' Comece outra com Nova tentativa.' : ''}</p>` : ''}
       </aside>`;
+  }
+
+  /** Próxima horda: título, quem chega e a marca do tipo (mini-chefe e MVP ficam destacados). */
+  private horde(h: BastionHordeRow): string {
+    const quem = h.tier === 'comum' ? 'Tropa' : 'Chefe';
+    return `<section class="au-sec bs-horde bs-horde-${h.tier}" aria-label="Próxima horda">
+          <h3 class="au-h">Próxima horda</h3>
+          <p class="bs-horde-top"><b class="bs-horde-title">${esc(h.title)}</b><span class="au-price bs-tier bs-tier-${h.tier}">${TIER_LABEL[h.tier]}</span></p>
+          <p class="bs-horde-detail"><span class="bs-sub">${quem}:</span> ${esc(h.detail)}</p>
+          <p class="bs-sub">${fmt(h.count)} inimigos comuns${h.tier === 'comum' ? '' : ' + o chefe da noite'}</p>
+        </section>`;
   }
 
   private mainCol(vm: BastionHubVM): string {

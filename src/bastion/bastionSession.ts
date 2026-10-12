@@ -1,16 +1,21 @@
 import * as THREE from 'three';
 import { BASTION_ZONE_ID, PROJECTS, PROJECT_IDS, STRUCTURES, type StructureKind } from '../config/bastion';
-import { GAME_CONFIG } from '../config/gameConfig';
+import { GAME_CONFIG, type WaveOptions } from '../config/gameConfig';
 import { HERO_NAME, HERO_ORDER } from '../config/heroes';
 import { ZONES, parseZone } from '../config/zones';
 import { findStructure, migrateBastion, newBastion, structureMaxHp, structureStatus, type BastionState, type Structure } from '../core/bastion/bastion';
+import { hordeOf, type HordeWave } from '../core/bastion/horde';
 import { bastionBuildEnv } from '../core/bastion/route';
 import {
   BUILD_MSG,
   applyNight,
   buildCostOf,
+  checkMove,
+  checkPlacement,
   coreRepairCost,
   fortificationsOf,
+  isMovable,
+  moveStructure,
   placeStructure,
   refundOf,
   removeStructure,
@@ -24,6 +29,7 @@ import {
   upgradeCostOf,
   upgradeStructure,
   waveSeed,
+  type BuildEnv,
   type BuildError,
   type NightOutcome,
 } from '../core/bastion/rules';
@@ -37,7 +43,7 @@ import { SaveStore } from '../save/SaveStore';
 import { BastionBuildPanel } from '../ui/bastion/BastionBuildPanel';
 import { BastionHub } from '../ui/bastion/BastionHub';
 import { BastionReport } from '../ui/bastion/BastionReport';
-import type { BastionBuildVM, BastionHubVM, BastionPaletteRow, BastionProjectRow, BastionReportVM, BastionStructureRow } from '../ui/bastion/bastionVM';
+import type { BastionBuildVM, BastionHordeRow, BastionHubVM, BastionMoveWhy, BastionPaletteRow, BastionProjectRow, BastionReportVM, BastionStructureRow } from '../ui/bastion/bastionVM';
 
 /**
  * Último Bastião (Montar Defesa) como modo jogável. Enquanto o modo está ativo, a jornada (run e perfil) fica
@@ -52,8 +58,10 @@ export interface BastionDeps {
   profile(): Profile;
   setProfile(p: Profile): void;
   sim(): Simulation;
-  /** Carrega o mapa do Bastião com a semente da próxima noite (batalha de planejamento). */
-  loadMap(seed: number): void;
+  /** Carrega o mapa do Bastião com a semente da próxima noite e a horda dela (tropa e chefe, se houver). */
+  loadMap(seed: number, wave: WaveOptions): void;
+  /** Mostra (undefined = esconde) a prévia da construção ou do movimento no campo. */
+  setGhost(g: BastionGhost | undefined): void;
   /** Recria a batalha de planejamento com as construções atuais (a formação dos heróis é mantida). */
   rebuildSim(): void;
   startNight(): void;
@@ -71,6 +79,14 @@ export interface BastionDeps {
   /** Abre a coleção de cartas com os slots calculados pelas ondas do Bastião. */
   openCollection(bastionNights: number): void;
   log(text: string, kind?: 'info' | 'good' | 'warn'): void;
+}
+
+/** Prévia da construção sob o cursor: o núcleo decide (valid) e a mensagem diz o motivo ou o custo. */
+export interface BastionGhost {
+  kind: StructureKind;
+  at: Vec2;
+  valid: boolean;
+  message: string;
 }
 
 type Area = (mark: (tiles: Vec2[], color: THREE.Color, strength: number) => void) => void;
@@ -99,6 +115,12 @@ export class BastionSession {
   private lotCache?: Vec2[];
   private kind?: StructureKind;
   private selected?: number;
+  /** Muralha em modo de mover (undefined = fora dele). */
+  private moving?: number;
+  /** Tile sob o cursor no planejamento (a prévia é recalculada quando muda o tipo, a casa ou o modo). */
+  private hover?: Vec2;
+  /** Ambiente de colocação, refeito só quando muda a posição dos heróis (a grade estática é cara de montar). */
+  private envCache?: { key: string; env: BuildEnv };
   private msg?: string;
   private readonly hub: BastionHub;
   private readonly build: BastionBuildPanel;
@@ -125,6 +147,7 @@ export class BastionSession {
       onRepair: (id) => this.act(repairStructure(this.state(), id), 'Construção reparada.'),
       onUpgrade: (id) => this.act(upgradeStructure(this.state(), id), 'Construção aprimorada.'),
       onRemove: (id) => this.remove(id),
+      onMove: (id) => this.toggleMove(id),
       onNight: () => this.startNight(),
       onBackToHub: () => this.backToHub(),
     });
@@ -157,6 +180,10 @@ export class BastionSession {
 
   /** Esc durante o modo: fecha a barra de construção, ou sai do menu do modo, ou abre o menu do modo. */
   escape(): void {
+    if (this.moving !== undefined) {
+      this.cancelMove('Movimento cancelado.');
+      return;
+    }
     if (!this.ctx || this.report.visible || this.d.sim().phase === 'running') return;
     if (this.build.visible) this.backToHub();
     else if (this.hub.visible) this.exit();
@@ -166,6 +193,7 @@ export class BastionSession {
   /** Clique no campo durante o planejamento. Devolve true se o modo tratou o clique. */
   onCanvasClick(t: Vec2): boolean {
     if (!this.ctx || this.d.sim().phase !== 'setup') return false;
+    if (this.moving !== undefined) return this.moveTo(t);
     const b = this.state();
     const alvo = b.structures.find((s) => s.x === t.x && s.y === t.y);
     if (this.kind && !alvo) {
@@ -194,6 +222,15 @@ export class BastionSession {
     return false;
   }
 
+  /**
+   * Mouse sobre o campo no planejamento (undefined = saiu do campo). Atualiza a prévia da construção ou do
+   * movimento e devolve a prévia, para a dica ao lado do cursor. Sem tipo escolhido, não há prévia.
+   */
+  onHover(t: Vec2 | undefined): BastionGhost | undefined {
+    this.hover = t;
+    return this.showGhost();
+  }
+
   /** Começa a noite (pela tela principal, pela barra de construção, pela tecla de horda ou pelo relógio). */
   startNight(): void {
     if (!this.ctx || this.d.sim().phase !== 'setup') return;
@@ -205,6 +242,8 @@ export class BastionSession {
     }
     this.kind = undefined;
     this.selected = undefined;
+    this.leaveMove();
+    this.hideGhost();
     this.hub.close();
     this.build.close();
     this.d.setOverlay(undefined);
@@ -260,6 +299,8 @@ export class BastionSession {
     this.hub.close();
     this.build.close();
     this.report.close();
+    this.leaveMove();
+    this.hideGhost();
     this.d.setStructures(undefined);
     this.d.setOverlay(undefined);
     this.d.setRun(this.ctx.run);
@@ -325,6 +366,7 @@ export class BastionSession {
       this.d.setStructures(fortificationsOf(this.state()));
       this.d.rebuildSim();
     }
+    this.showGhost();
     this.refresh();
   }
 
@@ -345,15 +387,25 @@ export class BastionSession {
     const b = this.state();
     this.syncRun();
     this.d.setStructures(fortificationsOf(b));
-    this.d.loadMap(waveSeed(b));
+    this.loadWave(b);
     this.d.enterBattle();
     this.d.focusParty();
-    this.d.setOverlay((mark) => mark(this.lots(), new THREE.Color(0x3fa9ff), 0.2));
+    // áreas de lote (azul) só quando a torre está escolhida: a muralha vai a qualquer lugar
+    this.d.setOverlay((mark) => {
+      if (this.kind === 'tower') mark(this.lots(), new THREE.Color(0x3fa9ff), 0.2);
+    });
+  }
+
+  /** Carrega o mapa do planejamento com a semente e a horda da próxima noite (a tropa comum e o chefe dela). */
+  private loadWave(b: BastionState): void {
+    const h = hordeOf(b.nights + 1);
+    this.d.loadMap(waveSeed(b), { count: h.count, mix: h.mix, boss: h.boss });
   }
 
   /** Depois do relatório: planejamento da próxima noite e menu do modo. */
   private afterNight(): void {
     if (!this.ctx) return;
+    this.leaveMove();
     this.planning();
     this.hub.open(this.hubVM());
   }
@@ -362,25 +414,132 @@ export class BastionSession {
     if (!this.ctx || this.d.sim().phase !== 'setup') return;
     this.hub.close();
     this.kind = undefined;
+    this.leaveMove();
+    this.hideGhost();
     this.build.open(this.buildVM());
   }
 
+  /** Volta ao menu do modo: sai do movimento e some com a prévia (a tela modal não manda o mouse ao campo). */
   private backToHub(): void {
     this.build.close();
     this.kind = undefined;
     this.selected = undefined;
+    this.leaveMove();
+    this.hideGhost();
     this.hub.open(this.hubVM());
   }
 
   private pick(kind: StructureKind | undefined): void {
+    this.leaveMove(); // escolher um tipo para construir cancela o movimento
     this.kind = kind;
     this.msg = undefined;
+    this.showGhost();
     this.refresh();
+  }
+
+  /** Botão Mover (ou Cancelar movimento) do painel: entra no modo de mover a muralha recente escolhida. */
+  private toggleMove(id: number): void {
+    if (this.moving === id) {
+      this.cancelMove('Movimento cancelado.');
+      return;
+    }
+    const b = this.state();
+    const s = findStructure(b, id);
+    if (!s || !isMovable(b, s)) {
+      this.msg = s && STRUCTURES[s.kind].movable && s.hp > 0 ? BUILD_MSG.notRecent : BUILD_MSG.notMovable;
+      this.refresh();
+      return;
+    }
+    this.kind = undefined;
+    this.selected = id;
+    this.moving = id;
+    this.msg = 'Movendo: passe o mouse no campo e clique numa casa livre.';
+    this.showGhost();
+    this.refresh();
+  }
+
+  /** Clique no campo com o modo de mover ativo: casa livre move a muralha; a própria casa cancela. */
+  private moveTo(t: Vec2): boolean {
+    const id = this.moving!;
+    const b = this.state();
+    const s = findStructure(b, id);
+    if (!s || !isMovable(b, s)) {
+      this.leaveMove();
+      this.msg = BUILD_MSG.notRecent;
+      this.showGhost();
+      this.refresh();
+      return true;
+    }
+    if (s.x === t.x && s.y === t.y) {
+      this.cancelMove('Movimento cancelado.');
+      return true;
+    }
+    const r = moveStructure(b, this.env(), id, t);
+    if (!r.ok) {
+      this.msg = BUILD_MSG[r.error];
+      this.showGhost();
+      this.refresh();
+      return true;
+    }
+    this.msg = 'Muralha movida. Clique em outra casa para mover de novo, ou Esc para sair.';
+    this.touch();
+    return true;
+  }
+
+  /** Sai do modo de mover (sem mensagem). */
+  private leaveMove(): void {
+    this.moving = undefined;
+  }
+
+  /** Cancela o modo de mover com uma mensagem e atualiza a prévia e as telas. */
+  private cancelMove(text: string): void {
+    this.leaveMove();
+    this.msg = text;
+    this.showGhost();
+    this.refresh();
+  }
+
+  /** Esconde a prévia (campo sem o cursor, noite começando, saída do modo). */
+  private hideGhost(): void {
+    this.hover = undefined;
+    this.d.setGhost(undefined);
+  }
+
+  /**
+   * Calcula a prévia para o tile sob o cursor e manda ao render. Só existe no planejamento, com um tipo
+   * escolhido ou com o modo de mover ativo. A regra é a do núcleo (checkPlacement / checkMove).
+   */
+  private showGhost(): BastionGhost | undefined {
+    const g = this.ghostAt(this.hover);
+    this.d.setGhost(g);
+    return g;
+  }
+
+  private ghostAt(t: Vec2 | undefined): BastionGhost | undefined {
+    if (!t || !this.ctx || this.d.sim().phase !== 'setup') return undefined;
+    if (this.moving === undefined && !this.kind) return undefined;
+    const b = this.state();
+    const env = this.env();
+    if (this.moving !== undefined) {
+      const s = findStructure(b, this.moving);
+      if (!s) return undefined;
+      // na própria casa o clique cancela o movimento: é uma ação válida, não uma recusa
+      if (s.x === t.x && s.y === t.y) return { kind: s.kind, at: t, valid: true, message: 'Clique aqui para cancelar o movimento' };
+      const err = checkMove(b, env, this.moving, t);
+      return { kind: s.kind, at: t, valid: !err, message: err ? BUILD_MSG[err] : 'Pode mover para cá' };
+    }
+    if (!this.kind) return undefined;
+    const kind = this.kind;
+    const err = checkPlacement(b, env, kind, t);
+    const cost = buildCostOf(b, kind);
+    const ok = cost > 0 ? `Pode construir aqui por ${cost.toLocaleString('pt-BR')} Zen` : 'Pode construir aqui';
+    return { kind, at: t, valid: !err, message: err ? BUILD_MSG[err] : ok };
   }
 
   private remove(id: number): void {
     const r = removeStructure(this.state(), id);
     if (this.selected === id) this.selected = undefined;
+    if (this.moving === id) this.leaveMove();
     this.msg = r.ok ? `Construção removida: ${r.refund} Zen devolvidos.` : BUILD_MSG[r.error];
     this.touch();
   }
@@ -391,14 +550,18 @@ export class BastionSession {
     if (r.ok) {
       this.syncRun();
       this.d.setStructures(fortificationsOf(b));
-      this.d.loadMap(waveSeed(b)); // a formação volta com os heróis da nova party
+      this.loadWave(b); // a formação volta com os heróis da nova party
     }
     this.msg = r.ok ? 'Party atualizada.' : BUILD_MSG[r.error];
     this.touch();
   }
 
-  private env() {
-    return bastionBuildEnv(ZONES[BASTION_ZONE_ID], this.d.heroTiles(), GAME_CONFIG.wave.spawnSafeRadius);
+  /** Ambiente de colocação: refeito só quando a posição dos heróis muda (o mouse chama isto a cada movimento). */
+  private env(): BuildEnv {
+    const heroes = this.d.heroTiles();
+    const key = heroes.map((h) => `${h.x},${h.y}`).join(';');
+    if (this.envCache?.key !== key) this.envCache = { key, env: bastionBuildEnv(ZONES[BASTION_ZONE_ID], heroes, GAME_CONFIG.wave.spawnSafeRadius) };
+    return this.envCache.env;
   }
 
   /** Área liberada para construir (lotes do mapa), calculada uma vez. */
@@ -426,8 +589,15 @@ export class BastionSession {
       party: HERO_ORDER.map((kind) => ({ kind, name: HERO_NAME[kind], selected: b.party.includes(kind) })),
       structures: b.structures.map((s) => this.structureRow(b, s)),
       projects: PROJECT_IDS.map((id) => this.projectRow(b, id)),
+      nextHorde: this.hordeRow(b),
       message: this.msg,
     };
+  }
+
+  /** A horda da próxima noite (nights + 1): o núcleo monta; a tela só mostra. */
+  private hordeRow(b: BastionState): BastionHordeRow {
+    const h: HordeWave = hordeOf(b.nights + 1);
+    return { wave: h.wave, title: h.title, detail: h.detail, tier: h.tier, count: h.count };
   }
 
   private buildVM(): BastionBuildVM {
@@ -456,9 +626,16 @@ export class BastionSession {
       coreMaxHp: b.coreMaxHp,
       canStartNight: canStartNight(b),
       palette,
-      selected: sel ? { ...this.structureRow(b, sel), invested: sel.invested } : undefined,
+      selected: sel ? { ...this.structureRow(b, sel), invested: sel.invested, ...this.moveInfo(b, sel) } : undefined,
       message: this.msg,
     };
+  }
+
+  /** Mover: se pode agora, e o motivo (o texto é da tela). */
+  private moveInfo(b: BastionState, s: Structure): { movable: boolean; moveWhy: BastionMoveWhy; moving: boolean } {
+    const movable = isMovable(b, s);
+    const moveWhy: BastionMoveWhy = !STRUCTURES[s.kind].movable ? 'fixed' : s.hp <= 0 ? 'destroyed' : movable ? 'recent' : 'old';
+    return { movable, moveWhy, moving: this.moving === s.id };
   }
 
   private structureRow(b: BastionState, s: Structure): BastionStructureRow {

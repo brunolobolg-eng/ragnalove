@@ -105,6 +105,7 @@ import type { HeroLoadout } from './core/sim/Simulation';
 import { slotCount } from './core/progression/skillSlots';
 import { MainMenu, type MenuState } from './ui/menu/MainMenu';
 import { BastionSession } from './bastion/bastionSession';
+import { BastionGhostView } from './render/BastionGhostView';
 import type { Fortification } from './core/sim/Simulation';
 import { legendsFrom } from './ui/menu/HallOfLegends';
 import { emptyRecords, updateRecords, updateSurvivalBest, type Records } from './core/run/records';
@@ -462,6 +463,8 @@ const menu = new MainMenu({
 
 // ---------- Fluxo da run: mapa-múndi → fase (batalha/cidade/evento) → mapa ----------
 type Mode = 'menu' | 'select' | 'map' | 'battle' | 'city' | 'event' | 'end';
+/** Prévia da construção do Último Bastião (fantasma translúcido no tile sob o cursor). Só visual. */
+const bastionGhost = new BastionGhostView(stage.scene);
 /** Último Bastião (Montar Defesa): usa a batalha e as telas da jornada, com a cidade e a carteira do modo. */
 const bastionSession = new BastionSession({
   run: () => run,
@@ -473,7 +476,8 @@ const bastionSession = new BastionSession({
     profile = p;
   },
   sim: () => sim,
-  loadMap: (seed) => loadZone(ZONES[BASTION_ZONE_ID], { boss: null, seed }),
+  loadMap: (seed, wave) => loadZone(ZONES[BASTION_ZONE_ID], { ...wave, seed }),
+  setGhost: (g) => bastionGhost.show(g),
   rebuildSim: () => resetSim(false, undefined, true),
   startNight: () => {
     sim.start();
@@ -1631,6 +1635,7 @@ canvas.addEventListener('pointermove', (e) => {
     return;
   }
   if (drag) {
+    if (bastionSession.active) bastionSession.onHover(undefined); // arrastando um herói: sem prévia de construção
     if (hover && (hover.x !== drag.from.x || hover.y !== drag.from.y)) drag.moved = true;
     canvas.style.cursor = 'grabbing';
     // puxando a ponta: a linha gira para apontar para o cursor
@@ -1640,6 +1645,13 @@ canvas.addEventListener('pointermove', (e) => {
       if (o) l.plan.orientation = o;
     }
     hud.planHint(drag.rotate ? 'Solte para fixar a direção' : undefined, e.clientX, e.clientY);
+    return;
+  }
+  // Último Bastião: prévia da construção (ou do movimento) sob o cursor, com o motivo ou o custo
+  const previa = bastionSession.active ? bastionSession.onHover(hover) : undefined;
+  if (previa) {
+    canvas.style.cursor = previa.valid ? '' : 'not-allowed';
+    hud.planHint(previa.message, e.clientX, e.clientY);
     return;
   }
   const g = hover && grabbableAt(hover);
@@ -1673,6 +1685,7 @@ canvas.addEventListener('pointermove', (e) => {
 canvas.addEventListener('pointerleave', () => {
   hover = undefined;
   hud.planHint(undefined);
+  if (bastionSession.active) bastionSession.onHover(undefined); // o cursor saiu do campo: some a prévia
 });
 canvas.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;

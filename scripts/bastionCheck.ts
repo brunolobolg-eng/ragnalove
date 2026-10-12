@@ -3,9 +3,11 @@
  * 1) Dados · 2) Estado e migração · 3) Colocação · 4) Custos, reparo e reembolso · 5) Projetos ·
  * 6) Ondas (idempotência, derrota e socorro) · 7) Simulação (muralhas quebráveis, torres, destruídas) ·
  * 8) Cartas compartilhadas · 9) Preço, teto, classes, pacotes e slots · 10) Mapa do Último Bastião (bastionKeep) ·
- * 11) Emperium: dano de contato (vida × força ÷ 30) e a campanha segue pela ameaça por tipo.
+ * 11) Emperium: dano de contato (vida × força ÷ 30) e a campanha segue pela ameaça por tipo ·
+ * 12) Turnos e muralhas recentes (mover no turno) · 13) Horda por noite (comum, mini-chefe e MVP).
  */
-import { BASTION, BASTION_ZONE_ID, PROJECTS, PROJECT_IDS, STRUCTURES } from '../src/config/bastion';
+import { BASTION, BASTION_HORDE, BASTION_ZONE_ID, PROJECTS, PROJECT_IDS, STRUCTURES } from '../src/config/bastion';
+import { hordeOf } from '../src/core/bastion/horde';
 import { CARD_SLOT_WINS, addCards, cardRuntimeFor, cardSlots, cardSlotsPool, emptyCollection, equipCard, type CardCollection } from '../src/core/progression/cards';
 import { heroStats } from '../src/core/progression/profile';
 import { DEFAULT_SETUP, GAME_CONFIG, applyZone } from '../src/config/gameConfig';
@@ -17,6 +19,9 @@ import {
   applyNight,
   bastionCardSlots,
   buildCostOf,
+  checkMove,
+  isMovable,
+  moveStructure,
   setParty,
   fortificationsOf,
   placeStructure,
@@ -80,6 +85,7 @@ check(
 check('reconstruir custa mais que reparar (taxas)', BASTION.rebuildRate > BASTION.repairRate);
 check('torre atira; muralha não', !!STRUCTURES.tower.shot && !STRUCTURES.wall.shot);
 check('muralha custa 5, dobra e tem teto de 999; torre tem preço fixo', STRUCTURES.wall.cost === 5 && STRUCTURES.wall.costGrowth === 2 && STRUCTURES.wall.priceCap === 999 && STRUCTURES.tower.costGrowth === 1);
+check('muralha pode ser erguida fora dos lotes e movida; torre não faz nem uma coisa nem outra', STRUCTURES.wall.anywhere === true && STRUCTURES.wall.movable === true && !STRUCTURES.tower.anywhere && !STRUCTURES.tower.movable);
 check('há terreno livre suficiente para os testes', free.length >= 4, `${free.length} tiles`);
 
 console.log('\n# 2) Estado e migração');
@@ -96,6 +102,17 @@ delete legacy.structures;
 const m1 = JSON.stringify(migrateBastion(legacy as BastionState));
 check('save incompleto ganha os campos que faltam', m1.includes('"projects":["castle"]') && m1.includes('"party"') && m1.includes('"records"'));
 check('migração é idempotente', JSON.stringify(migrateBastion(JSON.parse(m1) as BastionState)) === m1);
+check('cidade nova começa no turno 0', b0.turn === 0);
+const antigo = JSON.parse(j0) as Record<string, unknown>;
+delete antigo.turn;
+antigo.structures = [{ id: 1, kind: 'wall', x: free[0].x, y: free[0].y, level: 1, hp: 120, invested: 5 }];
+antigo.nextId = 2;
+const migrado = migrateBastion(antigo as unknown as BastionState);
+check('save antigo (sem turno e sem placedTurn): turno 0 e construção com placedTurn -1', migrado.turn === 0 && migrado.structures[0].placedTurn === -1);
+check('construção de save antigo não se move (não é recente)', !isMovable(migrado, migrado.structures[0]) && checkMove(migrado, env(), 1, free[1]) === 'notRecent');
+check('turno inválido (NaN) vira 0 sem quebrar o save', migrateBastion({ ...(JSON.parse(j0) as BastionState), turn: Number.NaN }).turn === 0);
+const migradoDeNovo = JSON.stringify(migrateBastion(JSON.parse(JSON.stringify(migrado)) as BastionState));
+check('migração do turno e do placedTurn é idempotente', migradoDeNovo === JSON.stringify(migrado));
 
 console.log('\n# 3) Colocação');
 const bp = newBastion(7, emptyCollection());
@@ -104,7 +121,12 @@ const r1 = placeStructure(bp, env(), 'wall', free[0]);
 check('muralha no tile livre: cobra 5 Zen e nasce com vida cheia', r1.ok && bp.profile.zeni === 995 && findStructure(bp, r1.ok ? r1.id : -1)?.hp === 120, r1.ok ? '' : BUILD_MSG[r1.error]);
 check('mesmo tile de novo: recusado (ocupado)', errOf(placeStructure(bp, env(), 'wall', free[0])) === 'occupied');
 check('torre sem o projeto: recusada (bloqueada)', errOf(placeStructure(bp, env(), 'tower', free[1])) === 'locked');
-check('fora da área liberada: recusada', errOf(placeStructure(bp, env(() => false), 'wall', free[1])) === 'outside');
+const bt = newBastion(7, emptyCollection());
+bt.profile.zeni = 1000;
+bt.projects.push('towers');
+check('torre fora da área liberada: recusada (torres só nos lotes)', errOf(placeStructure(bt, env(() => false), 'tower', free[1])) === 'outside');
+check('muralha fora da área liberada: aceita (muralhas em qualquer região)', placeStructure(bp, env(() => false), 'wall', free[1]).ok === true);
+check('torre no lote: aceita (o lote segue valendo para torre)', placeStructure(bt, env(), 'tower', free[1]).ok === true);
 let wallTile: Vec2 | undefined;
 for (let y = 0; y < board.height && !wallTile; y++)
   for (let x = 0; x < board.width && !wallTile; x++) if (!board.isWalkable(x, y) && !board.isCity(x, y)) wallTile = { x, y };
@@ -113,6 +135,7 @@ const gate = board.cityTiles()[0];
 check('portão da cidade: recusado', errOf(placeStructure(bp, env(() => true), 'wall', gate)) === 'city');
 check('portal da horda: recusado (raio de segurança)', errOf(placeStructure(bp, env(() => true), 'wall', spawns[0])) === 'spawn');
 check('tile com herói: recusado', errOf(placeStructure(bp, env(() => true), 'wall', heroes[0])) === 'hero');
+check('muralha fora dos lotes: portão, portal e herói continuam recusados', errOf(placeStructure(bp, env(() => false), 'wall', gate)) === 'city' && errOf(placeStructure(bp, env(() => false), 'wall', spawns[0])) === 'spawn' && errOf(placeStructure(bp, env(() => false), 'wall', heroes[0])) === 'hero');
 const bz = newBastion(7, emptyCollection());
 bz.profile.zeni = 4;
 check('sem Zen para a muralha: recusada e nada é gasto', errOf(placeStructure(bz, env(), 'wall', free[0])) === 'zeni' && bz.profile.zeni === 4 && bz.structures.length === 0);
@@ -122,10 +145,16 @@ sealed.setCity(3, 4);
 const sealedEnv: BuildEnv = { board: sealed, buildable: () => true, spawns: [{ x: 3, y: 0 }], spawnSafeRadius: 0, heroes: [] };
 const bs = newBastion(7, emptyCollection());
 bs.profile.zeni = 500;
-check('rota cortada pelo próprio mapa: recusada', errOf(placeStructure(bs, sealedEnv, 'wall', { x: 1, y: 1 })) === 'route');
-const open = new Board(7, 5);
-open.setCity(3, 4);
-check('rota aberta: a mesma colocação passa', placeStructure(bs, { ...sealedEnv, board: open }, 'wall', { x: 1, y: 1 }).ok === true);
+check('mapa já sem rota dos portais: a muralha ainda é aceita (a colocação não checa rota)', placeStructure(bs, sealedEnv, 'wall', { x: 1, y: 1 }).ok === true);
+const fecha = new Board(7, 5);
+fecha.setCity(3, 4);
+const trancaEnv: BuildEnv = { board: fecha, buildable: () => true, spawns: [{ x: 3, y: 0 }], spawnSafeRadius: 0, heroes: [] };
+const bf = newBastion(7, emptyCollection());
+bf.profile.zeni = 2000;
+const trancou = [0, 1, 2, 3, 4, 5, 6].map((x) => placeStructure(bf, trancaEnv, 'wall', { x, y: 2 }));
+const primeiraRecusa = trancou.find((r) => !r.ok);
+check('muralhas podem fechar todos os caminhos: a linha inteira (7 muralhas) é aceita', trancou.every((r) => r.ok) && bf.structures.length === 7, primeiraRecusa && !primeiraRecusa.ok ? BUILD_MSG[primeiraRecusa.error] : '');
+check('a grade estática segue com rota (muralha não entra na grade)', routeOpen(fecha, [{ x: 3, y: 0 }]));
 check('o mapa do Bastião (ponte) tem rota dos portais ao portão', routeOpen(board, spawns));
 
 console.log('\n# 4) Custos, reparo e reembolso');
@@ -395,8 +424,13 @@ const bm = newBastion(11, emptyCollection());
 bm.profile.zeni = 500;
 check('muralha no lote tático do castelo: aceita', placeStructure(bm, envB, 'wall', { x: 26, y: 22 }).ok === true);
 check('muralha no lote especial 1: aceita', placeStructure(bm, envB, 'wall', { x: 24, y: 20 }).ok === true);
-check('muralha na estrada: recusada (fora da área)', errOf(placeStructure(bm, envB, 'wall', { x: 30, y: 8 })) === 'outside');
-check('muralha no fosso: recusada (fora da área)', errOf(placeStructure(bm, envB, 'wall', { x: 25, y: 15 })) === 'outside');
+check('muralha na estrada colada ao portal (30,8): recusada (raio de segurança)', errOf(placeStructure(bm, envB, 'wall', { x: 30, y: 8 })) === 'spawn');
+check('muralha na estrada (30,10), fora dos lotes: aceita', placeStructure(bm, envB, 'wall', { x: 30, y: 10 }).ok === true);
+check('muralha na água do fosso: recusada (terreno)', errOf(placeStructure(bm, envB, 'wall', { x: 25, y: 15 })) === 'terrain');
+const bmT = newBastion(11, emptyCollection());
+bmT.profile.zeni = 500;
+bmT.projects.push('towers');
+check('torre na estrada (30,10), fora dos lotes: recusada', errOf(placeStructure(bmT, envB, 'tower', { x: 30, y: 10 })) === 'outside');
 
 // Teste de fumaça: a horda nasce nos portais, anda pelas estradas e chega ao portão ou morre (o mapa não trava).
 applyZone(zonaB, { count: 40, boss: null, seed: 4242 });
@@ -452,6 +486,103 @@ const confereP = cidadeP.invasoes.every((e) => {
   return u !== undefined && e.damage === (GAME_CONFIG.cityDefense.threat[u.kind] ?? GAME_CONFIG.cityDefense.defaultThreat);
 });
 check('campanha: o invasor segue descontando a ameaça por tipo (sem a regra do Emperium)', cidadeP.invasoes.length > 0 && confereP, `${cidadeP.invasoes.length} invasões`);
+
+console.log('\n# 12) Turnos e muralhas recentes (mover no turno)');
+const bt12 = newBastion(7, emptyCollection());
+bt12.profile.zeni = 1000;
+bt12.projects.push('towers');
+const longe: Vec2[] = [];
+for (let y = 0; y < board.height; y++)
+  for (let x = 0; x < board.width; x++) {
+    const p = { x, y };
+    if (board.isWalkable(x, y) && !board.isCity(x, y) && !nearSpawn(p) && !inArea(x, y) && !heroes.some((h) => h.x === x && h.y === y)) longe.push(p);
+  }
+const dentro = placeStructure(bt12, env(), 'wall', free[0]);
+const foraDosLotes = placeStructure(bt12, env(), 'wall', longe[0]);
+const wD = dentro.ok ? dentro.id : -1;
+const wF = foraDosLotes.ok ? foraDosLotes.id : -1;
+const sD = findStructure(bt12, wD) as Structure;
+const sF = findStructure(bt12, wF) as Structure;
+check('muralhas no lote e fora dos lotes nascem no turno 0 (placedTurn = turno atual)', sD?.placedTurn === 0 && sF?.placedTurn === 0 && bt12.turn === 0);
+check('muralha recém-construída pode ser movida', isMovable(bt12, sD));
+const zeniMov = bt12.profile.zeni;
+bt12.profile.zeni = 0;
+const mv1 = moveStructure(bt12, env(), wD, free[5]);
+bt12.profile.zeni = zeniMov;
+check('mover é de graça: sem Zen nenhum, a muralha recente se move', mv1.ok && mv1.from.x === free[0].x && mv1.from.y === free[0].y && sD.x === free[5].x && sD.y === free[5].y, mv1.ok ? '' : BUILD_MSG[mv1.error]);
+const mv2 = moveStructure(bt12, env(), wD, free[6]);
+check('repetir o movimento no mesmo turno vale, e a muralha mantém o turno de construção', mv2.ok && sD.placedTurn === 0 && isMovable(bt12, sD), mv2.ok ? '' : BUILD_MSG[mv2.error]);
+check('mover para o próprio tile: recusado (mesmo tile)', errOf(moveStructure(bt12, env(), wD, free[6])) === 'sameTile');
+check('mover para tile com outra construção: recusado (ocupado)', errOf(moveStructure(bt12, env(), wD, longe[0])) === 'occupied');
+check('mover para cima de herói: recusado', errOf(moveStructure(bt12, env(), wD, heroes[0])) === 'hero');
+check('mover para o portal: recusado (raio de segurança)', errOf(moveStructure(bt12, env(), wD, spawns[0])) === 'spawn');
+check('mover para o portão: recusado', errOf(moveStructure(bt12, env(), wD, gate)) === 'city');
+check('mover para parede do mapa: recusado (terreno)', errOf(moveStructure(bt12, env(), wD, wallTile as Vec2)) === 'terrain');
+check('mover para fora dos lotes: aceito (muralha vale em qualquer região)', moveStructure(bt12, env(), wD, longe[2]).ok === true);
+check('mover de volta para dentro de um lote: aceito', moveStructure(bt12, env(), wD, free[7]).ok === true);
+check('mover muralha que está fora dos lotes para dentro: aceito', moveStructure(bt12, env(), wF, free[8]).ok === true);
+check('construção inexistente: recusada (ausente)', errOf(moveStructure(bt12, env(), 99999, free[9])) === 'missing');
+const tor = placeStructure(bt12, env(), 'tower', free[12]);
+const wT = tor.ok ? tor.id : -1;
+check('torre não se move, nem no turno em que foi construída', !isMovable(bt12, findStructure(bt12, wT) as Structure) && errOf(moveStructure(bt12, env(), wT, free[13])) === 'notMovable', tor.ok ? '' : BUILD_MSG[tor.error]);
+const dest = placeStructure(bt12, env(), 'wall', free[15]);
+const wX = dest.ok ? dest.id : -1;
+const sX = findStructure(bt12, wX) as Structure;
+sX.hp = 0;
+check('muralha destruída não se move (vida 0)', !isMovable(bt12, sX) && errOf(moveStructure(bt12, env(), wX, free[16])) === 'notMovable');
+check('mover não avança o turno', bt12.turn === 0);
+check('noite aplicada avança o turno (0 → 1)', applyNight(bt12, ondaVencida(), 'noite:1', emptyCollection()) !== undefined && bt12.turn === 1);
+check('a muralha do turno anterior não se move mais e fica no lugar', errOf(moveStructure(bt12, env(), wD, free[18])) === 'notRecent' && !isMovable(bt12, sD) && sD.x === free[7].x && sD.y === free[7].y);
+const novaT1 = placeStructure(bt12, env(), 'wall', free[19]);
+const wN = novaT1.ok ? novaT1.id : -1;
+check('muralha construída no turno 1 é recente e se move no próprio turno', novaT1.ok && isMovable(bt12, findStructure(bt12, wN) as Structure) && moveStructure(bt12, env(), wN, free[20]).ok === true);
+check('mesma chave de noite: não avança o turno de novo', applyNight(bt12, ondaVencida(), 'noite:1', emptyCollection()) === undefined && bt12.turn === 1);
+check('outra noite vencida: turno 2', applyNight(bt12, ondaVencida(), 'noite:2', emptyCollection()) !== undefined && bt12.turn === 2);
+check('a muralha do turno 1 virou antiga no turno 2', errOf(moveStructure(bt12, env(), wN, free[21])) === 'notRecent');
+const derrotaT = applyNight(bt12, { victory: false, coreHp: 900, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } }, 'noite:3', emptyCollection());
+check('derrota também avança o turno (3)', derrotaT !== undefined && bt12.turn === 3);
+check('o turno sobrevive ao salvar e carregar', migrateBastion(JSON.parse(JSON.stringify(bt12)) as BastionState).turn === 3);
+
+console.log('\n# 13) Horda por noite (comum, mini-chefe e MVP)');
+const INIMIGOS = Object.keys(GAME_CONFIG.enemies).filter((k) => k !== 'trainingDummy');
+check('são 13 inimigos de combate (tudo menos o boneco de treino)', INIMIGOS.length === 13 && !INIMIGOS.includes('trainingDummy'), `${INIMIGOS.length}`);
+check('todo inimigo de combate tem nome em pt-BR no Bastião', INIMIGOS.every((k) => !!BASTION_HORDE.names[k]));
+check('mini-chefes e MVPs existem na tabela de inimigos', [...BASTION_HORDE.minis, ...BASTION_HORDE.mvps].every((k) => k in GAME_CONFIG.enemies));
+check('cadência: mini a cada 5, MVP a cada 10, tropa comum de 60', BASTION_HORDE.miniEvery === 5 && BASTION_HORDE.mvpEvery === 10 && BASTION_HORDE.count === 60);
+check('noites 5, 15 e 25 são mini-chefe; 10, 20 e 30 são MVP', [5, 15, 25].every((n) => hordeOf(n).tier === 'mini') && [10, 20, 30].every((n) => hordeOf(n).tier === 'mvp'));
+const ateTrinta = Array.from({ length: 30 }, (_, i) => i + 1);
+check('as outras noites até 30 são comuns, sem chefe', ateTrinta.filter((n) => n % 5 !== 0).every((n) => hordeOf(n).tier === 'comum' && hordeOf(n).boss === undefined));
+check('até a noite 30: 3 mini-chefes e 3 MVPs', ateTrinta.filter((n) => hordeOf(n).tier === 'mini').length === 3 && ateTrinta.filter((n) => hordeOf(n).tier === 'mvp').length === 3);
+check('ciclo dos mini-chefes: 5 Elite, 15 Krexx retorcido, 25 Líder goblin', hordeOf(5).boss === 'elite' && hordeOf(15).boss === 'goblinWarlord' && hordeOf(25).boss === 'goblinLeader');
+check('ciclo dos mini-chefes segue: 35 Krexx pequeno, 45 Dino, 55 volta ao Elite', hordeOf(35).boss === 'goblinImp' && hordeOf(45).boss === 'dinoBoss' && hordeOf(55).boss === 'elite');
+check('ciclo dos MVPs: 10 Colosso da Clareira, 20 Colosso Solar, 30 Senhor Orc, 40 volta ao primeiro', hordeOf(10).boss === 'boss' && hordeOf(20).boss === 'boss2' && hordeOf(30).boss === 'orcboss' && hordeOf(40).boss === 'boss' && hordeOf(50).boss === 'boss2');
+const vistosAte = (ate: number) => {
+  const vistos = new Set<string>();
+  for (let n = 1; n <= ate; n++) {
+    const h = hordeOf(n);
+    for (const m of h.mix) vistos.add(m.kind);
+    if (h.boss) vistos.add(h.boss);
+  }
+  return vistos;
+};
+const faltamAte30 = INIMIGOS.filter((k) => !vistosAte(30).has(k));
+check('até a noite 30 faltam goblinImp e dinoBoss (entram nas noites 35 e 45)', faltamAte30.join() === 'goblinImp,dinoBoss', faltamAte30.join());
+check('até a noite 45 aparecem os 13 inimigos (a rotação completa dos mini-chefes)', INIMIGOS.every((k) => vistosAte(45).has(k)) && !vistosAte(45).has('trainingDummy'));
+const peso = (k: string) => BASTION_HORDE.regular.find((m) => m.kind === k)?.weight ?? 0;
+const somaComum = BASTION_HORDE.regular.reduce((soma, m) => soma + m.weight, 0);
+check('mistura comum: grunt 40, runner 24, brute 14, raydric 12, necro 10 (soma 100)', somaComum === 100 && peso('grunt') === 40 && peso('runner') === 24 && peso('brute') === 14 && peso('raydric') === 12 && peso('necro') === 10);
+check('a mistura comum só tem tipos comuns (nada de chefe)', BASTION_HORDE.regular.every((m) => ['grunt', 'runner', 'brute', 'raydric', 'necro'].includes(m.kind)));
+check('toda noite traz 60 comuns', Array.from({ length: 45 }, (_, i) => hordeOf(i + 1)).every((h) => h.count === 60));
+check('mini e MVP também usam a mistura comum (o chefe vem por cima)', JSON.stringify(hordeOf(5).mix) === JSON.stringify(BASTION_HORDE.regular) && JSON.stringify(hordeOf(10).mix) === JSON.stringify(BASTION_HORDE.regular));
+check('título e detalhe do mini-chefe: "Noite 5 · mini-chefe" e o Elite', hordeOf(5).title === 'Noite 5 · mini-chefe' && hordeOf(5).detail === BASTION_HORDE.names.elite);
+check('mini-chefe da noite 15: detalhe "Krexx retorcido"', hordeOf(15).detail === 'Krexx retorcido');
+check('MVP da noite 10: "Noite 10 · MVP" e o Colosso da Clareira', hordeOf(10).title === 'Noite 10 · MVP' && hordeOf(10).detail === 'Colosso da Clareira');
+check('noite comum: título "Noite 1 · comum" e detalhe com a tropa em pt-BR', hordeOf(1).title === 'Noite 1 · comum' && hordeOf(1).detail === 'Zumbi, Corredor, Pesado, Raydric e Necromante', hordeOf(1).detail);
+check('mesma noite, mesma horda (determinismo, sem sorteio)', JSON.stringify(hordeOf(15)) === JSON.stringify(hordeOf(15)) && JSON.stringify(hordeOf(33)) === JSON.stringify(hordeOf(33)));
+const copia = hordeOf(1);
+copia.mix[0].weight = 999;
+check('a horda devolvida é cópia: mexer nela não muda a tabela', peso('grunt') === 40 && hordeOf(1).mix[0].weight === 40);
+check('noite inválida (0 ou NaN) cai na noite 1', hordeOf(0).wave === 1 && hordeOf(Number.NaN).wave === 1);
 
 console.log(failures ? `\n${failures} checagem(ns) falharam.` : '\nTodas as checagens do Último Bastião passaram.');
 if (failures) throw new Error(`bastionCheck: ${failures} falha(s)`);
