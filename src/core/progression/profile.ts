@@ -3,7 +3,8 @@ import { ATTRIBUTES_CONFIG, ATTR_KEYS, computeStats, type AttrKey, type Attrs, t
 import { KIND_SLOT, SLOTS, canUse, gearBonus, itemKind, weaponPower, type Item, type Slot } from './equipment';
 import { lvOf, startingSkills, type HeroKind, type SkillId, type SkillLevels } from './skills';
 import { equippedSkills, lockedSkillKeys, manaToNextSlot, slotCount, usesSlot } from './skillSlots';
-import { HERO_ORDER, familyOf } from '../../config/heroes';
+import { HERO_NAME, HERO_ORDER, familyOf, isHeroKind } from '../../config/heroes';
+import { VOCATIONS, VOCATIONS_CONFIG, type VocationDef } from '../../config/vocations';
 import type { CardRuntime } from './cards';
 
 /**
@@ -31,6 +32,8 @@ export interface HeroProgress {
   /** Bônus de atributos das cartas equipadas (coleção permanente; aplicado a cada nova run). */
   /** Regras das cartas equipadas neste herói (derivadas da coleção no início da run; ver cards.ts). */
   cards?: CardRuntime[];
+  /** Vocação escolhida nesta jornada (id em config/vocations.ts). Ausente = ainda é a classe base. */
+  vocation?: string;
 }
 
 export interface Profile {
@@ -122,10 +125,18 @@ export function autoEquip(p: Profile, party: string[], candidates: Item[]): { he
   return done;
 }
 
+/** Vocação escolhida pelo herói, se ela existe nesta classe (id desconhecido não quebra o save). */
+export function vocationOf(kind: string, h: HeroProgress | undefined): VocationDef | undefined {
+  if (!h?.vocation || !isHeroKind(kind)) return undefined;
+  return VOCATIONS[kind].find((v) => v?.id === h.vocation) ?? undefined;
+}
+
 export function heroStats(profile: Profile, kind: string): HeroStats {
   const h = profile.heroes[kind];
   const attrs = { ...h.attrs };
-  return computeStats(kind, attrs, gearBonus(SLOTS.map((s) => h.equipment[s])), h.skills, { hp: h.bonusHp, mana: h.bonusMana });
+  // a vocação soma atributos como o equipamento: entra antes do cálculo (dano e vida acompanham)
+  const vocation = vocationOf(kind, h)?.bonus ?? {};
+  return computeStats(kind, attrs, gearBonus(SLOTS.map((s) => h.equipment[s])), h.skills, { hp: h.bonusHp, mana: h.bonusMana, attrs: vocation });
 }
 
 /** Habilidades ativas nos slots do herói (limitadas pela Mana). */
@@ -243,6 +254,29 @@ export function unequip(p: Profile, kind: string, slot: Slot): void {
   if (!it) return;
   delete h.equipment[slot];
   p.inventory.push(it);
+}
+
+/** Motivo para o herói não poder escolher essa vocação agora (ausente = pode). */
+export function evolveBlocker(p: Profile, kind: string, id: string): string | undefined {
+  const h = p.heroes[kind];
+  if (!h || !isHeroKind(kind)) return 'Herói desconhecido.';
+  if (h.vocation) return 'Este herói já escolheu uma vocação nesta jornada.';
+  if (h.level < VOCATIONS_CONFIG.level) return `Chega ao nível ${VOCATIONS_CONFIG.level} para evoluir.`;
+  if (!VOCATIONS[kind].some((v) => v?.id === id)) return 'Esta vocação não é da classe ou ainda não foi desenhada.';
+  return undefined;
+}
+
+/** Escolhe a vocação (uma vez por jornada). Devolve o motivo do erro, ou undefined se deu certo. */
+export function evolve(p: Profile, kind: string, id: string): string | undefined {
+  const err = evolveBlocker(p, kind, id);
+  if (err) return err;
+  p.heroes[kind].vocation = id;
+  return undefined;
+}
+
+/** Nome do herói na interface: a vocação escolhida, ou a classe base. */
+export function heroDisplayName(p: Profile, kind: string): string {
+  return vocationOf(kind, p.heroes[kind])?.nome ?? HERO_NAME[kind as keyof typeof HERO_NAME] ?? kind;
 }
 
 export interface WaveResult {
@@ -374,6 +408,8 @@ export function migrateProfile(p: Profile): Profile {
     // habilidades iniciais novas (ex.: Muralha, Armadilha) entram aprendidas no nível 1
     for (const [id, lv] of Object.entries(startingSkills(k as HeroKind))) h.skills[id as keyof SkillLevels] ??= lv;
     h.skillPoints ??= (h.level - 1) * PROGRESSION.skillPointsPerLevel;
+    // vocação que não existe nesta classe (save antigo ou editado) sai: o herói volta à classe base
+    if (h.vocation && !vocationOf(k, h)) delete h.vocation;
     const eq = h.equipment as Record<string, Item | undefined>;
     const worn = Object.entries(eq).filter(([, it]) => it) as [string, Item][];
     for (const [key] of worn) delete eq[key];

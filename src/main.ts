@@ -59,8 +59,8 @@ import { Simulation } from './core/sim/Simulation';
 import type { SimEvent, Unit } from './core/sim/types';
 import { GameView } from './render/GameView';
 import { Stage } from './render/Stage';
-import { Hud, type CharacterVM, type HudMember, type Tool } from './ui/Hud';
-import { ATTRIBUTES_CONFIG, weaponMult } from './core/progression/attributes';
+import { Hud, type CharacterVM, type HudMember, type Tool, type VocacaoVM } from './ui/Hud';
+import { ATTRIBUTES_CONFIG, ATTR_LABEL, weaponMult } from './core/progression/attributes';
 import { RARITY_INFO, SLOTS, SLOT_LABEL, gearBonus, isMagicWeapon, itemKind } from './core/progression/equipment';
 import { itemIconUrl } from './ui/itemArt';
 import type { HeroCardVM } from './ui/HeroCard';
@@ -88,6 +88,10 @@ import {
   clearSouls,
   addItem,
   clearInventory,
+  evolve,
+  evolveBlocker,
+  heroDisplayName,
+  vocationOf,
   type Profile,
 } from './core/progression/profile';
 import { rollItem, type Rarity, type Slot } from './core/progression/equipment';
@@ -122,6 +126,7 @@ import { VFX } from './render/fx/kit/vfxSettings';
 import { QUALITY_LABEL, type QualityPreset } from './settings/Settings';
 import { applyOverrides } from './editor/overrides';
 import { HERO_INFO, HERO_ORDER, emptyMeta, heroUnlocked, isHeroKind, type MetaStats } from './config/heroes';
+import { VOCATIONS, VOCATIONS_CONFIG } from './config/vocations';
 import { BALANCE_OVERRIDES } from './config/balance';
 
 // ---------- Balanceamento salvo pelo Game Editor (vale em todos os builds) ----------
@@ -261,7 +266,7 @@ function loadout(): Record<string, HeroLoadout> {
   const out: Record<string, HeroLoadout> = {};
   for (const k of Object.keys(profile.heroes)) {
     const h = profile.heroes[k];
-    out[k] = { stats: heroStats(profile, k), level: h.level, exp: h.exp, locked: heroLockedKeys(profile, k), cards: h.cards ?? [] };
+    out[k] = { stats: heroStats(profile, k), level: h.level, exp: h.exp, locked: heroLockedKeys(profile, k), cards: h.cards ?? [], visual: vocationOf(k, h)?.modelo };
   }
   return out;
 }
@@ -377,6 +382,13 @@ const hud = new Hud(document.getElementById('hud')!, {
   onEquip: (kind, id) => {
     equip(profile, kind, id);
     progressionChanged(true);
+  },
+  onEvolve: (kind, id) => {
+    const def = VOCATIONS[kind as HeroKind].find((v) => v?.id === id);
+    confirmBox.ask(`Evoluir para ${def?.nome ?? 'vocação'}`, 'A escolha é permanente nesta jornada: o herói fica com essa vocação até a derrota total.', 'Evoluir', () => {
+      evolve(profile, kind, id);
+      progressionChanged(true);
+    }, 'normal');
   },
   onUnequip: (kind, slot) => {
     unequip(profile, kind, slot);
@@ -635,6 +647,7 @@ function mapState() {
       const wpn = p.equipment.weapon;
       return {
         kind: h,
+        nome: heroDisplayName(profile, h),
         level: p.level,
         dead: run.dead.includes(h),
         points: p.points,
@@ -665,6 +678,7 @@ function heroCardVM(kind: HeroKind): HeroCardVM {
   const dead = run.dead.includes(kind);
   return {
     kind,
+    nome: heroDisplayName(profile, kind),
     level: h.level,
     dead,
     hp: dead ? 0 : st.maxHp,
@@ -1112,6 +1126,22 @@ function progressionChanged(changed: boolean): void {
 }
 
 const fmtPct = (v: number) => `${Math.round(v * 100)}%`;
+/** Ficha: a vocação escolhida, ou as duas vagas da classe com o motivo de não poder escolher agora. */
+function vocationPanelVM(kind: HeroKind): VocacaoVM {
+  const bonusText = (b: Partial<Record<keyof typeof ATTR_LABEL, number>>) =>
+    Object.entries(b)
+      .map(([k, v]) => `+${v} ${ATTR_LABEL[k as keyof typeof ATTR_LABEL]}`)
+      .join(', ');
+  const atual = vocationOf(kind, profile.heroes[kind]);
+  return {
+    nivel: VOCATIONS_CONFIG.level,
+    atual: atual ? { nome: atual.nome, descricao: atual.descricao, bonus: bonusText(atual.bonus) } : undefined,
+    vagas: VOCATIONS[kind].map((v) =>
+      v ? { id: v.id, nome: v.nome, descricao: v.descricao, bonus: bonusText(v.bonus), motivo: evolveBlocker(profile, kind, v.id) } : null,
+    ),
+  };
+}
+
 function characterVM(): CharacterVM {
   return {
     editable: sim.phase === 'setup' || mode !== 'battle',
@@ -1166,6 +1196,8 @@ function characterVM(): CharacterVM {
             ];
       return {
         kind,
+        nome: heroDisplayName(profile, kind),
+        vocacao: vocationPanelVM(kind),
         level: h.level,
         points: h.points,
         pointCost: attrPointCost(profile, kind),

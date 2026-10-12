@@ -584,6 +584,27 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   1. Dono: conferir no PC (16:9 e outras telas) e dizer se a engrenagem fica no canto inferior esquerdo ou volta para o superior direito.
   2. Dono: decidir se a versão antiga pintada na arte deve ser trocada no arquivo original. Se for, a caixa do rodapé deixa de ser necessária.
 
+## 2026-10-12 — Vocações: duas evoluções por classe e o Bárbaro (v0.11, em andamento)
+- **Pedido do dono:** preparar todas as classes para receber 2 novas vocações. O Bárbaro (`barbaridade.glb`) entra como uma das evoluções do Guerreiro.
+- **Dados (`src/config/vocations.ts`):** `VOCATIONS` tem duas vagas por classe, e `VOCATIONS_CONFIG.level` define o nível da escolha (10). Vaga `null` = "Em breve" na ficha, sem escolha.
+  - **D60 — Escolha única:** ao chegar ao nível 10, o herói escolhe UMA vocação, com confirmação (botão dourado). Vale até o fim da jornada; não há troca depois.
+  - **D61 — Bônus de atributo:** a vocação soma atributos (`bonus`) como o equipamento. Pontos gastos e atributos guardados não mudam, então a redistribuição continua normal. Bárbaro: +3 Força e +2 Vitalidade (provisório, a balancear).
+  - **D62 — Vagas:** o Guerreiro tem o Bárbaro e uma vaga a definir; as outras cinco classes têm as duas vagas a definir.
+  - **D63 — Onde evolui:** na ficha (tecla C), no bloco "Vocação", fora da batalha. O nome da vocação aparece na ficha, no cartão do herói e no mapa.
+  - **D64 — Visual:** a unidade de batalha leva `visual` (modelo da vocação) quando esse modelo existe em `HERO_MODELS`; senão usa o modelo da classe. Regras e simulação não mudam.
+- **Save:** campo opcional `HeroProgress.vocation`, sem subir a versão. `migrateProfile` tira id que não existe ou que é de outra classe.
+- **Código:** `profile.ts` (`vocationOf`, `evolveBlocker`, `evolve`, `heroDisplayName`), `attributes.ts` (`computeStats` aceita bônus de atributo), `Hud.ts` (bloco Vocação), `main.ts` (VM e confirmação). `ConfirmDialog.ask` ganhou o tom `'normal'`; o padrão continua vermelho, para o "Abandonar jornada".
+- **Testes:** `npm run vocation:check` (novo): dados, escolha (nível, uma vez, classe certa), atributos (bônus sem virar ponto gasto), save (ida e volta, save antigo, id desconhecido, idempotência). No Chromium: nível 1 bloqueado com aviso; nível 10 liberado; confirmação dourada; nome no painel e no cartão; sem erro no console. Regressão: `build`, `sim:check` (determinístico) e `bastion:check` passam.
+- **Limitações:**
+  - O Bárbaro ainda usa o modelo do Guerreiro; retrato e corpo inteiro também, porque saem da classe base.
+  - As habilidades do Bárbaro são, por enquanto, a árvore do Guerreiro.
+  - Nomes na árvore de habilidades, na cidade e no relatório continuam com o nome da classe.
+- **Pendências:**
+  1. Dono: o `barbaridade.glb` está em `public/barbaridade.glb` na `main` (24,5 MB, 2 milhões de triângulos, texturas de 8192 px, **sem esqueleto e sem animações**). Falta otimizar e dar animação ao modelo. O original deve sair do repositório e ir zipado para a branch `fontes`, o que precisa de autorização.
+  2. Dono: confirmar a segunda vaga do Guerreiro. O Cavaleiro Rúnico (conjunto de teste) é a candidata natural.
+  3. Dono: o nível 10 e o bônus do Bárbaro (+3 Força, +2 Vitalidade) são provisórios.
+  4. Dono: desenhar as onze vagas restantes (nomes, modelos e habilidades).
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

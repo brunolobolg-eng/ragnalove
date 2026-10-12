@@ -57,6 +57,8 @@ function withSkin(kind: string): string {
 /** Tipo de unidade da simulação → a view usada (3D quando há modelo; procedural enquanto o GLB não chega). */
 export type AnyUnitView = UnitView | ModelUnitView;
 
-export function createUnitView(kind: string, team: 'party' | 'enemy'): AnyUnitView {
-  return MODELS[kind] ? new ModelUnitView(actModel(kind, team), team) : new UnitView(kind, team);
+/** `visual` = modelo da vocação do herói; sem ele (ou ainda não carregado) usa o da classe. */
+export function createUnitView(kind: string, team: 'party' | 'enemy', visual?: string): AnyUnitView {
+  const key = team === 'party' && visual && MODELS[visual] ? visual : kind;
+  return MODELS[key] ? new ModelUnitView(actModel(key, team), team) : new UnitView(kind, team);
 }

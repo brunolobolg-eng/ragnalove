@@ -782,6 +782,14 @@ body.cine #cine { pointer-events: auto; cursor: pointer; }
 .cw-bonus small { color: var(--au-dim); }
 .cw-dim { color: var(--au-dim); font-size: 11px; }
 .cw-hint { margin-top: 6px; font: 10.5px Tahoma, sans-serif; color: var(--au-dim); }
+/* vocação na ficha: a escolhida, ou as duas vagas da classe (vaga sem desenho fica apagada) */
+.cw-voc-now, .cw-voc-slot { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border: 1px solid var(--au-line); border-radius: 6px; background: var(--au-panel); }
+.cw-voc-now b, .cw-voc-slot b { font: 700 13px Cinzel, Georgia, serif; color: var(--au-gold-hi); }
+.cw-voc-now span, .cw-voc-slot span { font: 11px Tahoma, sans-serif; color: var(--au-text); }
+.cw-voc-now small, .cw-voc-slot small { font: 10.5px Tahoma, sans-serif; color: var(--au-gold); }
+.cw-voc-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cw-voc-slot .au-btn { align-self: flex-start; margin-top: 4px; }
+.cw-voc-slot.empty { opacity: 0.45; }
 /* bolsa: grade de quadros do kit, filtros em abas */
 .cw-bag { display: flex; flex-direction: column; }
 .cw-filter { display: flex; gap: 6px; margin-bottom: 8px; }

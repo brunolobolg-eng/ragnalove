@@ -46,10 +46,13 @@ export class ConfirmDialog {
     return !this.el.hidden;
   }
 
-  ask(title: string, text: string, yesLabel: string, onYes: () => void): void {
+  /** `tone`: cor do botão de confirmar. 'danger' (vermelho, ação destrutiva) é o padrão; 'normal' é a ação principal (dourado). */
+  ask(title: string, text: string, yesLabel: string, onYes: () => void, tone: 'danger' | 'normal' = 'danger'): void {
     this.el.querySelector('[data-title]')!.textContent = title;
     this.el.querySelector('[data-text]')!.textContent = text;
-    this.el.querySelector('[data-yes]')!.textContent = yesLabel;
+    const yes = this.el.querySelector<HTMLButtonElement>('[data-yes]')!;
+    yes.textContent = yesLabel;
+    yes.className = tone === 'danger' ? 'confirm-yes danger' : 'confirm-yes primary';
     this.onYes = onYes;
     this.el.hidden = false;
     this.onUiSound();
