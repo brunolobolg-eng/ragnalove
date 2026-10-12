@@ -104,6 +104,7 @@ export class BastionHub {
       case 'night': this.hooks.onNight(); break;
       case 'new-attempt': this.hooks.onNewAttempt(); break;
       case 'repair-core': this.hooks.onRepairCore(); break;
+      case 'cards': this.hooks.onCards(); break;
       case 'repair': this.hooks.onRepairStructure(sid); break;
       case 'upgrade': this.hooks.onUpgradeStructure(sid); break;
       case 'unlock': this.hooks.onUnlock(id ?? ''); break;
@@ -130,6 +131,7 @@ export class BastionHub {
           <button class="au-btn gold" data-act="night"${vm.canStartNight ? '' : ' disabled'}>Iniciar noite</button>
           ${vm.canNewAttempt ? `<button class="au-btn${vm.attemptEnded ? ' gold' : ''}" data-act="new-attempt">Nova tentativa</button>` : ''}
           <button class="au-btn" data-act="repair-core"${coreRepair ? '' : ' disabled'}>${zenLabel('Reparar núcleo', vm.coreRepairCost, 'inteiro')}</button>
+          <button class="au-btn" data-act="cards">Cartas</button>
           <button class="au-btn" data-act="exit">Sair do modo</button>
         </section>
         ${vm.attemptEnded ? `<p class="bs-note">A tentativa acabou.${vm.canNewAttempt ? ' Comece outra com Nova tentativa.' : ''}</p>` : ''}

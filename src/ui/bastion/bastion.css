@@ -1,0 +1,113 @@
+/* =====================================================================
+ * O Último Bastião: Montar Defesa (hub), Construção (painel no campo) e Relatório da Noite.
+ * Usa o Aurenthal UI Kit (.au-frame, .au-btn, .au-x, .au-sec, .au-h, .au-tab, .au-price, .au-bar, .au-ico).
+ * Classes novas levam o prefixo bs-. Os seletores com id vencem as regras clássicas de <button> do style.css.
+ * ===================================================================== */
+@keyframes bsUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes bsDrain { from { width: calc(var(--from, 1) * 100%); } }
+
+#bastion-hub, #bastion-build, #bastion-report { font-family: Tahoma, Verdana, 'Segoe UI', sans-serif; color: var(--au-text); }
+#bastion-hub[hidden], #bastion-build[hidden], #bastion-report[hidden] { display: none; }
+#bastion-hub button:focus-visible, #bastion-build button:focus-visible, #bastion-report button:focus-visible { outline: 2px solid var(--au-gold-hi); outline-offset: 2px; }
+#bastion-hub .au-btn.gold:disabled::before, #bastion-build .au-btn.gold:disabled::before, #bastion-report .au-btn.gold:disabled::before { display: none; }
+
+/* janela comum: cabeçalho com título em Cinzel e rodapé escuro */
+.bs-win { font-size: 12px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.7); }
+.bs-win-head { flex: none; display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 8px 14px; border-bottom: 1px solid rgba(199, 157, 72, 0.6);
+  background: linear-gradient(180deg, rgba(42, 62, 128, 0.9), rgba(18, 30, 70, 0.9)); }
+.bs-win-head h2 { flex: 1 1 auto; min-width: 0; margin: 0; font: 700 18px Cinzel, serif; letter-spacing: 0.5px; color: var(--au-title); text-shadow: 0 2px 4px #000; }
+.bs-win-head .au-ico { font-size: 15px; }
+.bs-win-foot, .bs-build-foot, .bs-report-foot { flex: none; border-top: 1px solid rgba(199, 157, 72, 0.35); background: rgba(6, 10, 28, 0.6); }
+.bs-msg { margin: 0; min-height: 16px; font-size: 12px; line-height: 1.35; color: #ffe6a8; text-shadow: 0 1px 2px #000; }
+.bs-hint { margin: 0; font-size: 12px; line-height: 1.4; color: var(--au-dim); }
+.bs-sub { margin: 0; font-size: 11px; color: var(--au-dim); }
+.bs-note { margin: 0; font-size: 11px; line-height: 1.4; color: #ffd0a0; }
+.bs-acts { display: flex; flex-direction: column; gap: 8px; }
+.bs-acts .au-btn { width: 100%; }
+.bs-kv { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; font-size: 13px; }
+.bs-kv b { font: 700 14px Cinzel, serif; color: var(--au-title); }
+.bs-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; font-size: 12px; }
+.bs-owned { font: 700 12px Cinzel, serif; letter-spacing: 0.5px; text-transform: uppercase; color: #9ff0b0; }
+/* etiquetas: pílula do kit com cor por situação */
+.au-price.bs-st { padding: 1px 9px; font-size: 11px; }
+.au-price.bs-verdict { font-size: 11px; }
+.au-price.bs-st-intact, .au-price.bs-v-ok { color: #9ff0b0; border-color: #7ad08a; }
+.au-price.bs-st-damaged { color: #ffd36a; border-color: #d9a441; }
+.au-price.bs-st-destroyed, .au-price.bs-v-bad { color: #ff8a7a; border-color: #c8584a; }
+
+/* ---------- Montar Defesa (hub) ---------- */
+#bastion-hub { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(ellipse at 50% 45%, rgba(8, 12, 30, 0.45), rgba(4, 6, 16, 0.86) 75%); backdrop-filter: blur(2px); }
+.bs-hub-win { width: min(980px, 96vw); max-height: 92vh; display: flex; flex-direction: column; animation: bsUp 0.2s ease-out; }
+.bs-hub-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px 16px; }
+.bs-hub-win .bs-win-foot { display: flex; align-items: center; min-height: 38px; padding: 6px 14px; }
+.bs-attempt { font: 700 12px Cinzel, serif; letter-spacing: 0.5px; color: var(--au-dim); white-space: nowrap; }
+.bs-hub-grid { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; align-items: start; }
+.bs-city { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.bs-city .au-bar { margin: 4px 0 8px; }
+.bs-main { min-width: 0; }
+#bastion-hub .au-tab { padding: 6px 16px; font-family: Cinzel, serif; font-size: 13px; letter-spacing: 0.3px; }
+.bs-panel { display: flex; flex-direction: column; gap: 8px; }
+.bs-empty { margin: 0; padding: 18px 12px; text-align: center; font-style: italic; color: var(--au-dim); border: 1px dashed var(--au-line); border-radius: 10px; }
+.bs-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 12px; padding: 10px 12px; }
+.bs-row-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bs-row-name { font: 700 14px Cinzel, serif; color: var(--au-title); overflow-wrap: anywhere; }
+.bs-row small { font-size: 11px; line-height: 1.35; color: var(--au-dim); }
+#bastion-hub .bs-row .bs-lock { color: #ff9a8a; }
+.bs-row .au-bar { margin-top: 3px; }
+.bs-row > .au-price { justify-self: end; }
+.bs-row-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
+.bs-row-acts .au-btn { min-width: 150px; }
+.bs-heroes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+#bastion-hub .bs-hero { height: 52px; padding: 6px 10px; font-family: Cinzel, serif; font-size: 14px; letter-spacing: 0.3px; }
+
+/* ---------- Construção (painel na lateral do campo) ---------- */
+#bastion-build { position: fixed; top: 96px; right: 16px; z-index: 60; width: 300px; max-height: calc(100vh - 220px); display: flex; flex-direction: column; animation: bsUp 0.2s ease-out; }
+#bastion-build .bs-win-head h2 { font-size: 15px; }
+#bastion-build .bs-win-head .au-ico { width: 26px; height: 26px; font-size: 13px; }
+.bs-build-body { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; }
+.bs-city-line { margin: 0; font-size: 12px; color: var(--au-text); }
+.bs-city-line b { font-family: Cinzel, serif; color: var(--au-title); }
+.bs-palette { display: grid; gap: 8px; }
+#bastion-build .bs-pal { display: grid; gap: 4px; width: 100%; padding: 8px 12px; text-align: left; }
+#bastion-build .bs-pal[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--au-gold-hi), 0 0 14px rgba(255, 211, 106, 0.5); }
+.bs-pal-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bs-pal-top b { font: 700 13px Cinzel, serif; color: var(--au-title); }
+.bs-pal-top .au-price { padding: 1px 8px; font-size: 11px; }
+.bs-pal-meta { font-size: 11px; color: var(--au-dim); }
+.bs-pal-desc { font-size: 11px; line-height: 1.35; color: var(--au-text); }
+#bastion-build .bs-lock { font-size: 11px; color: #ff9a8a; }
+.bs-sel { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; }
+.bs-sel .au-h { margin: 0; font-size: 12px; }
+.bs-sel .au-bar { margin: 2px 0 0; }
+.bs-build-foot { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; }
+.bs-build-foot .au-btn { width: 100%; }
+
+/* ---------- Relatório da noite (modal centralizado) ---------- */
+#bastion-report { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px; background: rgba(4, 6, 14, 0.72); backdrop-filter: blur(2px); }
+.bs-report { width: min(520px, 94vw); max-height: 92vh; display: flex; flex-direction: column; animation: bsUp 0.25s ease-out; }
+#bastion-report .bs-win-head h2 { font-size: 17px; }
+.bs-report-body { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; }
+.bs-core { display: flex; flex-direction: column; gap: 6px; }
+.bs-core-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--au-dim); }
+.bs-core-top b { font: 700 15px Cinzel, serif; color: var(--au-title); white-space: nowrap; }
+.bs-core-bar .bs-before { background: rgba(255, 230, 168, 0.4); }
+.bs-core-bar .bs-after { animation: bsDrain 0.9s ease-out both; }
+.bs-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.bs-stats > div { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; background: var(--au-panel); border: 1px solid var(--au-line); }
+.bs-stats dt { font-size: 11px; color: var(--au-dim); }
+.bs-stats dd { margin: 0; font: 700 18px Cinzel, serif; color: var(--au-title); }
+.bs-packs { margin: 0; padding: 8px 12px; border-radius: 8px; text-align: center; font: 700 14px Cinzel, serif; color: #ffe6a8;
+  background: linear-gradient(90deg, rgba(214, 170, 80, 0.3), rgba(214, 170, 80, 0.05)); border: 1px solid rgba(255, 211, 106, 0.55); }
+.bs-ended { margin: 0; font-size: 12px; line-height: 1.4; color: #ffd0a0; }
+.bs-report-foot { display: flex; justify-content: center; padding: 10px 16px 12px; }
+.bs-report-foot .au-btn { min-width: 220px; }
+
+@media (max-width: 760px) {
+  .bs-hub-grid { grid-template-columns: minmax(0, 1fr); }
+  .bs-heroes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #bastion-hub *, #bastion-build, #bastion-build *, #bastion-report, #bastion-report * { animation: none !important; transition: none !important; }
+  #bastion-hub *::before, #bastion-build *::before, #bastion-report *::before { animation: none !important; }
+}

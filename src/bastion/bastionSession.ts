@@ -114,7 +114,10 @@ export class BastionSession {
       onParty: (party) => this.setParty(party),
       onRepairStructure: (id) => this.act(repairStructure(this.state(), id), 'Construção reparada.'),
       onUpgradeStructure: (id) => this.act(upgradeStructure(this.state(), id), 'Construção aprimorada.'),
-      onCards: () => this.d.openCollection(this.state().nights),
+      onCards: () => {
+        this.hub.close();
+        this.d.openCollection(this.state().nights);
+      },
       onExit: () => this.exit(),
     });
     this.build = new BastionBuildPanel({
