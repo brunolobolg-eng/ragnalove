@@ -203,18 +203,37 @@ export class Stage {
 
   zoomBy(steps: number): void {
     const C = VISUAL_CONFIG.cameraControl;
-    const lim = this.painted ? C.painted : C;
+    const lim = this.zoomLimits();
     this.zoom = THREE.MathUtils.clamp(this.zoom * (1 + C.zoomStep * steps), lim.zoomMin, lim.zoomMax);
     this.applyFog();
     this.clampFocus();
+  }
+
+  /** Perfil de zoom ativo: a campanha, ou o Último Bastião (limite próprio em config). */
+  private zoomProfile: 'campaign' | 'bastion' = 'campaign';
+  /** Troca o perfil de zoom ao entrar e sair do Último Bastião; se o zoom passar do novo limite, puxa para dentro. */
+  setZoomProfile(p: 'campaign' | 'bastion'): void {
+    this.zoomProfile = p;
+    const lim = this.zoomLimits();
+    this.zoom = THREE.MathUtils.clamp(this.zoom, lim.zoomMin, lim.zoomMax);
+    this.applyFog();
+    this.clampFocus();
+  }
+
+  /** Limites de zoom do contexto: mapa pintado > Último Bastião > campanha. */
+  private zoomLimits(): { zoomMin: number; zoomMax: number } {
+    const C = VISUAL_CONFIG.cameraControl;
+    if (this.painted) return C.painted;
+    if (this.zoomProfile === 'bastion') return { zoomMin: C.zoomMin, zoomMax: C.bastion.zoomMax };
+    return C;
   }
 
   /** Mapa pintado: sem névoa (a pintura já tem profundidade), zoom maior, câmera dentro da arte. */
   private painted = false;
   setPainted(on: boolean): void {
     this.painted = on;
-    const C = VISUAL_CONFIG.cameraControl;
-    this.zoom = on ? C.painted.zoomStart : THREE.MathUtils.clamp(this.zoom, C.zoomMin, C.zoomMax);
+    const lim = this.zoomLimits();
+    this.zoom = on ? VISUAL_CONFIG.cameraControl.painted.zoomStart : THREE.MathUtils.clamp(this.zoom, lim.zoomMin, lim.zoomMax);
     this.applyFog();
     this.clampFocus();
   }

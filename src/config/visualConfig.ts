@@ -89,10 +89,12 @@ export const VISUAL_CONFIG = {
     panSpeed: 16, // tiles/s com teclado
     edgePan: 0, // px da borda para arrastar a câmera com o mouse (0 = desligado)
     zoomMin: 0.62,
-    /** Limite de afastamento da câmera (zoom alto = mais longe: a câmera fica em foco + offset × zoom). Antes 1.9: longe demais para ler o campo. */
-    zoomMax: 1.5,
+    /** Limite de afastamento da câmera na campanha (zoom alto = mais longe: a câmera fica em foco + offset × zoom). */
+    zoomMax: 1.9,
+    /** Último Bastião: limite de afastamento próprio (o campo de defesa fica mais perto). Só o máximo muda. */
+    bastion: { zoomMax: 1.5 },
     /** Mapas pintados (arte do dono): sem névoa, zoom maior e a câmera presa dentro da pintura. */
-    painted: { zoomStart: 1.3, zoomMin: 0.7, zoomMax: 1.5 },
+    painted: { zoomStart: 1.3, zoomMin: 0.7, zoomMax: 1.75 },
     zoomStep: 0.1,
     follow: 2.4, // suavização do seguir
     manualHold: 1.5, // s sem seguir depois que o jogador mexe na câmera

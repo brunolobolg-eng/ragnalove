@@ -488,6 +488,7 @@ const bastionSession = new BastionSession({
   },
   enterBattle: () => setMode('battle'),
   focusParty: () => focusParty(true),
+  setZoomProfile: (p) => stage.setZoomProfile(p),
   closeMenu: () => menu.close(),
   openMenu: () => menu.open(),
   setStructures: (f) => {

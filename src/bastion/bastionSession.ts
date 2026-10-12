@@ -57,6 +57,8 @@ export interface BastionDeps {
   setRun(r: RunState): void;
   profile(): Profile;
   setProfile(p: Profile): void;
+  /** Limite de zoom da câmera: o Bastião tem o próprio; ao sair, a campanha volta ao dela. */
+  setZoomProfile(p: 'campaign' | 'bastion'): void;
   sim(): Simulation;
   /** Carrega o mapa do Bastião com a semente da próxima noite e a horda dela (tropa e chefe, se houver). */
   loadMap(seed: number, wave: WaveOptions): void;
@@ -308,6 +310,7 @@ export class BastionSession {
     this.d.setOverlay(undefined);
     this.d.setRun(this.ctx.run);
     this.d.setProfile(this.ctx.profile);
+    this.d.setZoomProfile('campaign');
     this.ctx = undefined;
     this.kind = undefined;
     this.selected = undefined;
@@ -359,6 +362,7 @@ export class BastionSession {
     r.usedObjects = [];
     this.d.setRun(r);
     this.d.setProfile(b.profile);
+    this.d.setZoomProfile('bastion');
   }
 
   /** Depois de qualquer ação: grava, recria o planejamento (se estiver nele) e atualiza as telas abertas. */
