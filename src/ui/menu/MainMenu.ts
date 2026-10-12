@@ -19,13 +19,15 @@ export interface MenuState {
 
 export interface MainMenuHooks {
   onStart(): void;
+  /** Montar Defesa: o modo do Último Bastião (cidade persistente). */
+  onBastion(): void;
   onOptions(panel: 'audio' | 'video'): void;
   onCloseOptions(): void;
   onUi(): void;
   state(): MenuState;
 }
 
-const LABEL: Record<keyof typeof M.buttons, string> = { start: 'Começar jornada', options: 'Opções', info: 'Info', donate: 'Donate' };
+const LABEL: Record<keyof typeof M.buttons, string> = { start: 'Começar jornada', bastion: 'Montar defesa', info: 'Info', donate: 'Donate' };
 
 export class MainMenu {
   private readonly el: HTMLElement;
@@ -49,6 +51,7 @@ export class MainMenu {
       b.className = `mm-hot mm-hot-${id}`;
       b.dataset.id = id;
       b.setAttribute('aria-label', LABEL[id]);
+      if (id === 'bastion' && M.desenhaRotulos) b.insertAdjacentHTML('beforeend', '<span class="mm-hot-label">MONTAR DEFESA</span>');
       left.appendChild(b);
       return b;
     });
@@ -62,6 +65,18 @@ export class MainMenu {
       `<section class="mm-card" hidden role="dialog"></section>
       <footer class="mm-foot">${M.version} · jogo offline · salvamento automático</footer>`,
     );
+    // engrenagem discreta no canto: abre as Opções (áudio e vídeo); fora da navegação por teclado dos botões
+    const gear = document.createElement('button');
+    gear.className = 'mm-gear';
+    gear.type = 'button';
+    gear.title = 'Opções';
+    gear.setAttribute('aria-label', 'Opções');
+    gear.innerHTML = `<img src="${new URL('ui/kit/ico_gear.webp', document.baseURI).href}" alt="" draggable="false">`;
+    gear.addEventListener('click', () => {
+      this.hooks.onUi();
+      this.openCard('options');
+    });
+    this.el.appendChild(gear);
     this.nav = new MainMenuNavigation(buttons, (id) => this.activate(id), () => this.hooks.onUi());
     this.el.querySelector('.mm-card')!.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-card]');
@@ -118,7 +133,8 @@ export class MainMenu {
     if (id === 'start') {
       this.close();
       this.hooks.onStart();
-    } else this.openCard(id);
+    } else if (id === 'bastion') this.hooks.onBastion();
+    else this.openCard(id);
   }
 
   // ---------------------------------------------------------------- cartões (Opções / Info / Donate)

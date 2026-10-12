@@ -387,10 +387,15 @@ export const MENU_VISUAL = {
   /** Áreas clicáveis sobre os botões desenhados na arte. */
   buttons: {
     start: [41, 403, 350, 90],
-    options: [41, 507, 350, 63],
+    bastion: [41, 507, 350, 63],
     info: [41, 583, 350, 64],
     donate: [41, 660, 350, 64],
-  } as Record<'start' | 'options' | 'info' | 'donate', [number, number, number, number]>,
+  } as Record<'start' | 'bastion' | 'info' | 'donate', [number, number, number, number]>,
+  /**
+   * A arte atual não tem o botão Montar Defesa: o rótulo é desenhado por cima do botão de Opções pintado.
+   * Com a arte nova (que já traz o botão), desligar.
+   */
+  desenhaRotulos: true,
   /** Linha "jornada em andamento" logo abaixo do botão Donate. */
   continueLabel: [41, 736, 350, 26] as [number, number, number, number],
   /** Valores do Ranking (cobrem os "???" da arte quando o recorde existe): borda direita e centro vertical de cada linha. */
