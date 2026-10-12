@@ -351,7 +351,7 @@ check('destruída continua com vida 0 ao fim da onda', D.sim.fortificationStates
 console.log('\n# 8) Cartas compartilhadas com a campanha');
 const cartas = emptyCollection();
 addCards(cartas, ['high_orc', 'high_orc', 'requiem']);
-const equipou = equipCard(cartas, 'warrior', 'high_orc', 3);
+const equipou = equipCard(cartas, 'warrior', 'high_orc', 1, 3);
 const regrasGuerreiro = cardRuntimeFor('warrior', cartas);
 check('carta equipada no guerreiro gera regras de batalha', equipou === undefined && regrasGuerreiro.length >= 1, `${regrasGuerreiro.length} regra(s)`);
 const comCartas = newBastion(7, cartas);
@@ -365,7 +365,7 @@ const antesDaDerrota = JSON.stringify(cartas);
 const derrota: NightOutcome = { victory: false, coreHp: 900, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } };
 applyNight(comCartas, derrota, 'night:1:1', cartas);
 check('a derrota no Bastião não mexe na coleção compartilhada', JSON.stringify(cartas) === antesDaDerrota);
-equipCard(cartas, 'mage', 'high_orc', 3);
+equipCard(cartas, 'mage', 'high_orc', 1, 3);
 check('equipar no meio da tentativa não muda o Bastião (vale na próxima)', (comCartas.profile.heroes.mage.cards?.length ?? 0) === 0);
 const nova = startAttempt(comCartas, cartas);
 check('a próxima tentativa copia a coleção nova para o mago', nova.ok && (comCartas.profile.heroes.mage.cards?.length ?? 0) === cardRuntimeFor('mage', cartas).length && comCartas.attempt === 2);
@@ -405,7 +405,7 @@ check('party vazia: recusada', errOf(setParty(bh, [])) === 'partySize');
 check('party com 7 heróis: recusada', errOf(setParty(bh, ['warrior', 'mage', 'archer', 'sorcerer', 'warlock', 'assassin', 'warrior'])) === 'partySize');
 
 const ondaVencida = (): NightOutcome => ({ victory: true, coreHp: 1000, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } });
-const totalCartas = (c: CardCollection) => Object.values(c.owned).reduce((soma, n) => soma + n, 0);
+const totalCartas = (c: CardCollection) => Object.values(c.owned).reduce((soma, n) => soma + n.reduce((s, x) => s + x, 0), 0);
 const bpk = newBastion(7, emptyCollection());
 bpk.nights = 98;
 bpk.records.totalNights = 98;
@@ -680,7 +680,7 @@ const semNada = (): NightOutcome => ({ victory: false, coreHp: 0, structures: []
 const vitoria = (): NightOutcome => ({ victory: true, coreHp: BASTION.coreMaxHp, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } });
 const cartasR = emptyCollection();
 addCards(cartasR, ['high_orc', 'high_orc', 'requiem']);
-equipCard(cartasR, 'warrior', 'high_orc', 3);
+equipCard(cartasR, 'warrior', 'high_orc', 1, 3);
 const antesCartas = JSON.stringify(cartasR);
 const rec = newBastion(7, cartasR, ['warrior', 'archer']);
 rec.profile.zeni = 5000;

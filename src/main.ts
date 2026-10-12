@@ -41,7 +41,7 @@ import { CHARSELECT_ART, MUSIC, POSTFX, VICTORY_TITLES, VISUAL_CONFIG } from './
 import type { PostFxSituation } from './render/fx/kit/PostFX';
 import type { WaveReport } from './core/sim/types';
 import { RUNIC_SKILLS, SKILL_BY_ID, SKILL_NUM, SKILLS, lvOf, type HeroKind, type SkillId } from './core/progression/skills';
-import { CARD_CATALOG, addCards, applyCardLoadout, emptyCollection, migrateCollection, rollPack, type CardCollection } from './core/progression/cards';
+import { CARD_CATALOG, addCards, applyCardLoadout, emptyCollection, equipCard, migrateCollection, rollPack, type CardCollection } from './core/progression/cards';
 import { CardPack } from './ui/CardPack';
 import { Collection } from './ui/Collection';
 import { orderMove } from './core/sim/CombatMovement';
@@ -999,7 +999,7 @@ function completeNode(outcome: string): void {
     // pacote de 5 cartas (só vitória): entra na coleção permanente na hora; a revelação vem antes do placar
     const meta = loadMetaStats();
     meta.collection ??= emptyCollection();
-    const pack = rollPack();
+    const pack = rollPack(Math.random); // sorteio da interface; a regra (5 cartas, catálogo) é do core
     addCards(meta.collection, pack);
     saveMetaStats(meta);
     saveProfile();
@@ -2420,14 +2420,16 @@ if (import.meta.env.DEV) {
     },
     // prévias de tela (só dev): roleta de prêmio com um item lendário e o pacote de cartas (ids opcionais)
     rouletteDemo: () => { void roulette.spin('Recompensa da primeira vitória', 'Demonstração da roleta', rollItem(debugRng, 0, `demo-roleta-${debugRng.int(1e9)}`, { rarity: 'legendary', slot: 'weapon' }), () => 'weapon'); },
-    cardPackDemo: (ids?: string[]) => cardPack.show(ids ?? rollPack(), () => {}),
+    cardPackDemo: (ids?: string[]) => cardPack.show(ids ?? rollPack(Math.random), () => {}),
+    // coleção de exemplo: cópias em vários níveis (para ver seletor de nível, fusão e desbloqueio)
     collectionDemo: () => {
       const c = emptyCollection();
       CARD_CATALOG.forEach((d, i) => {
-        if (i % 4 !== 3) c.owned[d.id] = 1 + (i % 5 === 0 ? 2 : 0);
+        if (i % 4 !== 3) c.owned[d.id] = [1 + (i % 5 === 0 ? 2 : 0), i % 3 === 0 ? 1 : 0, i % 7 === 0 ? 2 : 0, 0, i % 11 === 0 ? 1 : 0];
       });
-      c.equipped.warrior = CARD_CATALOG.filter((d) => d.vocation.hero === 'warrior').slice(0, 3).map((d) => d.id);
-      c.equipped.mage = [CARD_CATALOG[0].id];
+      const pegas = CARD_CATALOG.filter((d) => c.owned[d.id]).slice(0, 3);
+      pegas.forEach((d) => equipCard(c, 'warrior', d.id, 1, 6));
+      if (pegas[0]) equipCard(c, 'mage', pegas[0].id, 1, 6);
       collection.open(c, 6, 'warrior');
     },
   }; // inspeção no console (dev)

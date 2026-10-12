@@ -14,8 +14,8 @@ import { Rng } from './rng';
 import type { AreaEffect, CombatMoveStats, DamageSource, FrostMist, MapObject, Sanctuary, SimEvent, SimPhase, Trap, TrapKind, Unit, WaveReport } from './types';
 import { SKILL_NUM, lvOf, startingSkills, type HeroKind } from '../progression/skills';
 import { lockedSkillKeys } from '../progression/skillSlots';
-import type { CardRuntime } from '../progression/cards';
-import { cardTrigger } from './cardRules';
+import type { CardRuntime, CardStat } from '../progression/cards';
+import { applyStatDelta, cardDealMult, cardStatDelta, cardTakenMult, cardTrigger } from './cardRules';
 import { neutralMods, testRangeMult, type SimMods } from './RangeSystem';
 import { updateCombatMovement } from './CombatMovement';
 
@@ -107,6 +107,8 @@ const MIST_MAX_PER_OWNER = 2;
 const CONTINUOUS = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'combust', 'curse', 'frost']);
 /** Fontes que não contam como golpe do herói para as cartas (dano de carta, reflexo, armadilha, torre, debug, contínuo). */
 const CARD_EXCLUDED = new Set<DamageSource>([...CONTINUOUS, 'card', 'reflect', 'trap', 'tower', 'debug']);
+/** Dano que não recebe o modDano 'causa' do herói: dano de carta (já herda o do golpe) e reflexo (volta do que sofreu). */
+const CARD_NO_MOD = new Set<DamageSource>(['card', 'reflect', 'debug']);
 
 export interface HeroLoadout {
   stats: HeroStats;
@@ -619,6 +621,12 @@ export class Simulation {
       this.emit({ type: 'avoid', unitId: u.id, how: 'cage' });
       return;
     }
+    // Cartas (modDano 'recebe'): o herói sofre mais ou menos dano de um grupo de inimigos
+    if (u.team === 'party' && sourceId !== undefined) {
+      const inimigo = this.units.get(sourceId);
+      const m = inimigo?.team === 'enemy' ? cardTakenMult(u, inimigo, source) : 1;
+      if (m !== 1) amount *= m;
+    }
     if (u.team === 'party' && u.stats) amount = Math.max(1, Math.round(amount * u.stats.damageTakenMult * 10) / 10);
     // Tempestade de areia: o vento desvia parte dos projéteis
     if (PROJECTILES.has(source) && this.stormActive && this.combatRng.next() < GAME_CONFIG.biome.sandstorm.deflectChance) {
@@ -673,6 +681,12 @@ export class Simulation {
         amount *= a.stats.critDamage ?? GAME_CONFIG.crit.baseDamage;
         crit = true;
       }
+    }
+    // Cartas (modDano 'causa'): o herói causa mais ou menos dano a cada grupo de inimigos
+    if (u.team === 'enemy' && sourceId !== undefined && !CARD_NO_MOD.has(source)) {
+      const a = this.units.get(sourceId);
+      const m = a?.team === 'party' ? cardDealMult(a, u, source) : 1;
+      if (m !== 1) amount *= m;
     }
     // Dano infinito (Dev Lab): qualquer golpe da party mata
     if (this.cheats.oneHit && u.team === 'enemy' && sourceId !== undefined && this.units.get(sourceId)?.team === 'party') amount = u.hp;
@@ -741,6 +755,27 @@ export class Simulation {
     if (this.combatRng.next() < n.soulChance) {
       w.souls++;
       this.souls++;
+    }
+  }
+
+  /** Carta de atributo/derivado no começo da batalha: soma o que o equipamento daria (regra em cardRules). */
+  boostStat(u: Unit, stat: CardStat, value: number): void {
+    if (!u.stats || u.team !== 'party') return;
+    const manaAntes = u.stats.mana;
+    const d = cardStatDelta(u.kind, u.stats, stat, value);
+    u.stats = applyStatDelta(u.stats, d);
+    const dVida = d.nums.maxHp ?? 0;
+    if (dVida !== 0) {
+      u.maxHp += dVida;
+      u.hp = Math.max(1, Math.min(u.maxHp, u.hp + dVida));
+    }
+    // Mana nova (carta) abre slots de habilidade: sai da trava só o que a ordem automática libera com a Mana nova
+    // (a escolha manual do jogador não chega à batalha; a trava de início já veio dela).
+    if (u.locked && u.stats.mana !== manaAntes) {
+      const classe = u.kind as HeroKind;
+      const habilidades = { ...startingSkills(classe), ...u.stats.skills };
+      const abertas = lockedSkillKeys(classe, habilidades, manaAntes).filter((k) => !lockedSkillKeys(classe, habilidades, u.stats!.mana).includes(k));
+      u.locked = u.locked.filter((k) => !abertas.includes(k));
     }
   }
 

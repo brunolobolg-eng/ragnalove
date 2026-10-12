@@ -854,6 +854,27 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 - **Testes:** `tsc`, `build`, `bastion:check`, `bastion:path` (seções 7 e 8 novas) e `vocation:check` passam. `sim:check`: só a linha bastionKeep mudou (abatidos 25 → 28, invasões 35 → 32), as outras idênticas. Navegador: sem erro de console.
 - **Pendências:** confirmar com o dono se as rochas ficaram bem vistas de perto na faixa; peça de muralha de um tile da arte do dono; ver se o layout real dele tem um terceiro bloco (fechar o portão exige 3 muralhas, porque os tiles x=22 não são construíveis).
 
+## 2026-10-12 — cartas com tier por fusão (escada 5-2-2-2), bônus por nível e habilidade no nível 5 (v0.11, em andamento)
+- **Pedido do dono:** raridade passa a ser tier da carta. Cinco cópias viram a carta "+" (Fabre → Fabre+). No nível 5 a carta libera uma habilidade própria. Bônus refeitos com base na tabela dele (Carta / Onde vai / Efeito), adaptando o que não existe no jogo.
+- **Decisões do dono:** "Onde vai" é só categoria do bônus (as cartas continuam nos slots do herói). Escada de fusão 5-2-2-2: 5 cópias do nível 1 viram nível 2; depois 2 cópias por nível (nível 5 = 40 cópias base).
+- **Como ficou:**
+  - Catálogo: 102 cartas (`normaisA.ts`, `normaisB.ts`, `especiais.ts`). Cada carta tem categoria (ofensiva, defensiva, sustentação, utilidade, mobilidade), bônus do nível 1 escalado por nível (1 · 1,25 · 1,5 · 1,75 · 2) e habilidade do nível 5 (sem escala).
+  - Fusão por carta e nível (`fuseCard`); equipar guarda carta e nível; cópia equipada não conta como livre.
+  - Pacote: 5 cartas sorteadas de forma uniforme do catálogo (raridade saiu).
+  - Motor: novos efeitos `stat` (atributo ou derivado no começo da batalha), `modDano` (dano causado ou recebido por grupo de inimigo e fonte) e `respingo` (dano em área no acerto). Piso de 25% no multiplicador de `modDano`, para várias cópias não zerarem nem inverterem o dano.
+  - Save: coleção migrada (posse numérica vira nível 1; equipadas em texto viram {id, nível 1}); 10 ids `_2` antigos viram a carta base (`CARD_ID_ALIAS`).
+  - Interface: álbum com sufixo de nível, categoria, cópias por nível e botão "Fundir 5 → +"; pacote sem selos de raridade.
+- **Testes:** `tsc`, `build`, `cardCheck` (63 ok), `cardRuleCheck` (29 ok, inclui o piso), `bastion:check`, `bastion:path`, `vocation:check` passam. `sim:check`: a diferença do bastionKeep é a do mapa de rochas (commit b47efdc), não das cartas. Navegador: álbum e pacote sem erro de console.
+- **Decisões para confirmar:**
+  1. Pacote: 5 cartas uniformes do catálogo (as antigas chances de mini-chefe e MVP saíram). Quer raridade de volta em algum lugar?
+  2. Habilidade do nível 5 não escala (os números já são os finais).
+  3. Aproximações de família: o motor não tem família por monstro. Inseto → comuns; humanoide → chefes e minis goblin/orc; animal → chefe rato e dino; demônio → chefe orc; morto-vivo e fantasma → necromante. A aproximação de inseto (BIGFOOT, CARAMEL) é a de maior impacto no balanço.
+  4. Estados que o jogo não tem (sono, cegueira, atordoar, caos, petrificar, ressurreição, imunidades) viraram efeitos reais parecidos. Ex.: OSIRIS virou cura de 20% uma vez por batalha.
+  5. Atributos: AGI = Destreza e ASPD = Skill Haste (o jogo não tem esses nomes).
+  6. Classificação Fiel/Adaptado/Novo: só 4 cartas são fiéis à tabela, 27 adaptadas, 71 com efeito novo.
+- **Não verificado:** combate real com cartas no navegador (respingo, modDano, gatilhos na tela); carregar um save real do HEAD pela interface (a migração foi testada só no cardCheck); largura de celular e executável.
+- **Commit:** (ver o commit desta entrada).
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

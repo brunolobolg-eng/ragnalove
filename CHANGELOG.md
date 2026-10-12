@@ -3,6 +3,10 @@
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
 ## 2026-10-12 — v0.11 (em andamento)
+- Cartas: raridade virou tier. Cinco cópias da mesma carta viram a versão "+" (escada 5-2-2-2 até o nível 5). Cada nível escala o bônus, e o nível 5 libera uma habilidade própria.
+- Cartas: 102 cartas com categoria (ofensiva, defensiva, sustentação, utilidade, mobilidade) e bônus refeitos com base na tabela de referência, adaptados aos efeitos que o jogo tem.
+- Cartas: novos efeitos na batalha: atributo de carta, dano por grupo de inimigo e respingo em área.
+- Pacote de cartas: 5 cartas sorteadas do catálogo inteiro (sem raridade).
 - Derrota no Último Bastião zera a cidade, as noites (a horda volta à noite 1) e os heróis. Recomeçar do zero mantém recordes, o total de vitórias (pacotes e slots) e a coleção de cartas. A derrota não avança o turno.
 - Campanha volta a ter o zoom de antes; o Último Bastião tem limite próprio, mais perto.
 - Esc fecha todas as janelas abertas de uma vez.
