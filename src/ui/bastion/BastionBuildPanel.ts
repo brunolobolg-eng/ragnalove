@@ -1,5 +1,5 @@
 import './bastion.css';
-import type { BastionBuildHooks, BastionBuildVM, BastionMoveWhy, BastionPaletteRow, BastionStructureRow } from './bastionVM';
+import { repairVerb, type BastionBuildHooks, type BastionBuildVM, type BastionMoveWhy, type BastionPaletteRow, type BastionStructureRow } from './bastionVM';
 
 const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (s: string | number): string => String(s).replace(/[&<>"']/g, (c) => ESC[c] ?? c);
@@ -7,12 +7,12 @@ const fmt = (n: number): string => n.toLocaleString('pt-BR');
 const frac = (v: number, max: number): number => (max > 0 ? Math.min(1, Math.max(0, v / max)) : 0);
 const STATUS: Record<BastionStructureRow['status'], string> = { intact: 'Inteira', damaged: 'Danificada', destroyed: 'Destruída' };
 const HINT = 'Escolha uma construção e leve o mouse ao campo: a prévia mostra onde ela fica e se dá. Muralhas vão a qualquer lugar; torres só nos lotes azuis.';
-const MOVING = 'Movendo: leve o mouse ao campo e clique numa casa livre. Clique na própria muralha ou pressione Esc para cancelar.';
+const MOVING = 'Movendo: leve o mouse ao campo e clique numa casa livre. Clique na própria muralha ou Esc cancela o movimento.';
 /** Por que a construção pode (ou não) ser movida. A regra é isMovable (core); aqui só o texto. */
 const MOVE_WHY: Record<BastionMoveWhy, string> = {
   recent: 'Recente: pode mover até a próxima noite',
   old: 'Construída em noite anterior: já não se move',
-  destroyed: 'Destruída: reconstrua antes de mover',
+  destroyed: 'Destruída: clique em Reconstruir antes de mover',
   fixed: 'Torres não se movem',
 };
 const zenLabel = (verb: string, cost: number, none: string): string => `${verb} · ${cost > 0 ? `${fmt(cost)} Zen` : none}`;
@@ -99,7 +99,7 @@ export class BastionBuildPanel {
         <div class="au-bar sm hp" role="meter" aria-label="Vida da construção" aria-valuemin="0" aria-valuemax="${s.maxHp}" aria-valuenow="${s.hp}" style="--p:${frac(s.hp, s.maxHp)}"><i></i></div>
         <p class="bs-sub">Investido: ${fmt(s.invested)} Zen</p>
         <div class="bs-acts">
-          <button class="au-btn" data-act="repair" data-id="${s.id}"${s.repairCost > 0 && zeni >= s.repairCost ? '' : ' disabled'}>${zenLabel('Reparar', s.repairCost, 'inteira')}</button>
+          <button class="au-btn" data-act="repair" data-id="${s.id}"${s.repairCost > 0 && zeni >= s.repairCost ? '' : ' disabled'}>${zenLabel(repairVerb(s.status), s.repairCost, 'inteira')}</button>
           <button class="au-btn" data-act="upgrade" data-id="${s.id}"${up !== undefined && zeni >= up ? '' : ' disabled'}>${upText}</button>
           <div class="bs-move">
             <button class="au-btn${s.moving ? ' gold' : ''}" data-act="move" data-id="${s.id}"${s.movable || s.moving ? '' : ' disabled'}>${s.moving ? 'Cancelar movimento' : 'Mover'}</button>

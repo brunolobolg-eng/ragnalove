@@ -132,11 +132,11 @@ export interface BastionHordeDef {
   count: number;
   /** Mistura da tropa comum (pesos somam 100). Mini-chefes e MVPs entram por cima, pelo mecanismo de chefe da onda. */
   regular: WaveMix[];
-  /** Mini-chefe a cada N noites (as noites de MVP são puladas). */
+  /** Mini-chefe a cada N noites (as noites de MVP são puladas). Exige mvpEvery múltiplo deste (checado em scripts/bastionCheck.ts). */
   miniEvery: number;
   /** MVP a cada N noites. */
   mvpEvery: number;
-  /** Ciclo dos mini-chefes, em ordem: noite de mini (n / miniEvery − 1) mod tamanho do ciclo. */
+  /** Ciclo dos mini-chefes, em ordem: a k-ésima noite de mini-chefe (as de MVP não contam) pega minis[(k − 1) mod tamanho do ciclo]. */
   minis: string[];
   /** Ciclo dos MVPs, em ordem: noite de MVP (n / mvpEvery − 1) mod tamanho do ciclo. */
   mvps: string[];

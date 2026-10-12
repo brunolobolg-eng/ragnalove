@@ -24,6 +24,9 @@ export interface BastionStructureRow {
   refund: number;
 }
 
+/** Texto do botão de conserto: Reconstruir (destruída) ou Reparar (danificada). Mesmo nome em todas as telas. */
+export const repairVerb = (status: BastionStructureRow['status']): string => (status === 'destroyed' ? 'Reconstruir' : 'Reparar');
+
 export interface BastionProjectRow {
   id: string;
   name: string;

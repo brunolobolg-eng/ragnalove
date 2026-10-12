@@ -340,6 +340,8 @@ const barrierIndex = (t: Tool) => (t === 'barrier' ? 0 : t === 'barrier2' ? 1 : 
 /** Estado da run que a onda precisa: vida da cidade e objetos já acionados nesta fase. */
 /** Construções do Último Bastião que a batalha recebe (undefined fora do modo). */
 let bastionFort: Fortification[] | undefined;
+/** Há construção do Último Bastião (de pé ou destruída) neste tile? Herói não entra nem fica em cima dela. */
+const structureAt = (x: number, y: number): boolean => bastionFort?.some((f) => f.x === x && f.y === y) ?? false;
 function simOpts() {
   return { cityHp: run.cityHp, cityMaxHp: run.cityMaxHp, usedObjects: run.usedObjects ?? [], fortifications: bastionFort };
 }
@@ -501,7 +503,8 @@ const bastionSession = new BastionSession({
     m.collection = c;
     saveMetaStats(m);
   },
-  openCollection: (nights) => openCollection(nights),
+  openCollection: (nights, back) => openCollection(nights, back),
+  isCollectionOpen: () => collection.visible,
   log: (text, kind) => hud.log(text, kind),
 });
 let mode: Mode = 'menu';
@@ -564,10 +567,11 @@ const collection = new Collection({
   onUi: ui,
 });
 const cardPack = new CardPack((n) => audio.sfx(n));
-function openCollection(bastionNights = 0): void {
+/** `onClose` (só do Bastião) roda quando o jogador fecha a coleção com × ou Esc: o menu do modo reabre. */
+function openCollection(bastionNights = 0, onClose?: () => void): void {
   const meta = loadMetaStats();
   openCardsRef = meta.collection ?? emptyCollection();
-  collection.open(openCardsRef, meta.runsWon, undefined, bastionNights);
+  collection.open(openCardsRef, meta.runsWon, undefined, bastionNights, onClose);
 }
 const charSelect = new CharSelect(
   () => {
@@ -796,7 +800,10 @@ function tickAutoStart(dt: number, paused: boolean): void {
  * Fechar o jogo ou voltar ao menu no meio não descarta mais a onda: ela recomeça igual (resumeBattle).
  */
 function startHorde(): void {
-  if (bastionSession.active) return bastionSession.startNight();
+  if (bastionSession.active) {
+    if (!collection.visible) bastionSession.startNight(); // com a coleção aberta, o Espaço não começa a noite
+    return;
+  }
   if (sim.phase !== 'setup') return;
   autoStartLeft = 0;
   // na Arena de Skills não há selo nem save de batalha (teste isolado, sem resume)
@@ -958,7 +965,7 @@ function withPartyMembers(s: PartySetup, zone: ZoneDef): PartySetup {
 function withMember(s: PartySetup, zone: ZoneDef, kind: HeroKind): PartySetup {
   if (s.members.some((m) => m.archetype === kind)) return s;
   const pz = parseZone(zone);
-  const free = (x: number, y: number) => pz.floor.some((f) => f.x === x && f.y === y) && !s.members.some((m) => m.x === x && m.y === y);
+  const free = (x: number, y: number) => pz.floor.some((f) => f.x === x && f.y === y) && !s.members.some((m) => m.x === x && m.y === y) && !structureAt(x, y);
   const m = s.members.find((mm) => mm.archetype === 'mage') ?? s.members[0];
   const tries: [number, number][] = [[2, 0], [-2, 0], [2, 1], [-2, 1], [1, 1], [-1, 1], [3, 0], [-3, 0], [0, 1], [0, -1]];
   for (const [dx, dy] of tries)
@@ -1852,6 +1859,7 @@ window.addEventListener('keydown', (e) => {
 
 function canPlaceMember(kind: Tool, t: Vec2): boolean {
   if (!sim.board.isWalkable(t.x, t.y) || sim.board.isCity(t.x, t.y)) return false;
+  if (structureAt(t.x, t.y)) return false; // herói não entra em cima de construção do Bastião (de pé ou destruída)
   // longe dos portais de spawn (a horda precisa de onde nascer)
   const R = GAME_CONFIG.wave.spawnSafeRadius;
   if (GAME_CONFIG.wave.spawnPoints.some((p) => Math.max(Math.abs(p.x - t.x), Math.abs(p.y - t.y)) <= R)) return false;

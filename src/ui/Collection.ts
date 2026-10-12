@@ -60,6 +60,8 @@ export class Collection {
   private cards: CardCollection = { owned: {}, equipped: {} };
   private runsWon = 0;
   private bastionNights = 0;
+  /** Retorno de quem abriu (ex.: o Bastião reabre o menu). Só roda no fechamento pelo jogador (× ou Esc). */
+  private onClose?: () => void;
   private hero: HeroKind = 'warrior';
   private msg = '';
   private filter: Filtro = 'all';
@@ -84,21 +86,40 @@ export class Collection {
     this.el.addEventListener('change', (e) => this.onSort(e));
     this.el.addEventListener('mouseover', (e) => this.onHover(e));
     this.el.addEventListener('mouseout', (e) => this.onLeaveGrid(e));
+    window.addEventListener('keydown', this.onKey, true);
   }
 
-  open(cards: CardCollection, runsWon: number, hero?: HeroKind, bastionNights = 0): void {
+  /** Esc fecha a coleção (fase de captura: o Esc do resto do jogo não recebe a tecla enquanto ela está aberta). */
+  private readonly onKey = (e: KeyboardEvent): void => {
+    if (this.el.hidden || e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.dismiss();
+  };
+
+  open(cards: CardCollection, runsWon: number, hero?: HeroKind, bastionNights = 0, onClose?: () => void): void {
     this.cards = cards;
     this.runsWon = runsWon;
     this.bastionNights = bastionNights;
     if (hero) this.hero = hero;
     this.msg = '';
     this.hover = undefined;
+    this.onClose = onClose;
     this.el.hidden = false;
     this.render();
   }
 
+  /** Fecha sem avisar ninguém (chamado pelo próprio jogo ao trocar de tela). */
   hide(): void {
     this.el.hidden = true;
+    this.onClose = undefined;
+  }
+
+  /** Fechamento pelo jogador (× ou Esc): fecha e chama o retorno de quem abriu. */
+  private dismiss(): void {
+    const volta = this.onClose;
+    this.hide();
+    volta?.();
   }
 
   get visible(): boolean {
@@ -111,7 +132,7 @@ export class Collection {
     this.cb.onUi();
     this.hover = undefined; // o painel passa a mostrar a carta escolhida, não a que estava sob o mouse antes do clique
     const c = b.dataset.c!;
-    if (c === 'close') return this.hide();
+    if (c === 'close') return this.dismiss();
     if (c === 'hero') {
       this.hero = b.dataset.h as HeroKind;
       this.page = 0;

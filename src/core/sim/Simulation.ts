@@ -204,6 +204,8 @@ export class Simulation {
   private readonly partyFlowOpen: FlowField;
   /** Há estrutura da cidade de pé nesta onda? Sem ela, cada passo segue o caminho de antes (sem variantes). */
   private openOn = false;
+  /** Campo aberto a partir do tile de cada herói (alvo de foco/provocação), reaproveitado enquanto herói e grade não mudam. */
+  private readonly openTargetFlow = new Map<number, { idx: number; version: number; field: FlowField }>();
 
   // ---- tempestade de areia ----
   private stormUntil = 0;
@@ -521,6 +523,8 @@ export class Simulation {
       if (!h.alive) continue;
       const d = Math.hypot(u.x - h.x, u.y - h.y);
       if (d > range || d > bestD || (d === bestD && best && h.id > best.id)) continue;
+      // Bastião: herói sem caminho aberto até o monstro não é travado (o monstro segue para a cidade)
+      if (this.openOn && this.openFieldOf(h).at(u.x, u.y) >= FlowField.INF) continue;
       best = h;
       bestD = d;
     }
@@ -986,6 +990,25 @@ export class Simulation {
   /** Passagem do campo aberto dos pesados: a de `passCost`, mas a estrutura da cidade de pé é intransponível. */
   private openPassCost(x: number, y: number): number {
     return this.bastionStandingAt(x, y) ? -1 : this.passCost(x, y);
+  }
+
+  /**
+   * Campo aberto a partir do tile de um herói: onde o campo dá INF, o monstro não alcança o herói sem quebrar
+   * estrutura do Bastião. Recalcula só quando o herói muda de tile ou a grade muda.
+   */
+  private openFieldOf(h: Unit): FlowField {
+    const idx = this.board.idx(h.x, h.y);
+    let c = this.openTargetFlow.get(h.id);
+    if (!c) {
+      c = { idx: -1, version: -1, field: new FlowField(this.board) };
+      this.openTargetFlow.set(h.id, c);
+    }
+    if (c.idx !== idx || c.version !== this.board.version) {
+      c.field.compute([{ x: h.x, y: h.y }], GAME_CONFIG.pathing, (x, y) => this.openWallPass(x, y));
+      c.idx = idx;
+      c.version = this.board.version;
+    }
+    return c.field;
   }
 
   /** Alguma estrutura da cidade (desta onda) ainda está de pé? */
@@ -1739,7 +1762,12 @@ export class Simulation {
 
       // 1) Provocado: vai atrás de quem provocou e bate nele
       const taunter = this.tauntActive ? this.taunter(u) : undefined;
-      if (taunter) {
+      // Bastião: alvo (provocação ou foco) sem caminho aberto até o monstro = não age sobre ele neste tick;
+      // cai no caminho da cidade, onde a quebra de muralha acontece quando não há outro jeito
+      const stored = taunter ? undefined : this.focusTarget(u);
+      const target = taunter ?? stored;
+      const cut = this.openOn && target !== undefined && this.openFieldOf(target).at(u.x, u.y) >= FlowField.INF;
+      if (taunter && !cut) {
         if (chebyshev(u, taunter) === 1) {
           this.enemyAttack(u, taunter, g);
           continue;
@@ -1755,7 +1783,7 @@ export class Simulation {
       }
 
       // 1b) Foco de agressão: 60 ticks no mesmo alvo (sem trocar); expirou, adquire de novo
-      const focus = this.focusTarget(u) ?? (((this.tick + u.id) % GAME_CONFIG.focus.checkEveryTicks === 0) ? this.acquireFocus(u, party) : undefined);
+      const focus = cut ? undefined : (stored ?? (((this.tick + u.id) % GAME_CONFIG.focus.checkEveryTicks === 0) ? this.acquireFocus(u, party) : undefined));
       if (focus) {
         if (chebyshev(u, focus) === 1) {
           this.enemyAttack(u, focus, g);

@@ -5,11 +5,13 @@
  * 3) Bolsão fechado: o monstro preso dentro ataca a parede.
  * 4) Sem estrutura de pé: o mesmo resultado de antes (campanha intacta).
  * 5) Determinismo: a mesma montagem duas vezes dá o mesmo resultado.
- * 6) Custo: tempo por tick com e sem estruturas (só informa a razão).
+ * 6) Alvo sem caminho aberto: monstro travado num herói murado (anel e corredor) anda ou quebra a parede.
+ * 7) Custo: tempo por tick com e sem estruturas (só informa a razão).
  */
-import { DEFAULT_SETUP, applyZone } from '../src/config/gameConfig';
+import { DEFAULT_SETUP, applyZone, type PartySetup } from '../src/config/gameConfig';
 import { ZONES } from '../src/config/zones';
 import { Simulation, type Fortification } from '../src/core/sim/Simulation';
+import type { Unit } from '../src/core/sim/types';
 
 let failures = 0;
 const check = (label: string, cond: boolean, extra = '') => {
@@ -118,7 +120,80 @@ check('brecha: duas execuções idênticas', sameRun(A, fight(gap, 1500)));
 check('cerco: duas execuções idênticas', sameRun(B, fight(seal, 1500)));
 check('bolsão: duas execuções idênticas', sameRun(C, fight(ring, 400, (sim) => sim.spawnEnemyAt('grunt', 10, 33, 1e6))));
 
-console.log('\n# 6) Custo (informativo)');
+console.log('\n# 6) Alvo sem caminho aberto (regressão)');
+/** Herói que não sai do lugar, dentro de um anel de muralhas da cidade (os monstros têm vida de sobra, então ele só serve de alvo). */
+const ENCLOSED: PartySetup = { members: [{ archetype: 'warrior', x: 22, y: 12 }], barriers: [] };
+/** Quantos bonecos são criados e removidos antes do monstro: deslocam o id dele, e a checagem de foco (a cada 5 ticks, pelo id) cai no tick em que ele age. */
+const BURN_IDS = 3;
+
+/** Anel de 8 muralhas em volta de (cx, cy); ids a partir de `from`. */
+function ringAround(cx: number, cy: number, from: number): Fortification[] {
+  const out: Fortification[] = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) out.push({ id: from + out.length, kind: 'wall', x: cx + dx, y: cy + dy, hp: WALL_HP, maxHp: WALL_HP });
+  return out;
+}
+
+interface Chase {
+  /** Primeiro tick em que cada monstro anda ou bate numa estrutura (-1 = nunca). */
+  firstMove: number[];
+  steps: number[];
+  wallHits: number[];
+  /** Vezes em que um monstro travou o herói como foco. */
+  focusTakes: number;
+  /** Assinatura determinística (posições e vidas, tick a tick). */
+  sig: number;
+}
+
+/** Monstros de vida alta parados fora do herói murado: cada um anda, quebra ou trava o herói por até `ticks`. */
+function chase(enemies: { x: number; y: number }[], fort: Fortification[], ticks: number): Chase {
+  const sim = new Simulation(ENCLOSED, undefined, {}, { fortifications: fort });
+  sim.start();
+  const hero = [...sim.units.values()].find((u) => u.team === 'party');
+  if (!hero) throw new Error('herói da checagem não foi criado');
+  for (let k = 0; k < BURN_IDS; k++) {
+    const dummy = sim.spawnEnemyAt('grunt', enemies[0].x, enemies[0].y, 1e6);
+    if (dummy) sim.debugRemove(dummy.id);
+  }
+  const mons = enemies.map((e) => sim.spawnEnemyAt('grunt', e.x, e.y, 1e6)).filter((u): u is Unit => !!u);
+  const at = new Map(mons.map((m, i) => [m.id, i]));
+  const firstMove = mons.map(() => -1);
+  const steps = mons.map(() => 0);
+  const wallHits = mons.map(() => 0);
+  let focusTakes = 0;
+  let sig = 2166136261;
+  const mix = (h: number, n: number) => Math.imul(h ^ (n | 0), 16777619) >>> 0;
+  for (let i = 0; i < ticks && sim.phase === 'running' && mons.some((m) => m.alive); i++) {
+    for (const e of sim.step()) {
+      if (e.type === 'aggro' && e.targetId === hero.id && at.has(e.unitId)) focusTakes++;
+      if (e.type !== 'move' && !(e.type === 'melee' && e.targetId < 0)) continue;
+      const k = at.get(e.unitId);
+      if (k === undefined) continue;
+      if (firstMove[k] < 0) firstMove[k] = sim.tick;
+      if (e.type === 'move') steps[k]++;
+      else wallHits[k]++;
+    }
+    for (const u of sim.units.values()) if (u.alive && u.team === 'enemy') sig = mix(mix(mix(mix(sig, u.id), u.x), u.y), u.hp);
+  }
+  return { firstMove, steps, wallHits, focusTakes, sig };
+}
+
+// Anel: monstro de fora a 2 tiles do herói (dentro do alcance de foco do monstro comum, 3 tiles)
+const ringRun = () => chase([{ x: 24, y: 12 }], ringAround(22, 12, 60), 3000);
+const RING = ringRun();
+check('anel: o monstro anda ou quebra a muralha em até 600 ticks', RING.firstMove[0] > 0 && RING.firstMove[0] <= 600, RING.firstMove[0] > 0 ? `primeiro passo/golpe no tick ${RING.firstMove[0]}` : 'parado 3000 ticks: sem passo e sem golpe');
+check('anel: o herói sem caminho aberto não é retomado como foco', RING.focusTakes === 0, `${RING.focusTakes} retomadas`);
+// Corredor: 4 tiles entre muralhas, fechado no fim; três monstros em fila, o da frente já travado no herói
+const corridorWalls: Fortification[] = [24, 25, 26, 27].flatMap((x, i) => [
+  { id: 80 + i, kind: 'wall' as const, x, y: 11, hp: WALL_HP, maxHp: WALL_HP },
+  { id: 84 + i, kind: 'wall' as const, x, y: 13, hp: WALL_HP, maxHp: WALL_HP },
+]);
+corridorWalls.push({ id: 88, kind: 'wall', x: 28, y: 12, hp: WALL_HP, maxHp: WALL_HP });
+const CORR = chase([{ x: 24, y: 12 }, { x: 25, y: 12 }, { x: 26, y: 12 }], [...ringAround(22, 12, 70), ...corridorWalls], 3000);
+check('corredor fechado: cada monstro da fila anda ou quebra a parede em até 600 ticks', CORR.firstMove.every((t) => t > 0 && t <= 600), `primeiro passo/golpe nos ticks ${CORR.firstMove.join(', ')}`);
+const RING2 = ringRun();
+check('anel: duas execuções idênticas', RING2.sig === RING.sig && RING2.focusTakes === RING.focusTakes && RING2.steps[0] === RING.steps[0], `t1 ${RING.steps[0]} passos · t2 ${RING2.steps[0]} passos`);
+
+console.log('\n# 7) Custo (informativo)');
 /** Tempo médio por tick (mediana de 5 execuções, depois de um aquecimento). */
 function msPerTick(fort: Fortification[], ticks: number): number {
   const times: number[] = [];

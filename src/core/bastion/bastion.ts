@@ -111,9 +111,11 @@ export function migrateBastion(b: BastionState): BastionState {
   b.records.bestNights ??= 0;
   b.records.attempts ??= b.attempt;
   b.packsGiven = Number.isFinite(b.packsGiven) && b.packsGiven >= 0 ? b.packsGiven : 0;
-  // Save sem turno (antes do movimento de muralhas): começa no turno 0. Construção sem turno é "antiga": não se move.
-  b.turn = Number.isFinite(b.turn) && b.turn >= 0 ? b.turn : 0;
-  for (const s of b.structures) s.placedTurn = Number.isFinite(s.placedTurn) ? s.placedTurn : -1;
+  // Save sem turno (antes do movimento de muralhas): começa no turno 0. Turno é inteiro não negativo.
+  b.turn = Number.isInteger(b.turn) && b.turn >= 0 ? b.turn : 0;
+  // Construção sem turno é "antiga": placedTurn -1, que nunca bate com o turno, então não se move.
+  // Qualquer valor que não seja um turno inteiro (≥ 0) nem o -1 vira -1.
+  for (const s of b.structures) s.placedTurn = Number.isInteger(s.placedTurn) && s.placedTurn >= -1 ? s.placedTurn : -1;
   return b;
 }
 

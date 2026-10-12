@@ -1,5 +1,5 @@
 import './bastion.css';
-import type { BastionHeroRow, BastionHordeRow, BastionHubHooks, BastionHubVM, BastionStructureRow } from './bastionVM';
+import { repairVerb, type BastionHeroRow, type BastionHordeRow, type BastionHubHooks, type BastionHubVM, type BastionStructureRow } from './bastionVM';
 
 /** Tamanho da party (regra do core: de 1 a 6 heróis). A tela só desliga o toggle que a quebraria. */
 const PARTY_MAX = 6;
@@ -171,7 +171,7 @@ export class BastionHub {
           </div>
           <span class="au-price bs-st bs-st-${s.status}">${STATUS[s.status]}</span>
           <div class="bs-row-acts">
-            <button class="au-btn" data-act="repair" data-id="${s.id}"${s.repairCost > 0 && vm.zeni >= s.repairCost ? '' : ' disabled'}>${zenLabel('Reparar', s.repairCost, 'inteira')}</button>
+            <button class="au-btn" data-act="repair" data-id="${s.id}"${s.repairCost > 0 && vm.zeni >= s.repairCost ? '' : ' disabled'}>${zenLabel(repairVerb(s.status), s.repairCost, 'inteira')}</button>
             <button class="au-btn" data-act="upgrade" data-id="${s.id}"${s.upgradeCost !== undefined && vm.zeni >= s.upgradeCost ? '' : ' disabled'}>${upLabel(s)}</button>
           </div>
         </article>`,

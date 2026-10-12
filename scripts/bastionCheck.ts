@@ -113,6 +113,42 @@ check('construção de save antigo não se move (não é recente)', !isMovable(m
 check('turno inválido (NaN) vira 0 sem quebrar o save', migrateBastion({ ...(JSON.parse(j0) as BastionState), turn: Number.NaN }).turn === 0);
 const migradoDeNovo = JSON.stringify(migrateBastion(JSON.parse(JSON.stringify(migrado)) as BastionState));
 check('migração do turno e do placedTurn é idempotente', migradoDeNovo === JSON.stringify(migrado));
+for (const t of [2.5, -3, Number.POSITIVE_INFINITY]) {
+  check(`turno ${t} (fracionado, negativo ou infinito) vira 0`, migrateBastion({ ...(JSON.parse(j0) as BastionState), turn: t }).turn === 0);
+}
+// Construções com placedTurn variado: o valor válido fica, o inválido vira -1.
+const comPlacedTurn = (valores: unknown[]) => {
+  const x = JSON.parse(j0) as BastionState;
+  x.structures = valores.map((placedTurn, i) => ({ id: i + 1, kind: 'wall', x: free[i].x, y: free[i].y, level: 1, hp: 120, invested: 5, placedTurn })) as unknown as Structure[];
+  x.nextId = valores.length + 1;
+  return migrateBastion(x).structures.map((s) => s.placedTurn);
+};
+const validos = comPlacedTurn([0, 3, -1]);
+check('placedTurn válido (0, 3 e -1) fica como está', validos.join() === '0,3,-1', validos.join());
+const invalidos = comPlacedTurn([1.5, -7, Number.NaN, '3', undefined]);
+check('placedTurn fracionado, negativo (além do -1), NaN, texto ou ausente vira -1', invalidos.every((t) => t === -1), invalidos.join());
+// Save com construções variadas (nível 2, vida parcial, destruída e turnos de construção diferentes).
+const fotoEstruturas = (b: BastionState) => b.structures.map((s) => ({ id: s.id, kind: s.kind, level: s.level, hp: s.hp, invested: s.invested, placedTurn: s.placedTurn }));
+const bsv = newBastion(7, emptyCollection());
+bsv.profile.zeni = 1000;
+bsv.projects.push('towers');
+bsv.turn = 4;
+const rv1 = placeStructure(bsv, env(), 'wall', free[0]);
+const rv2 = placeStructure(bsv, env(), 'wall', free[1]);
+const rv3 = placeStructure(bsv, env(), 'tower', free[2]);
+placeStructure(bsv, env(), 'wall', free[3]);
+upgradeStructure(bsv, rv1.ok ? rv1.id : -1);
+findStructure(bsv, rv2.ok ? rv2.id : -1)!.hp = 0;
+findStructure(bsv, rv3.ok ? rv3.id : -1)!.hp = 40;
+bsv.turn = 5;
+placeStructure(bsv, env(), 'wall', free[4]);
+const fotoAntesDoSave = fotoEstruturas(bsv);
+const voltouSave = migrateBastion(JSON.parse(JSON.stringify(bsv)) as BastionState);
+check(
+  'save e carregar mantém, em cada construção, id, nível, vida, investido e turno de construção',
+  JSON.stringify(fotoEstruturas(voltouSave)) === JSON.stringify(fotoAntesDoSave) && voltouSave.turn === 5 && fotoAntesDoSave.length === 5 && fotoAntesDoSave.some((s) => s.level === 2) && fotoAntesDoSave.some((s) => s.hp === 0) && new Set(fotoAntesDoSave.map((s) => s.placedTurn)).size >= 2,
+  JSON.stringify(fotoAntesDoSave.map((s) => [s.level, s.hp, s.invested, s.placedTurn])),
+);
 
 console.log('\n# 3) Colocação');
 const bp = newBastion(7, emptyCollection());
@@ -505,6 +541,11 @@ const sD = findStructure(bt12, wD) as Structure;
 const sF = findStructure(bt12, wF) as Structure;
 check('muralhas no lote e fora dos lotes nascem no turno 0 (placedTurn = turno atual)', sD?.placedTurn === 0 && sF?.placedTurn === 0 && bt12.turn === 0);
 check('muralha recém-construída pode ser movida', isMovable(bt12, sD));
+// Muralha com nível 2 e vida parcial antes de mover: mover não pode mexer em id, vida, nível, investido nem turno.
+const upD = upgradeStructure(bt12, wD);
+sD.hp = 50;
+const antesDeMover = { id: sD.id, hp: sD.hp, level: sD.level, invested: sD.invested, placedTurn: sD.placedTurn };
+check('muralha de teste fica com nível 2 e vida parcial antes de mover', upD.ok && antesDeMover.level === 2 && antesDeMover.hp === 50, upD.ok ? '' : BUILD_MSG[upD.error]);
 const zeniMov = bt12.profile.zeni;
 bt12.profile.zeni = 0;
 const mv1 = moveStructure(bt12, env(), wD, free[5]);
@@ -512,6 +553,8 @@ bt12.profile.zeni = zeniMov;
 check('mover é de graça: sem Zen nenhum, a muralha recente se move', mv1.ok && mv1.from.x === free[0].x && mv1.from.y === free[0].y && sD.x === free[5].x && sD.y === free[5].y, mv1.ok ? '' : BUILD_MSG[mv1.error]);
 const mv2 = moveStructure(bt12, env(), wD, free[6]);
 check('repetir o movimento no mesmo turno vale, e a muralha mantém o turno de construção', mv2.ok && sD.placedTurn === 0 && isMovable(bt12, sD), mv2.ok ? '' : BUILD_MSG[mv2.error]);
+const depoisDeMover = { id: sD.id, hp: sD.hp, level: sD.level, invested: sD.invested, placedTurn: sD.placedTurn };
+check('mover (duas vezes) mantém id, vida, nível, investido e turno de construção', JSON.stringify(depoisDeMover) === JSON.stringify(antesDeMover), `${JSON.stringify(antesDeMover)} → ${JSON.stringify(depoisDeMover)}`);
 check('mover para o próprio tile: recusado (mesmo tile)', errOf(moveStructure(bt12, env(), wD, free[6])) === 'sameTile');
 check('mover para tile com outra construção: recusado (ocupado)', errOf(moveStructure(bt12, env(), wD, longe[0])) === 'occupied');
 check('mover para cima de herói: recusado', errOf(moveStructure(bt12, env(), wD, heroes[0])) === 'hero');
@@ -541,7 +584,13 @@ check('outra noite vencida: turno 2', applyNight(bt12, ondaVencida(), 'noite:2',
 check('a muralha do turno 1 virou antiga no turno 2', errOf(moveStructure(bt12, env(), wN, free[21])) === 'notRecent');
 const derrotaT = applyNight(bt12, { victory: false, coreHp: 900, structures: [], wave: { souls: 0, zeni: 0, heroes: {}, drops: [] } }, 'noite:3', emptyCollection());
 check('derrota também avança o turno (3)', derrotaT !== undefined && bt12.turn === 3);
-check('o turno sobrevive ao salvar e carregar', migrateBastion(JSON.parse(JSON.stringify(bt12)) as BastionState).turn === 3);
+const salvoBt12 = migrateBastion(JSON.parse(JSON.stringify(bt12)) as BastionState);
+check('o turno sobrevive ao salvar e carregar', salvoBt12.turn === 3);
+check(
+  'save e carregar da cidade da seção 12 mantém, em cada construção, id, nível, vida, investido e turno de construção',
+  JSON.stringify(fotoEstruturas(salvoBt12)) === JSON.stringify(fotoEstruturas(bt12)) && bt12.structures.some((s) => s.hp === 0) && bt12.structures.some((s) => s.placedTurn !== bt12.turn),
+  `${bt12.structures.length} construções`,
+);
 
 console.log('\n# 13) Horda por noite (comum, mini-chefe e MVP)');
 const INIMIGOS = Object.keys(GAME_CONFIG.enemies).filter((k) => k !== 'trainingDummy');
@@ -553,8 +602,36 @@ check('noites 5, 15 e 25 são mini-chefe; 10, 20 e 30 são MVP', [5, 15, 25].eve
 const ateTrinta = Array.from({ length: 30 }, (_, i) => i + 1);
 check('as outras noites até 30 são comuns, sem chefe', ateTrinta.filter((n) => n % 5 !== 0).every((n) => hordeOf(n).tier === 'comum' && hordeOf(n).boss === undefined));
 check('até a noite 30: 3 mini-chefes e 3 MVPs', ateTrinta.filter((n) => hordeOf(n).tier === 'mini').length === 3 && ateTrinta.filter((n) => hordeOf(n).tier === 'mvp').length === 3);
-check('ciclo dos mini-chefes: 5 Elite, 15 Krexx retorcido, 25 Líder goblin', hordeOf(5).boss === 'elite' && hordeOf(15).boss === 'goblinWarlord' && hordeOf(25).boss === 'goblinLeader');
-check('ciclo dos mini-chefes segue: 35 Krexx pequeno, 45 Dino, 55 volta ao Elite', hordeOf(35).boss === 'goblinImp' && hordeOf(45).boss === 'dinoBoss' && hordeOf(55).boss === 'elite');
+check('ciclo dos mini-chefes na ordem declarada: 5 Elite, 15 Krexx pequeno, 25 Krexx retorcido', hordeOf(5).boss === 'elite' && hordeOf(15).boss === 'goblinImp' && hordeOf(25).boss === 'goblinWarlord');
+check('ciclo dos mini-chefes segue: 35 Dino, 45 Líder goblin, 55 volta ao Elite', hordeOf(35).boss === 'dinoBoss' && hordeOf(45).boss === 'goblinLeader' && hordeOf(55).boss === 'elite');
+// Sequência completa das noites 5 a 55 (as de MVP ficam de fora), contra a lista declarada em BASTION_HORDE.minis.
+const noites5a55 = Array.from({ length: 55 }, (_, i) => i + 1).filter((n) => hordeOf(n).tier === 'mini');
+const esperadoMini5a55 = ['elite', 'goblinImp', 'goblinWarlord', 'dinoBoss', 'goblinLeader', 'elite'];
+const sequencia5a55 = noites5a55.map((n) => `${n} ${BASTION_HORDE.names[hordeOf(n).boss ?? '']}`);
+check(
+  'sequência dos mini-chefes nas noites 5 a 55 segue a ordem declarada (MVP fora)',
+  noites5a55.join() === '5,15,25,35,45,55' && noites5a55.map((n) => hordeOf(n).boss).join() === esperadoMini5a55.join() && esperadoMini5a55.every((k, i) => k === BASTION_HORDE.minis[i % BASTION_HORDE.minis.length]),
+  sequencia5a55.join(' · '),
+);
+// Os dois ciclos seguem em ordem por 500 noites: mini k pega minis[(k − 1) mod], MVP m pega mvps[(m − 1) mod].
+let minisEmOrdem = true;
+let mvpsEmOrdem = true;
+let nMini = 0;
+let nMvp = 0;
+for (let n = 1; n <= 500; n++) {
+  const h = hordeOf(n);
+  if (h.tier === 'mini') {
+    nMini++;
+    if (h.boss !== BASTION_HORDE.minis[(nMini - 1) % BASTION_HORDE.minis.length]) minisEmOrdem = false;
+  }
+  if (h.tier === 'mvp') {
+    nMvp++;
+    if (h.boss !== BASTION_HORDE.mvps[(nMvp - 1) % BASTION_HORDE.mvps.length]) mvpsEmOrdem = false;
+  }
+}
+check('ciclos em ordem até a noite 500 (50 minis e 50 MVPs)', minisEmOrdem && mvpsEmOrdem && nMini === 50 && nMvp === 50, `${nMini} minis · ${nMvp} MVPs`);
+// horde.ts conta os mini-chefes tirando as noites de MVP: isso só fecha se o MVP cair sempre em múltiplo de mini.
+check('mvpEvery é múltiplo de miniEvery (a conta de k em horde.ts depende disso)', BASTION_HORDE.mvpEvery % BASTION_HORDE.miniEvery === 0 && BASTION_HORDE.minis.length > 0, `${BASTION_HORDE.mvpEvery} % ${BASTION_HORDE.miniEvery}`);
 check('ciclo dos MVPs: 10 Colosso da Clareira, 20 Colosso Solar, 30 Senhor Orc, 40 volta ao primeiro', hordeOf(10).boss === 'boss' && hordeOf(20).boss === 'boss2' && hordeOf(30).boss === 'orcboss' && hordeOf(40).boss === 'boss' && hordeOf(50).boss === 'boss2');
 const vistosAte = (ate: number) => {
   const vistos = new Set<string>();
@@ -566,7 +643,8 @@ const vistosAte = (ate: number) => {
   return vistos;
 };
 const faltamAte30 = INIMIGOS.filter((k) => !vistosAte(30).has(k));
-check('até a noite 30 faltam goblinImp e dinoBoss (entram nas noites 35 e 45)', faltamAte30.join() === 'goblinImp,dinoBoss', faltamAte30.join());
+check('até a noite 30 faltam dinoBoss e goblinLeader (entram nas noites 35 e 45)', [...faltamAte30].sort().join() === 'dinoBoss,goblinLeader', faltamAte30.join());
+check('até a noite 40 falta só o Líder goblin (noite 45)', INIMIGOS.filter((k) => !vistosAte(40).has(k)).join() === 'goblinLeader');
 check('até a noite 45 aparecem os 13 inimigos (a rotação completa dos mini-chefes)', INIMIGOS.every((k) => vistosAte(45).has(k)) && !vistosAte(45).has('trainingDummy'));
 const peso = (k: string) => BASTION_HORDE.regular.find((m) => m.kind === k)?.weight ?? 0;
 const somaComum = BASTION_HORDE.regular.reduce((soma, m) => soma + m.weight, 0);
@@ -575,7 +653,7 @@ check('a mistura comum só tem tipos comuns (nada de chefe)', BASTION_HORDE.regu
 check('toda noite traz 60 comuns', Array.from({ length: 45 }, (_, i) => hordeOf(i + 1)).every((h) => h.count === 60));
 check('mini e MVP também usam a mistura comum (o chefe vem por cima)', JSON.stringify(hordeOf(5).mix) === JSON.stringify(BASTION_HORDE.regular) && JSON.stringify(hordeOf(10).mix) === JSON.stringify(BASTION_HORDE.regular));
 check('título e detalhe do mini-chefe: "Noite 5 · mini-chefe" e o Elite', hordeOf(5).title === 'Noite 5 · mini-chefe' && hordeOf(5).detail === BASTION_HORDE.names.elite);
-check('mini-chefe da noite 15: detalhe "Krexx retorcido"', hordeOf(15).detail === 'Krexx retorcido');
+check('mini-chefe da noite 15: detalhe "Krexx pequeno"', hordeOf(15).detail === 'Krexx pequeno');
 check('MVP da noite 10: "Noite 10 · MVP" e o Colosso da Clareira', hordeOf(10).title === 'Noite 10 · MVP' && hordeOf(10).detail === 'Colosso da Clareira');
 check('noite comum: título "Noite 1 · comum" e detalhe com a tropa em pt-BR', hordeOf(1).title === 'Noite 1 · comum' && hordeOf(1).detail === 'Zumbi, Corredor, Pesado, Raydric e Necromante', hordeOf(1).detail);
 check('mesma noite, mesma horda (determinismo, sem sorteio)', JSON.stringify(hordeOf(15)) === JSON.stringify(hordeOf(15)) && JSON.stringify(hordeOf(33)) === JSON.stringify(hordeOf(33)));

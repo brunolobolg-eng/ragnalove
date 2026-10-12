@@ -76,8 +76,10 @@ export interface BastionDeps {
   heroTiles(): Vec2[];
   cards(): CardCollection;
   saveCards(c: CardCollection): void;
-  /** Abre a coleção de cartas com os slots calculados pelas ondas do Bastião. */
-  openCollection(bastionNights: number): void;
+  /** Abre a coleção de cartas com os slots calculados pelas noites do Bastião. `onClose` roda quando o jogador a fecha. */
+  openCollection(bastionNights: number, onClose: () => void): void;
+  /** A coleção de cartas está aberta: o Esc e o Espaço são dela, não do Bastião. */
+  isCollectionOpen(): boolean;
   log(text: string, kind?: 'info' | 'good' | 'warn'): void;
 }
 
@@ -134,17 +136,17 @@ export class BastionSession {
       onNewAttempt: () => this.act(startAttempt(this.state(), this.d.cards()), 'Nova tentativa começou.'),
       onUnlock: (id) => this.act(unlockProject(this.state(), id), 'Projeto desbloqueado.'),
       onParty: (party) => this.setParty(party),
-      onRepairStructure: (id) => this.act(repairStructure(this.state(), id), 'Construção reparada.'),
+      onRepairStructure: (id) => this.repair(id),
       onUpgradeStructure: (id) => this.act(upgradeStructure(this.state(), id), 'Construção aprimorada.'),
       onCards: () => {
         this.hub.close();
-        this.d.openCollection(this.state().nights);
+        this.d.openCollection(this.state().nights, () => this.backFromCards());
       },
       onExit: () => this.exit(),
     });
     this.build = new BastionBuildPanel({
       onPick: (kind) => this.pick(kind),
-      onRepair: (id) => this.act(repairStructure(this.state(), id), 'Construção reparada.'),
+      onRepair: (id) => this.repair(id),
       onUpgrade: (id) => this.act(upgradeStructure(this.state(), id), 'Construção aprimorada.'),
       onRemove: (id) => this.remove(id),
       onMove: (id) => this.toggleMove(id),
@@ -180,6 +182,7 @@ export class BastionSession {
 
   /** Esc durante o modo: fecha a barra de construção, ou sai do menu do modo, ou abre o menu do modo. */
   escape(): void {
+    if (this.d.isCollectionOpen()) return; // a coleção fecha com o próprio Esc
     if (this.moving !== undefined) {
       this.cancelMove('Movimento cancelado.');
       return;
@@ -196,8 +199,8 @@ export class BastionSession {
     if (this.moving !== undefined) return this.moveTo(t);
     const b = this.state();
     const alvo = b.structures.find((s) => s.x === t.x && s.y === t.y);
-    if (this.kind && !alvo) {
-      if (this.d.heroTiles().some((h) => h.x === t.x && h.y === t.y)) return false; // herói: segue sendo arrastado
+    const heroi = this.heroAt(t); // herói parado aqui: o clique é dele (arrastar ou escolher), não da construção
+    if (this.kind && !alvo && !heroi) {
       const kind = this.kind;
       const r = placeStructure(b, this.env(), kind, t);
       if (r.ok) {
@@ -210,7 +213,7 @@ export class BastionSession {
       }
       return true;
     }
-    if (alvo) {
+    if (alvo && !heroi) {
       this.selected = alvo.id;
       this.refresh();
       return true;
@@ -275,7 +278,7 @@ export class BastionSession {
       if (antes > 0 && s.hp <= 0) perdidas++;
       else if (antes > 0 && s.hp > 0 && s.hp < antes) danificadas++;
     }
-    this.msg = victory ? `Onda ${b.nights} vencida.` : 'A horda invadiu a cidade.';
+    this.msg = victory ? `Noite ${b.nights} vencida.` : 'A horda invadiu a cidade.';
     const vm: BastionReportVM = {
       victory,
       title: victory ? 'Horda repelida' : 'A horda invadiu',
@@ -375,6 +378,25 @@ export class BastionSession {
     this.touch();
   }
 
+  /** Repara (ou reconstrói, se destruída). Reconstruir com herói parado na casa é recusado antes de gastar Zen. */
+  private repair(id: number): void {
+    const b = this.state();
+    const s = findStructure(b, id);
+    if (s && s.hp <= 0 && this.heroAt(s)) {
+      this.msg = BUILD_MSG.hero;
+      this.refresh();
+      return;
+    }
+    const r = repairStructure(b, id);
+    this.msg = r.ok ? (r.rebuilt ? 'Construção reconstruída.' : 'Construção reparada.') : BUILD_MSG[r.error];
+    this.touch();
+  }
+
+  /** A coleção aberta pelo Bastião foi fechada pelo jogador: volta ao menu do modo (se ainda estiver no planejamento). */
+  private backFromCards(): void {
+    if (this.ctx && this.d.sim().phase === 'setup') this.hub.open(this.hubVM());
+  }
+
   private refresh(): void {
     if (this.hub.visible) this.hub.update(this.hubVM());
     if (this.build.visible) this.build.update(this.buildVM());
@@ -399,7 +421,8 @@ export class BastionSession {
   /** Carrega o mapa do planejamento com a semente e a horda da próxima noite (a tropa comum e o chefe dela). */
   private loadWave(b: BastionState): void {
     const h = hordeOf(b.nights + 1);
-    this.d.loadMap(waveSeed(b), { count: h.count, mix: h.mix, boss: h.boss });
+    // noite comum não tem chefe: null desliga o chefe da zona (undefined colocaria o chefe dela em toda noite)
+    this.d.loadMap(waveSeed(b), { count: h.count, mix: h.mix, boss: h.boss ?? null });
   }
 
   /** Depois do relatório: planejamento da próxima noite e menu do modo. */
@@ -481,7 +504,10 @@ export class BastionSession {
       this.refresh();
       return true;
     }
-    this.msg = 'Muralha movida. Clique em outra casa para mover de novo, ou Esc para sair.';
+    // a muralha segue escolhida e movível neste turno; para mover de novo, clica-se em Mover (o modo sai aqui)
+    this.leaveMove();
+    this.selected = id;
+    this.msg = 'Muralha movida. Para mover de novo, clique em Mover.';
     this.touch();
     return true;
   }
@@ -511,7 +537,8 @@ export class BastionSession {
    */
   private showGhost(): BastionGhost | undefined {
     const g = this.ghostAt(this.hover);
-    this.d.setGhost(g);
+    // casa com construção: o modelo fantasma não cobre a peça; a mensagem (motivo ou custo) continua valendo
+    this.d.setGhost(g && !this.structureAt(g.at) ? g : undefined);
     return g;
   }
 
@@ -558,10 +585,28 @@ export class BastionSession {
 
   /** Ambiente de colocação: refeito só quando a posição dos heróis muda (o mouse chama isto a cada movimento). */
   private env(): BuildEnv {
-    const heroes = this.d.heroTiles();
+    const heroes = this.heroSpots();
     const key = heroes.map((h) => `${h.x},${h.y}`).join(';');
     if (this.envCache?.key !== key) this.envCache = { key, env: bastionBuildEnv(ZONES[BASTION_ZONE_ID], heroes, GAME_CONFIG.wave.spawnSafeRadius) };
     return this.envCache.env;
+  }
+
+  /**
+   * Tiles onde a party está ou volta a estar: a party agora e a formação padrão (a que volta depois de cada
+   * noite). Não se constrói nem se move uma muralha em cima de nenhum deles.
+   */
+  private heroSpots(): Vec2[] {
+    return [...this.d.heroTiles(), ...ZONES[BASTION_ZONE_ID].defaultSetup.members.map((m) => ({ x: m.x, y: m.y }))];
+  }
+
+  /** Há um herói da party parado neste tile? */
+  private heroAt(t: Vec2): boolean {
+    return this.d.heroTiles().some((h) => h.x === t.x && h.y === t.y);
+  }
+
+  /** Há construção (de pé ou destruída) neste tile? */
+  private structureAt(t: Vec2): boolean {
+    return this.state().structures.some((s) => s.x === t.x && s.y === t.y);
   }
 
   /** Área liberada para construir (lotes do mapa), calculada uma vez. */
@@ -666,7 +711,7 @@ export class BastionSession {
     const p = PROJECTS[id];
     const falta = p.requires.find((r) => !b.projects.includes(r));
     if (falta) return `Falta antes: ${PROJECTS[falta].name}`;
-    if (p.minNights !== undefined && b.nights < p.minNights) return `Precisa de ${p.minNights} ondas vencidas (tem ${b.nights})`;
+    if (p.minNights !== undefined && b.nights < p.minNights) return `Precisa de ${p.minNights} noites vencidas (tem ${b.nights})`;
     if (p.hero && !b.party.includes(p.hero)) return `Precisa de ${HERO_NAME[p.hero]} na party`;
     if (b.profile.zeni < p.cost) return 'Zen insuficiente';
     return undefined;

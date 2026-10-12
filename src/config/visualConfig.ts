@@ -89,7 +89,7 @@ export const VISUAL_CONFIG = {
     panSpeed: 16, // tiles/s com teclado
     edgePan: 0, // px da borda para arrastar a câmera com o mouse (0 = desligado)
     zoomMin: 0.62,
-    /** Limite de afastamento da câmera (zoom alto = mais perto). Antes 1.9: longe demais para ler o campo. */
+    /** Limite de afastamento da câmera (zoom alto = mais longe: a câmera fica em foco + offset × zoom). Antes 1.9: longe demais para ler o campo. */
     zoomMax: 1.5,
     /** Mapas pintados (arte do dono): sem névoa, zoom maior e a câmera presa dentro da pintura. */
     painted: { zoomStart: 1.3, zoomMin: 0.7, zoomMax: 1.5 },

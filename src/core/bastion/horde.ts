@@ -44,7 +44,11 @@ export function hordeOf(wave: number): HordeWave {
     return { wave: n, tier: 'mvp', count, mix, boss, title: `Noite ${n} · MVP`, detail: nomeDe(boss) };
   }
   if (n % miniEvery === 0) {
-    const boss = minis[(n / miniEvery - 1) % minis.length];
+    // k = quantas noites de mini-chefe existem até esta, contando esta. As noites de MVP também são múltiplas
+    // de miniEvery, por isso saem da conta: k = n / miniEvery − n / mvpEvery (arredondados para baixo).
+    // Vale só com mvpEvery múltiplo de miniEvery (checado em scripts/bastionCheck.ts).
+    const k = Math.floor(n / miniEvery) - Math.floor(n / mvpEvery);
+    const boss = minis[(k - 1) % minis.length];
     return { wave: n, tier: 'mini', count, mix, boss, title: `Noite ${n} · mini-chefe`, detail: nomeDe(boss) };
   }
   return { wave: n, tier: 'comum', count, mix, title: `Noite ${n} · comum`, detail: listaPt(mix.map((m) => nomeDe(m.kind))) };

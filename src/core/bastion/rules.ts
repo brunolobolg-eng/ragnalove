@@ -336,10 +336,7 @@ export interface NightOutcome {
   wave: WaveResult;
 }
 
-/**
- * Aplica o resultado de uma onda à cidade. Idempotente pela chave da onda: aplicar de novo (reabrir o
- * relatório, recarregar o jogo) não paga Zen nem desconta vida outra vez. Devolve false se já estava aplicada.
- */
+/** O que applyNight devolve quando aplica uma onda: os pacotes de cartas que ela entregou. */
 export interface NightResult {
   /** Pacotes de cartas entregues por esta onda (já estão na coleção compartilhada). */
   packs: string[][];
