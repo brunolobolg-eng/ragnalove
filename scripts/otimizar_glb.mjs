@@ -12,13 +12,16 @@
 import { Accessor, NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { dedup, prune, simplify, textureCompress } from '@gltf-transform/functions';
-import { MeshoptSimplifier } from 'meshoptimizer';
+import { MeshoptDecoder, MeshoptSimplifier } from 'meshoptimizer';
 import sharp from 'sharp';
 
 const [src, dst, ratioArg, errorArg] = process.argv.slice(2);
 const ratio = Number(ratioArg ?? 0.1);
 const error = Number(errorArg ?? 0.01);
-const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
+// lê também GLB com compressão meshopt (EXT_meshopt_compression, saída do gltfpack, ex.: o original do Bárbaro);
+// sem o decodificador a leitura falha com "Please install extension dependency, meshopt.decoder"
+await MeshoptDecoder.ready;
+const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
 const NORM_DIV = { 5121: 255, 5123: 65535 };
 const ARRAY_OF = { 5121: Uint8Array, 5123: Uint16Array, 5126: Float32Array };
 
@@ -80,6 +83,8 @@ function keepFourInfluences(prim) {
 }
 
 const doc = await io.read(src);
+// a entrada decodificada não deve ser recomprimida: a saída é GLB sem meshopt (o carregador do jogo não tem o decodificador)
+for (const ext of doc.getRoot().listExtensionsUsed()) if (ext.extensionName === 'EXT_meshopt_compression') ext.dispose();
 await report('entrada', doc);
 
 // 1) influências: 4 por vértice, renormalizadas
