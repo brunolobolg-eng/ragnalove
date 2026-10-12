@@ -10,6 +10,8 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - Morte de heróis e monstros: o corpo fica no chão até a animação de morte terminar, e só então desaparece.
 - Monstros andam no ritmo dos próprios passos: os mais pesados andam mais devagar, e o andar não pisca mais para parado entre um passo e outro.
 - Chefes de ato voltam a ter o anel de energia e a sombra.
+- Golpes batem no instante certo: o número de dano e a barra de vida mudam quando o soco acerta, não antes. O ataque repetido recomeça o golpe do zero.
+- O Bárbaro recua a cabeça ao levar golpe forte, e os dinossauros também batem no instante do soco.
 
 ## 2026-10-11 — v0.11 (em andamento)
 - Início do modo O Último Bastião: uma cidade que persiste entre tentativas. Estruturas, dano, projetos e a vida do núcleo ficam salvos num arquivo próprio, sem mexer na jornada.

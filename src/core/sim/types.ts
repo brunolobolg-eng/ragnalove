@@ -199,7 +199,8 @@ export type SimPhase = 'setup' | 'running' | 'victory' | 'defeat';
 export type SimEvent =
   | { type: 'spawn'; unitId: number }
   | { type: 'move'; unitId: number }
-  | { type: 'damage'; unitId: number; amount: number; source: DamageSource; sourceId?: number; crit?: boolean }
+  // hpBefore/hpAfter: vida antes e depois do golpe (a barra só muda no acerto; ausentes nos efeitos de demonstração)
+  | { type: 'damage'; unitId: number; amount: number; source: DamageSource; sourceId?: number; crit?: boolean; hpBefore?: number; hpAfter?: number }
   | { type: 'death'; unitId: number }
   | { type: 'soul'; fromId: number; toId: number; amount: number; x: number; y: number }
   | { type: 'effectStart'; effect: AreaEffect }

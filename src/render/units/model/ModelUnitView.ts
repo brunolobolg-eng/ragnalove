@@ -25,6 +25,8 @@ export interface ModelDef {
   weapons?: WeaponAttach[];
   /** Flutuação: sobe e desce `amp` metros em `period` segundos (a sombra de contato acompanha). */
   float?: { amp: number; period: number };
+  /** Instante (s) do impacto de cada golpe, quando o conjunto de clipes tem medida (SET_IMPACT em anims.ts). */
+  impact?: { attack?: number; heavy?: number };
 }
 
 export const MODELS: Record<string, ModelDef> = {
@@ -133,6 +135,10 @@ export class ModelUnitView {
   private dyingT = -1;
   /** Duração do clipe de morte (s): o corpo fica até ele acabar. */
   private readonly deathSec: number;
+  /** Reação forte (golpe pesado), só nos conjuntos que a têm. */
+  private readonly hitHeavyAction?: THREE.AnimationAction;
+  /** Instante do impacto de cada golpe no conjunto (s); sem entrada, o tempo padrão do jogo. */
+  private readonly impact?: { attack?: number; heavy?: number };
   /** Duração (s) do passo atual: o andar acompanha o deslocamento real. */
   private stepSec: number = VISUAL_CONFIG.unit.walkStepRef;
   private walkHold = 0;
@@ -225,6 +231,13 @@ export class ModelUnitView {
       }
       this.actions[name] = a;
     }
+    const heavy = (clips as { hitHeavy?: THREE.AnimationClip }).hitHeavy;
+    if (heavy) {
+      this.hitHeavyAction = this.mixer.clipAction(heavy);
+      this.hitHeavyAction.setLoop(THREE.LoopOnce, 1);
+      this.hitHeavyAction.clampWhenFinished = true;
+    }
+    this.impact = this.def.impact;
     this.base = this.current = this.actions.idle;
     this.current.time = Math.random() * clips.idle.duration; // horda fora de sincronia
     this.current.play();
@@ -277,11 +290,14 @@ export class ModelUnitView {
     if (instant) this.yaw = this.targetYaw;
   }
 
-  hit(): void {
+  /** Reação ao dano. `heavy` = golpe forte: usa a reação forte do modelo, quando ele a tem. */
+  hit(heavy = false): void {
     this.flash = VISUAL_CONFIG.unit.hitFlashTime;
     if (!this.hpLocked) this.hpVisible = true;
     // não interrompe golpe/magia: o tranco só entra se estiver parado ou andando
-    if (this.current === this.base) this.oneShot('hit');
+    if (this.current !== this.base || this.dyingT >= 0) return;
+    if (heavy && this.hitHeavyAction) this.to(this.hitHeavyAction, 0.06);
+    else this.oneShot('hit');
   }
 
   attack(style: 'swing' | 'heavy' = 'swing'): void {
@@ -289,13 +305,32 @@ export class ModelUnitView {
     this.actionT = 0;
     // o brilho de combate acompanha o clipe que está tocando (não um tempo fixo)
     this.actionDur = this.clipSec(name, this.team === 'party' ? 0.55 : 0.4);
-    this.oneShot(name);
+    this.replay(this.actions[name]);
   }
 
   cast(): void {
     this.actionT = 0;
     this.actionDur = this.clipSec('cast', 0.85);
-    this.oneShot('cast');
+    this.replay(this.actions.cast);
+  }
+
+  /**
+   * Toca o golpe do início, mesmo que o mesmo golpe esteja no meio (ataque repetido antes do fim do clipe):
+   * assim o impacto sai no instante certo, e não no resto do clipe anterior.
+   */
+  private replay(a: THREE.AnimationAction): void {
+    if (this.dyingT >= 0) return;
+    if (a === this.current) {
+      a.reset();
+      a.play();
+      return;
+    }
+    this.to(a, 0.06);
+  }
+
+  /** Instante (s) do impacto do golpe `style` no conjunto do modelo; `undefined` = sem medida (usa o tempo padrão). */
+  impactSec(style: 'attack' | 'heavy'): number | undefined {
+    return this.impact?.[style];
   }
 
   /** Duração (s) do clipe, limitada a um intervalo razoável para o brilho de combate; sem clipe, o valor de reserva. */

@@ -707,16 +707,44 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - Chefe de ato: anel e sombra presentes. Ritmo do andar: passo de 0,5 s dá 1,3 (rato) e passo de 0,3 s dá 3,84 (corredor), como calculado.
   - Sem erro de página nem de console em nenhum teste.
 - **Limitações (dependem de clipe, dado ou rig que não está no pacote):**
-  - O dano visual ainda aparece em tempo fixo (0,26 a 0,30 s) depois do início do ataque. O pacote não traz marcadores de impacto por clipe.
-  - A barra de vida mostra o HP da simulação, que cai antes do impacto.
+  - O dano visual ainda aparece em tempo fixo (0,26 a 0,30 s) depois do início do ataque. O pacote não traz marcadores de impacto por clipe. *(Resolvido para o Bárbaro e os dinossauros; ver a entrada seguinte.)*
+  - A barra de vida mostra o HP da simulação, que cai antes do impacto. *(Resolvido; ver a entrada seguinte.)*
   - Postura de combate própria por classe: o pacote tem `Sword_Idle` e `Spell_Simple_Idle_Loop`, mas os heróis usam rig Mixamo e precisam de clipes regenerados.
   - Reação por direção (`Hit_Head`, `Hit_Chest`, `Hit_Knockback` existem no pacote): o jogo usa um só clipe de reação.
   - Hit-stop congela animações e efeitos, não o deslocamento (até 0,3 s de deslizamento).
   - Pesos de pele do bongun: só as quatro maiores influências são lidas.
   - Nada de PC testado; GPU não medida.
 - **Pendências:**
-  1. Dono: confirmar onde está o pacote UAL no repositório (ou autorizar que o cópia de trabalho entre no repo) para integrar os clipes que faltam.
+  1. Dono: confirmar onde está o pacote UAL no repositório (ou autorizar que o cópia de trabalho entre no repo) para integrar os clipes que faltam. *(Resolvido: o dono respondeu "1 sim" e o pacote foi copiado para o repositório.)*
   2. Dono: testar no PC morte e andar de monstros e dizer se o ritmo do andar combina.
+
+## 2026-10-12 — Animações: impacto no golpe, reação forte e pacote UAL no repositório (v0.11, em andamento)
+- **Pedido do dono:** "1 sim", para copiar o pacote UAL para o repositório. Assim o extrator reproduz os clipes.
+- **Pacote no repositório:** `Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb` (7,6 MB, 43 animações, 65 ossos), abaixo do limite de 8 MB. Não entra no build: o jogo lê os clipes de `src/render/units/model/ualClips.ts`, gerado por `scripts/extractUALAnims.mjs`.
+- **Mapeamento:** `Punch_Jab` → golpe rápido do Bárbaro; `Punch_Cross` → investida; `Hit_Head` → reação forte (`hitHeavy`); `Sword_Attack` → ataque (disponível, ainda sem conjunto que o use). Dinossauros e bongun usam o `Punch_Jab` pelo retarget Mixamo (mesma duração, 0,867 s).
+- **Instante do impacto medido no clipe** (pico de velocidade da mão): `punchJab` 0,167 s, `punchCross` 0,233 s, `Sword_Attack` 0,400 s (`UAL_IMPACT`). Cada modelo leva o seu (`ModelDef.impact`, preenchido a partir de `SET_IMPACT` em `anims.ts`). Sem medida, vale o tempo padrão de 0,28 s.
+- **Correções:**
+  1. **Dano no impacto:** o número e a reação saem no instante do golpe, não em tempo fixo. Medido: o golpe do Bárbaro sai no quadro de 0,183 s (0,167 s mais um quadro de arredondamento); o do dinossauro, igual.
+  2. **Barra de vida no impacto:** antes, a barra descia no instante do golpe, antes do número. Agora mostra a vida de antes até o impacto e a nova depois. A simulação passa `hpBefore`/`hpAfter` no evento de dano (campos opcionais; eventos de demonstração não os têm). Medido: barra em 100% até o impacto e em 60% depois (vida da simulação: 60).
+  3. **Reação forte:** golpe com 20% ou mais da vida máxima (`heavyHitFrac`) troca a reação do Bárbaro para `hitHeavy`. Medido: disparou 0,283 s após o golpe.
+  4. **Ataque repetido:** o segundo golpe recomeça do zero (antes, continuava do meio do clipe). Medido: 0,1 s antes do segundo golpe e 0 logo depois.
+  5. **Dinossauros:** o ataque toca o clipe de soco, e o dano sai no impacto (medido).
+- **Testes:**
+  - `tsc`, `npm run build`, `npm run sim:check` (determinístico) e `npm run vocation:check` passam.
+  - `scripts/validateUAL.ts` agora inclui o conjunto do Bárbaro (socos e `hitHeavy`): todas as faixas apontam para ossos que existem; o quadril desloca no máximo 0,12 m (na morte), contra o limite de 0,6 m.
+  - Sem desenho (`impacto_barbaro`, `impacto_dino`, `verif_anim`, `morte_teste2`): tempos e barra conferidos, sem erro de página nem de console.
+  - Com desenho (print): soco com inimigo colado (número 40 no quadro de 0,25 s, depois do impacto) e reação forte (`hitHeavy`, número 61 no impacto). Visto de cima, a extensão do braço no soco fica pouco legível.
+  - Linha do tempo de 600 quadros: não comparada com as referências guardadas. Cada execução sorteia outra horda (as duas referências antigas já divergem entre si), então essa comparação não prova nada. A prova de que a simulação não mudou é o `sim:check`.
+- **Limitações (ainda valem):**
+  - Reações de direção (`Hit_Chest`, `Hit_Knockback`): não integradas; a simulação não tem knockback.
+  - Postura de combate própria por classe: pendente (precisa de clipes do rig Mixamo regenerados).
+  - Corredor (`Sprint`): não integrado; os monstros usam o andar com cadência.
+  - Guerreiro comum, mago e arqueira: sem medida de impacto (usam 0,28 s).
+  - Hit-stop congela animação e efeitos, não o deslocamento.
+  - `scripts/retargetUALMixamo.cjs` ainda aponta para um caminho temporário do Windows; não foi regenerado nesta entrega.
+  - PC e GPU não medidos.
+- **Pendências:**
+  1. Dono: testar no PC o soco e a reação forte do Bárbaro, e dizer se o soco parece bem visto de perto.
 
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.

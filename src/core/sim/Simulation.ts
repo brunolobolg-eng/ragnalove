@@ -666,6 +666,7 @@ export class Simulation {
       if (src?.team === 'party') amount *= this.mods.heroes[src.kind]?.damageMult ?? 1;
     }
     const applied = Math.min(u.hp, amount);
+    const hpBefore = u.hp;
     u.hp = Math.max(0, u.hp - amount);
     // métricas do relatório
     if (u.team === 'party') this.taken[u.kind] = (this.taken[u.kind] ?? 0) + applied;
@@ -673,7 +674,8 @@ export class Simulation {
       const src = this.units.get(sourceId);
       if (src?.team === 'party') this.dealt[src.kind] = (this.dealt[src.kind] ?? 0) + applied;
     } else if (source === 'tower') this.dealt.tower = (this.dealt.tower ?? 0) + applied;
-    this.emit(crit ? { type: 'damage', unitId: u.id, amount, source, sourceId, crit } : { type: 'damage', unitId: u.id, amount, source, sourceId });
+    const hpAfter = u.hp;
+    this.emit(crit ? { type: 'damage', unitId: u.id, amount, source, sourceId, crit, hpBefore, hpAfter } : { type: 'damage', unitId: u.id, amount, source, sourceId, hpBefore, hpAfter });
     // Limite da Morte: parte do dano que o marcado levou volta para quem bateu (golpe direto; não contínuo)
     if (u.team === 'enemy' && (u.markedUntil ?? 0) > this.tick && (u.markReflect ?? 0) > 0 && !CONTINUOUS.has(source)) {
       const attacker = sourceId !== undefined ? this.units.get(sourceId) : undefined;

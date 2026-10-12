@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { HERO_MODELS, MONSTER_MODELS, type RigJointsVisual } from '../../../config/visualConfig';
-import { archerClips, barbarianClipsUAL, fitHips, gruntClips, hoverClips, mageClips, warriorClips, warriorClipsUAL, type ClipName } from './anims';
+import { archerClips, barbarianClipsUAL, fitHips, gruntClips, hoverClips, mageClips, SET_IMPACT, warriorClips, warriorClipsUAL, type ClipName } from './anims';
 import { prepareRiggedModel, type HumanoidJoints } from './autoRig';
 import { ualMixamoClips } from './ualMixamo';
 import { warriorRigClips } from './warriorAnims';
@@ -404,6 +404,7 @@ export async function loadMonsterModels(onLoaded?: (kind: string) => void): Prom
           aura: v.aura ? new THREE.Color(...v.aura) : undefined,
           ghost: v.ghost ? new THREE.Color(...v.ghost) : undefined,
           weapons: v.weapons,
+          impact: SET_IMPACT[v.clips ?? ''],
         };
         registerModel(kind, def);
         onLoaded?.(kind);
