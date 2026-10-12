@@ -27,7 +27,7 @@ export interface MainMenuHooks {
   state(): MenuState;
 }
 
-const LABEL: Record<keyof typeof M.buttons, string> = { start: 'Começar jornada', bastion: 'Montar defesa', info: 'Info', donate: 'Donate' };
+const LABEL: Record<keyof typeof M.buttons, string> = { start: 'Começar jornada', bastion: 'Montar defesa', tower: 'Torre do Infinito (em breve)', info: 'Info', donate: 'Donate' };
 
 export class MainMenu {
   private readonly el: HTMLElement;
@@ -51,7 +51,12 @@ export class MainMenu {
       b.className = `mm-hot mm-hot-${id}`;
       b.dataset.id = id;
       b.setAttribute('aria-label', LABEL[id]);
-      if (id === 'bastion' && M.desenhaRotulos) b.insertAdjacentHTML('beforeend', '<span class="mm-hot-label">MONTAR DEFESA</span>');
+      if (id === 'tower') {
+        // Torre do Infinito: aparece na arte, mas ainda não funciona (fora da navegação e sem reação ao clique)
+        b.classList.add('mm-hot-off');
+        b.setAttribute('aria-disabled', 'true');
+        b.title = 'Em breve';
+      }
       left.appendChild(b);
       return b;
     });
@@ -60,11 +65,11 @@ export class MainMenu {
     left.appendChild(this.cont);
     this.hall = new HallOfLegends(this.background.pieces.right);
 
-    this.el.insertAdjacentHTML(
-      'beforeend',
-      `<section class="mm-card" hidden role="dialog"></section>
-      <footer class="mm-foot">${M.version} · jogo offline · salvamento automático</footer>`,
-    );
+    this.el.insertAdjacentHTML('beforeend', '<section class="mm-card" hidden role="dialog"></section>');
+    const foot = document.createElement('footer');
+    foot.className = 'mm-foot';
+    foot.textContent = `${M.version} · jogo offline`;
+    this.background.place(foot, M.versionBox);
     // engrenagem discreta no canto: abre as Opções (áudio e vídeo); fora da navegação por teclado dos botões
     const gear = document.createElement('button');
     gear.className = 'mm-gear';
@@ -77,7 +82,7 @@ export class MainMenu {
       this.openCard('options');
     });
     this.el.appendChild(gear);
-    this.nav = new MainMenuNavigation(buttons, (id) => this.activate(id), () => this.hooks.onUi());
+    this.nav = new MainMenuNavigation(buttons.filter((b) => !b.classList.contains('mm-hot-off')), (id) => this.activate(id), () => this.hooks.onUi());
     this.el.querySelector('.mm-card')!.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-card]');
       if (!b) return;

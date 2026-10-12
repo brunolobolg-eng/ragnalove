@@ -560,9 +560,29 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - Custos, vida, ondas e o crescimento de dificuldade por noite ainda não foram calibrados com o dono.
 - **Pendências:**
   1. Dono: confirmar o Zen inicial (D54), os custos e a curva de dificuldade do Bastião.
-  2. Imagem nova da tela de entrada (não chegou como arquivo) e retirada do rótulo provisório do Montar Defesa.
+  2. ~~Imagem nova da tela de entrada e retirada do rótulo provisório do Montar Defesa~~ (feito na entrada seguinte).
   3. Revisar a barra de construção com estrutura selecionada (compactar textos ou rolagem melhor).
   4. Guardar a formação dos heróis entre noites e criar um selo para retomar a noite depois de fechar o jogo.
+
+## 2026-10-12 — Tela de entrada com a arte nova (temporada 1, v0.11, em andamento)
+- **Pedido do dono:** a imagem nova (`images/38.webp`, 1752×897) vira o fundo principal do menu. Os botões precisam funcionar, o Ranking mostra valores vivos e a engrenagem continua no canto.
+- **Arte e layout:** a arte está em `public/menu/temporada1.webp`, que é a temporada 1 de `config/temporadas.ts`. O layout foi medido nela e fica em `MENU_VISUAL` (`config/visualConfig.ts`), em pixels da arte: botões, peças (esquerda, Ranking e slogan), valores do Ranking, lista de apoiadores, rodapé e a linha "jornada em andamento".
+  - **D56 — Botões:** Começar jornada abre a run; Montar defesa abre o hub do Bastião; Info e Donate abrem cartões. A Torre do Infinito fica desativada ("Em breve"): sem reação ao clique e fora da navegação por teclado. Os rótulos já estão pintados na arte, então o menu não escreve texto por cima.
+  - **D57 — Ranking:** cada valor de exemplo pintado na arte é coberto por uma capa escura do jogo, ancorada à direita e na altura da linha (`rankValues`). Sem recorde, a capa mostra "???"; com recorde, mostra o valor. A lista de apoiadores segue a mesma regra (`donors`).
+  - **D58 — Peças e corte:** quando a tela corta a arte (ex.: 16:9 em janela de outra proporção), botões, Ranking e rodapé são empurrados para dentro da tela. A borda que encosta na tela não esfuma: além dela não há arte, e o esfumado deixaria aparecer a arte de trás fora do lugar.
+  - **D59 — Rodapé e engrenagem:** o rodapé é uma caixa opaca por cima da versão antiga pintada na arte ("v0.8c · jogo offline"); o cartão Info já explica o salvamento. A engrenagem foi para o canto inferior esquerdo: no superior direito ela caía sobre o enfeite do Ranking, e embaixo à esquerda não há arte.
+- **Achados:**
+  - Os valores de exemplo terminam em x≈1700. A borda direita da capa passou para 1704, e o último pixel pintado fica em ~1702.
+  - A capa de cada linha precisa de um limite esquerdo próprio: "Fase 15/15" (linha 2) começa em x≈1632, mas a legenda da linha 2 termina em ~1590, então ela começa em 1600. A legenda da linha 3 termina em ~1633, então as demais começam em 1636.
+  - Com a borda direita encostada na tela, o esfumado deixava aparecer "Ato", "ne 1" e "87." da arte de trás (corrigido por D58).
+  - Medição sem corte: a arte em 1752×897 (escala 1:1) é a referência para todas as coordenadas.
+- **Testes:** `npx tsc --noEmit`, `npm run build` e `npm run sim:check` (determinístico) passam. No Chromium: 1600×900 e 1280×720 sem nada fora da tela e sem erro no console; recorte ampliado do canto inferior direito conferido nas duas resoluções.
+- **Limitações:**
+  - A arte traz a versão antiga pintada ("v0.6.2"). Em 16:9 a caixa do rodapé cobre esse trecho. Em proporções ultralargas (21:9), que não foram testadas, um pedaço do fim da linha antiga pode aparecer à direita da caixa.
+  - As posições de `rankValues` e `versionBox` foram medidas nesta arte. Se o dono trocar a arte, é preciso medir de novo.
+- **Pendências:**
+  1. Dono: conferir no PC (16:9 e outras telas) e dizer se a engrenagem fica no canto inferior esquerdo ou volta para o superior direito.
+  2. Dono: decidir se a versão antiga pintada na arte deve ser trocada no arquivo original. Se for, a caixa do rodapé deixa de ser necessária.
 
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.

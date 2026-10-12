@@ -31,6 +31,9 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - Escudo Sagrado: a cúpula se desfaz em pedaços, com a borda acesa, em vez de sumir de uma vez.
 - Cartas de monstro agora dão efeitos de batalha, não mais atributos: cada carta tem um efeito para todas as classes e um bônus de vocação, que só a classe indicada recebe.
 - As cartas ganham tiers, na mesma escala dos equipamentos (Comum a Mítico); o tier define a força do efeito.
+- A tela de entrada usa a arte nova da temporada 1. Começar jornada, Montar defesa, Info e Donate funcionam; a Torre do Infinito aparece desativada.
+- O Ranking mostra os recordes por cima dos valores de exemplo da arte, com ??? enquanto não houver recorde.
+- O rodapé da versão ganhou caixa própria sobre a versão antiga da arte, e a engrenagem foi para o canto inferior esquerdo.
 
 ## 2026-10-11 — v0.10
 - Álbum de cartas refeito no layout da folha de referência do dono: lateral com o herói, cartas encontradas e barra de progresso, filtros de raridade com gemas, cartas equipadas e a fusão de 10 Normais.

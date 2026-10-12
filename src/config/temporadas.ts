@@ -17,7 +17,7 @@ export interface Temporada {
 
 /** Em ordem crescente de `inicio`. A primeira vale antes de qualquer data. */
 export const TEMPORADAS: Temporada[] = [
-  { id: 'temporada-1', nome: 'Temporada 1 · Novos Horizontes', arte: 'tela-entrada.jpg', inicio: '2026-10-01' },
+  { id: 'temporada-1', nome: 'Temporada 1', arte: 'menu/temporada1.webp', inicio: '2026-10-01' },
 ];
 
 /** Temporada vigente na data dada: a última cujo início já passou (datas AAAA-MM-DD ordenam como texto). */
