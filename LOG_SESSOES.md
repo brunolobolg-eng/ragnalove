@@ -6,7 +6,7 @@ O histórico técnico de cada versão está no `CHANGELOG.md`; o estado atual do
 Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisões, pendências e commits.
 
 ## Pendências em aberto (resumo)
-- **O Último Bastião (v0.11, em andamento):** fundação pronta e testada no core (sem tela, sem mapa próprio). Próxima etapa: mapa do Bastião com área de construção e portão. D1 (carteira própria), as cartas (D8), as muralhas, as classes, os pacotes, os slots (D9 a D12) e o modelo de slots por personagem (D13) foram definidos pelo dono. Ainda vale confirmar as pendências 9 a 12 do registro abaixo.
+- **O Último Bastião (v0.11, em andamento):** prévia translúcida, muralhas em qualquer ponto, mover muralhas recentes, horda ordenada (mini-chefe a cada 5 noites, MVP a cada 10) e caminho aberto antes de quebrar, já no código (commits 35153a7 e 742b601). Pendências do dono: testar no PC; confirmar a ordem da horda e se o turno também avança na derrota; decidir se mover sai do modo depois de mover (hoje sai); zoom global ou só no Bastião. Detalhes na entrada de 2026-10-12 abaixo.
 - **Álbum de cartas e dica da revelação (v0.10):** Feiticeira e Bruxa não têm ícone de classe na folha 32 (usam o retrato); cartas não têm nível no jogo (o "Nv." da imagem virou ×N); conferir no PC do dono o álbum com cartas reais e a dica do pacote.
 - **Kit de interface nos menus (v0.9):** conferir visualmente no PC do dono o pacote de cartas e as configurações (não conferidos nesta rodada); a moldura do mítico é dourada porque a arte do vermelho está no miolo (decisão de arte); silhuetas de amuleto e anel saíram irregulares, e brinco e cinto não têm silhueta própria; a muralha do guerreiro não tem textura no arquivo do kit (decisão: textura própria ou a do cenário). Ranking do menu é arte da tela inicial, não foi trocado (v0.9).
 - **Pacote de efeitos nas magias (v0.8g):** passivas e estados sem evento ficam sem efeito novo; desempenho precisa ser medido na GPU do dono; o 7z original espera permissão para ir à branch `fontes` (v0.8g).
@@ -768,6 +768,47 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   1. Barreira de Fogo no Bastião: hoje a ferramenta fica oculta no Bastião, porque o campo não tem barreira. Dar barreiras ao padrão do Bastião muda o balanço do Mago, então depende de aval.
   2. Testar no PC (`BAIXAR_DO_GITHUB.bat`, depois `ATUALIZAR_JOGO.bat`). Se o campo ainda estiver lento, testar a Qualidade Médio ou Baixo em Opções → Vídeo e dizer o fps.
   3. Próximos cortes de custo, se precisar, por ordem e sempre medindo antes: camadas de água sem sombra; sombra do mapa atualizada só quando a câmera ou a construção muda; MSAA 2x no preset Alto; sombra só em árvores e muralha (decor pequeno sem sombra); decor em blocos espaciais para o recorte de tela.
+
+## 2026-10-12 — prévia, muralhas livres, mover recentes, horda ordenada e caminho aberto no Bastião (v0.11, em andamento)
+- **Pedido do dono:** tornar o Bastião mais interativo: (1) prévia translúcida da muralha ou torre no tile do cursor, mostrando onde e como fica; (2) muralha em qualquer região do mapa (torre segue nos lotes azuis); (3) monstro só ataca muralha quando não tem mais caminho até o portão, então várias muralhas podem fechar todos os caminhos; (4) muralha construída no turno de planejamento pode ser movida até a noite começar, e depois fica fixa; (5) zoom da câmera limitado um pouco; (6) horda com todos os inimigos do jogo, com mini-chefe a cada 5 "níveis" e MVP a cada 10.
+- **Decisões tomadas sem o dono (conferir):**
+  - "Nível" = a noite que vem: vitórias da cidade + 1. A contagem vem da cidade, então atravessa tentativas.
+  - Ordem dos chefes: noites 5, 15, 25, 35, 45, 55 têm mini-chefe em ciclo (Elite, Krexx pequeno, Krexx retorcido, Dino, Líder goblin, Elite). Noites 10, 20, 30 têm MVP em ciclo (Colosso, Colosso Solar, Senhor Orc), e depois repetem.
+  - Noites comuns: 60 inimigos; zumbis 40%, corredores 24%, pesados 14%, Raydric 12%, necromantes 10%.
+  - Mover é de graça e pode ser repetido no mesmo turno. Depois de mover, o modo de mover sai (é preciso clicar em Mover de novo). Torres não movem; muralha destruída não move.
+  - O turno avança também na derrota.
+  - Zoom: limite global 1,9 → 1,5 (e 1,75 → 1,5 no cenário pintado), porque a câmera é compartilhada com a campanha.
+  - Muralha só é quebrada quando a unidade não tem caminho aberto até o alvo, decidido por unidade. Sem estrutura de pé, o pathing é o de antes: a saída do `sim:check` continua idêntica à linha de base.
+  - Esc com a Coleção aberta agora a fecha, como o tooltip "Fechar (Esc)" já prometia. Isso vale também na campanha.
+- **O que foi feito:**
+  - Core: `src/core/bastion/horde.ts` (ordem da horda, função pura); `rules.ts` (colocação sem checagem de rota, `checkMove` e `moveStructure`, `applyNight` avança o turno); `bastion.ts` (campos `turn` e `placedTurn`, migração).
+  - Simulação (`Simulation.ts`): campos abertos, com muralha como obstáculo, usados só quando há estrutura de pé; foco e provocação sem caminho aberto não travam mais a noite.
+  - Interface: `BastionGhostView.ts` (prévia com o modelo real translúcido, contorno e anel de alcance da torre); `BastionSession` (modo de mover, Próxima horda); `BastionHub`; `BastionBuildPanel`; `Collection` (Esc e retorno ao Bastião).
+  - Heróis não entram em tile com construção nem sobre a formação padrão, e reconstruir com herói no tile é recusado.
+- **Revisão:** três revisores adversariais (pathing, regras e save, interface). Corrigidos: foco e provocação travando a noite; ordem dos mini-chefes; `boss` `undefined` em noite comum (agora `null`); herói sobre muralha sumia da batalha; Cartas sem volta ao Bastião; modo de mover preso depois de mover; textos e comentário do zoom.
+- **Testes:**
+  - `npx tsc --noEmit`, `npm run build`: passam.
+  - `npm run sim:check`: saída idêntica à linha de base (determinístico).
+  - `npm run bastion:check`: 212 checagens ok, sem falha.
+  - `npm run bastion:path` (novo): brecha, cerco, bolsão, anel com herói murado, corredor com fila, determinismo.
+  - `npm run vocation:check`: passa.
+- **Navegador (Chromium, SwiftShader; não é a GPU do dono):** hub mostra "Próxima horda: Noite 1 · comum"; prévia verde "Pode construir aqui por 5 Zen" num tile fora do lote; muralha colocada (Zen 20 → 15, `placedTurn` 0); "Mover" habilitado; mudou de tile sem custo; zoom parou em 1,5; sem erro de página nem de console. Prints guardados no scratchpad da sessão, não versionados.
+- **Limitações e pendências técnicas:**
+  - A formação dos heróis não é guardada entre noites: volta ao padrão a cada noite. Pré-existente.
+  - Anel de muralhas do Guerreiro (`shieldWall`) com bastião de pé ainda trava o foco na campanha e no Bastião. Pré-existente; o patch de correção ficou pronto no scratchpad, mas não foi aplicado (muda a campanha quando há escudo).
+  - Fogo conta como caminho aberto (o custo do fogo é finito), então a horda atravessa fogo antes de quebrar. O mapa do Bastião não tem fogo, então é latente.
+  - Golpe corpo a corpo atravessa a quina de muralha (`adjacentHero` usa Chebyshev). Pré-existente.
+  - A armadilha da Arqueira (`pathAhead`) ainda usa o campo de quebra.
+  - Remover uma muralha fixa e erguer outra noutro lugar é uma forma de mover depois da noite, com perda do reembolso parcial. Precisa de decisão do dono.
+  - Aviso `toNonIndexed` no console vem de `fortress.ts`, `Emperium.ts` e `BiomeScenery.ts`. Pré-existente.
+  - Desempenho medido só no SwiftShader; FPS na GPU do dono não medido.
+- **Pendências do dono:**
+  1. Testar no PC: prévia, mover, Próxima horda, zoom (`BAIXAR_DO_GITHUB.bat`, depois `ATUALIZAR_JOGO.bat`).
+  2. Confirmar a ordem dos mini-chefes. Como a ordem é a declarada, os 13 inimigos só aparecem até a noite 45.
+  3. Confirmar se o turno também avança na derrota.
+  4. Decidir se mover sai do modo depois de cada movimento (hoje sai) e se remover-e-reerguer deve ser barrado.
+  5. Confirmar se o limite de zoom vale para a campanha também (hoje vale).
+- **Commits:** `35153a7` (feature), `742b601` (correções da revisão) e o commit de documentação desta entrada.
 
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.

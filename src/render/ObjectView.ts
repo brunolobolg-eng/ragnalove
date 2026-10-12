@@ -629,6 +629,17 @@ const BUILDERS: Record<MapObject['type'], Builder> = {
   },
 };
 
+/**
+ * Desenho de uma construção do Bastião sem objeto da simulação (prévia do fantasma no campo): usa as mesmas
+ * peças e construtores do campo, então a prévia é igual à construção de verdade. Só visual.
+ */
+export function fortMesh(type: 'bastionWall' | 'bastionTower'): THREE.Group {
+  const g = new THREE.Group();
+  // os construtores das muralhas e torres não leem o objeto: só o grupo e o estado inicial
+  BUILDERS[type]({ obj: undefined as unknown as MapObject, group: g, state: 'idle', shake: 0 }, 0);
+  return g;
+}
+
 /** Junta geometrias sem índice (poças/lama). */
 function mergeFlat(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
   const parts = geos.map((g) => (g.index ? g.toNonIndexed() : g));

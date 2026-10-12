@@ -8,7 +8,6 @@ import { HERO_ORDER } from '../../config/heroes';
 import type { HeroKind } from '../progression/skills';
 import { Rng } from '../sim/rng';
 import { findStructure, structureMaxHp, type BastionState, type Structure } from './bastion';
-import { routeOpen } from './route';
 import type { Fortification } from '../sim/Simulation';
 
 /**
@@ -28,8 +27,10 @@ export type BuildError =
   | 'occupied'
   | 'hero'
   | 'zeni'
-  | 'route'
   | 'missing'
+  | 'notMovable'
+  | 'notRecent'
+  | 'sameTile'
   | 'intact'
   | 'destroyed'
   | 'maxLevel'
@@ -54,8 +55,10 @@ export const BUILD_MSG: Record<BuildError, string> = {
   occupied: 'Já existe uma construção aqui.',
   hero: 'Um herói está parado aqui.',
   zeni: 'Zen insuficiente.',
-  route: 'Isso fecharia o caminho da horda.',
   missing: 'Construção não encontrada.',
+  notMovable: 'Só muralhas inteiras podem ser movidas.',
+  notRecent: 'Só dá para mover muralhas construídas neste turno.',
+  sameTile: 'A construção já está neste tile.',
   intact: 'Já está inteira.',
   destroyed: 'Está destruída: reconstrua antes de aprimorar.',
   maxLevel: 'Já está no nível máximo.',
@@ -133,21 +136,33 @@ export function coreRepairCost(hp: number): number {
 
 // ---------- colocação ----------
 
-/** Motivo da recusa (ou undefined = pode construir). Não gasta nada. */
-export function checkPlacement(b: BastionState, env: BuildEnv, kind: StructureKind, at: Vec2): BuildError | undefined {
-  const def = STRUCTURES[kind];
-  if (!def) return 'unknownKind';
-  if (!b.projects.includes(def.project)) return 'locked';
-  if (!env.buildable(at.x, at.y)) return 'outside';
+/**
+ * Regras de lugar, iguais para construir e mover: chão, portão, portal, ocupação e herói. Muralha
+ * (`anywhere`) pode ficar fora dos lotes; torre não. Não há checagem de rota: as muralhas podem fechar
+ * todos os caminhos, e a horda só as quebra quando não tem outro (ver Simulation).
+ * `ignoreId` tira uma construção da conta de ocupação (o próprio movimento).
+ */
+function siteError(b: BastionState, env: BuildEnv, kind: StructureKind, at: Vec2, ignoreId?: number): BuildError | undefined {
+  if (!STRUCTURES[kind].anywhere && !env.buildable(at.x, at.y)) return 'outside';
   if (env.board.isCity(at.x, at.y)) return 'city';
   if (!env.board.isWalkable(at.x, at.y)) return 'terrain';
   if (env.spawns.some((p) => chebyshev(p, at) <= env.spawnSafeRadius)) return 'spawn';
-  if (b.structures.some((s) => s.x === at.x && s.y === at.y)) return 'occupied';
+  if (b.structures.some((s) => s.id !== ignoreId && s.x === at.x && s.y === at.y)) return 'occupied';
   if (env.heroes.some((h) => h.x === at.x && h.y === at.y)) return 'hero';
+  return undefined;
+}
+
+/**
+ * Motivo da recusa de construir (ou undefined = pode construir). Não gasta nada. `ignoreId` ignora uma
+ * construção na ocupação (para checar um tile sem contar a própria peça).
+ */
+export function checkPlacement(b: BastionState, env: BuildEnv, kind: StructureKind, at: Vec2, ignoreId?: number): BuildError | undefined {
+  const def = STRUCTURES[kind];
+  if (!def) return 'unknownKind';
+  if (!b.projects.includes(def.project)) return 'locked';
+  const site = siteError(b, env, kind, at, ignoreId);
+  if (site) return site;
   if (b.profile.zeni < buildCostOf(b, kind)) return 'zeni';
-  // As estruturas são quebráveis, então a horda sempre passa por elas (quebrando): a rota só pode
-  // ser cortada pelo próprio mapa. A checagem roda mesmo assim, para o caso de um obstáculo novo.
-  if (!routeOpen(env.board, env.spawns)) return 'route';
   return undefined;
 }
 
@@ -156,10 +171,42 @@ export function placeStructure(b: BastionState, env: BuildEnv, kind: StructureKi
   if (err) return fail(err);
   const cost = buildCostOf(b, kind);
   b.profile.zeni -= cost;
-  const s: Structure = { id: b.nextId++, kind, x: at.x, y: at.y, level: 1, hp: 0, invested: cost };
+  const s: Structure = { id: b.nextId++, kind, x: at.x, y: at.y, level: 1, hp: 0, invested: cost, placedTurn: b.turn };
   s.hp = structureMaxHp(b, s);
   b.structures.push(s);
   return { ok: true, id: s.id, cost };
+}
+
+// ---------- mover (muralhas recentes) ----------
+
+/** Pode mover agora? Só muralha inteira (hp > 0) construída neste turno (placedTurn === turn). Torre nunca. */
+export function isMovable(b: BastionState, s: Structure): boolean {
+  return STRUCTURES[s.kind].movable === true && s.hp > 0 && s.placedTurn === b.turn;
+}
+
+/**
+ * Motivo da recusa de mover para `at` (ou undefined = pode mover). Mover é de graça (sem checagem de Zen),
+ * pode repetir no mesmo turno e mantém o turno de construção. As regras de lugar são as de construir.
+ */
+export function checkMove(b: BastionState, env: BuildEnv, id: number, at: Vec2): BuildError | undefined {
+  const s = findStructure(b, id);
+  if (!s) return 'missing';
+  if (STRUCTURES[s.kind].movable !== true || s.hp <= 0) return 'notMovable';
+  if (s.placedTurn !== b.turn) return 'notRecent';
+  if (s.x === at.x && s.y === at.y) return 'sameTile';
+  return siteError(b, env, s.kind, at, id);
+}
+
+/** Move a muralha recente para `at`. Não cobra Zen. Devolve de onde ela saiu. */
+export function moveStructure(b: BastionState, env: BuildEnv, id: number, at: Vec2): Result<{ from: Vec2 }> {
+  const err = checkMove(b, env, id, at);
+  if (err) return fail(err);
+  const s = findStructure(b, id);
+  if (!s) return fail('missing');
+  const from = { x: s.x, y: s.y };
+  s.x = at.x;
+  s.y = at.y;
+  return { ok: true, from };
 }
 
 /** Estruturas da cidade como a simulação da onda recebe: vida atual e, nas torres, o tiro pelo nível. */
@@ -289,10 +336,7 @@ export interface NightOutcome {
   wave: WaveResult;
 }
 
-/**
- * Aplica o resultado de uma onda à cidade. Idempotente pela chave da onda: aplicar de novo (reabrir o
- * relatório, recarregar o jogo) não paga Zen nem desconta vida outra vez. Devolve false se já estava aplicada.
- */
+/** O que applyNight devolve quando aplica uma onda: os pacotes de cartas que ela entregou. */
 export interface NightResult {
   /** Pacotes de cartas entregues por esta onda (já estão na coleção compartilhada). */
   packs: string[][];
@@ -300,12 +344,14 @@ export interface NightResult {
 
 /**
  * Aplica o resultado de uma onda à cidade. Idempotente pela chave da onda: aplicar de novo (reabrir o
- * relatório, recarregar o jogo) não paga Zen, não desconta vida e não entrega pacote outra vez.
+ * relatório, recarregar o jogo) não paga Zen, não desconta vida, não entrega pacote e não avança o turno outra vez.
  * Devolve undefined se a chave já tinha sido aplicada. `cards` é a coleção compartilhada com a campanha.
+ * Cada noite aplicada (vitória ou derrota) avança o turno: as muralhas do turno anterior ficam no lugar.
  */
 export function applyNight(b: BastionState, out: NightOutcome, key: string, cards: CardCollection): NightResult | undefined {
   if (b.paidKey === key) return undefined;
   b.paidKey = key;
+  b.turn++;
   for (const f of out.structures) {
     const s = findStructure(b, f.id);
     if (s) s.hp = Math.min(structureMaxHp(b, s), Math.max(0, f.hp));

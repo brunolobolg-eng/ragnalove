@@ -62,6 +62,26 @@ export const VISUAL_CONFIG = {
   /** Ordem de posição: marca no chão (duração em s). */
   orders: { markerTime: 0.7 },
   /**
+   * Prévia do Último Bastião: a construção translúcida sob o cursor (verde = dá, vermelho = não), com contorno
+   * vetorial brilhante, o contorno do tile e, na torre, o anel do alcance. Só visual; a decisão é do núcleo.
+   */
+  bastionGhost: {
+    validFill: 0x4dff8a, // corpo translúcido quando dá para construir ou mover
+    validEdge: 0xd2ffe0, // contorno vetorial (mais claro que o corpo)
+    invalidFill: 0xff4a4a, // corpo translúcido quando não dá
+    invalidEdge: 0xffd0c8, // contorno vetorial da recusa
+    fillOpacity: 0.26, // cópia translúcida do modelo
+    edgeOpacity: 0.95, // contorno brilhante
+    tileFill: 0.16, // mancha do tile sob a prévia
+    tileEdgeOpacity: 0.9, // contorno do tile
+    rangeFill: 0.07, // leve preenchimento dentro do alcance da torre
+    rangeEdgeOpacity: 0.7, // anel do alcance da torre
+    rangeSegments: 64, // pontos do anel (suavidade)
+    lift: 0.03, // altura do contorno sobre o chão (evita z-fighting)
+    tileSize: 0.96, // lado da mancha do tile (1 = o tile inteiro)
+    edgeAngle: 25, // graus: arestas mais abruptas que isto viram contorno vetorial
+  },
+  /**
    * Câmera tática nos mapas grandes: segue a ação na onda e deixa o jogador inspecionar o mapa
    * (WASD/setas ou arrastar com o botão do meio/direito, roda = zoom, F = centralizar/seguir).
    */
@@ -69,9 +89,10 @@ export const VISUAL_CONFIG = {
     panSpeed: 16, // tiles/s com teclado
     edgePan: 0, // px da borda para arrastar a câmera com o mouse (0 = desligado)
     zoomMin: 0.62,
-    zoomMax: 1.9,
+    /** Limite de afastamento da câmera (zoom alto = mais longe: a câmera fica em foco + offset × zoom). Antes 1.9: longe demais para ler o campo. */
+    zoomMax: 1.5,
     /** Mapas pintados (arte do dono): sem névoa, zoom maior e a câmera presa dentro da pintura. */
-    painted: { zoomStart: 1.3, zoomMin: 0.7, zoomMax: 1.75 },
+    painted: { zoomStart: 1.3, zoomMin: 0.7, zoomMax: 1.5 },
     zoomStep: 0.1,
     follow: 2.4, // suavização do seguir
     manualHold: 1.5, // s sem seguir depois que o jogador mexe na câmera

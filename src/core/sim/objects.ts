@@ -65,14 +65,14 @@ export const OBJECT_RULES: Record<MapObjectType, ObjectRule> = {
   // Bastião: a vida vem da estrutura (o chamador passa hp/maxHp ao criar o objeto); não usa o `hp` da regra.
   bastionWall: {
     label: 'Muralha de pedra',
-    desc: 'Bloco da cidade: a horda quebra para passar. Ela só não quebra quando há caminho livre quase tão bom.',
+    desc: 'Bloco da cidade: a horda só o quebra quando não há caminho livre até o seu alvo.',
     blocksWalk: standing,
     blocksSight: never,
     breakable: true,
   },
   bastionTower: {
     label: 'Torre de tiro',
-    desc: 'Atira sozinha no inimigo visível mais próximo. Bloqueia a passagem e pode ser quebrada.',
+    desc: 'Atira sozinha no inimigo visível mais próximo. Bloqueia a passagem; a horda só a quebra sem caminho livre até o seu alvo.',
     blocksWalk: standing,
     blocksSight: never,
     breakable: true,

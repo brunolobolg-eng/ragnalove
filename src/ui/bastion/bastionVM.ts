@@ -1,4 +1,5 @@
 import type { StructureKind } from '../../config/bastion';
+import type { HordeTier } from '../../core/bastion/horde';
 import type { HeroKind } from '../../core/progression/skills';
 
 /**
@@ -23,6 +24,9 @@ export interface BastionStructureRow {
   refund: number;
 }
 
+/** Texto do botão de conserto: Reconstruir (destruída) ou Reparar (danificada). Mesmo nome em todas as telas. */
+export const repairVerb = (status: BastionStructureRow['status']): string => (status === 'destroyed' ? 'Reconstruir' : 'Reparar');
+
 export interface BastionProjectRow {
   id: string;
   name: string;
@@ -37,6 +41,19 @@ export interface BastionHeroRow {
   kind: HeroKind;
   name: string;
   selected: boolean;
+}
+
+/** Próxima horda (de hordeOf): o que a tela mostra. O tipo (tier) define a marca de mini-chefe e MVP. */
+export interface BastionHordeRow {
+  /** Número da noite que vem. */
+  wave: number;
+  /** Ex.: "Noite 5 · mini-chefe". */
+  title: string;
+  /** Chefe da noite, ou a lista da tropa comum. */
+  detail: string;
+  tier: HordeTier;
+  /** Tropa comum da noite (o chefe entra por cima). */
+  count: number;
 }
 
 export interface BastionHubVM {
@@ -58,9 +75,14 @@ export interface BastionHubVM {
   party: BastionHeroRow[];
   structures: BastionStructureRow[];
   projects: BastionProjectRow[];
+  /** A horda da próxima noite (hordeOf de nights + 1). */
+  nextHorde: BastionHordeRow;
   /** Mensagem da última ação (sucesso ou motivo da recusa). */
   message?: string;
 }
+
+/** Por que a construção pode ou não ser movida (a tela escreve o texto; a regra é isMovable no core). */
+export type BastionMoveWhy = 'recent' | 'old' | 'destroyed' | 'fixed';
 
 export interface BastionPaletteRow {
   kind: StructureKind;
@@ -84,7 +106,14 @@ export interface BastionBuildVM {
   canStartNight: boolean;
   palette: BastionPaletteRow[];
   /** Estrutura escolhida no campo (clique numa construção). */
-  selected?: BastionStructureRow & { invested: number };
+  selected?: BastionStructureRow & {
+    invested: number;
+    /** Pode mover agora (isMovable no core). */
+    movable: boolean;
+    moveWhy: BastionMoveWhy;
+    /** Modo de mover ativo para esta construção. */
+    moving: boolean;
+  };
   message?: string;
 }
 
@@ -127,6 +156,8 @@ export interface BastionBuildHooks {
   onRepair(id: number): void;
   onUpgrade(id: number): void;
   onRemove(id: number): void;
+  /** Entra (ou sai, se já estiver) no modo de mover a muralha recente. */
+  onMove(id: number): void;
   onNight(): void;
   onBackToHub(): void;
 }

@@ -1,4 +1,5 @@
 import { GAME_CONFIG } from './gameConfig';
+import type { WaveMix } from './zones';
 import type { HeroKind } from '../core/progression/skills';
 
 /**
@@ -32,12 +33,16 @@ export interface StructureDef {
   maxLevel: number;
   /** Só torres: tiro automático. O dano sobe `damagePerLevel` por nível; alcance em tiles; recarga em ticks. */
   shot?: { damage: number; damagePerLevel: number; range: number; cooldownTicks: number };
+  /** Pode ser erguida fora dos lotes de construção (qualquer tile andável). Sem isto, só nos lotes. */
+  anywhere?: boolean;
+  /** Pode ser movida no turno em que foi construída (ver isMovable em core/bastion/rules.ts). */
+  movable?: boolean;
 }
 
 export const STRUCTURES: Record<StructureKind, StructureDef> = {
   wall: {
     name: 'Muralha de pedra',
-    desc: 'Bloqueia a passagem: a horda precisa quebrá-la para seguir. Não atira. Cada muralha que já está na cidade dobra o preço da próxima, até 999 Zen.',
+    desc: 'Bloqueia a passagem: a horda só a quebra quando não tem outro caminho. Pode ser erguida em qualquer ponto do mapa e movida no turno em que foi construída. Não atira. Cada muralha da cidade dobra o preço da próxima, até 999 Zen.',
     project: 'castle',
     cost: 5,
     costGrowth: 2,
@@ -45,10 +50,12 @@ export const STRUCTURES: Record<StructureKind, StructureDef> = {
     hp: 120,
     hpPerLevel: 60,
     maxLevel: 3,
+    anywhere: true,
+    movable: true,
   },
   tower: {
     name: 'Torre de tiro',
-    desc: 'Atira sozinha no inimigo visível mais próximo, dentro do alcance. Ocupa um tile e bloqueia a passagem.',
+    desc: 'Só nos lotes de construção. Atira sozinha no inimigo visível mais próximo, dentro do alcance. Ocupa um tile e bloqueia a passagem.',
     project: 'towers',
     cost: 120,
     costGrowth: 1,
@@ -56,6 +63,8 @@ export const STRUCTURES: Record<StructureKind, StructureDef> = {
     hpPerLevel: 40,
     maxLevel: 3,
     shot: { damage: 14, damagePerLevel: 4, range: 6, cooldownTicks: 12 },
+    anywhere: false,
+    movable: false,
   },
 };
 
@@ -115,4 +124,52 @@ export const BASTION = {
    * (85 de vida, força 8) causa 23. Vida da cidade: GAME_CONFIG.cityDefense.maxHp.
    */
   emperium: { contactDivisor: 30 },
+};
+
+/** Definição da horda por noite (ver core/bastion/horde.ts). Os números e a ordem dos ciclos são dados. */
+export interface BastionHordeDef {
+  /** Tropa comum de cada noite. */
+  count: number;
+  /** Mistura da tropa comum (pesos somam 100). Mini-chefes e MVPs entram por cima, pelo mecanismo de chefe da onda. */
+  regular: WaveMix[];
+  /** Mini-chefe a cada N noites (as noites de MVP são puladas). Exige mvpEvery múltiplo deste (checado em scripts/bastionCheck.ts). */
+  miniEvery: number;
+  /** MVP a cada N noites. */
+  mvpEvery: number;
+  /** Ciclo dos mini-chefes, em ordem: a k-ésima noite de mini-chefe (as de MVP não contam) pega minis[(k − 1) mod tamanho do ciclo]. */
+  minis: string[];
+  /** Ciclo dos MVPs, em ordem: noite de MVP (n / mvpEvery − 1) mod tamanho do ciclo. */
+  mvps: string[];
+  /** Nome em pt-BR de cada inimigo de combate (tudo de GAME_CONFIG.enemies, menos o boneco de treino). */
+  names: Record<string, string>;
+}
+
+export const BASTION_HORDE: BastionHordeDef = {
+  count: 60,
+  regular: [
+    { kind: 'grunt', weight: 40 },
+    { kind: 'runner', weight: 24 },
+    { kind: 'brute', weight: 14 },
+    { kind: 'raydric', weight: 12 },
+    { kind: 'necro', weight: 10 },
+  ],
+  miniEvery: 5,
+  mvpEvery: 10,
+  minis: ['elite', 'goblinImp', 'goblinWarlord', 'dinoBoss', 'goblinLeader'],
+  mvps: ['boss', 'boss2', 'orcboss'],
+  names: {
+    grunt: 'Zumbi',
+    runner: 'Corredor',
+    brute: 'Pesado',
+    raydric: 'Raydric',
+    necro: 'Necromante',
+    elite: 'Elite',
+    goblinImp: 'Krexx pequeno',
+    goblinWarlord: 'Krexx retorcido',
+    dinoBoss: 'Dino',
+    goblinLeader: 'Líder goblin',
+    boss: 'Colosso da Clareira',
+    boss2: 'Colosso Solar',
+    orcboss: 'Senhor Orc das Cinzas',
+  },
 };

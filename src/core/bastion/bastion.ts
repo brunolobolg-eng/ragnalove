@@ -21,6 +21,8 @@ export interface Structure {
   hp: number;
   /** Zen gasto nela (construção + aprimoramentos). Base do reparo, da reconstrução e do reembolso. */
   invested: number;
+  /** Turno (BastionState.turn) em que foi construída. Mover não muda. -1 = construção de antes do turno existir (save antigo). */
+  placedTurn: number;
 }
 
 export type StructureStatus = 'intact' | 'damaged' | 'destroyed';
@@ -35,6 +37,11 @@ export interface BastionState {
   nights: number;
   /** Ondas vencidas na tentativa atual. Zera ao começar outra tentativa. */
   nightsInAttempt: number;
+  /**
+   * Turno de planejamento: sobe 1 a cada noite aplicada (vitória ou derrota, ver applyNight). Só as muralhas
+   * construídas no turno atual podem ser movidas: depois da noite, elas ficam no lugar.
+   */
+  turn: number;
   /** A tentativa acabou (derrota): só volta a rodar depois de `startAttempt`. */
   attemptEnded?: boolean;
   coreHp: number;
@@ -70,6 +77,7 @@ export function newBastion(seed: number, cards: CardCollection, party: HeroKind[
     attempt: 1,
     nights: 0,
     nightsInAttempt: 0,
+    turn: 0,
     coreHp: BASTION.coreMaxHp,
     coreMaxHp: BASTION.coreMaxHp,
     profile: createProfile(),
@@ -103,6 +111,11 @@ export function migrateBastion(b: BastionState): BastionState {
   b.records.bestNights ??= 0;
   b.records.attempts ??= b.attempt;
   b.packsGiven = Number.isFinite(b.packsGiven) && b.packsGiven >= 0 ? b.packsGiven : 0;
+  // Save sem turno (antes do movimento de muralhas): começa no turno 0. Turno é inteiro não negativo.
+  b.turn = Number.isInteger(b.turn) && b.turn >= 0 ? b.turn : 0;
+  // Construção sem turno é "antiga": placedTurn -1, que nunca bate com o turno, então não se move.
+  // Qualquer valor que não seja um turno inteiro (≥ 0) nem o -1 vira -1.
+  for (const s of b.structures) s.placedTurn = Number.isInteger(s.placedTurn) && s.placedTurn >= -1 ? s.placedTurn : -1;
   return b;
 }
 

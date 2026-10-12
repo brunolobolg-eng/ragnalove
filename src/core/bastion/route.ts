@@ -7,8 +7,8 @@ import type { BuildEnv } from './rules';
 
 /**
  * Grade ESTÁTICA de uma zona (paredes, vazio, portão e objetos fixos do mapa), montada do mesmo jeito
- * que a simulação monta a sua. Não tem as estruturas da cidade: elas são quebráveis, então a horda
- * sempre pode passar por elas (quebrando), e não entram na checagem de rota.
+ * que a simulação monta a sua. Não tem as estruturas da cidade: elas são quebráveis, e a colocação não
+ * checa rota (as muralhas podem fechar todos os caminhos).
  */
 export function staticBoard(zone: ZoneDef): Board {
   const z = parseZone(zone);
@@ -35,7 +35,8 @@ export function bastionBuildEnv(zone: ZoneDef, heroes: readonly Vec2[], spawnSaf
 
 /**
  * Há caminho dos portais até um tile de portão, andando pela grade estática com as mesmas regras de passo
- * da horda (diagonal não corta quina)? Usada na colocação de estruturas e para validar o mapa do modo.
+ * da horda (diagonal não corta quina)? Valida o mapa do modo (bastionCheck). A colocação de muralhas não usa:
+ * elas podem fechar a rota, e a horda então quebra as que bloqueiam.
  */
 export function routeOpen(board: Board, spawns: readonly Vec2[]): boolean {
   const seen = new Uint8Array(board.width * board.height);
