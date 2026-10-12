@@ -1,7 +1,7 @@
 /**
  * Checagem headless do Último Bastião (sem renderização). Rode: npm run bastion:check
  * 1) Dados · 2) Estado e migração · 3) Colocação · 4) Custos, reparo e reembolso · 5) Projetos ·
- * 6) Ondas (idempotência, derrota e socorro) · 7) Simulação (muralhas quebráveis, torres, destruídas) ·
+ * 6) Ondas (idempotência, derrota e recomeço do zero) · 7) Simulação (muralhas quebráveis, torres, destruídas) ·
  * 8) Cartas compartilhadas · 9) Preço, teto, classes, pacotes e slots · 10) Mapa do Último Bastião (bastionKeep) ·
  * 11) Emperium: dano de contato (vida × força ÷ 30) e a campanha segue pela ameaça por tipo ·
  * 12) Turnos e muralhas recentes (mover no turno) · 13) Horda por noite (comum, mini-chefe e MVP) ·
@@ -31,7 +31,6 @@ import {
   repairCore,
   repairCostOf,
   repairStructure,
-  rescueIfStuck,
   startAttempt,
   unlockProject,
   upgradeStructure,
@@ -278,7 +277,7 @@ bq.party.push('archer');
 bq.profile.zeni = 999;
 check('torres sem o castelo: o pré-requisito bloqueia', errOf(unlockProject(bq, 'towers')) === 'requires');
 
-console.log('\n# 6) Ondas, derrota e socorro');
+console.log('\n# 6) Ondas, derrota e recomeço do zero');
 const bw = newBastion(7, emptyCollection());
 bw.profile.zeni = 500;
 const wr = placeStructure(bw, env(), 'wall', free[3]);
@@ -297,19 +296,11 @@ check('derrota: encerra a tentativa e registra o recorde', bw.attemptEnded === t
 check('derrota: projetos e muralha destruída continuam', bw.projects.includes('castle') && structureStatus(bw, wall) === 'destroyed');
 const copiaCaida = JSON.parse(JSON.stringify(bw)) as BastionState;
 check('núcleo caído: a derrota também deixa recomeçar do zero (o núcleo volta cheio)', copiaCaida.coreHp === 0 && startAttempt(copiaCaida, emptyCollection()).ok === true && copiaCaida.coreHp === copiaCaida.coreMaxHp);
-bw.profile.zeni = 0;
-check('socorro: sem Zen nem para o reparo mínimo, a cidade ganha Zen', rescueIfStuck(bw) === BASTION.rescue.zeni && bw.profile.zeni === BASTION.rescue.zeni);
-check('socorro: não repete na mesma tentativa', rescueIfStuck(bw) === 0);
+bw.profile.zeni = 200;
 const rcore = repairCore(bw, 100);
 check('núcleo: repara 100 de vida por 110 Zen', rcore.ok && rcore.cost === 110 && bw.coreHp === 100);
 check('derrota severa: recomeçar abre a tentativa 2 com as noites zeradas', startAttempt(bw, emptyCollection()).ok === true && bw.attempt === 2 && bw.nights === 0 && bw.nightsInAttempt === 0);
 check('recomeçar tira a muralha destruída: a cidade volta sem construções', bw.structures.length === 0 && fortificationsOf(bw).length === 0);
-bw.coreHp = 0;
-bw.attemptEnded = true;
-bw.profile.zeni = 0;
-check('socorro: ainda no intervalo de 2 tentativas', rescueIfStuck(bw) === 0);
-bw.attempt = 3;
-check('socorro: volta a valer na tentativa 3', rescueIfStuck(bw) === BASTION.rescue.zeni);
 check('semente da onda: mesma cidade, mesma semente; muda com a onda', waveSeed(bw) === waveSeed(JSON.parse(JSON.stringify(bw)) as BastionState) && waveSeed(bw) !== waveSeed({ ...bw, nights: bw.nights + 1 }));
 
 console.log('\n# 7) Simulação com as estruturas da cidade');

@@ -60,8 +60,6 @@ export interface BastionState {
   nextId: number;
   /** Chave da última onda aplicada: aplicar a mesma de novo não paga nem desconta nada duas vezes. */
   paidKey?: string;
-  /** Tentativa em que o socorro foi concedido (ver BASTION.rescue). */
-  rescuedAttempt?: number;
   /**
    * Contagens que sobrevivem à derrota: melhor sequência, número de tentativas e `totalNights` (vitórias de todas
    * as tentativas). O total numera os pacotes de carta e libera os slots; nunca zera.

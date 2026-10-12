@@ -175,7 +175,6 @@ export class BastionSession {
   open(): void {
     this.enter();
     this.d.closeMenu();
-    // Sem socorro: depois de uma derrota o jogador recomeça do zero (startAttempt), que já devolve Zen e núcleo.
     this.planning();
     this.hub.open(this.hubVM());
   }

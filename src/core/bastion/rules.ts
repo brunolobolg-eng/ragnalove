@@ -291,20 +291,6 @@ export function repairCore(b: BastionState, hp?: number): Result<{ cost: number;
 }
 
 /**
- * Socorro contra a derrota severa: núcleo caído e sem Zen nem para o reparo mínimo. Concede Zen
- * (no máximo uma vez a cada BASTION.rescue.everyAttempts tentativas). Devolve o Zen concedido (0 = nada).
- */
-export function rescueIfStuck(b: BastionState): number {
-  if (b.coreHp > 0) return 0;
-  const minCost = coreRepairCost(Math.ceil(b.coreMaxHp * BASTION.rescue.coreMinFraction));
-  if (b.profile.zeni >= minCost) return 0;
-  if (b.rescuedAttempt !== undefined && b.attempt - b.rescuedAttempt < BASTION.rescue.everyAttempts) return 0;
-  b.rescuedAttempt = b.attempt;
-  addZeni(b.profile, BASTION.rescue.zeni);
-  return BASTION.rescue.zeni;
-}
-
-/**
  * Recomeça do zero depois de uma derrota (a tentativa acabou). Zera a cidade e os heróis do modo: estruturas,
  * projetos (só o castelo), noites (a horda volta à noite 1), núcleo cheio, Zen inicial e perfil novo (heróis
  * no nível 1, sem equipamento). Mantém a semente, o turno, a party escolhida, os recordes, o número de tentativas,

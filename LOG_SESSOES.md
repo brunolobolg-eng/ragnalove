@@ -840,6 +840,12 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - Fotos de identificação dos 13 tipos não separaram cada um com segurança no zoom padrão; falta uma foto de perto.
 - **Commits:** `2182c35` (zoom), `dc695b9` (Esc), `aa63412` (modelos) e o commit de derrota e documentação desta entrada.
 
+## 2026-10-12 — confirmações do dono sobre a derrota e remoção do socorro (v0.11, em andamento)
+- **Respostas do dono:** 1) zerar tudo (nível da horda incluído); 2) heróis e cidade zeram juntos; 3) os slots de carta não resetam (vêm do total de vitórias de todas as tentativas); 4) e 5) de acordo com as decisões de família dos monstros e de remover o socorro.
+- **Feito:** socorro removido por completo (configuração `BASTION.rescue`, `rescueIfStuck`, campo `rescuedAttempt` e os testes). Saves antigos com o campo continuam abrindo: a chave extra é ignorada.
+- **Testes:** `tsc`, `build`, `bastion:check` (229 ok, sem falha), `bastion:path`, `vocation:check` passam; `sim:check` idêntico à linha de base.
+- **Pendências técnicas que continuam:** bongun (pose e bind, ver entrada anterior) e identificação de perto dos 13 tipos no Bastião.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

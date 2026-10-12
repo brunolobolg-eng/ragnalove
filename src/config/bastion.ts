@@ -10,7 +10,7 @@ import type { HeroKind } from '../core/progression/skills';
  *  - Ameaça de cada inimigo que chega ao portão: GAME_CONFIG.cityDefense.threat (sem tabela própria).
  *  - Recompensas: Zen dos abates (GAME_CONFIG.zeni.dropPerKill) e bônus de onda limpa (waveClearBonus).
  *  - Custos de estruturas: muralha 5 Zen (dobra a cada muralha da cidade, teto de 999); torre 120 Zen (inicial).
- * Os números de estrutura, projeto e socorro são INICIAIS: calibrar com o dono antes de fechar o balanceamento.
+ * Os números de estrutura e projeto são INICIAIS: calibrar com o dono antes de fechar o balanceamento.
  */
 
 /** Tipos de estrutura. Muralha bloqueia (a horda quebra); torre bloqueia e atira sozinha. */
@@ -113,11 +113,6 @@ export const BASTION = {
   upgradeFactor: 1,
   /** Pacote de cartas a cada N ondas vencidas no Bastião (total, nunca zera). */
   packEvery: 100,
-  /**
-   * Socorro: sem Zen nem para o reparo mínimo do núcleo (coreMinFraction da vida), a cidade ganha Zen.
-   * No máximo uma vez a cada `everyAttempts` tentativas — garante que a derrota severa não trava o modo.
-   */
-  rescue: { zeni: 150, everyAttempts: 2, coreMinFraction: 0.1 },
   /**
    * Emperium (o minério no centro do castelo): quem toca o tile morre na hora e desconta vida atual × força do tipo
    * ÷ contactDivisor. Com 30 (a vida de um comum), um comum cheio causa 3, como na campanha; um pesado
