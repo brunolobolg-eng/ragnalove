@@ -120,6 +120,7 @@ export class GameView {
   private readonly magic: MagicVfx;
   private units = new Map<number, AnyUnitView>();
   private kinds = new Map<number, string>();
+  private visuals = new Map<number, string>();
   private corpses: AnyUnitView[] = [];
   private fires = new Map<number, FireBarrierFX>();
   /** Barreiras que já terminaram na simulação mas ainda fazem fade-out. */
@@ -341,7 +342,8 @@ export class GameView {
   }
 
   /** (Re)vincula a uma simulação nova (setup, reinício). */
-  bind(sim: Simulation): void {
+  /** `manter`: no planejamento do Bastião, as unidades que seguem no mesmo id, classe e modelo ficam de pé (refazê-las recompilava os shaders a cada construção). */
+  bind(sim: Simulation, manter = false): void {
     if (!this.boardView) {
       this.boardView = new BoardView(sim.board);
       this.stage.scene.add(this.boardView.group);
@@ -358,16 +360,24 @@ export class GameView {
         }
     }
     this.fogView?.bind(sim);
-    this.objectView?.dispose();
+    // o objeto novo é montado antes de descartar o antigo: programas de shader em uso não são liberados (sem recompilar)
+    const objetosAntigos = this.objectView;
     this.objectView = new ObjectView(sim);
     this.stage.scene.add(this.objectView.group);
+    objetosAntigos?.dispose();
     this.storm = 0;
     this.stormOn = false;
     this.aggroShown.clear();
     this.sim = sim;
     if (!this.keepIdle) this.idle.clear();
     this.keepIdle = false;
-    for (const u of this.units.values()) u.dispose();
+    // unidades vivas com a mesma classe e o mesmo modelo ficam quando `manter`; as demais são descartadas
+    const mantidas = new Map<number, AnyUnitView>();
+    for (const [id, v] of this.units) {
+      const nova = manter ? sim.units.get(id) : undefined;
+      if (nova?.alive && nova.kind === this.kinds.get(id) && (nova.visual ?? '') === (this.visuals.get(id) ?? '')) mantidas.set(id, v);
+      else v.dispose();
+    }
     for (const c of this.corpses) c.dispose();
     for (const f of this.fires.values()) f.dispose();
     for (const f of this.fading) f.dispose();
@@ -379,6 +389,16 @@ export class GameView {
     this.loot = [];
     this.units.clear();
     this.kinds.clear();
+    this.visuals.clear();
+    for (const [id, v] of mantidas) {
+      const nova = sim.units.get(id)!;
+      this.units.set(id, v);
+      this.kinds.set(id, nova.kind);
+      this.visuals.set(id, nova.visual ?? '');
+      // posição e lado vêm da simulação nova (o herói pode ter sido arrastado no planejamento)
+      v.setFacing(nova.facing.x, nova.facing.y, true);
+      tileToWorld(nova.x, nova.y, v.root.position);
+    }
     this.corpses = [];
     this.fires.clear();
     this.oneShots = [];
@@ -392,7 +412,7 @@ export class GameView {
     this.hitStopT = 0;
     this.frozen.clear();
     this.fury.clear();
-    for (const u of sim.units.values()) this.addUnit(u.id);
+    for (const u of sim.units.values()) if (!this.units.has(u.id)) this.addUnit(u.id);
   }
 
   private addUnit(id: number): AnyUnitView | undefined {
@@ -404,6 +424,7 @@ export class GameView {
     this.world.add(v.root);
     this.units.set(id, v);
     this.kinds.set(id, u.kind);
+    this.visuals.set(id, u.visual ?? '');
     return v;
   }
 

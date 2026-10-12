@@ -474,7 +474,7 @@ const bastionSession = new BastionSession({
   },
   sim: () => sim,
   loadMap: (seed) => loadZone(ZONES[BASTION_ZONE_ID], { boss: null, seed }),
-  rebuildSim: () => resetSim(false),
+  rebuildSim: () => resetSim(false, undefined, true),
   startNight: () => {
     sim.start();
     hud.setPlanning(false);
@@ -1425,14 +1425,14 @@ const cheats = { invincible: false, noCooldowns: false, oneHit: false };
 /** Modificadores de teste do Dev Lab (temporários, só em memória; neutros fora do Dev Lab). */
 const simMods = neutralMods();
 
-function resetSim(clearLog = true, seal?: BattleSeal): void {
+function resetSim(clearLog = true, seal?: BattleSeal, manterUnidades = false): void {
   sim = new Simulation(seal?.setup ?? liveSetup(), undefined, seal?.loadout ?? loadout(), simOpts());
   view.setHeroAuras(Object.fromEntries(run.party.map((h) => [h, maxRefine(SLOTS.map((s) => profile.heroes[h].equipment[s]))])));
   hud.setParty(run.party, run.dead);
   hud.setSurvival(GAME_CONFIG.wave.endless);
   Object.assign(sim.cheats, cheats);
   sim.mods = simMods;
-  view.bind(sim);
+  view.bind(sim, manterUnidades);
   acc = 0;
   lastSouls.mage = lastSouls.warrior = 0;
   hud.setPlanning(true);

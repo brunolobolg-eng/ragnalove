@@ -53,9 +53,10 @@ export class ObjectView {
     this.group.removeFromParent();
     this.group.traverse((o) => {
       const m = o as THREE.Mesh;
-      m.geometry?.dispose();
+      // recursos compartilhados (peças do cache dos muros) ficam: descartá-los recompilava os shaders a cada construção
+      if (m.geometry && !m.geometry.userData.compartilhado) m.geometry.dispose();
       const mat = m.material as THREE.Material | THREE.Material[] | undefined;
-      if (mat) (Array.isArray(mat) ? mat : [mat]).forEach((x) => x.dispose());
+      if (mat) (Array.isArray(mat) ? mat : [mat]).forEach((x) => { if (!x.userData.compartilhado) x.dispose(); });
     });
   }
 

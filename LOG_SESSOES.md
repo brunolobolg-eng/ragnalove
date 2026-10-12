@@ -626,6 +626,21 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   4. ~~Dono: arma do Bárbaro~~ (machado, escolhido pelo dono nesta entrega).
   5. Dono: autorizar mover o original de 24,5 MB do `public/` da `main` para a branch `fontes`, zipado. Ainda não foi feito.
 
+## 2026-10-12 — Bastião: construir travava a tela (v0.11, em andamento)
+- **Pedido do dono:** "iniciar horda" bugado, não dava para construir e, depois de construir, a tela inteira travava.
+- **Diagnóstico (medido no Chromium):**
+  - Cada muralha disparava 10 compilações e 5 links de shader. Os muros vinham de um cache do kit (`fortress.ts`), e o `ObjectView` descartava essa geometria e esse material a cada construção, o que obrigava o WebGL a recompilar. O `bind` também refazia todas as unidades, com o mesmo efeito. Na placa de vídeo a compilação é síncrona, e leva segundos no Windows: esse é o travamento.
+  - O cenário do Bastião é pesado: cerca de 1,37 milhão de triângulos e 309 chamadas de desenho por quadro. Neste ambiente sem GPU, um quadro leva cerca de 4,5 s, inclusive sem construir nada.
+- **Correções:**
+  - `fortress.ts`: as peças do cache são marcadas como compartilhadas.
+  - `ObjectView.dispose`: não descarta recursos compartilhados. `GameView.bind` monta o objeto novo antes de descartar o antigo.
+  - `GameView.bind(sim, manter)`: no replanejamento do Bastião (`rebuildSim`), as unidades vivas com mesma classe e modelo ficam de pé e são reposicionadas. Nas demais batalhas, o comportamento é o de antes.
+- **Testes:** `npm run build`, `sim:check` (determinístico) e `bastion:check` passam. No Chromium: com 2 muralhas, os heróis aparecem desenhados na casa certa; "Iniciar noite" entra na fase de batalha, sem erro de página nem de console. Depois da correção, a construção não dispara mais compilação de shader.
+- **Limitações:** o quadro do Bastião continua pesado (triângulos). Em PC com GPU a expectativa é de quadros bem mais rápidos, mas isso não foi medido aqui.
+- **Pendências:**
+  1. Dono: testar no PC (construir, mover herói, iniciar horda) e dizer o que ainda trava ou quais erros aparecem na horda.
+  2. Se ainda pesar: reduzir os triângulos do cenário do Bastião (grama e muros). Precisa de decisão visual sua.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

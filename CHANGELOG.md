@@ -39,6 +39,7 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - O Bárbaro ganhou o modelo do dono, em versão otimizada de 1,5 MB. O jogo cria o esqueleto e usa as animações do Guerreiro para andar, golpear, receber dano e morrer.
 - Modelos sem esqueleto podem usar o auto-rig com juntas medidas (registro com `rig: 'auto'`).
 - O Bárbaro empunha um machado na mão direita.
+- O Bastião deixa de recompilar os shaders a cada muralha construída, o que evitava o travamento da tela depois de construir.
 
 ## 2026-10-11 — v0.10
 - Álbum de cartas refeito no layout da folha de referência do dono: lateral com o herói, cartas encontradas e barra de progresso, filtros de raridade com gemas, cartas equipadas e a fusão de 10 Normais.
