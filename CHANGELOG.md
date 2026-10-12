@@ -12,6 +12,9 @@ Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 - Chefes de ato voltam a ter o anel de energia e a sombra.
 - Golpes batem no instante certo: o número de dano e a barra de vida mudam quando o soco acerta, não antes. O ataque repetido recomeça o golpe do zero.
 - O Bárbaro recua a cabeça ao levar golpe forte, e os dinossauros também batem no instante do soco.
+- Montar Defesa: o campo não trava mais ao passar o mouse nem ao clicar na Barreira de Fogo. Um erro de desenho agora mostra um aviso na HUD e o jogo segue.
+- Montar Defesa: a Barreira de Fogo só aparece na barra quando existe no campo.
+- O chão das florestas ficou mais leve de desenhar: a pintura só é desenhada onde existe.
 
 ## 2026-10-11 — v0.11 (em andamento)
 - Início do modo O Último Bastião: uma cidade que persiste entre tentativas. Estruturas, dano, projetos e a vida do núcleo ficam salvos num arquivo próprio, sem mexer na jornada.

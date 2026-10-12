@@ -213,9 +213,48 @@ export function groundLayers(zone: ParsedZone, margin: number): GroundLayers {
     return t;
   };
 
+  /**
+   * Camada transparente só onde há tinta. Cada tile (RES x RES texels da máscara) com alfa > 0 vira um quadrado, e os
+   * tiles vizinhos entram junto (a amostragem bilinear da máscara não pode cortar a borda). Tile vazio não é desenhado:
+   * a imagem sai igual, sem preencher o mapa inteiro com planos quase transparentes (antes eram 10 camadas de planos
+   * do tamanho do mapa, e cada pixel era misturado 10 vezes). UV e normal seguem o mapeamento do plano original
+   * (u = (x + TW/2) / TW, v = (TH/2 - z) / TH), então textura e luz não mudam.
+   */
+  const geometriaComTinta = (vals: Uint8ClampedArray): THREE.BufferGeometry => {
+    const com = new Uint8Array(TW * TH);
+    for (let py = 0; py < CH; py++) for (let px = 0; px < CW; px++) if (vals[py * CW + px] > 0) com[Math.floor(py / RES) * TW + Math.floor(px / RES)] = 1;
+    const marca = new Uint8Array(TW * TH);
+    for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
+      if (!com[ty * TW + tx]) continue;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const x = tx + dx, y = ty + dy;
+        if (x >= 0 && y >= 0 && x < TW && y < TH) marca[y * TW + x] = 1;
+      }
+    }
+    const pos: number[] = [], nor: number[] = [], uv: number[] = [], idx: number[] = [];
+    for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
+      if (!marca[ty * TW + tx]) continue;
+      // a máscara é gravada de cima para baixo: o tile ocupa u em [tx/TW, (tx+1)/TW] e v em [(TH-ty-1)/TH, (TH-ty)/TH]
+      const u0 = tx / TW, u1 = (tx + 1) / TW, v0 = (TH - ty - 1) / TH, v1 = (TH - ty) / TH;
+      const base = pos.length / 3;
+      for (const [u, v] of [[u0, v0], [u1, v0], [u1, v1], [u0, v1]]) {
+        pos.push(u * TW - TW / 2, 0, TH / 2 - v * TH);
+        nor.push(0, 1, 0);
+        uv.push(u, v);
+      }
+      idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    return g;
+  };
+
   const group = new THREE.Group();
   const water: { map: THREE.Texture; vx: number; vy: number }[] = [];
-  /** Plano de chão cobrindo a área inteira; a textura repete a cada `tiles` tiles. */
+  /** Plano de chão cobrindo a área inteira; a textura repete a cada `tiles` tiles. As camadas transparentes só desenham onde há tinta. */
   const layer = (o: GroundLayer): void => {
     // máscara zerada não desenha nada: a camada nem entra na cena (as camadas de água e de margem são assim)
     if (!o.opaque && o.alpha.every((v) => v === 0)) return;
@@ -241,7 +280,8 @@ export function groundLayers(zone: ParsedZone, margin: number): GroundLayers {
       mat.onBeforeCompile = aplicarAgua;
       mat.customProgramCacheKey = () => 'vg-agua-camada';
     }
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(TW, TH).rotateX(-Math.PI / 2), mat);
+    const geo = o.opaque ? new THREE.PlaneGeometry(TW, TH).rotateX(-Math.PI / 2) : geometriaComTinta(o.alpha);
+    const m = new THREE.Mesh(geo, mat);
     m.position.y = o.y;
     m.renderOrder = o.order;
     m.receiveShadow = true;
