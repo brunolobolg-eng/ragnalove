@@ -3,6 +3,10 @@
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
 ## 2026-10-12 — v0.11 (em andamento)
+- Derrota no Último Bastião zera a cidade, as noites (a horda volta à noite 1) e os heróis. Recomeçar do zero mantém recordes, o total de vitórias (pacotes e slots) e a coleção de cartas. A derrota não avança o turno.
+- Campanha volta a ter o zoom de antes; o Último Bastião tem limite próprio, mais perto.
+- Esc fecha todas as janelas abertas de uma vez.
+- Monstros do Bastião saem com os modelos de alta qualidade: zumbis, Bongun, orc, raydric e mini-chefes com os seus modelos.
 - Último Bastião: prévia translúcida da muralha ou torre no tile do cursor, verde quando pode e vermelha com o motivo.
 - Muralhas podem ser erguidas em qualquer ponto do mapa; as torres continuam nos lotes azuis.
 - A horda só quebra uma muralha quando não tem outro caminho até o portão. Muralhas podem fechar todos os caminhos.

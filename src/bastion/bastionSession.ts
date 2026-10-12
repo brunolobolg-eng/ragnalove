@@ -23,7 +23,6 @@ import {
   repairCore,
   repairCostOf,
   repairStructure,
-  rescueIfStuck,
   setParty,
   startAttempt,
   unlockProject,
@@ -79,7 +78,7 @@ export interface BastionDeps {
   heroTiles(): Vec2[];
   cards(): CardCollection;
   saveCards(c: CardCollection): void;
-  /** Abre a coleção de cartas com os slots calculados pelas noites do Bastião. `onClose` roda quando o jogador a fecha. */
+  /** Abre a coleção de cartas com os slots calculados pelas vitórias do Bastião (de todas as tentativas). `onClose` roda quando o jogador a fecha. */
   openCollection(bastionNights: number, onClose: () => void): void;
   /** A coleção de cartas está aberta: o Esc e o Espaço são dela, não do Bastião. */
   isCollectionOpen(): boolean;
@@ -136,14 +135,14 @@ export class BastionSession {
       onBuild: () => this.openBuild(),
       onNight: () => this.startNight(),
       onRepairCore: () => this.act(repairCore(this.state()), 'Núcleo reparado.'),
-      onNewAttempt: () => this.act(startAttempt(this.state(), this.d.cards()), 'Nova tentativa começou.'),
+      onNewAttempt: () => this.newAttempt(),
       onUnlock: (id) => this.act(unlockProject(this.state(), id), 'Projeto desbloqueado.'),
       onParty: (party) => this.setParty(party),
       onRepairStructure: (id) => this.repair(id),
       onUpgradeStructure: (id) => this.act(upgradeStructure(this.state(), id), 'Construção aprimorada.'),
       onCards: () => {
         this.hub.close();
-        this.d.openCollection(this.state().nights, () => this.backFromCards());
+        this.d.openCollection(this.state().records.totalNights, () => this.backFromCards());
       },
       onExit: () => this.exit(),
     });
@@ -176,12 +175,7 @@ export class BastionSession {
   open(): void {
     this.enter();
     this.d.closeMenu();
-    const b = this.state();
-    const salvo = rescueIfStuck(b);
-    if (salvo > 0) {
-      this.msg = `Socorro: a cidade recebeu ${salvo} Zen.`;
-      this.save();
-    }
+    // Sem socorro: depois de uma derrota o jogador recomeça do zero (startAttempt), que já devolve Zen e núcleo.
     this.planning();
     this.hub.open(this.hubVM());
   }
@@ -246,7 +240,7 @@ export class BastionSession {
     if (!this.ctx || this.d.sim().phase !== 'setup') return;
     const b = this.state();
     if (!canStartNight(b)) {
-      this.msg = b.coreHp <= 0 ? BUILD_MSG.coreDown : 'Comece uma nova tentativa antes de defender a cidade.';
+      this.msg = b.coreHp <= 0 ? BUILD_MSG.coreDown : 'Recomece do zero antes de defender a cidade.';
       this.refresh();
       return;
     }
@@ -385,6 +379,28 @@ export class BastionSession {
   private act(res: Done, ok: string): void {
     this.msg = res.ok ? ok : BUILD_MSG[res.error];
     this.touch();
+  }
+
+  /**
+   * Recomeçar do zero (depois de uma derrota): a cidade e os heróis voltam ao início (ver startAttempt). A run
+   * guardada aponta para o perfil novo, e o planejamento é refeito (mapa e horda da noite 1).
+   */
+  private newAttempt(): void {
+    const r = startAttempt(this.state(), this.d.cards());
+    if (!r.ok) {
+      this.msg = BUILD_MSG[r.error];
+      this.touch();
+      return;
+    }
+    const b = this.state();
+    this.selected = undefined;
+    this.leaveMove();
+    this.d.run().profile = b.profile;
+    this.d.setProfile(b.profile);
+    this.msg = 'Tudo recomeçou do zero.';
+    this.save();
+    this.planning();
+    this.refresh();
   }
 
   /** Repara (ou reconstrói, se destruída). Reconstruir com herói parado na casa é recusado antes de gastar Zen. */
@@ -639,7 +655,7 @@ export class BastionSession {
       coreRepairCost: b.coreHp >= b.coreMaxHp ? 0 : coreRepairCost(b.coreMaxHp - b.coreHp),
       canStartNight: canStartNight(b),
       attemptEnded: !!b.attemptEnded,
-      canNewAttempt: !!b.attemptEnded && b.coreHp > 0,
+      canNewAttempt: !!b.attemptEnded,
       party: HERO_ORDER.map((kind) => ({ kind, name: HERO_NAME[kind], selected: b.party.includes(kind) })),
       structures: b.structures.map((s) => this.structureRow(b, s)),
       projects: PROJECT_IDS.map((id) => this.projectRow(b, id)),

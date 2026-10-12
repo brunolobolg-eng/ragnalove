@@ -83,6 +83,6 @@ export class BastionReport {
         <div><dt>Zen ganho</dt><dd>+${fmt(vm.zeniEarned)} Zen</dd></div>
       </dl>
       ${vm.packs > 0 ? `<p class="bs-packs">Pacote de cartas × ${fmt(vm.packs)}</p>` : ''}
-      ${vm.attemptEnded ? '<p class="bs-ended">A tentativa acabou. Comece outra pela tela do Bastião.</p>' : ''}`;
+      ${vm.attemptEnded ? '<p class="bs-ended">A tentativa acabou. Recomece do zero pela tela do Bastião.</p>' : ''}`;
   }
 }
