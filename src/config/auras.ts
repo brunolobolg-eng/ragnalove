@@ -32,9 +32,9 @@ export const AURA = {
 
 /** Cor e nome de cada aura (o render lê; a regra não usa). */
 export const AURA_VISUAL: Record<AuraKind, { nome: string; cor: string; corClara: string }> = {
-  velocidade: { nome: 'Aura de velocidade', cor: '#22E6FF', corClara: '#D6FBFF' },
+  velocidade: { nome: 'Aura de velocidade', cor: '#00B8FF', corClara: '#7FEBFF' },
   critico: { nome: 'Aura de crítico', cor: '#FFE000', corClara: '#FFFBD0' },
-  mitigacao: { nome: 'Aura de mitigação', cor: '#8EA7C4', corClara: '#EEF4FF' },
+  mitigacao: { nome: 'Aura de mitigação', cor: '#3E63C9', corClara: '#9DB8FF' },
   regeneracao: { nome: 'Aura de regeneração', cor: '#0FB261', corClara: '#BDFFAD' },
   queimacao: { nome: 'Aura de queimação', cor: '#FF3808', corClara: '#FFB847' },
 };

@@ -781,9 +781,9 @@ export interface AuraMonstroTipo {
 }
 
 const AURA_MONSTRO_TIPOS: Record<AuraKind, AuraMonstroTipo> = {
-  velocidade: { emissao: 1.2, rolagem: [0.5, 1.6], torcao: 1, ondulacao: 0.5, pisca: 0, piscaVel: 0 },
+  velocidade: { emissao: 1.5, rolagem: [0.5, 1.6], torcao: 1, ondulacao: 0.5, pisca: 0, piscaVel: 0 },
   critico: { emissao: 1.3, rolagem: [0.25, 0.9], torcao: 1, ondulacao: 0.3, pisca: 0.25, piscaVel: 9 },
-  mitigacao: { emissao: 0.9, rolagem: [0.05, 0.15], torcao: 0.3, ondulacao: 0.1, pisca: 0, piscaVel: 0 },
+  mitigacao: { emissao: 1.1, rolagem: [0.05, 0.15], torcao: 0.3, ondulacao: 0.1, pisca: 0, piscaVel: 0 },
   regeneracao: { emissao: 1.1, rolagem: [0.1, 0.6], torcao: 1, ondulacao: 0.2, pisca: 0, piscaVel: 0 },
   queimacao: { emissao: 1.4, rolagem: [0.1, 1.2], torcao: 1, ondulacao: 0.4, pisca: 0.15, piscaVel: 13 },
 };
