@@ -54,7 +54,7 @@ function buildCastleWalls(zone: ParsedZone): CityGateHandle {
   } else {
     const blocks: THREE.BufferGeometry[] = [];
     const ameias: THREE.BufferGeometry[] = [];
-    const pedra = loadTexture('textures/pedras/pedra_cinza.webp');
+    const pedra = loadTexture('textures/cidade/pedra_bloco_claro.webp');
     for (const p of muroTiles) {
       blocks.push(new THREE.BoxGeometry(1, 1.4, 1).translate(X(p.x), 0.7, Z(p.y)));
       if ((p.x + p.y) % 2 === 0) ameias.push(new THREE.BoxGeometry(0.42, 0.3, 0.42).translate(X(p.x), 1.55, Z(p.y)));

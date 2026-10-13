@@ -52,7 +52,7 @@ interface KitPiece {
 
 const images = new Map<string, Promise<HTMLImageElement>>();
 
-function imageOf(url: string): Promise<HTMLImageElement> {
+export function imageOf(url: string): Promise<HTMLImageElement> {
   let p = images.get(url);
   if (!p) {
     p = new Promise((resolve, reject) => {

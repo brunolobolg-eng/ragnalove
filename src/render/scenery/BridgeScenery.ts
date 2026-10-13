@@ -4,7 +4,7 @@ import { VISUAL_CONFIG } from '../../config/visualConfig';
 import type { ParsedZone } from '../../config/zones';
 import type { ParticleLayer } from '../fx/Particles';
 import { softCircle } from '../textures';
-import { bridgeSideTexture, wallBlockTexture, woodTexture } from './bridgeTextures';
+import { bridgeSideTexture, pedraBlocos, woodTexture } from './bridgeTextures';
 import { muralhaRetas, muroMaterial } from './muralhaGlb';
 import { KIT, instanceKit, kitMatrix, loadTexture } from './naturKit';
 import { placeProp } from './props';
@@ -61,7 +61,7 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   };
 
   // ---------------- Tabuleiro da ponte e praça ----------------
-  const deckTex = loadTexture('textures/pedras/pedra_lousa.webp');
+  const deckTex = loadTexture('textures/cidade/pedra_bloco_claro.webp');
   const deckLen = plazaN - FAR_Z;
   deckTex.repeat.set((deckR - deckL) / 4, deckLen / 4);
   const deck = new THREE.Mesh(new THREE.BoxGeometry(deckR - deckL, 0.6, deckLen), [
@@ -75,13 +75,13 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   deck.position.set((deckL + deckR) / 2, -0.3, (FAR_Z + plazaN) / 2);
   root.add(shadow(deck, false));
 
-  const plazaTex = loadTexture('textures/pedras/pedra_cinza.webp');
+  const plazaTex = loadTexture('textures/cidade/calcamento_praca.webp');
   const plazaDepth = wallZ + 1.5 - plazaN;
   plazaTex.repeat.set((plazaR - plazaL) / 4, plazaDepth / 4);
   const plazaMesh = new THREE.Mesh(new THREE.BoxGeometry(plazaR - plazaL, 0.6, plazaDepth), [
     lambert({ color: 0x5c554c }),
     lambert({ color: 0x5c554c }),
-    lambert({ map: plazaTex, color: 0xc4c8d0 }),
+    lambert({ map: plazaTex, color: 0xffffff }),
     lambert({ color: 0x33302b }),
     lambert({ color: 0x5c554c }),
     lambert({ color: 0x5c554c }),
@@ -101,13 +101,13 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
     root.add(side);
     // pilares quebra-mar a cada 5 m
     for (let z = plazaN - 2.5; z > FAR_Z; z -= 5) {
-      const pier = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.9, 1, 3, 1).rotateY(s < 0 ? Math.PI / 2 : -Math.PI / 2), lambert({ map: wallBlockTexture(3), flatShading: true }));
+      const pier = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.9, 1, 3, 1).rotateY(s < 0 ? Math.PI / 2 : -Math.PI / 2), lambert({ map: pedraBlocos(), flatShading: true }));
       pier.scale.set(1, -WATER_Y - 0.6, 1);
       pier.position.set((s < 0 ? deckL : deckR) + s * 0.25, (WATER_Y - 0.6) / 2, z);
       root.add(pier);
     }
   }
-  const quayMat = lambert({ map: wallBlockTexture(21) });
+  const quayMat = lambert({ map: pedraBlocos() });
   for (const [x0, x1, z0, z1] of [
     [plazaL, deckL, plazaN, plazaN],
     [deckR, plazaR, plazaN, plazaN],
@@ -121,7 +121,7 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   }
 
   // ---------------- Parapeitos (com trechos quebrados) ----------------
-  const stoneTex = wallBlockTexture(9);
+  const stoneTex = pedraBlocos();
   stoneTex.repeat.set(0.5, 0.3);
   const parapetMat = lambert({ map: stoneTex });
   const capMat = lambert({ color: 0x7c7e84 });
@@ -182,10 +182,10 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
     const d1 = Z(Math.max(...dockRows)) + 0.5;
     const steps: THREE.BufferGeometry[] = [];
     for (let i = 0; i < 7; i++) steps.push(new THREE.BoxGeometry(0.7, 0.4, d1 - d0).translate(X(0) - 0.15 - i * 0.55, -0.2 - i * 0.4, (d0 + d1) / 2));
-    const stairs = new THREE.Mesh(mergeGeometries(steps)!, lambert({ map: wallBlockTexture(12) }));
+    const stairs = new THREE.Mesh(mergeGeometries(steps)!, lambert({ map: pedraBlocos() }));
     stairs.receiveShadow = true;
     root.add(stairs);
-    const dockTex = loadTexture('textures/pedras/pedra_blocos.webp');
+    const dockTex = loadTexture('textures/cidade/pedra_bloco_claro.webp');
     dockTex.repeat.set(0.3, (d1 - d0) / 4);
     const dock = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, d1 - d0), lambert({ map: dockTex }));
     dock.position.set(X(0), -0.3, (d0 + d1) / 2);
@@ -253,7 +253,7 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
     wallMat = muroMaterial();
     muralhaRetas(root, trechos.map(([xa, xb]) => ({ a: xa, b: xb, linha: wallZ + 0.3, eixo: 'x' as const })), VISUAL_CONFIG.muralha.alturaCidade);
   } else {
-    const wallTex = wallBlockTexture(33);
+    const wallTex = pedraBlocos();
     wallTex.repeat.set(4, 1);
     wallMat = lambert({ map: wallTex });
     const topMat = lambert({ color: 0x55575d });
@@ -707,7 +707,7 @@ function buildBanks(root: THREE.Group, L: BankLayout): void {
   const grass = loadTexture('textures/floresta/grama_a.webp');
   grass.repeat.set(10, len / 4);
   const top = new THREE.MeshLambertMaterial({ map: grass, color: 0x6a7a62 });
-  const sideTex = wallBlockTexture(57);
+  const sideTex = pedraBlocos();
   sideTex.repeat.set(len / 3, 1);
   const side = new THREE.MeshLambertMaterial({ map: sideTex, color: 0x7a6e60 });
   const earth = new THREE.MeshLambertMaterial({ color: 0x3a3128 });
@@ -782,9 +782,9 @@ function buildBanks(root: THREE.Group, L: BankLayout): void {
 
   // ---- dentro dos muros (ao sul da muralha): o largo do mercado de Valdrec ----
   const cityDepth = 26;
-  const plaza = loadTexture('textures/pedras/pedra_cinza.webp');
+  const plaza = loadTexture('textures/cidade/calcamento_praca.webp');
   plaza.repeat.set((W + 60) / 4, cityDepth / 4);
-  const city = new THREE.Mesh(new THREE.BoxGeometry(W + 60, 0.6, cityDepth), new THREE.MeshLambertMaterial({ map: plaza, color: 0xc8ccd6 }));
+  const city = new THREE.Mesh(new THREE.BoxGeometry(W + 60, 0.6, cityDepth), new THREE.MeshLambertMaterial({ map: plaza, color: 0xffffff }));
   city.position.set(0, -0.3, wallZ + 1 + cityDepth / 2);
   city.receiveShadow = true;
   root.add(city);
