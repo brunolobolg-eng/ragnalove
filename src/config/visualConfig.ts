@@ -504,7 +504,7 @@ export const CHARSELECT_ART = {
   /** variação aleatória da velocidade do som (±) */
   hoverPitch: 0.05,
   /** faíscas: por segundo com o mouse em cima, e a explosão ao escolher */
-  sparksPerSecond: 38,
+  sparksPerSecond: 6,
   selectBurst: 70,
 };
 

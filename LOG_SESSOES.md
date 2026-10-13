@@ -584,6 +584,25 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   1. Dono: conferir no PC (16:9 e outras telas) e dizer se a engrenagem fica no canto inferior esquerdo ou volta para o superior direito.
   2. Dono: decidir se a versão antiga pintada na arte deve ser trocada no arquivo original. Se for, a caixa do rodapé deixa de ser necessária.
 
+## Sessão: qualidade visual dos menus (branch `claude/ui-menus`)
+
+- **Achados (auditoria de 17 telas):** a moldura `panel_wide` tinha fatia de 22 px sobre uma borda de 14 px, e a arte tem margem transparente de 6 a 8 px. O miolo azul ficava só no `padding-box`, então a margem mostrava o mapa atrás (faixa cinza no popup do mapa). Botões e quadros de item perdiam o `background-clip` ao receber o `background` abreviado (hover e slot). Havia loops de brilho e pulso em quase todo botão dourado, cartão e carta, além de vitória com disco girando.
+- **Decisões:**
+  - **D60 — Moldura do kit:** fatia do `panel_wide` por lado `[21, 18, 10, 15]`, medida no webp. Painéis de página inteira (kit, mapa, roleta) pintam o miolo até a borda (`background-clip: border-box`) e têm cantos de 14 px, para a margem transparente aparecer azul-marinho e não mapa.
+  - **D61 — Animações:** saem os loops de varredura dos botões dourados, roleta, cartões do mapa e seleção; `vcSpin`, `vcPulse` e `vcFloat` da vitória; `pk-bob`, `pk-foil` e raios do pacote; `cf-rare-glow`, `cf-fire`, `cf-aura` e foil das cartas; `startPulse`, `nbSweep`, `cs-spin` e `cs-float`. A varredura que sobra roda uma vez ao aparecer. Entradas curtas, hover e a revelação das cartas continuam.
+  - **D62 — Escolha de herói:** `select()` só troca a classe `on` (antes refazia os cartões e repetia `cs-deal`); faíscas do hover de 38 para 6 por segundo; habilidades com até 2 linhas; botões alinhados à borda do painel; folga de 18 px entre botões e moldura; retrato grande menor.
+  - **D63 — Árvore de habilidades:** janela com a moldura do kit e rolagem quando passa da altura; slots sem o botão azul por cima (`.skilltree-veil .sk-cell`); abas com borda simples; rótulos "nv N" embaixo do cartão.
+  - **D64 — Ficha:** a dica de item limita-se à janela (estava cortando pela moldura).
+  - **D65 — Anel de foco do menu:** dentro da arte (`inset`). Mantido o brilho externo.
+  - **D66 — Não mexido:** a arte das barras (`border-image`), a arte dos botões do kit e o layout do ranking. Trocar a arte por borda de CSS seria programático sem pedido do dono.
+- **Testes:** `npm run build` e `npm run sim:check` (determinístico) passam. Capturas em 1920×1080 conferidas: menu com foco, Info, Donate, escolha de herói, mapa, árvore, roleta, relatório, evento, pacote e Bastião.
+- **Limitações:**
+  - Cartão de vitória (16), Ficha (10) e planejamento (17) não foram vistos: no Chromium headless o cartão não aparece mesmo com a classe `show` e o HUD visível. As mudanças nessas telas foram checadas só pelo CSS e pelo build.
+  - Itens da auditoria não aplicados: slot do "+1" no relatório, botões de +1/+5 da Ficha com a moldura do kit, medalhão da Ficha, rótulo de NPC da cidade e o botão "Iniciar horda" (classe do kit).
+- **Pendências:**
+  1. Dono: dizer se a branch `claude/ui-menus` (cópia) e `claude/creditos-finais` (pasta original) sobem para o GitHub.
+  2. Dono: conferir no PC a roleta, o mapa e a árvore em 1280×720, onde a janela da árvore agora tem rolagem.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

@@ -303,7 +303,7 @@ export class CardPack {
       const x = r.left - veil.left + Math.random() * r.width;
       const y = r.top - veil.top + r.height * (0.5 + Math.random() * 0.5);
       this.fx?.mote(x, y, Math.random() < 0.5 ? '#ffe39a' : '#9fb8ff');
-    }, 140);
+    }, 300);
   }
 
   private stopMotes(): void {

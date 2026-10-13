@@ -141,7 +141,7 @@ export class SkillTree {
           const b = pos(d);
           const ok = lvOf(hp.skills, req.id) >= req.level;
           const x0 = a.x + NODE_W / 2;
-          const y0 = a.y + 74;
+          const y0 = a.y + NODE_H;
           const x1 = b.x + NODE_W / 2;
           const y1 = b.y + 6;
           return `<path d="M${x0},${y0} C${x0},${(y0 + y1) / 2} ${x1},${(y0 + y1) / 2} ${x1},${y1}" class="${ok ? 'ok' : ''}"/><text x="${(x0 + x1) / 2 + 4}" y="${(y0 + y1) / 2}" class="${ok ? 'ok' : ''}">nv ${req.level}</text>`;
@@ -193,7 +193,7 @@ export class SkillTree {
         ${usesSlot(d.id) ? '' : `<p class="note">${d.kind === 'passive' ? 'Passiva: sempre ativa, não usa slot.' : 'Ataque básico: sempre usado, não usa slot.'}</p>`}`;
     }
     this.el.innerHTML = `
-      <div class="win skilltree">
+      <div class="win au-frame skilltree">
         <div class="win-title"><i class="au-ico">✦</i><span>Árvore de habilidades</span><button class="au-x" data-c="close" title="Fechar (Esc/K)">×</button></div>
         <div class="win-body">
           <div class="tabs-row">${r.party.map((h) => `<button data-c="tab" data-h="${h}" class="${h === this.hero ? 'on' : ''}">${HERO_PT[h]} <small>Nv.${r.profile.heroes[h].level}</small>${r.profile.heroes[h].skillPoints ? ` <span class="badge">${r.profile.heroes[h].skillPoints}</span>` : ''}</button>`).join('')}

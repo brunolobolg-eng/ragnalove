@@ -98,7 +98,7 @@ export const UI_KIT: Record<string, KitAsset> = {
   panel_small: { file: 'ui/kit/panel_small.webp', w: 134, h: 60, slice: [8, 22, 8, 22], fill: { top: '#0f2a50', bottom: '#01142d' } },
   panel_small2: { file: 'ui/kit/panel_small2.webp', w: 146, h: 55, slice: [10, 12, 10, 12], fill: { top: '#062756', bottom: '#001530' } },
   panel_tall: { file: 'ui/kit/panel_tall.webp', w: 224, h: 374, slice: [20, 20, 20, 20], fill: { top: '#031124', bottom: '#000e1e' } },
-  panel_wide: { file: 'ui/kit/panel_wide.webp', w: 274, h: 179, slice: [22, 22, 22, 22], fill: { top: '#011022', bottom: '#000d1e' } },
+  panel_wide: { file: 'ui/kit/panel_wide.webp', w: 274, h: 179, slice: [21, 18, 10, 15], fill: { top: '#011022', bottom: '#000d1e' } },
   slot_blue: { file: 'ui/kit/slot_blue.webp', w: 101, h: 103, slice: [16, 16, 16, 16], fill: { top: '#080c21', bottom: '#040717' } },
   slot_dark: { file: 'ui/kit/slot_dark.webp', w: 107, h: 99, slice: [16, 16, 16, 16], fill: { top: '#030a11', bottom: '#020b13' } },
   slot_empty: { file: 'ui/kit/slot_empty.webp', w: 99, h: 97, slice: [16, 16, 16, 16], fill: { top: '#020b1b', bottom: '#040f1e' } },

@@ -41,6 +41,7 @@
 .bs-hub-win { width: min(980px, 96vw); max-height: 92vh; display: flex; flex-direction: column; animation: bsUp 0.2s ease-out; }
 .bs-hub-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px 16px; }
 .bs-hub-win .bs-win-foot { display: flex; align-items: center; min-height: 38px; padding: 6px 14px; }
+.bs-hub-win .bs-win-foot:has(.bs-msg:empty) { display: none; }
 .bs-attempt { font: 700 12px Cinzel, serif; letter-spacing: 0.5px; color: var(--au-dim); white-space: nowrap; }
 .bs-hub-grid { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; align-items: start; }
 .bs-city { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -70,7 +71,7 @@
 .bs-city-line b { font-family: Cinzel, serif; color: var(--au-title); }
 .bs-palette { display: grid; gap: 8px; }
 #bastion-build .bs-pal { display: grid; gap: 4px; width: 100%; padding: 8px 12px; text-align: left; }
-#bastion-build .bs-pal[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--au-gold-hi), 0 0 14px rgba(255, 211, 106, 0.5); }
+#bastion-build .bs-pal[aria-pressed='true'] { outline: 2px solid var(--au-gold-hi); outline-offset: -6px; box-shadow: 0 0 14px rgba(255, 211, 106, 0.5); }
 .bs-pal-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .bs-pal-top b { font: 700 13px Cinzel, serif; color: var(--au-title); }
 .bs-pal-top .au-price { padding: 1px 8px; font-size: 11px; }

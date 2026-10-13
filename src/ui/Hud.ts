@@ -469,8 +469,10 @@ export class Hud {
       const h = tip.offsetHeight;
       let x = ev.clientX - r.left + 16;
       let y = ev.clientY - r.top + 14;
-      if (ev.clientX + 16 + w > window.innerWidth - 8) x = ev.clientX - r.left - w - 12;
-      if (ev.clientY + 14 + h > window.innerHeight - 8) y = ev.clientY - r.top - h - 10;
+      if (x + w > r.width - 8) x = ev.clientX - r.left - w - 12;
+      if (y + h > r.height - 8) y = ev.clientY - r.top - h - 10;
+      x = Math.max(8, x);
+      y = Math.max(8, y);
       tip.style.left = `${x}px`;
       tip.style.top = `${y}px`;
     });

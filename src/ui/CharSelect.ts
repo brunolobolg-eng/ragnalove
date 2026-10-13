@@ -117,6 +117,7 @@ export class CharSelect {
     for (const [k, v] of this.views) v.dark = locked.includes(k);
     this.el.hidden = false;
     this.resize();
+    this.renderSlots();
     this.select(ORDER.find((h) => !locked.includes(h))!);
     cancelAnimationFrame(this.raf);
     this.last = performance.now();
@@ -308,7 +309,7 @@ export class CharSelect {
     if (this.locked.includes(h)) return;
     const changed = h !== this.sel;
     this.sel = h;
-    this.renderSlots();
+    this.el.querySelectorAll<HTMLElement>('.cs-card').forEach((c) => c.classList.toggle('on', c.dataset.h === h));
     this.renderInfo();
     if (changed || this.sparks.length === 0) {
       const card = this.el.querySelector<HTMLElement>(`.cs-card[data-h="${h}"]`);
