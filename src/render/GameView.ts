@@ -648,7 +648,10 @@ export class GameView {
           const alvo = this.sim.units.get(e.unitId);
           v.hit(!!alvo && e.amount >= alvo.maxHp * VISUAL_CONFIG.unit.heavyHitFrac);
           this.damageNumber(e.unitId, e.amount, e.source, v.root.position, e.sourceId);
-          if (e.crit && e.source !== 'arrow') this.float('CRÍTICO!', v.root.position.clone().setY(1.5), '#ffd84a', 0.3);
+          if (e.crit && e.source !== 'arrow') {
+            const inimigo = e.sourceId !== undefined && this.sim.units.get(e.sourceId)?.team === 'enemy';
+            this.float(inimigo ? 'CRÍTICO INIMIGO!' : 'CRÍTICO!', v.root.position.clone().setY(1.5), inimigo ? '#ff6a5a' : '#ffd84a', 0.3);
+          }
           if (e.source === 'burn') v.burning = 0.6;
           const spark = HIT_VFX[e.source];
           if (spark) {

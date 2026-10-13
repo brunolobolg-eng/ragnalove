@@ -72,6 +72,8 @@ function getKit(): Kit {
     faixas,
     brasa: { core: rgbDeHex(brasa.corClara, V.brasaBrilho), edge: rgbDeHex(brasa.cor, V.brasaBrilho) },
   };
+  // recursos do kit são de todos os portadores: UnitView.dispose não pode descartá-los (ver ObjectView)
+  for (const x of [kit.anel, kit.faixa, ...AURA_KINDS.map((t) => aneis[t]), ...AURA_KINDS.map((t) => faixas[t])]) x.userData.compartilhado = true;
   return kit;
 }
 
@@ -129,8 +131,20 @@ function emAlcance(p: Portador, h: Unit): boolean {
   return Math.max(Math.abs(h.x - p.tx), Math.abs(h.y - p.ty)) <= AURA.raio;
 }
 
-function porDistancia(a: Portador, b: Portador): number {
-  return a.dist2 - b.dist2;
+/**
+ * Ordena os portadores pela distância à câmera, no lugar. Insertion sort de propósito: a ordem quase não muda
+ * de um quadro para o outro (custa ~n), e o `Array.sort` aloca um vetor temporário a cada chamada.
+ */
+function ordenarPorDistancia(lista: Portador[]): void {
+  for (let i = 1; i < lista.length; i++) {
+    const p = lista[i];
+    let j = i - 1;
+    while (j >= 0 && lista[j].dist2 > p.dist2) {
+      lista[j + 1] = lista[j];
+      j--;
+    }
+    lista[j + 1] = p;
+  }
 }
 
 /**
@@ -192,7 +206,7 @@ export class MonsterAuras {
       p.raiz.getWorldPosition(this.ponto);
       p.dist2 = this.ponto.distanceToSquared(camera.position);
     }
-    if (this.lista.length > maxFaixas) this.lista.sort(porDistancia);
+    if (this.lista.length > maxFaixas) ordenarPorDistancia(this.lista);
     for (let i = 0; i < this.lista.length; i++) {
       const p = this.lista[i];
       const s = Math.min(1, p.idade / V.faixaEntrada);

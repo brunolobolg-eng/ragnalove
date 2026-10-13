@@ -3,6 +3,7 @@
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
 ## 2026-10-12 — v0.11 (em andamento)
+- Monstros podem nascer com uma aura (velocidade, crítico, mitigação, regeneração ou queimação). No Bastião, a partir da noite 20; na campanha, depois de liberar Feiticeira, Bruxa e Assassino jogando. A queimação atinge heróis perto do monstro.
 - Cartas: raridade virou tier. Cinco cópias da mesma carta viram a versão "+" (escada 5-2-2-2 até o nível 5). Cada nível escala o bônus, e o nível 5 libera uma habilidade própria.
 - Cartas: 102 cartas com categoria (ofensiva, defensiva, sustentação, utilidade, mobilidade) e bônus refeitos com base na tabela de referência, adaptados aos efeitos que o jogo tem.
 - Cartas: novos efeitos na batalha: atributo de carta, dano por grupo de inimigo e respingo em área.

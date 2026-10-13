@@ -875,6 +875,23 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 - **Não verificado:** combate real com cartas no navegador (respingo, modDano, gatilhos na tela); carregar um save real do HEAD pela interface (a migração foi testada só no cardCheck); largura de celular e executável.
 - **Commit:** (ver o commit desta entrada).
 
+## 2026-10-13 — auras de monstro: núcleo, visual e revisão (v0.11, em andamento)
+- **Pedido do dono:** cinco auras para monstros (velocidade, crítico, mitigação de dano, regeneração de vida e queimação constante, que atinge heróis próximos). Sorteadas no Bastião a partir da noite 20 e na campanha depois de liberar o terceiro herói jogando (Feiticeira, Bruxa e Assassino).
+- **Decisões do dono:** queimação atinge heróis perto do monstro; terceiro campeão = os três heróis que se liberam jogando todos liberados.
+- **Como ficou:**
+  - Sorteio determinístico com semente própria. Chance 12% por comum no Bastião (noite ≥ 20) e 8% na campanha. Sem auras, nenhum número a mais é sorteado (campanha idêntica).
+  - Efeitos (números em `src/config/auras.ts`): velocidade ×0,75 no passo; crítico +20% de chance e ×1,5; mitigação −25% do dano da party; regeneração 2% da vida máxima por segundo; queimação 1 pulso por segundo, metade do dano do portador, no máximo um por segundo por herói.
+  - Raio 2. Cada aura age uma vez por unidade. Chefes, elites e sobrevivência ficam sem aura.
+  - Visual: anel no chão e faixa na cor do tipo para os 12 portadores mais próximos; brasas na queimação. Um material por tipo.
+- **Correções da revisão:** recursos do kit de auras ficam marcados como compartilhados e o `UnitView.dispose` não os descarta mais; crítico de monstro sobre herói mostra "CRÍTICO INIMIGO!" em vermelho; a faixa deixou de alocar um vetor por quadro.
+- **Testes:** `tsc`, `build`, `aura:check` (34 ok), `sim:check` idêntico, `bastion:check`, `bastion:path`, `vocation:check`, `cardCheck`, `cardRuleCheck`. Navegador (SwiftShader): cinco portadores com cinco materiais, teto de 12 faixas visíveis, morte remove anel e faixa, sem erro de console.
+- **Decisões para confirmar:**
+  1. Chefes e elites recebem o efeito das auras próximas, mesmo sem portar aura (regeneração inclusive). Intencional?
+  2. Crítico vale só para golpe corpo a corpo; conjurações inimigas não criticam.
+  3. Mitigação só reduz dano da party; torre do Bastião não é mitigada.
+  4. Cores de mitigação e velocidade têm pouco contraste sobre monstros claros.
+- **Não verificado:** FPS na GPU real; balanceamento em partida real; checagem visual depois dos três ajustes de código desta rodada (a mudança é pequena e as checagens passaram).
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.
