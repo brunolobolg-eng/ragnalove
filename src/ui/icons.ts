@@ -1,3 +1,4 @@
+import { VOCATION_TREES } from '../config/vocationSkills';
 /**
  * Ícones de habilidade desenhados em canvas (originais), no formato de
  * "skill icon" pequeno e pintado dos MMOs clássicos: 32px, moldura escura, brilho.
@@ -755,4 +756,6 @@ export const SKILL_ART: Record<string, string> = {
   backstab: 'pacote-01/backstab', bladeFan: 'pacote-01/bladeFan', shadowStep: 'pacote-01/shadowStep', poisonBlades: 'pacote-01/poisonBlades',
   execute: 'pacote-01/execute',
 };
+// Vocações (Crusado, Hypnomancer): ícone de cada habilidade vem do catálogo do dono (config/vocationSkills.ts)
+for (const tree of Object.values(VOCATION_TREES)) for (const sk of tree.skills) SKILL_ART[sk.id] = sk.icon;
 for (const [id, file] of Object.entries(SKILL_ART)) SKILL_ICONS[id] = () => `icons/skills/${file}.webp`;

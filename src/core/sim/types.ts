@@ -39,6 +39,13 @@ export interface Unit {
   frozenUntil?: number;
   /** Fúria ativa até este tick. */
   furyUntil?: number;
+  /** Só party: vocação com árvore própria (ausente = classe base). */
+  vocation?: string;
+  /** Só party (vocações): fúria — multiplicador das recargas enquanto `furyUntil` dura. */
+  furyMult?: number;
+  /** Guarda (vocações): até este tick, recebe `guardCut` a menos de dano (1 = imune). */
+  guardUntil?: number;
+  guardCut?: number;
   /** Escudo Sagrado: dano que ainda absorve e até quando dura. */
   shield?: number;
   shieldUntil?: number;

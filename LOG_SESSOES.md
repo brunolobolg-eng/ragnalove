@@ -918,3 +918,15 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 - **Medir a montagem da cena** antes e depois de mudar cenário (`window.__vg.enterBattle`, só em DEV).
 - **Git:** trabalhar na branch da sessão (`claude/festive-curie-5iy45i`). A `main` recebe o que o dono envia com ENVIAR_PARA_GITHUB.bat.
 - **Tema decide o cenário:** o tema planície não desenha estradas de pedra nem a água de fosso fino; o portão da cidade é uma paliçada de borda. Castelo fechado usa o flag `castle`. Fosso precisa de 2 tiles para ler como água.
+
+## Árvores de habilidade das vocações (Crusado e Hypnomancer) — branch vocacoes-skills
+- **Pedido:** cada vocação ter as próprias habilidades, com os ícones do catálogo do dono (`public/icons/skills/catalogo.json`).
+- **Feito:** 20 habilidades no Crusado (Guerreiro) e 20 no Hypnomancer (Bruxa). Árvore em `src/config/vocationSkills.ts` (dado puro: nomes, tier, coluna, requisitos, números, textos). Comportamento em `src/core/archetypes/vocationEngine.ts`, com 17 tipos de ação reaproveitados (golpe, cone, linha, área, alvo único, raio, armadilha, escudo, cura, bênção, guarda, fúria, teleporte, passivas). Crusado e Hypnomancer têm arquivos finos que chamam o motor.
+- **Decisões (a confirmar com o dono):**
+  - O ícone `professor` do catálogo é o Hypnomancer (confirmado: 20 ícones, e o catálogo tem Controle Mental, Veneno e Dreno de Mana).
+  - Controle Mental atordoa e puxa o inimigo mais forte até a vocação; não faz o inimigo lutar pela party (isso exigiria IA de inimigo contra inimigo).
+  - Ao escolher a vocação, a árvore da classe base some da tela e as habilidades dela deixam de disparar; o que já foi aprendido continua no save e as passivas de atributo dela continuam somando. Aprender habilidade da classe base depois da vocação fica bloqueado. Refazer habilidades devolve os pontos de todas as árvores.
+  - Bárbaro segue com a árvore do Guerreiro (sem mudança).
+  - Investida e Teleportar movem a vocação de uma vez (sem animação de caminhada).
+- **Save:** só campos novos e aditivos (ids de habilidade e a vocação já existente). Saves antigos abrem igual; a migração põe o básico da vocação, se faltar.
+- **Pendências:** conferir no PC do dono a árvore (tecla K) e as lutas com Crusado e Hypnomancer; a escolha do tile da Instalar Armadilha (caminho da horda) só se verifica no jogo, porque a arena de teste não tem cidade; os números são a primeira versão (rodar balanceamento); a Dev Lab (aba SKILLS) e "Desbloquear árvore" ainda não mostram as habilidades das vocações.

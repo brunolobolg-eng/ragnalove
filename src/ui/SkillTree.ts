@@ -1,6 +1,6 @@
 import { BRANCHES, SKILL_BY_ID, branchName, chosenBranch, heroSkills, lvOf, missingRequirements, prereqPath, skillState, skillZeniCost, type HeroKind, type SkillDef, type SkillId } from '../core/progression/skills';
 import { learnPath, learnSkill, type RunState } from '../core/run/run';
-import { heroEquipped, heroStats, toggleSkillSlot } from '../core/progression/profile';
+import { heroEquipped, heroStats, toggleSkillSlot, vocationOf } from '../core/progression/profile';
 import { GAME_CONFIG } from '../config/gameConfig';
 import { manaToNextSlot, slotCost, slotCount, usesSlot } from '../core/progression/skillSlots';
 import { SKILL_ICONS } from './icons';
@@ -115,11 +115,15 @@ export class SkillTree {
   private render(): void {
     const r = this.run!;
     const hp = r.profile.heroes[this.hero];
-    const skills = heroSkills(this.hero);
+    // árvore da vocação escolhida (ou da classe base, se ainda não escolheu ou a vocação não tem árvore)
+    const skills = heroSkills(this.hero, hp.vocation);
     const cols = Math.max(3, ...skills.map((d) => d.col + 1));
-    const gap = cols >= 5 ? 20 : 40; // com especializações (5 colunas) os nós ficam mais juntos
-    const pos = (d: SkillDef) => ({ x: 24 + d.col * (NODE_W + gap), y: 24 + (d.tier - 1) * (NODE_H + 34) });
-    const treeW = cols * NODE_W + (cols - 1) * gap + 48;
+    // com 7 colunas (árvore de vocação) os cartões ficam um pouco menores para caber na tela
+    const nodeW = cols >= 7 ? 112 : NODE_W;
+    const gap = cols >= 7 ? 8 : cols >= 5 ? 20 : 40; // com especializações (5 colunas) os nós ficam mais juntos
+    const pos = (d: SkillDef) => ({ x: 24 + d.col * (nodeW + gap), y: 24 + (d.tier - 1) * (NODE_H + 34) });
+    const treeW = cols * nodeW + (cols - 1) * gap + 48;
+    const voc = vocationOf(this.hero, hp)?.nome;
     const mana = heroStats(r.profile, this.hero).mana;
     const equipped = heroEquipped(r.profile, this.hero);
     const total = slotCount(this.hero, mana);
@@ -143,9 +147,9 @@ export class SkillTree {
           const a = pos(SKILL_BY_ID[req.id]);
           const b = pos(d);
           const ok = lvOf(hp.skills, req.id) >= req.level;
-          const x0 = a.x + NODE_W / 2;
+          const x0 = a.x + nodeW / 2;
           const y0 = a.y + 74;
-          const x1 = b.x + NODE_W / 2;
+          const x1 = b.x + nodeW / 2;
           const y1 = b.y + 6;
           // o rótulo "nv" fica no meio do vão entre as duas linhas de cartões (não sobre a borda do cartão)
           const ly = (a.y + NODE_H + b.y) / 2 + 3;
@@ -161,7 +165,7 @@ export class SkillTree {
         const inPath = this.sel && this.sel !== d.id && prereqPath(hp.skills, this.hero, this.sel).steps.some((s) => s.id === d.id);
         const br = d.branch ? `<i class="sk-br ${chosen && chosen !== d.branch ? 'off' : ''}">${branchName(this.hero, d.branch).replace(/ \(.*\)/, '')}</i>` : '';
         const tag = !usesSlot(d.id) ? '' : equipped.includes(d.id) ? '<i class="sk-slot on">No slot</i>' : lv > 0 ? '<i class="sk-slot">Fora</i>' : '';
-        return `<button class="sk-node ${st}${inPath ? ' in-path' : ''}${this.sel === d.id ? ' sel' : ''}" data-c="node" data-id="${d.id}" style="left:${p.x}px;top:${p.y}px">
+        return `<button class="sk-node ${st}${inPath ? ' in-path' : ''}${this.sel === d.id ? ' sel' : ''}" data-c="node" data-id="${d.id}" style="left:${p.x}px;top:${p.y}px;width:${nodeW}px">
           <span class="sk-ic"><img src="${this.icon(d.id)}" alt=""><span class="lv">${lv}/${d.maxLevel}</span></span>${tag}${br}
           <b>${d.name}</b><small>${d.kind === 'active' ? 'Ativa' : 'Passiva'} · Tier ${d.tier}</small></button>`;
       })
@@ -199,7 +203,7 @@ export class SkillTree {
     }
     this.el.innerHTML = `
       <div class="win skilltree">
-        <div class="win-title"><i class="au-ico">✦</i><span>Árvore de habilidades</span><button class="au-x" data-c="close" title="Fechar (Esc/K)">×</button></div>
+        <div class="win-title"><i class="au-ico">✦</i><span>Árvore de habilidades${voc ? ` · ${voc}` : ''}</span><button class="au-x" data-c="close" title="Fechar (Esc/K)">×</button></div>
         <div class="win-body">
           <div class="tabs-row">${r.party.map((h) => `<button data-c="tab" data-h="${h}" class="${h === this.hero ? 'on' : ''}">${HERO_PT[h]} <small>Nv.${r.profile.heroes[h].level}</small>${r.profile.heroes[h].skillPoints ? ` <span class="badge">${r.profile.heroes[h].skillPoints}</span>` : ''}</button>`).join('')}
             <span class="sk-bank">Pontos: <b>${hp.skillPoints}</b> · <i class="zeni-ico"></i>${r.profile.zeni.toLocaleString('pt-BR')}</span></div>

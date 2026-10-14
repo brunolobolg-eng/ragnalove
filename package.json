@@ -13,6 +13,7 @@
     "aura:check": "tsx scripts/auraCheck.ts",
     "cenario:check": "tsx scripts/cenarioCheck.ts",
     "vocation:check": "tsx scripts/vocationCheck.ts",
+    "vocation:skills:check": "tsx scripts/vocationSkillCheck.ts",
     "desktop:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "desktop:start": "npm run build && electron .",
     "desktop:build": "npm run build && electron-builder --win dir",

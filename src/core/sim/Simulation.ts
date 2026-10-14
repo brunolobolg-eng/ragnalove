@@ -1,5 +1,5 @@
 import { GAME_CONFIG, type AggroType, type PartySetup } from '../../config/gameConfig';
-import { ARCHETYPES } from '../archetypes/registry';
+import { ARCHETYPES, archetypeOf } from '../archetypes/registry';
 import { Board } from '../grid/Board';
 import { FlowField, canStep, stepCost } from '../grid/pathfinding';
 import { DIRS8, chebyshev, isDiagonal, type Vec2 } from '../grid/types';
@@ -124,6 +124,8 @@ export interface HeroLoadout {
   cards?: CardRuntime[];
   /** Modelo visual da vocação escolhida (ausente = modelo da classe). Não entra nas regras. */
   visual?: string;
+  /** Vocação escolhida (id): com árvore própria, quem comanda é o arquétipo dela. */
+  vocation?: string;
 }
 
 /**
@@ -276,7 +278,8 @@ export class Simulation {
       const lo = loadout[a.id] ?? { stats: computeStats(a.id, ATTRIBUTES_CONFIG.base[a.id], defaultGear(a.id)), level: 1, exp: 0 };
       const u = this.createUnit('party', a.id, m.x, m.y, lo.stats.maxHp);
       u.stats = lo.stats;
-      u.locked = lo.locked ?? lockedSkillKeys(a.id as HeroKind, { ...startingSkills(a.id as HeroKind), ...lo.stats.skills }, lo.stats.mana ?? GAME_CONFIG.mana.base);
+      if (lo.vocation) u.vocation = lo.vocation;
+      u.locked = lo.locked ?? lockedSkillKeys(a.id as HeroKind, { ...startingSkills(a.id as HeroKind), ...lo.stats.skills }, lo.stats.mana ?? GAME_CONFIG.mana.base, undefined, lo.vocation);
       u.level = lo.level;
       u.exp = lo.exp;
       u.cardRules = lo.cards ?? [];
@@ -440,7 +443,7 @@ export class Simulation {
    * Os eventos ficam na fila: quem chamou usa `flushEvents()`.
    */
   castSkill(u: Unit, id: string): boolean {
-    const sk = ARCHETYPES[u.kind]?.skills.find((s) => s.id === id);
+    const sk = archetypeOf(u.kind, u.vocation)?.skills.find((s) => s.id === id);
     if (!sk || !u.alive || u.team !== 'party') return false;
     return sk.cast(u, this, true);
   }
@@ -637,6 +640,14 @@ export class Simulation {
       if (m !== 1) amount *= m;
     }
     if (u.team === 'party' && u.stats) amount = Math.max(1, Math.round(amount * u.stats.damageTakenMult * 10) / 10);
+    // Guarda (vocações: Imunidade, Campo de Força, Aura de Proteção): reduz o dano; corte total = nada atravessa
+    if (u.team === 'party' && (u.guardUntil ?? 0) > this.tick) {
+      amount *= 1 - (u.guardCut ?? 0);
+      if (amount <= 0) {
+        this.emit({ type: 'avoid', unitId: u.id, how: 'shield' });
+        return;
+      }
+    }
     // Tempestade de areia: o vento desvia parte dos projéteis
     if (PROJECTILES.has(source) && this.stormActive && this.combatRng.next() < GAME_CONFIG.biome.sandstorm.deflectChance) {
       this.emit({ type: 'avoid', unitId: u.id, how: 'deflect' });
@@ -1207,6 +1218,19 @@ export class Simulation {
       for (const u of this.sortedUnits('party')) if (chebyshev(u, s) <= s.radius) this.heal(u, s.perSec);
   }
 
+  /** Teleporte curto (Investida, Teleportar): o chamador já escolheu um tile livre. Mantém a grade de ocupação. */
+  relocate(u: Unit, x: number, y: number): void {
+    this.occ[this.board.idx(u.x, u.y)] = 0;
+    u.prevX = u.x;
+    u.prevY = u.y;
+    u.x = x;
+    u.y = y;
+    this.occ[this.board.idx(x, y)] = u.id;
+    u.moveStartTick = this.tick;
+    u.moveTicks = 2;
+    this.emit({ type: 'move', unitId: u.id });
+  }
+
   /** Move uma unidade até `steps` tiles na direção (dx, dy), parando em obstáculo/ocupado. */
   private displace(u: Unit, dx: number, dy: number, steps: number): boolean {
     if (!u.alive || (dx === 0 && dy === 0)) return false;
@@ -1491,7 +1515,8 @@ export class Simulation {
    * durante o turno (a IA pula para a próxima). O arquétipo não precisa saber de slots.
    */
   private actWithSlots(u: Unit): void {
-    if (!u.locked?.length) return void ARCHETYPES[u.kind].update(u, this);
+    const arch = archetypeOf(u.kind, u.vocation);
+    if (!u.locked?.length) return void arch.update(u, this);
     const held: Record<string, number | undefined> = {};
     for (const k of u.locked) {
       if (this.tick >= (u.cooldowns[k] ?? 0)) {
@@ -1499,7 +1524,7 @@ export class Simulation {
         u.cooldowns[k] = this.tick + 1;
       }
     }
-    ARCHETYPES[u.kind].update(u, this);
+    arch.update(u, this);
     for (const [k, v] of Object.entries(held)) {
       if (u.cooldowns[k] !== this.tick + 1) continue; // o arquétipo mexeu nela (ex.: recarga compartilhada)
       if (v === undefined) delete u.cooldowns[k];

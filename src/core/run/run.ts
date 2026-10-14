@@ -4,7 +4,7 @@ import { ZONES, type ZoneDef } from '../../config/zones';
 import { ACTS, EVENTS, REGION_BY_ID, type EventDef, type EventEffect, type NodeType, type Region } from '../../config/world';
 import { REFINE, RARITIES, RARITY_INFO, rollItem, type Item, type Rarity, type Slot } from '../progression/equipment';
 import { addExperience, addZeni, createProfile, expToNext, heroEquipped, heroStats, migrateProfile, resetAttributes, type Profile } from '../progression/profile';
-import { SKILL_BY_ID, SKILL_ZENI, heroSkills, investedSkillPoints, lvOf, missingRequirements, prereqPath, skillZeniCost, type HeroKind, type SkillId } from '../progression/skills';
+import { SKILL_BY_ID, SKILL_ZENI, allHeroSkills, inHeroTree, investedSkillPoints, lvOf, missingRequirements, prereqPath, skillZeniCost, type HeroKind, type SkillId } from '../progression/skills';
 import { Rng } from '../sim/rng';
 import { slotCount, usesSlot } from '../progression/skillSlots';
 import { HERO_INFO, HERO_ORDER, HERO_NAME as HERO_NAMES } from '../../config/heroes';
@@ -547,6 +547,7 @@ export function revive(r: RunState, hero: HeroKind, free = false): boolean {
 // ---------------- Árvore de habilidades ----------------
 export function learnSkill(r: RunState, hero: HeroKind, id: SkillId): string | undefined {
   const h = r.profile.heroes[hero];
+  if (!inHeroTree(hero, h.vocation, id)) return 'Esta habilidade não é da árvore do herói.';
   const d = SKILL_BY_ID[id];
   const lv = lvOf(h.skills, id);
   if (lv >= d.maxLevel) return 'Nível máximo.';
@@ -571,6 +572,7 @@ export function learnSkill(r: RunState, hero: HeroKind, id: SkillId): string | u
  */
 export function learnPath(r: RunState, hero: HeroKind, id: SkillId): string | undefined {
   const h = r.profile.heroes[hero];
+  if (!inHeroTree(hero, h.vocation, id)) return 'Esta habilidade não é da árvore do herói.';
   const path = prereqPath(h.skills, hero, id);
   if (path.blocked.length) return path.blocked[0];
   if (!path.steps.length) return 'Sem pré-requisitos faltando.';
@@ -587,7 +589,7 @@ export function respecSkills(r: RunState, hero: HeroKind): boolean {
   const h = r.profile.heroes[hero];
   const invested = investedSkillPoints(hero, h.skills);
   if (invested <= 0 || !spend(r, skillRespecCost(r))) return false;
-  for (const d of heroSkills(hero)) h.skills[d.id] = d.start;
+  for (const d of allHeroSkills(hero)) h.skills[d.id] = d.start;
   h.skillPoints += invested;
   return true;
 }

@@ -1,6 +1,7 @@
 import { GAME_CONFIG } from '../../config/gameConfig';
 import { SKILL_NUM, lvOf, type SkillLevels } from './skills';
 import { familyOf } from '../../config/heroes';
+import type { VocationPassiveBonus } from '../../config/vocationSkills';
 
 /** Atributos distribuíveis. */
 export type AttrKey = 'str' | 'int' | 'vit' | 'dex' | 'luk';
@@ -170,7 +171,8 @@ export interface HeroStats {
   skills: SkillLevels;
 }
 
-export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emptyGear(), skills: SkillLevels = {}, bonus: { hp?: number; mana?: number; attrs?: Partial<Attrs> } = {}): HeroStats {
+export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emptyGear(), skills: SkillLevels = {}, bonus: { hp?: number; mana?: number; attrs?: Partial<Attrs>; passive?: Partial<VocationPassiveBonus> } = {}): HeroStats {
+  const vp = bonus.passive ?? {}; // passivas das vocações (ver config/vocationSkills.ts)
   const fam = familyOf(kind);
   const A = ATTRIBUTES_CONFIG;
   const base = A.base[kind] ?? emptyAttrs();
@@ -184,7 +186,7 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
   const baseHp = (GAME_CONFIG.archetypes as Record<string, { hp: number }>)[kind]?.hp ?? wCfg.hp;
   const lv = (id: Parameters<typeof lvOf>[1]) => lvOf(skills, id);
   const med = (lv('meditation') ? SKILL_NUM.meditation(lv('meditation')).cdr : 0) + (lv('arcaneFlow') ? SKILL_NUM.arcaneFlow(lv('arcaneFlow')).cdr : 0);
-  const skillHaste = Math.min(A.caps.skillHaste, d('dex') * A.dex.skillHastePerPoint + gear.skillHaste + (fam === 'mage' ? med : 0));
+  const skillHaste = Math.min(A.caps.skillHaste, d('dex') * A.dex.skillHastePerPoint + gear.skillHaste + (fam === 'mage' ? med : 0) + (vp.haste ?? 0));
   const cooldownMult = 1 - skillHaste;
   const cd = (ticks: number) => Math.max(1, Math.round(ticks * cooldownMult));
 
@@ -193,7 +195,7 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
   barrierLength = Math.min(A.int.barrierLengthMax + amp.extraLen, barrierLength);
   const fb = SKILL_NUM.fireBarrier(Math.max(1, lv('fireBarrier')));
   const barrierDurationTicks = mCfg.fireBarrier.durationTicks + d('int') * A.int.barrierDurationPerPoint + fb.extraTicks + amp.extraTicks;
-  const dm = gear.damageMult * weaponMult(fam, gear);
+  const dm = gear.damageMult * weaponMult(fam, gear) * (1 + (vp.dmg ?? 0));
   const step = lv('shadowStep') ? SKILL_NUM.shadowStep(lv('shadowStep')) : { dodge: 0, crit: 0 };
   const primary: AttrKey = fam === 'mage' ? 'int' : fam === 'archer' ? 'dex' : 'str';
   const pact = lv('darkPact') ? SKILL_NUM.darkPact(lv('darkPact')).dmg : 0;
@@ -203,14 +205,14 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
   return {
     attrs,
     weapon: gear.weapon,
-    maxHp: Math.round((baseHp + d('vit') * A.vit.hpPerPoint + (bonus.hp ?? 0)) * gear.hpMult * (1 + iron.hp)),
+    maxHp: Math.round((baseHp + d('vit') * A.vit.hpPerPoint + (bonus.hp ?? 0)) * gear.hpMult * (1 + iron.hp + (vp.hp ?? 0))),
     hpRegenPerSec: gear.hpRegen,
     mana: GAME_CONFIG.mana.base + attrs.int * GAME_CONFIG.mana.perInt + gear.mana + (bonus.mana ?? 0),
     skillHaste,
     cooldownMult,
-    dodge: Math.min(A.caps.dodge, d('luk') * A.luk.dodgePerPoint + gear.dodge + step.dodge),
-    block: Math.min(A.caps.block, gear.block + shield.block),
-    damageTakenMult: Math.max(0.4, 1 - iron.reduce - shield.reduce),
+    dodge: Math.min(A.caps.dodge, d('luk') * A.luk.dodgePerPoint + gear.dodge + step.dodge + (vp.dodge ?? 0)),
+    block: Math.min(A.caps.block, gear.block + shield.block + (vp.block ?? 0)),
+    damageTakenMult: Math.max(0.4, 1 - iron.reduce - shield.reduce - (vp.reduce ?? 0)),
     skillDamageMult: dm,
     classPower: (1 + d(primary) * A.classPowerPerPoint) * dm * (1 + pact),
     skills: { ...skills },
@@ -235,7 +237,7 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
     rainDamage: (aCfg.rain.damage + d('dex') * A.archer.rainDamagePerDex) * SKILL_NUM.arrowRain(Math.max(1, lv('arrowRain'))).dmgMult * dm * (lv('volley') ? SKILL_NUM.volley(lv('volley')).dmgMult : 1),
     rainRadius: aCfg.rain.radius + (lv('volley') ? SKILL_NUM.volley(lv('volley')).radius : 0),
     rainCooldownTicks: cd(aCfg.rain.cooldownTicks),
-    crit: Math.min(GAME_CONFIG.crit.maxChance, GAME_CONFIG.crit.baseChance + attrs.luk * A.luk.critPerPoint + gear.crit + (lv('eagleEye') ? SKILL_NUM.eagleEye(lv('eagleEye')).crit : 0) + step.crit),
+    crit: Math.min(GAME_CONFIG.crit.maxChance, GAME_CONFIG.crit.baseChance + attrs.luk * A.luk.critPerPoint + gear.crit + (lv('eagleEye') ? SKILL_NUM.eagleEye(lv('eagleEye')).crit : 0) + step.crit + (vp.crit ?? 0)),
     critDamage: GAME_CONFIG.crit.baseDamage + gear.critDamage,
   };
 }

@@ -1,4 +1,5 @@
 import { GAME_CONFIG } from '../../config/gameConfig';
+import { VOCATION_TREES, type VocationPassiveBonus, type VocationSkillSpec } from '../../config/vocationSkills';
 
 /**
  * Árvore de habilidades (estilo "pré-requisito por nível"). Tudo é DADO: para criar uma
@@ -81,7 +82,23 @@ export type SkillId =
   | 'bladeFan'
   | 'shadowStep'
   | 'poisonBlades'
-  | 'execute';
+  | 'execute'
+  // Vocações (árvores próprias em config/vocationSkills.ts; fora de heroSkills(classe))
+  | VocationSkillId;
+
+/** Habilidades das vocações (Crusado e Hypnomancer): 20 cada, ids únicos. */
+export type VocationSkillId =
+  // Crusado (2ª vocação do Guerreiro)
+  | 'corteCruzado' | 'impactoDevoto' | 'revidar' | 'determinacao' | 'escudoDeFe' | 'soproDeLuz' | 'forcaDivina'
+  | 'perfuracao' | 'investida' | 'furiaSagrada' | 'auraDeProtecao' | 'gritoDeGuerra' | 'restauracao' | 'imunidade'
+  | 'ondaDeChoque' | 'marteloDeDeus' | 'cruzDaJustica' | 'lancaSagrada' | 'circuloDeProtecao' | 'redencao'
+  // Hypnomancer (2ª forma da Bruxa)
+  | 'ataqueMagico' | 'bolaDeFogo' | 'gelo' | 'veneno' | 'escudoMagico' | 'controleMental' | 'amplificarMagia'
+  | 'raio' | 'soproElemental' | 'teleportar' | 'drenoDeMana' | 'campoDeForca' | 'instalarArmadilha' | 'conjuracaoRapida'
+  | 'meteoro' | 'terremoto' | 'explosaoArcana' | 'cicloArcano' | 'barreira' | 'mestreDaMagia';
+
+/** Habilidades da classe base (fora das vocações). */
+export type BaseSkillId = Exclude<SkillId, VocationSkillId>;
 
 export interface SkillDef {
   id: SkillId;
@@ -105,6 +122,8 @@ export interface SkillDef {
   branch?: string;
   /** Cavaleiro Rúnico: fora da árvore (teste); ver RUNIC_SKILLS. */
   runic?: true;
+  /** Vocação dona desta habilidade (ausente = árvore da classe base). Ver VOCATION_TREES. */
+  vocation?: string;
 }
 
 /** Especializações por classe (ramos exclusivos da árvore). */
@@ -123,7 +142,7 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 const sec = (ticks: number) => `${(ticks / 10).toFixed(1)} s`;
 
 /** Números de cada habilidade por nível (lidos pela simulação e pelos textos). */
-export const SKILL_NUM = {
+const BASE_NUM = {
   frostBolt: (lv: number) => ({ dmgMult: 1 + 0.12 * (lv - 1) }),
   fireBarrier: (lv: number) => ({ burnMult: 1 + 0.1 * (lv - 1), extraTicks: 6 * (lv - 1) }),
   meditation: (lv: number) => ({ cdr: 0.02 * lv }),
@@ -225,7 +244,17 @@ export const SKILL_NUM = {
   shadowStep: (lv: number) => ({ dodge: 0.02 * lv, crit: 0.02 * lv }),
   poisonBlades: (lv: number) => ({ dot: 2 + lv, ticks: 30 + 6 * lv }),
   execute: (lv: number) => ({ threshold: 0.18 + 0.04 * lv, range: 2, cooldown: 110 - 8 * lv }),
-} satisfies Record<SkillId, (lv: number) => Record<string, number>>;
+} satisfies Record<BaseSkillId, (lv: number) => Record<string, number>>;
+
+/** Números das vocações (vêm de config/vocationSkills.ts). */
+const VOCATION_SPECS: (VocationSkillSpec & { vocation: string; hero: HeroKind })[] = Object.entries(VOCATION_TREES).flatMap(([vocation, tree]) =>
+  tree.skills.map((s) => ({ ...s, vocation, hero: tree.hero === 'warlock' ? 'warlock' : 'warrior' })),
+);
+
+const VOCATION_NUM = Object.fromEntries(VOCATION_SPECS.map((s) => [s.id, s.num])) as Record<VocationSkillId, (lv: number) => Record<string, number>>;
+
+/** Números de todas as habilidades (base + vocações). */
+export const SKILL_NUM = { ...BASE_NUM, ...VOCATION_NUM };
 
 const N = SKILL_NUM;
 
@@ -569,15 +598,67 @@ export const RUNIC_SKILLS: SkillDef[] = [
   },
 ];
 
-export const SKILL_BY_ID = Object.fromEntries([...SKILLS, ...RUNIC_SKILLS].map((s) => [s.id, s])) as Record<SkillId, SkillDef>;
-export const heroSkills = (hero: HeroKind) => SKILLS.filter((s) => s.hero === hero);
+/** Árvores das vocações: uma entrada de dado por habilidade (config/vocationSkills.ts). */
+export const VOCATION_SKILLS: SkillDef[] = VOCATION_SPECS.map((s) => ({
+  id: s.id as SkillId,
+  hero: s.hero,
+  name: s.name,
+  tier: s.tier,
+  col: s.col,
+  kind: s.kind,
+  maxLevel: s.maxLevel,
+  requires: s.requires as { id: SkillId; level: number }[],
+  start: s.start,
+  desc: s.desc,
+  effect: (lv) => s.effect(s.num(lv)),
+  vocation: s.vocation,
+}));
+
+export const SKILL_BY_ID = Object.fromEntries([...SKILLS, ...RUNIC_SKILLS, ...VOCATION_SKILLS].map((s) => [s.id, s])) as Record<SkillId, SkillDef>;
 export const runicSkills = (hero: HeroKind) => RUNIC_SKILLS.filter((s) => s.hero === hero);
+
+/** Árvore da vocação escolhida, se ela tem desenho para esta classe (ex.: o Bárbaro ainda usa a da classe). */
+export function vocationTreeId(hero: HeroKind, vocation?: string): string | undefined {
+  return vocation && VOCATION_TREES[vocation]?.hero === hero ? vocation : undefined;
+}
+
+/** Habilidades que o herói vê na árvore: a da vocação (se ela tem árvore) ou a da classe base. */
+export function heroSkills(hero: HeroKind, vocation?: string): SkillDef[] {
+  const tree = vocationTreeId(hero, vocation);
+  return tree ? VOCATION_SKILLS.filter((s) => s.vocation === tree) : SKILLS.filter((s) => s.hero === hero);
+}
+
+/** Todas as habilidades do herói (classe base + todas as vocações): para devolver pontos e contar o investido. */
+export const allHeroSkills = (hero: HeroKind): SkillDef[] => [...SKILLS, ...VOCATION_SKILLS].filter((s) => s.hero === hero);
+
+/** Habilidade pertence à árvore que este herói está usando agora? (vocação escolhida: só a árvore dela). */
+export const inHeroTree = (hero: HeroKind, vocation: string | undefined, id: SkillId): boolean => heroSkills(hero, vocation).some((s) => s.id === id);
 
 export type SkillLevels = Partial<Record<SkillId, number>>;
 
 export function startingSkills(hero: HeroKind): SkillLevels {
   const out: SkillLevels = {};
   for (const s of heroSkills(hero)) if (s.start > 0) out[s.id] = s.start;
+  return out;
+}
+
+/** Habilidades que a vocação traz aprendidas ao ser escolhida (o básico dela). Aditivo: nunca tira nada. */
+export function startingVocationSkills(vocation: string): SkillLevels {
+  const out: SkillLevels = {};
+  for (const s of VOCATION_SKILLS) if (s.vocation === vocation && s.start > 0) out[s.id] = s.start;
+  return out;
+}
+
+/** Soma dos bônus passivos de atributo das habilidades aprendidas da vocação (entra em heroStats). */
+export function vocationPassive(vocation: string | undefined, levels: SkillLevels): Partial<VocationPassiveBonus> {
+  const out: Partial<VocationPassiveBonus> = {};
+  const tree = vocation ? VOCATION_TREES[vocation] : undefined;
+  if (!tree) return out;
+  for (const s of tree.skills) {
+    const lv = lvOf(levels, s.id as SkillId);
+    if (!lv || !s.stat) continue;
+    for (const [k, v] of Object.entries(s.stat(lv))) out[k as keyof VocationPassiveBonus] = (out[k as keyof VocationPassiveBonus] ?? 0) + (v ?? 0);
+  }
   return out;
 }
 
@@ -680,5 +761,5 @@ export function skillState(levels: SkillLevels, id: SkillId): SkillState {
 
 /** Soma de pontos já investidos acima do nível inicial (para redistribuir). */
 export function investedSkillPoints(hero: HeroKind, levels: SkillLevels): number {
-  return heroSkills(hero).reduce((s, d) => s + Math.max(0, lvOf(levels, d.id) - d.start), 0);
+  return allHeroSkills(hero).reduce((s, d) => s + Math.max(0, lvOf(levels, d.id) - d.start), 0);
 }

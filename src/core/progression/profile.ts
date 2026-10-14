@@ -1,7 +1,7 @@
 import { GAME_CONFIG } from '../../config/gameConfig';
 import { ATTRIBUTES_CONFIG, ATTR_KEYS, computeStats, type AttrKey, type Attrs, type HeroStats } from './attributes';
 import { KIND_SLOT, SLOTS, canUse, gearBonus, itemKind, weaponPower, type Item, type Slot } from './equipment';
-import { lvOf, startingSkills, type HeroKind, type SkillId, type SkillLevels } from './skills';
+import { inHeroTree, lvOf, startingSkills, startingVocationSkills, vocationPassive, type HeroKind, type SkillId, type SkillLevels } from './skills';
 import { equippedSkills, lockedSkillKeys, manaToNextSlot, slotCount, usesSlot } from './skillSlots';
 import { HERO_NAME, HERO_ORDER, familyOf, isHeroKind } from '../../config/heroes';
 import { VOCATIONS, VOCATIONS_CONFIG, type VocationDef } from '../../config/vocations';
@@ -136,19 +136,21 @@ export function heroStats(profile: Profile, kind: string): HeroStats {
   const attrs = { ...h.attrs };
   // a vocação soma atributos como o equipamento: entra antes do cálculo (dano e vida acompanham)
   const vocation = vocationOf(kind, h)?.bonus ?? {};
-  return computeStats(kind, attrs, gearBonus(SLOTS.map((s) => h.equipment[s])), h.skills, { hp: h.bonusHp, mana: h.bonusMana, attrs: vocation });
+  // passivas de atributo das habilidades da vocação (Crusado, Hypnomancer): somam como o equipamento
+  const passive = vocationPassive(h.vocation, h.skills);
+  return computeStats(kind, attrs, gearBonus(SLOTS.map((s) => h.equipment[s])), h.skills, { hp: h.bonusHp, mana: h.bonusMana, attrs: vocation, passive });
 }
 
 /** Habilidades ativas nos slots do herói (limitadas pela Mana). */
 export function heroEquipped(profile: Profile, kind: string): SkillId[] {
   const h = profile.heroes[kind];
-  return equippedSkills(kind as HeroKind, h.skills, heroStats(profile, kind).mana, h.equippedSkills);
+  return equippedSkills(kind as HeroKind, h.skills, heroStats(profile, kind).mana, h.equippedSkills, h.vocation);
 }
 
 /** Chaves de recarga bloqueadas na luta (habilidades fora dos slots). */
 export function heroLockedKeys(profile: Profile, kind: string): string[] {
   const h = profile.heroes[kind];
-  return lockedSkillKeys(kind as HeroKind, h.skills, heroStats(profile, kind).mana, h.equippedSkills);
+  return lockedSkillKeys(kind as HeroKind, h.skills, heroStats(profile, kind).mana, h.equippedSkills, h.vocation);
 }
 
 /**
@@ -158,6 +160,7 @@ export function heroLockedKeys(profile: Profile, kind: string): string[] {
 export function toggleSkillSlot(profile: Profile, kind: string, id: SkillId): string | undefined {
   const h = profile.heroes[kind];
   if (!usesSlot(id)) return 'Esta habilidade não usa slot.';
+  if (!inHeroTree(kind as HeroKind, h.vocation, id)) return 'Esta habilidade não é da árvore do herói.';
   const cur = heroEquipped(profile, kind);
   if (cur.includes(id)) {
     h.equippedSkills = cur.filter((x) => x !== id);
@@ -270,7 +273,10 @@ export function evolveBlocker(p: Profile, kind: string, id: string): string | un
 export function evolve(p: Profile, kind: string, id: string): string | undefined {
   const err = evolveBlocker(p, kind, id);
   if (err) return err;
-  p.heroes[kind].vocation = id;
+  const h = p.heroes[kind];
+  h.vocation = id;
+  // o básico da árvore da vocação entra aprendido (aditivo: nada que já estava aprendido sai)
+  for (const [sid, lv] of Object.entries(startingVocationSkills(id))) h.skills[sid as SkillId] ??= lv;
   return undefined;
 }
 
@@ -410,6 +416,8 @@ export function migrateProfile(p: Profile): Profile {
     h.skillPoints ??= (h.level - 1) * PROGRESSION.skillPointsPerLevel;
     // vocação que não existe nesta classe (save antigo ou editado) sai: o herói volta à classe base
     if (h.vocation && !vocationOf(k, h)) delete h.vocation;
+    // árvore da vocação: habilidades iniciais dela (básico) entram se faltarem (aditivo)
+    if (h.vocation) for (const [id, lv] of Object.entries(startingVocationSkills(h.vocation))) h.skills[id as SkillId] ??= lv;
     const eq = h.equipment as Record<string, Item | undefined>;
     const worn = Object.entries(eq).filter(([, it]) => it) as [string, Item][];
     for (const [key] of worn) delete eq[key];

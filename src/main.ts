@@ -269,7 +269,7 @@ function loadout(): Record<string, HeroLoadout> {
   const out: Record<string, HeroLoadout> = {};
   for (const k of Object.keys(profile.heroes)) {
     const h = profile.heroes[k];
-    out[k] = { stats: heroStats(profile, k), level: h.level, exp: h.exp, locked: heroLockedKeys(profile, k), cards: h.cards ?? [], visual: vocationOf(k, h)?.modelo };
+    out[k] = { stats: heroStats(profile, k), level: h.level, exp: h.exp, locked: heroLockedKeys(profile, k), cards: h.cards ?? [], visual: vocationOf(k, h)?.modelo, vocation: vocationOf(k, h)?.id };
   }
   return out;
 }
