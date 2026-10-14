@@ -8,7 +8,7 @@ import type { WaveMix } from '../../config/zones';
  * depois da tropa comum. Os números e a ordem dos ciclos estão em config/bastion.ts (BASTION_HORDE).
  */
 
-export type HordeTier = 'comum' | 'mini' | 'mvp';
+export type HordeTier = 'comum' | 'mini' | 'mvp' | 'lenda';
 
 export interface HordeWave {
   /** Número da noite (começa em 1). */
@@ -35,10 +35,15 @@ function listaPt(nomes: string[]): string {
 /** Horda da noite `wave` (número da noite, a partir de 1). Valor inválido cai na noite 1. */
 export function hordeOf(wave: number): HordeWave {
   const n = Number.isFinite(wave) && wave >= 1 ? Math.floor(wave) : 1;
-  const { count, regular, miniEvery, mvpEvery, minis, mvps, names } = BASTION_HORDE;
+  const { count, regular, miniEvery, mvpEvery, legendEvery, legends, minis, mvps, names } = BASTION_HORDE;
   const mix = regular.map((m) => ({ ...m }));
   const nomeDe = (kind: string) => names[kind] ?? kind;
 
+  if (n % legendEvery === 0) {
+    // Chefe lendário: a noite inteira é dele (no lugar do MVP e do mini-chefe).
+    const boss = legends[(n / legendEvery - 1) % legends.length];
+    return { wave: n, tier: 'lenda', count, mix, boss, title: `Noite ${n} · lenda`, detail: nomeDe(boss) };
+  }
   if (n % mvpEvery === 0) {
     const boss = mvps[(n / mvpEvery - 1) % mvps.length];
     return { wave: n, tier: 'mvp', count, mix, boss, title: `Noite ${n} · MVP`, detail: nomeDe(boss) };

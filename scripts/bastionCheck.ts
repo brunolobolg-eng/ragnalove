@@ -608,8 +608,9 @@ check(
 console.log('\n# 13) Horda por noite (comum, mini-chefe e MVP)');
 // Tipos só da campanha: não entram na horda do Bastião (o palhaço vive nos Campos Cinzentos, Ato III).
 const SO_CAMPANHA = ['palhaco', 'detarderus'];
-const INIMIGOS = Object.keys(GAME_CONFIG.enemies).filter((k) => k !== 'trainingDummy' && !SO_CAMPANHA.includes(k));
-check('são 13 inimigos de combate do Bastião (tudo menos o boneco de treino e os tipos só da campanha)', INIMIGOS.length === 13 && !INIMIGOS.includes('trainingDummy'), `${INIMIGOS.length}`);
+const SO_LENDARIO = ['satanMorroc'];
+const INIMIGOS = Object.keys(GAME_CONFIG.enemies).filter((k) => k !== 'trainingDummy' && !SO_CAMPANHA.includes(k) && !SO_LENDARIO.includes(k));
+check('são 13 inimigos de combate do Bastião (tudo menos o boneco de treino, os tipos só da campanha e o chefe lendário)', INIMIGOS.length === 13 && !INIMIGOS.includes('trainingDummy'), `${INIMIGOS.length}`);
 check(
   'o palhaço é só da campanha: está na mistura dos Campos Cinzentos e fora da horda do Bastião',
   ZONES.ashenFields.wave.mix.some((m) => m.kind === 'palhaco') && !JSON.stringify(BASTION_HORDE).includes('palhaco') && SO_CAMPANHA.every((k) => k in GAME_CONFIG.enemies),
@@ -637,6 +638,8 @@ let minisEmOrdem = true;
 let mvpsEmOrdem = true;
 let nMini = 0;
 let nMvp = 0;
+let nLenda = 0;
+let lendasEmOrdem = true;
 for (let n = 1; n <= 500; n++) {
   const h = hordeOf(n);
   if (h.tier === 'mini') {
@@ -645,13 +648,23 @@ for (let n = 1; n <= 500; n++) {
   }
   if (h.tier === 'mvp') {
     nMvp++;
-    if (h.boss !== BASTION_HORDE.mvps[(nMvp - 1) % BASTION_HORDE.mvps.length]) mvpsEmOrdem = false;
+    // o MVP pega pelo número da noite (n / mvpEvery − 1): as noites de lenda não entram nesse ciclo
+    if (h.boss !== BASTION_HORDE.mvps[(n / BASTION_HORDE.mvpEvery - 1) % BASTION_HORDE.mvps.length]) mvpsEmOrdem = false;
+  }
+  if (h.tier === 'lenda') {
+    nLenda++;
+    if (h.boss !== BASTION_HORDE.legends[(nLenda - 1) % BASTION_HORDE.legends.length]) lendasEmOrdem = false;
   }
 }
-check('ciclos em ordem até a noite 500 (50 minis e 50 MVPs)', minisEmOrdem && mvpsEmOrdem && nMini === 50 && nMvp === 50, `${nMini} minis · ${nMvp} MVPs`);
+check('ciclos em ordem até a noite 500 (50 minis, 45 MVPs e 5 lendas: a noite 100 de cada dez vira lenda)', minisEmOrdem && mvpsEmOrdem && lendasEmOrdem && nMini === 50 && nMvp === 45 && nLenda === 5, `${nMini} minis · ${nMvp} MVPs · ${nLenda} lendas`);
 // horde.ts conta os mini-chefes tirando as noites de MVP: isso só fecha se o MVP cair sempre em múltiplo de mini.
 check('mvpEvery é múltiplo de miniEvery (a conta de k em horde.ts depende disso)', BASTION_HORDE.mvpEvery % BASTION_HORDE.miniEvery === 0 && BASTION_HORDE.minis.length > 0, `${BASTION_HORDE.mvpEvery} % ${BASTION_HORDE.miniEvery}`);
 check('ciclo dos MVPs: 10 Colosso da Clareira, 20 Colosso Solar, 30 Senhor Orc, 40 volta ao primeiro', hordeOf(10).boss === 'boss' && hordeOf(20).boss === 'boss2' && hordeOf(30).boss === 'orcboss' && hordeOf(40).boss === 'boss' && hordeOf(50).boss === 'boss2');
+check('noite 100 é de chefe lendário, no lugar do MVP e do mini-chefe', hordeOf(100).tier === 'lenda' && hordeOf(100).boss === 'satanMorroc' && hordeOf(100).title === 'Noite 100 · lenda', hordeOf(100).title);
+check('noites 99 e 101 não são lendárias', hordeOf(99).tier !== 'lenda' && hordeOf(101).tier !== 'lenda');
+check('noite 200 volta a ser lendária (o ciclo tem um chefe)', hordeOf(200).tier === 'lenda' && hordeOf(200).boss === 'satanMorroc');
+check('chefe lendário tem stats na simulação e nome em pt-BR', !!GAME_CONFIG.enemies.satanMorroc && BASTION_HORDE.names.satanMorroc === 'Senhor do Abismo');
+check('a cada 100 noites é múltiplo do MVP (lenda substitui MVP sem quebrar o ciclo)', BASTION_HORDE.legendEvery % BASTION_HORDE.mvpEvery === 0);
 const vistosAte = (ate: number) => {
   const vistos = new Set<string>();
   for (let n = 1; n <= ate; n++) {

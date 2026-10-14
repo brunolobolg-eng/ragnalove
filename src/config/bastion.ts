@@ -135,6 +135,10 @@ export interface BastionHordeDef {
   minis: string[];
   /** Ciclo dos MVPs, em ordem: noite de MVP (n / mvpEvery − 1) mod tamanho do ciclo. */
   mvps: string[];
+  /** Chefe lendário a cada N noites: nessas noites substitui o MVP e o mini-chefe (N múltiplo de mvpEvery). */
+  legendEvery: number;
+  /** Ciclo dos chefes lendários, em ordem (noite de lenda k pega legends[(k − 1) mod tamanho do ciclo]). */
+  legends: string[];
   /** Nome em pt-BR de cada inimigo de combate (tudo de GAME_CONFIG.enemies, menos o boneco de treino). */
   names: Record<string, string>;
 }
@@ -152,6 +156,8 @@ export const BASTION_HORDE: BastionHordeDef = {
   mvpEvery: 10,
   minis: ['elite', 'goblinImp', 'goblinWarlord', 'dinoBoss', 'goblinLeader'],
   mvps: ['boss', 'boss2', 'orcboss'],
+  legendEvery: 100,
+  legends: ['satanMorroc'],
   names: {
     grunt: 'Zumbi',
     runner: 'Corredor',
@@ -166,5 +172,6 @@ export const BASTION_HORDE: BastionHordeDef = {
     boss: 'Colosso da Clareira',
     boss2: 'Colosso Solar',
     orcboss: 'Senhor Orc das Cinzas',
+    satanMorroc: 'Senhor do Abismo',
   },
 };
