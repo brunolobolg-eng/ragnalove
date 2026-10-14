@@ -86,6 +86,11 @@ export function loadTexture(url: string, linear = false): THREE.Texture {
   return t;
 }
 
+/** Começa a carregar as imagens antes da batalha: a textura já chega pronta na primeira montagem (sem quadro em branco). */
+export function precarregarImagens(urls: readonly string[]): void {
+  for (const url of urls) imageOf(url).catch(() => { /* sem imagem: a textura fica vazia e o cenário segue */ });
+}
+
 /** Material de uma peça: textura do dono com a cor por vértice (sombra embaixo e variação entre as faces). */
 function matOf(file: string, unlit = false): KitMat {
   const map = loadTexture(`${TEX_DIR}${file}.webp`);

@@ -13,18 +13,18 @@ import { lavaGround } from './lavaGround';
 import { forestGround } from './forestGround';
 import { desertGround } from './desertGround';
 import { KITS, tintHex, type BiomeKit } from './biomeKits';
+import { loadTexture } from './naturKit';
+import { groundLayers } from './groundLayers';
+import { CENARIO_DIR } from './sceneryTextures';
 
 /**
  * Cenário genérico por bioma (floresta, planície, deserto, montanha, cinzas).
  * Só visual: a grade vem do mapa da zona. Low-poly pintado (cores por vértice + texturas
- * de chão em canvas), com decoração em volta do tabuleiro e partículas de ambiente.
+ * de chão geradas em imagem), com decoração em volta do tabuleiro e partículas de ambiente.
  */
 type Biome = Exclude<ZoneTheme, 'bridge' | 'town'>;
 
 interface Palette {
-  ground: string[];
-  groundDetail: string[];
-  outer: string[];
   rock: number[];
   trunk: number;
   leaf: number[];
@@ -32,77 +32,48 @@ interface Palette {
   waterEmissive: number;
   lava?: boolean;
   snow?: boolean;
-  /** Manchas de vento no chão: [clara, escura]. */
-  drift?: [string, string];
-  /** Rajadas finas no chão: [clara, escura]. */
-  streak?: [string, string];
 }
 
 const PAL: Record<Biome, Palette> = {
   forest: {
-    ground: ['#5e8a36', '#679640', '#557e32', '#72a246'],
-    groundDetail: ['#8cbf52', '#46692a', '#9c8a58', '#7cb04a'],
-    outer: ['#4f7a30', '#5a8836', '#47702c'],
     rock: [0x8a8c84, 0x7a7c74, 0x9a988c],
     trunk: 0x5a3d26,
     leaf: [0x3e8a36, 0x4f9e40, 0x357a30, 0x68b44a],
     water: 0x1e3a3a,
     waterEmissive: 0x061212,
-    drift: ['#7fa35a', '#2b4a22'],
   },
   plains: {
-    ground: ['#6e9444', '#789c4a', '#66883e', '#84a452'],
-    groundDetail: ['#a8c860', '#5a7a34', '#b89a62', '#98bc58'],
-    outer: ['#5e843c', '#688e42', '#587c38'],
     rock: [0x9a988e, 0x8a887e, 0xaaa69a],
     trunk: 0x5e4630,
     leaf: [0x4e9a3c, 0x62ac46, 0x44883a, 0x7cbc52],
     water: 0x2a3a40,
     waterEmissive: 0x080e10,
-    drift: ['#f6f4d6', '#6a7a3a'],
   },
   desert: {
-    ground: ['#c4a274', '#ceac7c', '#b8986c', '#d6b686'],
-    groundDetail: ['#e0bb82', '#a87c48', '#d8b078', '#b28654'],
-    outer: ['#b88c56', '#c4985e', '#ae824e'],
     rock: [0xa8704a, 0x9a6242, 0xb87e56],
     trunk: 0x6a4a2e,
     leaf: [0x5e7a3a, 0x6c8a44, 0x4e6a30],
     water: 0x2e6a70,
     waterEmissive: 0x0a1c1e,
-    drift: ['#f6e2b4', '#a57a44'],
-    streak: ['#fbe9bc', '#d6ae70'],
   },
   mountain: {
-    // base um tom mais fria e escura: as luzes da neve e as sombras longas passam a aparecer
-    ground: ['#8e9ab0', '#9aa6ba', '#8592a8', '#a6b2c6'],
-    groundDetail: ['#eef4fb', '#c4d2e4', '#dde8f4', '#b3c2d8'],
-    outer: ['#9ca4b0', '#a8b0bc', '#929aa6'],
     rock: [0x6a6e78, 0x5a5e68, 0x7a7e88],
     trunk: 0x3e3024,
     leaf: [0x2a4a3a, 0x325444, 0x243e32],
     water: 0x223244,
     waterEmissive: 0x060a10,
-    drift: ['#f4f9ff', '#606e98'],
-    streak: ['#f7fbff', '#c9d8ea'],
     snow: true,
   },
   ash: {
-    ground: ['#5a4640', '#644e46', '#503e38', '#6a524a'],
-    groundDetail: ['#5a4a40', '#261c18', '#6a5446', '#2e2420'],
-    outer: ['#2e2420', '#382a24', '#261e1a'],
     rock: [0x3a302c, 0x2e2622, 0x4a3c34],
     trunk: 0x221a16,
     leaf: [0x3a2a22, 0x2e221c],
     water: 0xff5a1a,
     waterEmissive: 0xff4a10,
-    drift: ['#6a5c56', '#1c1412'],
-    streak: ['#4a3a34', '#2a201c'],
     lava: true,
   },
 };
 
-const TILE_PX = 64;
 
 /** Kit da floresta com as peças naturais (naturKit.ts) no lugar das antigas: os tokens `nat:*` viram grupos do KIT. */
 const NAT_KIT: BiomeKit = {
@@ -175,20 +146,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   const ice = iceMap ? iceGround(zone, 22) : undefined;
   const lavaChao = lavaMap ? lavaGround(zone, 22) : undefined;
   for (const h of [forest, desert, ice, lavaChao]) if (h) root.add(h.group);
-  if (!natural && !desert) {
-    const outerTex = groundTexture(P, 256, 256, 4, rnd, true);
-    outerTex.repeat.set((W + 44) / 4, (H + 44) / 4);
-    const outer = new THREE.Mesh(new THREE.PlaneGeometry(W + 44, H + 44).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: outerTex }));
-    outer.position.y = -0.03;
-    outer.receiveShadow = true;
-    root.add(outer);
-
-    const boardTex = boardTexture(P, zone, rnd, areaK);
-    // Tiles de vazio ficam vazados no chão (a água/lava aparece por baixo).
-    const board = new THREE.Mesh(new THREE.PlaneGeometry(W, H).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: boardTex, alphaTest: 0.5 }));
-    board.receiveShadow = true;
-    root.add(board);
-  }
+  if (!natural && !desert) root.add(chaoPlanicie(zone, W, H));
 
   // ---------------- Água / lava nos tiles de vazio ----------------
   // na floresta e no deserto o lago é desenhado pelo chão; nos outros biomas, a água de sempre
@@ -510,277 +468,52 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   return { group: root, update, setLights: (on: boolean) => cityGate.setLights(on) };
 }
 
-// ---------------- Texturas de chão ----------------
-
-function groundTexture(P: Palette, w: number, h: number, detailPer: number, rnd: () => number, outer = false): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const g = c.getContext('2d')!;
-  g.fillStyle = (outer ? P.outer : P.ground)[0];
-  g.fillRect(0, 0, w, h);
-  paintNoise(g, w, h, outer ? P.outer : P.ground, rnd, 90);
-  if (P.drift) paintDrifts(g, w, h, rnd, 60, P.drift);
-  if (P === PAL.forest || P === PAL.plains) paintSunDapple(g, w, h, rnd, 10);
-  paintDetail(g, w, h, P, rnd, detailPer * 40);
-  if (P === PAL.forest || P === PAL.plains) paintFlowers(g, w, h, rnd, 8);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.anisotropy = 8;
-  return t;
-}
-
-function boardTexture(P: Palette, zone: ParsedZone, rnd: () => number, areaK = 1): THREE.CanvasTexture {
-  const w = zone.width * TILE_PX;
-  const h = zone.height * TILE_PX;
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const g = c.getContext('2d')!;
-  g.fillStyle = P.ground[0];
-  g.fillRect(0, 0, w, h);
-  paintNoise(g, w, h, P.ground, rnd, Math.round(420 * areaK));
-  if (P.drift) paintDrifts(g, w, h, rnd, Math.round(90 * areaK), P.drift);
-  // leve xadrez para ler a grade (bem sutil, como um chão gasto)
-  for (const f of zone.floor) {
-    if ((f.x + f.y) % 2) continue;
-    g.fillStyle = 'rgba(0,0,0,0.045)';
-    g.fillRect(f.x * TILE_PX, f.y * TILE_PX, TILE_PX, TILE_PX);
-  }
-  const green = P === PAL.forest || P === PAL.plains;
-  if (green) paintSunDapple(g, w, h, rnd, Math.round(12 * areaK));
-  // deserto: menos pedrinhas (a areia já tem as rajadas); o resto segue a paleta
-  paintDetail(g, w, h, P, rnd, Math.round((P === PAL.desert ? 140 : 900) * areaK));
-  // Trilhas de verdade: dos 2 spawns até o portão (caminho mais curto na grade), gastas pela horda
-  const routes = zone.spawnPoints.map((sp) => routeToGate(zone, sp));
-  if (P === PAL.mountain) {
-    // na neve, a trilha é neve pisoteada (pedras claras e azuladas, quase da cor do chão)
-    const stone = ['#d4deea', '#c2cfdf', '#e2e9f2', '#b8c6d8'];
-    g.globalAlpha = 0.45;
-    for (const r of routes) paintCobbleRoute(g, rnd, stone, r);
-    g.globalAlpha = 1;
-  } else {
-    // terra gasta pelos passos da horda: faixa suave da cor da ambientação, sem pontinhos
-    const worn = P === PAL.forest ? '#7d6a3c' : P === PAL.plains ? '#9a8450' : P === PAL.desert ? '#c09460' : '#2e211c';
-    for (const r of routes) paintWornRoute(g, worn, r);
-  }
-  if (green) paintFlowers(g, w, h, rnd, Math.round(70 * areaK));
-  // tipos de chão
-  for (const f of zone.floor) {
-    const px = f.x * TILE_PX;
-    const py = f.y * TILE_PX;
-    if (f.ground === 'fog') {
-      // chão úmido e sombrio sob a neblina
-      g.fillStyle = 'rgba(10,26,22,0.28)';
-      g.fillRect(px, py, TILE_PX, TILE_PX);
-    } else if (f.ground === 'roots') {
-      // raízes expostas: linhas grossas e tortas, marrom-escuro com luz no dorso
-      for (let k = 0; k < 3; k++) {
-        const y0 = py + rnd() * TILE_PX;
-        g.strokeStyle = '#3a2616';
-        g.lineWidth = 5 + rnd() * 3;
-        g.lineCap = 'round';
-        g.beginPath();
-        g.moveTo(px - 6, y0);
-        g.bezierCurveTo(px + TILE_PX * 0.3, y0 - 14 + rnd() * 28, px + TILE_PX * 0.7, y0 - 14 + rnd() * 28, px + TILE_PX + 6, y0 + (rnd() - 0.5) * 20);
-        g.stroke();
-        g.strokeStyle = 'rgba(160,120,80,0.45)';
-        g.lineWidth = 1.5;
-        g.stroke();
-      }
-    } else if (f.ground === 'puddle') {
-      // na neve, a poça vira gelo (claro e liso); no resto, água parada escura
-      g.fillStyle = P.snow ? 'rgba(170,200,232,0.55)' : 'rgba(30,40,30,0.4)';
-      g.beginPath();
-      g.ellipse(px + TILE_PX / 2, py + TILE_PX / 2, TILE_PX * 0.5, TILE_PX * 0.36, 0, 0, Math.PI * 2);
-      g.fill();
-    } else if (f.ground === 'gate') {
-      // lajes de pedra do portão
-      g.fillStyle = '#8a8478';
-      g.fillRect(px, py, TILE_PX, TILE_PX);
-      g.strokeStyle = 'rgba(40,36,30,0.7)';
-      g.lineWidth = 2;
-      for (let k = 0; k < 2; k++) g.strokeRect(px + 3 + k * 30, py + 4, 28, TILE_PX - 8);
-    }
-  }
-  // vazios: recorta o chão e escurece a borda (margem de terra molhada / queimada)
-  for (const v of zone.voids) {
-    g.fillStyle = P.lava ? 'rgba(40,10,0,0.9)' : 'rgba(20,30,20,0.6)';
-    g.fillRect(v.x * TILE_PX - 6, v.y * TILE_PX - 6, TILE_PX + 12, TILE_PX + 12);
-  }
-  for (const v of zone.voids) g.clearRect(v.x * TILE_PX, v.y * TILE_PX, TILE_PX, TILE_PX);
-  // borda escura em volta dos obstáculos (contato)
-  for (const wl of zone.walls) {
-    const gx = wl.x * TILE_PX + TILE_PX / 2;
-    const gy = wl.y * TILE_PX + TILE_PX / 2;
-    const gr = g.createRadialGradient(gx, gy, 6, gx, gy, TILE_PX * 0.75);
-    gr.addColorStop(0, 'rgba(0,0,0,0.35)');
-    gr.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = gr;
-    g.fillRect(gx - TILE_PX, gy - TILE_PX, TILE_PX * 2, TILE_PX * 2);
-  }
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 8;
-  return t;
-}
-
-/** Terra gasta: degradês suaves ao longo da rota (sem pedrinhas), para ler o caminho da horda. */
-function paintWornRoute(g: CanvasRenderingContext2D, color: string, route: { x: number; y: number }[]): void {
-  for (const p of route) {
-    const cx = (p.x + 0.5) * TILE_PX;
-    const cy = (p.y + 0.5) * TILE_PX;
-    const gr = g.createRadialGradient(cx, cy, 0, cx, cy, TILE_PX * 0.75);
-    gr.addColorStop(0, hexA(color, 0.3));
-    gr.addColorStop(1, hexA(color, 0));
-    g.fillStyle = gr;
-    g.fillRect(cx - TILE_PX, cy - TILE_PX, TILE_PX * 2, TILE_PX * 2);
-  }
-}
-
-/** Cor hex (#rrggbb) com alfa, para os degradês do canvas. */
-function hexA(hex: string, a: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-}
+// ---------------- Chão da planície (camadas, sem canvas) ----------------
 
 /**
- * Manchas de vento no chão: acúmulos claros e vales escuros, em degradê suave (neve, areia, musgo, cinza).
- * Quebram a cor lisa do chão e dão relevo sem geometria extra.
+ * Planície (Campos Cinzentos, Vale Seco): chão em camadas. A base é a textura gerada (chao_planicie.webp), com os
+ * buracos recortados (a água aparece por baixo). Por cima, em máscaras suaves: um xadrez leve que ajuda a ler a
+ * grade, a trilha gasta pela horda, a sombra das paredes e as lajes do portão. Em volta, a textura de fora.
  */
-function paintDrifts(g: CanvasRenderingContext2D, w: number, h: number, rnd: () => number, n: number, drift: [string, string]): void {
-  for (let i = 0; i < n; i++) {
-    const x = rnd() * w;
-    const y = rnd() * h;
-    const r = 40 + rnd() * 110;
-    const lit = rnd() < 0.6;
-    const col = lit ? drift[0] : drift[1];
-    const grd = g.createRadialGradient(x, y, 0, x, y, r);
-    grd.addColorStop(0, hexA(col, lit ? 0.22 : 0.2));
-    grd.addColorStop(0.55, hexA(col, lit ? 0.1 : 0.09));
-    grd.addColorStop(1, 'rgba(0,0,0,0)');
-    g.save();
-    g.translate(x, y);
-    g.scale(1, 0.5 + rnd() * 0.4);
-    g.translate(-x, -y);
-    g.fillStyle = grd;
-    g.beginPath();
-    g.arc(x, y, r, 0, Math.PI * 2);
-    g.fill();
-    g.restore();
-  }
-}
+function chaoPlanicie(zone: ParsedZone, W: number, H: number): THREE.Group {
+  const root = new THREE.Group();
+  // em volta do tabuleiro: 22 casas de cada lado (como antes)
+  const fora = loadTexture(`${CENARIO_DIR}chao_fora.webp`);
+  fora.repeat.set((W + 44) / 4, (H + 44) / 4);
+  const outer = new THREE.Mesh(new THREE.PlaneGeometry(W + 44, H + 44).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: fora }));
+  outer.position.y = -0.03;
+  outer.receiveShadow = true;
+  root.add(outer);
 
-function paintNoise(g: CanvasRenderingContext2D, w: number, h: number, cols: string[], rnd: () => number, n: number): void {
-  // manchas suaves (degradê radial) — chão "pintado à mão", sem bordas duras
-  for (let i = 0; i < n; i++) {
-    const x = rnd() * w;
-    const y = rnd() * h;
-    const r = 14 + rnd() * 52;
-    const gr = g.createRadialGradient(x, y, 0, x, y, r);
-    const col = cols[Math.floor(rnd() * cols.length)];
-    gr.addColorStop(0, col);
-    gr.addColorStop(1, col + '00');
-    g.globalAlpha = 0.35 + rnd() * 0.45;
-    g.fillStyle = gr;
-    g.fillRect(x - r, y - r, r * 2, r * 2);
-  }
-  g.globalAlpha = 1;
-}
-
-/** Luz de sol filtrada: manchas claras e quentes + sombras frescas (floresta/campos). */
-function paintSunDapple(g: CanvasRenderingContext2D, w: number, h: number, rnd: () => number, n: number): void {
-  for (let i = 0; i < n; i++) {
-    const x = rnd() * w;
-    const y = rnd() * h;
-    const r = 30 + rnd() * 90;
-    const warm = rnd() < 0.6;
-    const gr = g.createRadialGradient(x, y, 0, x, y, r);
-    gr.addColorStop(0, warm ? 'rgba(255,240,150,0.12)' : 'rgba(20,50,30,0.12)');
-    gr.addColorStop(1, warm ? 'rgba(255,240,150,0)' : 'rgba(20,50,30,0)');
-    g.fillStyle = gr;
-    g.fillRect(x - r, y - r, r * 2, r * 2);
-  }
-}
-
-/** Florzinhas miúdas no gramado. */
-function paintFlowers(g: CanvasRenderingContext2D, w: number, h: number, rnd: () => number, n: number): void {
-  const cols = ['#fff6e0', '#ffe070', '#ff9ab8', '#b8a8ff', '#ffffff'];
-  for (let i = 0; i < n; i++) {
-    const cx = rnd() * w;
-    const cy = rnd() * h;
-    const col = cols[Math.floor(rnd() * cols.length)];
-    const k = 2 + Math.floor(rnd() * 5);
-    for (let j = 0; j < k; j++) {
-      const x = cx + (rnd() - 0.5) * 18;
-      const y = cy + (rnd() - 0.5) * 12;
-      g.fillStyle = 'rgba(30,60,20,0.35)';
-      g.beginPath();
-      g.arc(x + 0.8, y + 1, 2.2, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = col;
-      g.beginPath();
-      g.arc(x, y, 1.8 + rnd() * 0.8, 0, Math.PI * 2);
-      g.fill();
-    }
-  }
-}
-
-function paintDetail(g: CanvasRenderingContext2D, w: number, h: number, P: Palette, rnd: () => number, n: number): void {
-  for (let i = 0; i < n; i++) {
-    const x = rnd() * w;
-    const y = rnd() * h;
-    const col = P.groundDetail[Math.floor(rnd() * P.groundDetail.length)];
-    g.fillStyle = col;
-    g.strokeStyle = col;
-    g.globalAlpha = 0.35 + rnd() * 0.4;
-    const k = rnd();
-    if (P.lava && k < 0.06) {
-      // rachaduras incandescentes
-      g.strokeStyle = '#ff7a2a';
-      g.globalAlpha = 0.55;
-      g.lineWidth = 1.5;
-      g.beginPath();
-      g.moveTo(x, y);
-      for (let s = 0; s < 4; s++) g.lineTo(x + (rnd() - 0.5) * 40, y + (rnd() - 0.5) * 40);
-      g.stroke();
-    } else if (P.streak && k < 0.3) {
-      // rajadas de vento (neve, areia): fios finos e claros, todos na mesma direção
-      g.strokeStyle = P.streak[rnd() < 0.5 ? 0 : 1];
-      g.lineWidth = 0.8 + rnd() * 1.6;
-      g.globalAlpha = 0.25 + rnd() * 0.3;
-      const len = 14 + rnd() * 34;
-      const ang = -0.35 + (rnd() - 0.5) * 0.15;
-      g.beginPath();
-      g.moveTo(x, y);
-      g.quadraticCurveTo(x + Math.cos(ang) * len * 0.5, y + Math.sin(ang) * len * 0.5 - 2, x + Math.cos(ang) * len, y + Math.sin(ang) * len);
-      g.stroke();
-    } else if (k < 0.55 && (P === PAL.forest || P === PAL.plains)) {
-      // tufos de grama (com ponta iluminada)
-      g.lineWidth = 1.4;
-      if (rnd() < 0.35) g.strokeStyle = '#b8dc6a';
-      g.beginPath();
-      for (let s = 0; s < 4; s++) {
-        g.moveTo(x + s * 2, y);
-        g.lineTo(x + s * 2 + (rnd() - 0.5) * 5, y - 4 - rnd() * 6);
-      }
-      g.stroke();
-    } else if (k < 0.55 && P === PAL.desert) {
-      // ondulações de areia
-      g.lineWidth = 1;
-      g.beginPath();
-      g.arc(x, y, 10 + rnd() * 14, Math.PI * 1.1, Math.PI * 1.9);
-      g.stroke();
-    } else {
-      // pedrinhas
-      g.beginPath();
-      g.arc(x, y, 1 + rnd() * 2.5, 0, Math.PI * 2);
-      g.fill();
-    }
-  }
-  g.globalAlpha = 1;
-  g.lineWidth = 1;
+  const g = groundLayers(zone, 0);
+  const { voidPix, raster, blurred, layer, rect, disc } = g;
+  root.add(g.group);
+  const cinza = (m: Float32Array) => Uint8ClampedArray.from(m, (v) => Math.round(v * 255));
+  // base: a textura da planície, com os buracos recortados (alfa 0 onde há vazio)
+  const semVazio = Uint8ClampedArray.from(voidPix, (v) => (v ? 0 : 255));
+  layer({ map: loadTexture(`${CENARIO_DIR}chao_planicie.webp`), tiles: 8, alpha: semVazio, opaque: true, y: 0, order: 0 });
+  // xadrez leve: as casas ímpares da grade, bem sutis (lê a grade sem pesar)
+  const xadrez = raster((c) => {
+    for (const f of zone.floor) if ((f.x + f.y) % 2) rect(c, f.x, f.y);
+  });
+  layer({ color: 0x000000, opacity: 0.045, alpha: cinza(xadrez), y: 0.001, order: 1 });
+  // trilha gasta: a rota de cada entrada até o portão, em manchas suaves
+  const rotas = zone.spawnPoints.map((sp) => routeToGate(zone, sp));
+  const gasta = blurred((c) => {
+    for (const r of rotas) for (const p of r) disc(c, p.x, p.y, 0.5);
+  }, 0.35);
+  layer({ color: 0x9a8450, opacity: 0.3, alpha: cinza(gasta), y: 0.002, order: 2 });
+  // sombra das paredes: uma mancha escura em volta de cada obstáculo
+  const sombra = blurred((c) => {
+    for (const w of zone.walls) disc(c, w.x, w.y, 0.45);
+  }, 0.25);
+  layer({ color: 0x000000, opacity: 0.35, alpha: cinza(sombra), y: 0.003, order: 3 });
+  // portão: lajes de pedra (textura gerada, uma casa por repetição)
+  const portao = raster((c) => {
+    for (const f of zone.floor) if (f.ground === 'gate') rect(c, f.x, f.y);
+  });
+  layer({ map: loadTexture(`${CENARIO_DIR}laje_portao.webp`), tiles: 1, alpha: cinza(portao), y: 0.004, order: 4 });
+  return root;
 }
 
 // ---------------- Água / lava ----------------
@@ -859,53 +592,10 @@ function routeToGate(zone: ParsedZone, from: { x: number; y: number }): { x: num
   return out.reverse();
 }
 
-/** Calçamento de pedras ao longo de uma rota (tiles), com bordas irregulares. */
-function paintCobbleRoute(g: CanvasRenderingContext2D, rnd: () => number, stone: string[], route: { x: number; y: number }[]): void {
-  for (let i = 0; i < route.length; i++) {
-    const p = route[i];
-    const cx = (p.x + 0.5) * TILE_PX;
-    const cy = (p.y + 0.5) * TILE_PX;
-    for (let k = 0; k < 11; k++) {
-      const px = cx + (rnd() - 0.5) * TILE_PX * 1.5;
-      const py = cy + (rnd() - 0.5) * TILE_PX * 1.5;
-      const rx = 6 + rnd() * 5;
-      const ry = 4.5 + rnd() * 3.5;
-      const rot = rnd() * Math.PI;
-      g.fillStyle = 'rgba(30,26,20,0.5)';
-      g.beginPath();
-      g.ellipse(px + 1, py + 1.5, rx + 1.4, ry + 1.4, rot, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = stone[Math.floor(rnd() * stone.length)];
-      g.beginPath();
-      g.ellipse(px, py, rx, ry, rot, 0, Math.PI * 2);
-      g.fill();
-    }
-  }
-}
-
-/** Faixa vertical de luz (degradê) para os raios de sol da floresta. */
+/** Faixa vertical de luz (degradê) para os raios de sol da floresta: imagem gerada (raio_floresta.webp). */
 let shaftTex: THREE.Texture | undefined;
 function shaftTexture(): THREE.Texture {
-  if (shaftTex) return shaftTex;
-  const c = document.createElement('canvas');
-  c.width = 64;
-  c.height = 256;
-  const g = c.getContext('2d')!;
-  const gx = g.createLinearGradient(0, 0, 64, 0);
-  gx.addColorStop(0, 'rgba(255,255,255,0)');
-  gx.addColorStop(0.5, 'rgba(255,255,255,1)');
-  gx.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = gx;
-  g.fillRect(0, 0, 64, 256);
-  g.globalCompositeOperation = 'destination-in';
-  const gy = g.createLinearGradient(0, 0, 0, 256);
-  gy.addColorStop(0, 'rgba(0,0,0,0)');
-  gy.addColorStop(0.25, 'rgba(0,0,0,0.9)');
-  gy.addColorStop(1, 'rgba(0,0,0,0.05)');
-  g.fillStyle = gy;
-  g.fillRect(0, 0, 64, 256);
-  shaftTex = new THREE.CanvasTexture(c);
-  return shaftTex;
+  return (shaftTex ??= loadTexture(`${CENARIO_DIR}raio_floresta.webp`));
 }
 
 function hashStr(s: string): number {

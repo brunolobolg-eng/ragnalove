@@ -91,6 +91,95 @@ export interface GroundLayer {
   additive?: boolean;
 }
 
+/**
+ * Pincel das máscaras: pinta branco (1) sobre o fundo preto da grade. Só o que as camadas usam (retângulo, disco e
+ * traço de linha com pontas redondas). Não usa canvas: a máscara é calculada em memória, sem textura pintada na hora.
+ */
+export class Pincel {
+  lineWidth = 1;
+  lineJoin = 'round';
+  lineCap = 'round';
+  private subcaminhos: { x: number; y: number }[][] = [];
+  private arcos: [number, number, number][] = [];
+
+  constructor(private readonly v: Float32Array, private readonly cw: number, private readonly ch: number) {}
+
+  fillRect(x: number, y: number, w: number, h: number): void {
+    const x0 = Math.max(0, Math.floor(x));
+    const x1 = Math.min(this.cw, Math.ceil(x + w));
+    const y0 = Math.max(0, Math.floor(y));
+    const y1 = Math.min(this.ch, Math.ceil(y + h));
+    for (let py = y0; py < y1; py++) for (let px = x0; px < x1; px++) this.pinta(py * this.cw + px, 1);
+  }
+
+  beginPath(): void {
+    this.subcaminhos = [];
+    this.arcos = [];
+  }
+
+  /** Só círculos inteiros (as máscaras não usam arcos parciais). */
+  arc(cx: number, cy: number, r: number, _inicio = 0, _fim = Math.PI * 2): void {
+    this.arcos.push([cx, cy, r]);
+  }
+
+  fill(): void {
+    for (const [cx, cy, r] of this.arcos) {
+      const x0 = Math.max(0, Math.floor(cx - r - 1));
+      const x1 = Math.min(this.cw - 1, Math.ceil(cx + r + 1));
+      const y0 = Math.max(0, Math.floor(cy - r - 1));
+      const y1 = Math.min(this.ch - 1, Math.ceil(cy + r + 1));
+      for (let py = y0; py <= y1; py++)
+        for (let px = x0; px <= x1; px++) {
+          const dx = px + 0.5 - cx;
+          const dy = py + 0.5 - cy;
+          this.pinta(py * this.cw + px, Math.min(1, Math.max(0, r - Math.sqrt(dx * dx + dy * dy) + 0.5)));
+        }
+    }
+  }
+
+  moveTo(x: number, y: number): void {
+    this.subcaminhos.push([{ x, y }]);
+  }
+
+  lineTo(x: number, y: number): void {
+    const atual = this.subcaminhos[this.subcaminhos.length - 1];
+    if (atual) atual.push({ x, y });
+    else this.subcaminhos.push([{ x, y }]);
+  }
+
+  stroke(): void {
+    const r = this.lineWidth / 2;
+    for (const s of this.subcaminhos) for (let i = 0; i + 1 < s.length; i++) this.traco(s[i], s[i + 1], r);
+  }
+
+  /** Cápsula: pixels a até `r` do segmento a-b, com borda suave de 1 px (como o antisserrilhado do canvas). */
+  private traco(a: { x: number; y: number }, b: { x: number; y: number }, r: number): void {
+    const x0 = Math.max(0, Math.floor(Math.min(a.x, b.x) - r - 1));
+    const x1 = Math.min(this.cw - 1, Math.ceil(Math.max(a.x, b.x) + r + 1));
+    const y0 = Math.max(0, Math.floor(Math.min(a.y, b.y) - r - 1));
+    const y1 = Math.min(this.ch - 1, Math.ceil(Math.max(a.y, b.y) + r + 1));
+    const vx = b.x - a.x;
+    const vy = b.y - a.y;
+    const l2 = Math.max(vx * vx + vy * vy, 1e-9);
+    for (let py = y0; py <= y1; py++)
+      for (let px = x0; px <= x1; px++) {
+        const qx = px + 0.5;
+        const qy = py + 0.5;
+        const t = Math.min(1, Math.max(0, ((qx - a.x) * vx + (qy - a.y) * vy) / l2));
+        const ex = a.x + vx * t - qx;
+        const ey = a.y + vy * t - qy;
+        this.pinta(py * this.cw + px, Math.min(1, Math.max(0, r - Math.sqrt(ex * ex + ey * ey) + 0.5)));
+      }
+  }
+
+  /** Mistura a cobertura `c` (0..1) de branco sobre o valor que já está no pixel (como o "por cima" do canvas). */
+  private pinta(i: number, c: number): void {
+    if (c <= 0) return;
+    const v = this.v[i];
+    this.v[i] = v + c * (1 - v);
+  }
+}
+
 /** Ferramentas da grade de máscaras (um pixel = 1/RES de tile, com margem em volta da grade). */
 export interface GroundLayers {
   TW: number;
@@ -104,9 +193,11 @@ export interface GroundLayers {
   voidPix: Uint8Array;
   field: (seed: number, scale: number, sub?: number) => (x: number, y: number) => number;
   sample: (f: (x: number, y: number) => number) => Float32Array;
-  rect: (c: CanvasRenderingContext2D, x: number, y: number) => void;
-  disc: (c: CanvasRenderingContext2D, x: number, y: number, r: number) => void;
-  blurred: (draw: (c: CanvasRenderingContext2D) => void, blurTiles: number) => Float32Array;
+  rect: (c: Pincel, x: number, y: number) => void;
+  disc: (c: Pincel, x: number, y: number, r: number) => void;
+  /** Máscara com as formas pintadas, sem desfoque (0 ou 1 por pixel). */
+  raster: (draw: (c: Pincel) => void) => Float32Array;
+  blurred: (draw: (c: Pincel) => void, blurTiles: number) => Float32Array;
   layer: (o: GroundLayer) => void;
   group: THREE.Group;
   update: (dt: number) => void;
@@ -161,29 +252,24 @@ export function groundLayers(zone: ParsedZone, margin: number): GroundLayers {
     return a;
   };
 
-  const rect = (c: CanvasRenderingContext2D, x: number, y: number) => c.fillRect((x + margin) * RES, (y + margin) * RES, RES, RES);
-  const disc = (c: CanvasRenderingContext2D, x: number, y: number, r: number) => {
+  const rect = (c: Pincel, x: number, y: number) => c.fillRect((x + margin) * RES, (y + margin) * RES, RES, RES);
+  const disc = (c: Pincel, x: number, y: number, r: number) => {
     c.beginPath();
     c.arc((x + margin + 0.5) * RES, (y + margin + 0.5) * RES, r * RES, 0, Math.PI * 2);
     c.fill();
+  };
+  /** Formas pintadas de branco sobre preto, sem desfoque (ver `Pincel`). */
+  const raster = (draw: (c: Pincel) => void): Float32Array => {
+    const v = new Float32Array(N);
+    draw(new Pincel(v, CW, CH));
+    return v;
   };
   /**
    * Valor de cada pixel depois de desfocar as formas (`draw` pinta de branco sobre preto). `blurTiles` é o
    * desfoque em tiles. O contorno de cada máscara sai daqui: a borda de uma forma fica sempre em 0,5.
    */
-  const blurred = (draw: (c: CanvasRenderingContext2D) => void, blurTiles: number): Float32Array => {
-    const src = document.createElement('canvas');
-    src.width = CW;
-    src.height = CH;
-    const sc = src.getContext('2d')!;
-    sc.fillStyle = '#000';
-    sc.fillRect(0, 0, CW, CH);
-    sc.fillStyle = '#fff';
-    sc.strokeStyle = '#fff';
-    draw(sc);
-    const d = sc.getImageData(0, 0, CW, CH).data;
-    const v = new Float32Array(N);
-    for (let i = 0; i < N; i++) v[i] = d[i * 4] / 255;
+  const blurred = (draw: (c: Pincel) => void, blurTiles: number): Float32Array => {
+    const v = raster(draw);
     const r = Math.max(1, Math.round(blurTiles * RES * 1.1));
     const tmp = new Float32Array(N);
     boxBlur(v, tmp, CW, CH, r);
@@ -262,7 +348,8 @@ export function groundLayers(zone: ParsedZone, margin: number): GroundLayers {
     if (o.map && o.flow) water.push({ map: o.map, vx: o.flow[0], vy: o.flow[1] });
     const alphaMap = maskTexture(o.alpha);
     const params = {
-      map: o.map,
+      // camada só de cor (sem textura): o material não recebe `map`, para não avisar `map = undefined`
+      ...(o.map ? { map: o.map } : {}),
       color: o.color ?? 0xffffff,
       opacity: o.opacity ?? 1,
       alphaMap,
@@ -295,5 +382,5 @@ export function groundLayers(zone: ParsedZone, margin: number): GroundLayers {
     }
   };
 
-  return { TW, TH, CW, CH, N, voids, voidPix, field, sample, rect, disc, blurred, layer, group, update };
+  return { TW, TH, CW, CH, N, voids, voidPix, field, sample, rect, disc, raster, blurred, layer, group, update };
 }
