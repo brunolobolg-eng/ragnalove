@@ -5,7 +5,7 @@ import { archerClips, barbarianClipsUAL, fitHips, gruntClips, hoverClips, mageCl
 import { prepareRiggedModel, type HumanoidJoints } from './autoRig';
 import { ualMixamoClips } from './ualMixamo';
 import { warriorRigClips } from './warriorAnims';
-import { monsterRigClips } from './monsterRigAnims';
+import { monsterRigClips, liftLying, raiseTail } from './monsterRigAnims';
 import { goblinBossRigClips } from './krexxAnims';
 import { MIXAMO_CULTIST_REST } from './mixamoRest';
 
@@ -256,7 +256,7 @@ function normalizeSkinWeights(g: THREE.BufferGeometry): void {
   w.needsUpdate = true;
 }
 
-function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }, gameClips?: keyof typeof GAME_CLIPS, bindFromFile = false): LoadedGlb {
+function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }, gameClips?: keyof typeof GAME_CLIPS, bindFromFile = false, tailLift?: { from: number; to: number; amount: number }): LoadedGlb {
   const found: THREE.SkinnedMesh[] = [];
   gltf.scene.traverse((o: THREE.Object3D) => {
     if ((o as THREE.SkinnedMesh).isSkinnedMesh) found.push(o as THREE.SkinnedMesh);
@@ -276,6 +276,17 @@ function toBuiltModel(gltf: { scene: THREE.Object3D; animations: THREE.Animation
     if (a) geometry.setAttribute(k, a.clone());
   }
   if (src.index) geometry.setIndex(src.index.clone());
+  // cauda do dino (tailLift): sobe os vértices da cauda no bind, antes de qualquer cálculo de caixa
+  if (tailLift) {
+    const hipsJoint = mesh.skeleton.bones.findIndex((b: THREE.Bone) => ((b.userData.name as string | undefined) ?? b.name) === 'Hips');
+    const pos = geometry.getAttribute('position') as THREE.BufferAttribute;
+    const idx = geometry.getAttribute('skinIndex') as THREE.BufferAttribute | undefined;
+    const wgt = geometry.getAttribute('skinWeight') as THREE.BufferAttribute | undefined;
+    if (hipsJoint >= 0 && idx && wgt) {
+      raiseTail(pos.array as Float32Array, idx.array as Uint16Array, wgt.array as Float32Array, hipsJoint, tailLift);
+      pos.needsUpdate = true;
+    }
+  }
   // sem normais no arquivo: normais lisas por posição (não por face), para o sombreado e para o casco da aura
   if (!geometry.getAttribute('normal')) geometry.setAttribute('normal', weldedNormals(geometry));
   normalizeSkinWeights(geometry);
@@ -388,18 +399,20 @@ export async function loadMonsterModels(onLoaded?: (kind: string) => void): Prom
     Object.entries({ ...MONSTER_MODELS, ...HERO_MODELS }).map(async ([kind, v]) => {
       try {
         // mesmo arquivo com animações diferentes (zumbi comum/rápido/pesado) = entradas separadas no cache
-        const key = `${v.file}|${v.clips ?? ''}|${v.bind ?? ''}|${v.rig ?? ''}`;
+        const key = `${v.file}|${v.clips ?? ''}|${v.bind ?? ''}|${v.rig ?? ''}|${v.tailLift ? JSON.stringify(v.tailLift) : ''}`;
         if (!files.has(key)) {
           files.set(
             key,
             loader.loadAsync(v.file).then((g: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }) =>
-              v.rig === 'auto' && v.clips ? toAutoRigged(g, v.clips, v.juntas) : toBuiltModel(g, v.clips, v.bind === 'ibm'),
+              v.rig === 'auto' && v.clips ? toAutoRigged(g, v.clips, v.juntas) : toBuiltModel(g, v.clips, v.bind === 'ibm', v.tailLift),
             ),
           );
         }
         const { model, clips: baseClips } = await files.get(key)!;
         // flutuação: o andar vira o balanço elevado (cópia: o arquivo pode ser compartilhado por outros tipos)
-        const clips = v.hover ? hoverClips(baseClips, model.bones, v.hover) : baseClips;
+        const hovered = v.hover ? hoverClips(baseClips, model.bones, v.hover) : baseClips;
+        // morte do monstro de rig Mixamo: quadril sobe com o corpo deitado (a malha desce abaixo das juntas)
+        const clips = v.deathLift ? { ...hovered, death: liftLying(hovered.death, v.deathLift) } : hovered;
         const def = {
           build: () => model,
           clips: () => clips,

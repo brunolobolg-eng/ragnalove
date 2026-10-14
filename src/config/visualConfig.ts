@@ -247,6 +247,17 @@ export interface MonsterModelVisual {
   juntas?: RigJointsVisual;
   /** Flutuação: o corpo fica elevado este tanto (unidades do modelo) e não usa o passo de caminhada. */
   hover?: number;
+  /**
+   * Monstro de rig Mixamo, morte: quanto o quadril sobe quando o corpo está deitado (unidades do modelo). A malha
+   * skinada desce 0,16 a 0,50 abaixo das juntas no chão; este valor leva o ponto mais baixo ao nível do corpo de pé
+   * (medido na malha: fim da queda = pé). Ver liftLying em monsterRigAnims.ts.
+   */
+  deathLift?: number;
+  /**
+   * Cauda do dino (quadril): vértices atrás do quadril (z de `from` a `to`, unidades do modelo) sobem `amount` em degrau suave
+   * no bind. Corrige a ponta que a inclinação do quadril (idle) puxava 0,2 a 0,4 abaixo do chão. Ver raiseTail.
+   */
+  tailLift?: { from: number; to: number; amount: number };
   /** Respiração no ar: o corpo sobe e desce `amp` metros em `period` segundos; a sombra de contato acompanha. */
   float?: { amp: number; period: number };
   /** Pose de descanso: 'ibm' = a do próprio arquivo (matrizes de bind); padrão = a dos nós do GLB. */
@@ -449,6 +460,8 @@ const DUMMY_JOINTS: RigJointsVisual = {
 const ORC_AXE = { type: 'axe' as const, bone: 'hand.R', accent: 0xff7040, tilt: 35, scale: 1.35 };
 /** Machado do Krexx: o arquivo do goblin usa os nomes do rig Mixamo (RightHand). */
 const KREXX_AXE = { type: 'axe' as const, bone: 'RightHand', accent: 0xff7040, tilt: 35, scale: 1.2 };
+/** Cauda do dino (bind, unidades do modelo): z de -0,2 (começa a subir) a -0,8 (ponta), 0,35 de altura. Medido em fluidez (idle). */
+const DINO_TAIL = { from: -0.2, to: -0.8, amount: 0.35 };
 export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   // Ato I — ratos
   rat: { file: 'models/rato.glb', height: 1.45, walkRate: 1.3, },
@@ -459,11 +472,11 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   ratBoss: { file: 'models/ratochefe.glb', height: 3.1, walkRate: 0.9, aura: [1.6, 0.15, 0.4] },
   // Ato II — goblins: um modelo só (goblin.glb, com textura e esqueleto Mixamo de 21 ossos) para todos os tipos comuns.
   // Os tipos mudam tamanho, velocidade e aura, não o modelo. Clipes do guerreiro (warriorRig, por direção de membro) + pose de descanso = bind do arquivo. O retarget UAL do cultista deixava as pernas viradas nestes rigs (pés no ar).
-  goblin: { file: 'models/goblin.glb', height: 1.6, walkRate: 1.3, clips: 'monsterRig', bind: 'ibm' },
-  goblinRunner: { file: 'models/goblin.glb', height: 1.3, walkRate: 2.4, clips: 'monsterRig', bind: 'ibm' },
-  goblinBrute: { file: 'models/goblin.glb', height: 2.0, walkRate: 0.85, clips: 'monsterRig', bind: 'ibm' },
-  goblinNecro: { file: 'models/goblin.glb', height: 1.65, walkRate: 1.2, clips: 'monsterRig', bind: 'ibm', aura: [0.7, 0.2, 1.6] },
-  goblinElite: { file: 'models/goblin.glb', height: 2.5, walkRate: 0.85, clips: 'monsterRig', bind: 'ibm', aura: [0.9, 0.3, 1.8] },
+  goblin: { file: 'models/goblin.glb', height: 1.6, walkRate: 1.3, clips: 'monsterRig', bind: 'ibm', deathLift: 0.4 },
+  goblinRunner: { file: 'models/goblin.glb', height: 1.3, walkRate: 2.4, clips: 'monsterRig', bind: 'ibm', deathLift: 0.4 },
+  goblinBrute: { file: 'models/goblin.glb', height: 2.0, walkRate: 0.85, clips: 'monsterRig', bind: 'ibm', deathLift: 0.4 },
+  goblinNecro: { file: 'models/goblin.glb', height: 1.65, walkRate: 1.2, clips: 'monsterRig', bind: 'ibm', aura: [0.7, 0.2, 1.6], deathLift: 0.4 },
+  goblinElite: { file: 'models/goblin.glb', height: 2.5, walkRate: 0.85, clips: 'monsterRig', bind: 'ibm', aura: [0.9, 0.3, 1.8], deathLift: 0.4 },
   goblinBoss: { file: 'models/goblinboss.glb', height: 3.4, walkRate: 0.9, aura: [2.0, 1.4, 0.3] },
   // Ato III — zumbi chibi (V2Fun no esqueleto padrão), animações de zumbi do jogo; 5 variantes fúnebres de cor
   zombie: { file: 'models/zombie.glb', height: 1.6, walkRate: 1.3, clips: 'zombie', skins: ZOMBIE_SKINS },
@@ -477,12 +490,12 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   orcLord: { file: 'models/orc.glb', height: 3.3, walkRate: 0.9, clips: 'brute', aura: [1.6, 0.15, 0.4], weapons: [ORC_AXE] },
   // Dino (família do Ato II): esqueleto de 57 ossos no padrão do cultista; pose de descanso = bind do arquivo;
   // movimentos do guerreiro (warriorRig, por direção de membro). Grunt/corredor/brutamonte/necromante e mini-chefe (dinoBoss).
-  dino: { file: 'models/dino.glb', height: 1.8, walkRate: 1.2, clips: 'monsterRig', bind: 'ibm', ...DINO_COLORS },
-  dinoRunner: { file: 'models/dino.glb', height: 1.5, walkRate: 2.2, clips: 'monsterRig', bind: 'ibm', ...DINO_COLORS },
-  dinoBrute: { file: 'models/dino.glb', height: 2.3, walkRate: 0.85, clips: 'monsterRig', bind: 'ibm', ...DINO_COLORS },
-  dinoNecro: { file: 'models/dino.glb', height: 1.7, walkRate: 1.2, clips: 'monsterRig', bind: 'ibm', aura: [0.7, 0.2, 1.6], ...DINO_COLORS },
+  dino: { file: 'models/dino.glb', height: 1.8, walkRate: 1.2, clips: 'monsterRig', bind: 'ibm', ...DINO_COLORS, tailLift: DINO_TAIL },
+  dinoRunner: { file: 'models/dino.glb', height: 1.5, walkRate: 2.2, clips: 'monsterRig', bind: 'ibm', ...DINO_COLORS, tailLift: DINO_TAIL },
+  dinoBrute: { file: 'models/dino.glb', height: 2.3, walkRate: 0.85, clips: 'monsterRig', bind: 'ibm', ...DINO_COLORS, tailLift: DINO_TAIL },
+  dinoNecro: { file: 'models/dino.glb', height: 1.7, walkRate: 1.2, clips: 'monsterRig', bind: 'ibm', aura: [0.7, 0.2, 1.6], ...DINO_COLORS, tailLift: DINO_TAIL },
   // Mini-chefe (tipo próprio de inimigo, como o Krexx): dino maior, com aura âmbar; mesma regra de cor por tema
-  dinoBoss: { file: 'models/dino.glb', height: 2.6, walkRate: 0.9, clips: 'monsterRig', bind: 'ibm', aura: [1.2, 0.8, 0.2], ...DINO_COLORS },
+  dinoBoss: { file: 'models/dino.glb', height: 2.6, walkRate: 0.9, clips: 'monsterRig', bind: 'ibm', aura: [1.2, 0.8, 0.2], ...DINO_COLORS, tailLift: DINO_TAIL },
   // Raydric (tipo 'raydric' da simulação, pesado comum): modelo de pedra com 57 ossos; clipes do guerreiro (o do cultista achata a figura); pose de descanso =
   // bind do arquivo. Altura 2,3 m (malha de 1,87 unidades, escala 1,23×). walkRate 0,75 = 0,85 do brutamonte × 10/12 ticks.
   raydric: { file: 'models/raydric.glb', height: 2.3, walkRate: 0.75, clips: 'monsterRig', bind: 'ibm', skins: RAYDRIC_SKINS, skinNames: RAYDRIC_SKIN_NAMES, themeColors: RAYDRIC_THEME_COLORS },
