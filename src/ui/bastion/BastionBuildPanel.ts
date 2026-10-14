@@ -7,6 +7,8 @@ const fmt = (n: number): string => n.toLocaleString('pt-BR');
 const frac = (v: number, max: number): number => (max > 0 ? Math.min(1, Math.max(0, v / max)) : 0);
 const STATUS: Record<BastionStructureRow['status'], string> = { intact: 'Inteira', damaged: 'Danificada', destroyed: 'Destruída' };
 const HINT = 'Escolha uma construção e leve o mouse ao campo: a prévia mostra onde ela fica e se dá. Muralhas vão a qualquer lugar; torres só nos lotes azuis.';
+/** Com um tipo escolhido, a descrição já está na linha dele: a dica fica curta para caber na janela. */
+const HINT_PICK = 'Leve o mouse ao campo e clique para construir. A prévia mostra se dá.';
 const MOVING = 'Movendo: leve o mouse ao campo e clique numa casa livre. Clique na própria muralha ou Esc cancela o movimento.';
 /** Por que a construção pode (ou não) ser movida. A regra é isMovable (core); aqui só o texto. */
 const MOVE_WHY: Record<BastionMoveWhy, string> = {
@@ -23,7 +25,6 @@ type Selected = NonNullable<BastionBuildVM['selected']>;
 export class BastionBuildPanel {
   private readonly root: HTMLElement;
   private readonly body: HTMLElement;
-  private readonly msg: HTMLElement;
   private readonly night: HTMLButtonElement;
   private vm: BastionBuildVM | null = null;
 
@@ -39,11 +40,9 @@ export class BastionBuildPanel {
       <footer class="bs-build-foot">
         <button class="au-btn gold" data-act="night">Iniciar noite</button>
         <button class="au-btn" data-act="back">Voltar ao Bastião</button>
-        <p class="bs-msg" data-msg aria-live="polite"></p>
       </footer>`;
     document.body.appendChild(this.root);
     this.body = this.root.querySelector<HTMLElement>('[data-body]')!;
-    this.msg = this.root.querySelector<HTMLElement>('[data-msg]')!;
     this.night = this.root.querySelector<HTMLButtonElement>('[data-act="night"]')!;
     this.root.addEventListener('click', (e) => this.onClick(e));
   }
@@ -72,10 +71,14 @@ export class BastionBuildPanel {
     const vm = this.vm;
     if (!vm) return;
     this.night.disabled = !vm.canStartNight;
-    this.msg.textContent = vm.message ?? '';
+    const moving = vm.selected?.moving === true;
+    const picked = vm.palette.some((r) => r.selected);
+    // com uma construção escolhida, a dica geral sai para dar espaço às ações (a lista ainda rola em 800 px de altura)
+    const hint = moving ? MOVING : picked ? HINT_PICK : vm.selected ? '' : HINT;
     this.body.innerHTML = `
       <p class="bs-city-line">Zen <b>${fmt(vm.zeni)}</b> · Núcleo <b>${fmt(vm.coreHp)} / ${fmt(vm.coreMaxHp)}</b></p>
-      <p class="bs-hint${vm.selected?.moving ? ' bs-moving' : ''}">${vm.selected?.moving ? MOVING : HINT}</p>
+      <p class="bs-msg" aria-live="polite">${esc(vm.message ?? '')}</p>
+      ${hint ? `<p class="bs-hint${moving ? ' bs-moving' : ''}">${hint}</p>` : ''}
       <div class="bs-palette">${vm.palette.map((r, i) => this.paletteBtn(r, i)).join('')}</div>
       ${vm.selected ? this.selectedBox(vm.selected, vm.zeni) : ''}`;
   }

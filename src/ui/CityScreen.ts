@@ -365,7 +365,7 @@ export class CityScreen {
       <header class="city-head">
         <h1>${this.cityName}</h1>
         <div class="city-bank"><span><i class="zeni-ico"></i>${p.zeni.toLocaleString('pt-BR')}</span><span><i class="soul-ico"></i>${p.souls}</span><span class="city-hp ${r.cityHp / r.cityMaxHp < 0.4 ? 'low' : ''}" title="Vida da muralha (repare no Templo)">🏰 ${r.cityHp}/${r.cityMaxHp}</span>${party}</div>
-        <div class="city-actions"><button data-c="char">Personagem (C)</button></div>
+        <div class="city-actions"><button class="au-btn" data-c="char">Personagem (C)</button></div>
       </header>
       <button class="city-go" data-c="leave"><span>Seguir viagem</span><b>➜</b><kbd>Espaço</kbd></button>
       ${panel}`;

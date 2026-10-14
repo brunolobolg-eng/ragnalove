@@ -488,15 +488,15 @@ export class Hud {
         tip.dataset.key = t.dataset.tip;
       }
       tip.hidden = false;
+      // a dica nunca sai da tela: vira para o lado do cursor se não couber e, por fim, é presa na borda
       const r = this.charWin.getBoundingClientRect();
       const w = tip.offsetWidth;
       const h = tip.offsetHeight;
-      let x = ev.clientX - r.left + 16;
-      let y = ev.clientY - r.top + 14;
-      if (ev.clientX + 16 + w > window.innerWidth - 8) x = ev.clientX - r.left - w - 12;
-      if (ev.clientY + 14 + h > window.innerHeight - 8) y = ev.clientY - r.top - h - 10;
-      tip.style.left = `${x}px`;
-      tip.style.top = `${y}px`;
+      const clamp = (v: number, max: number) => Math.min(Math.max(v, 8), Math.max(8, max - 8));
+      const cx = clamp(ev.clientX + 16 + w > window.innerWidth - 8 ? ev.clientX - 12 - w : ev.clientX + 16, window.innerWidth - w);
+      const cy = clamp(ev.clientY + 14 + h > window.innerHeight - 8 ? ev.clientY - 10 - h : ev.clientY + 14, window.innerHeight - h);
+      tip.style.left = `${cx - r.left}px`;
+      tip.style.top = `${cy - r.top}px`;
     });
     this.charWin.addEventListener('mouseleave', () => (tip.hidden = true));
     root.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) =>

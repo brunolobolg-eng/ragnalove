@@ -75,7 +75,7 @@
 #bastion-hub .bs-hero { height: 52px; padding: 6px 10px; font-family: Cinzel, serif; font-size: 14px; letter-spacing: 0.3px; }
 
 /* ---------- Construção (painel na lateral do campo) ---------- */
-#bastion-build { position: fixed; top: 96px; right: 16px; z-index: 60; width: 300px; max-height: calc(100vh - 220px); display: flex; flex-direction: column; animation: bsUp 0.2s ease-out; }
+#bastion-build { position: fixed; top: 96px; right: 16px; z-index: 60; width: 340px; max-height: calc(100vh - 112px); display: flex; flex-direction: column; animation: bsUp 0.2s ease-out; }
 #bastion-build .bs-win-head h2 { font-size: 15px; }
 #bastion-build .bs-win-head .au-ico { width: 26px; height: 26px; font-size: 13px; }
 .bs-build-body { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; }
@@ -93,8 +93,11 @@
 .bs-sel { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; }
 .bs-sel .au-h { margin: 0; font-size: 12px; }
 .bs-sel .au-bar { margin: 2px 0 0; }
-.bs-build-foot { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; }
-.bs-build-foot .au-btn { width: 100%; }
+#bastion-build .bs-msg:empty { display: none; }
+/* rodapé em duas colunas; a moldura do kit (8 px de cada lado) pede texto mais estreito para caber em uma linha */
+.bs-build-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding: 10px 12px; }
+#bastion-build .bs-build-foot .au-btn { width: 100%; min-width: 0; padding: 6px 8px; }
+#bastion-build .bs-build-foot .au-btn.gold { letter-spacing: 0; }
 /* Mover: botão e motivo logo abaixo; no modo de mover, a dica fica em dourado */
 .bs-move { display: flex; flex-direction: column; gap: 4px; }
 .bs-move .au-btn { width: 100%; }
@@ -125,6 +128,8 @@
 @media (max-width: 760px) {
   .bs-hub-grid { grid-template-columns: minmax(0, 1fr); }
   .bs-heroes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* construção no celular: folha no pé da tela, com a margem de 16 px; a parte de cima do campo continua visível */
+  #bastion-build { top: auto; bottom: 16px; left: 16px; right: 16px; width: auto; max-height: min(50vh, 460px); }
 }
 @media (prefers-reduced-motion: reduce) {
   #bastion-hub *, #bastion-build, #bastion-build *, #bastion-report, #bastion-report * { animation: none !important; transition: none !important; }
