@@ -139,6 +139,62 @@ const HERO_SMASH: Record<string, Timeline> = {
   ],
 };
 
+/** Direção média de um osso no andar (média das chaves, normalizada); `undefined` se o osso não tem direção no andar. */
+function pousoDoAndar(keys: PoseKey[], bone: string): V3 | undefined {
+  const soma = new THREE.Vector3();
+  for (const k of keys) {
+    const a = k.joints?.[bone]?.aim;
+    if (a) soma.add(new THREE.Vector3(...a));
+  }
+  if (soma.lengthSq() === 0) return undefined;
+  const v = soma.normalize();
+  return [v.x, v.y, v.z];
+}
+
+/** Tempo (s) da rampa entre a pose do andar e o golpe, no começo e no fim do clipe (ver `rampaDoAndar`). */
+const RAMPA_GOLPE_S = 0.15;
+
+/**
+ * Entrada e saída do golpe: nas pontas do clipe, cada osso sai da pose média do andar e volta a ela (rampa suave de
+ * `RAMPA_GOLPE_S`). A troca andar → golpe (mistura de 0,1 s) então parte de uma pose que o corpo já tem, e a volta
+ * ao andar também. No meio do clipe vale a captura do golpe, sem mudança.
+ */
+function rampaDoAndar(keys: PoseKey[], andar: PoseKey[], duration: number): PoseKey[] {
+  const media = new Map<string, V3>();
+  for (const k of keys) {
+    for (const bone of Object.keys(k.joints ?? {})) {
+      if (media.has(bone)) continue;
+      const m = pousoDoAndar(andar, bone);
+      if (m) media.set(bone, m);
+    }
+  }
+  return keys.map((k) => {
+    const x = THREE.MathUtils.clamp(Math.min(k.t, duration - k.t) / RAMPA_GOLPE_S, 0, 1);
+    const g = x * x * (3 - 2 * x); // suavização (smoothstep): a rampa começa e termina sem degrau de velocidade
+    const joints: Record<string, JointPose> = { ...k.joints };
+    for (const [bone, jp] of Object.entries(joints)) {
+      const m = media.get(bone);
+      if (!m || !jp.aim) continue;
+      const v = new THREE.Vector3(...m).lerp(new THREE.Vector3(...jp.aim), g).normalize();
+      joints[bone] = { ...jp, aim: [v.x, v.y, v.z] };
+    }
+    return { ...k, joints };
+  });
+}
+
+/**
+ * Braço do escudo parado na pose média do andar. A captura do golpe tinha um chicote de 3 000 graus/s no antebraço do
+ * escudo em 0,12 s, e o antebraço do escudo começava 95° longe da pose do andar.
+ */
+function comEscudoParado(lines: Record<string, Timeline>, andar: PoseKey[]): Record<string, Timeline> {
+  const out = { ...lines };
+  for (const escudo of ['LeftArm', 'LeftForeArm']) {
+    const m = pousoDoAndar(andar, escudo);
+    if (m) out[escudo] = [[0, m], [1, m]];
+  }
+  return out;
+}
+
 /**
  * Guerreiro (GLB do dono, esqueleto Mixamo de 61 ossos): o mesmo conjunto de `warriorRigClips`, com o golpe básico e
  * a investida re-cronometrados para o impacto do jogo. Os demais conjuntos (monstros, feiticeira, bruxa) não mudam.
@@ -146,8 +202,14 @@ const HERO_SMASH: Record<string, Timeline> = {
 export function warriorRigHeroClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
   const rig = buildRig(bones);
   const raw = ualMixamoClips();
+  const andar = mocapKeys(raw.walk);
   const swing = (name: string, lines: Record<string, Timeline>, duration: number): THREE.AnimationClip =>
-    poseClip(name, duration, override(retime(mocapKeys(raw.attack), raw.attack.duration, duration), duration, lines), rig);
+    poseClip(
+      name,
+      duration,
+      rampaDoAndar(override(retime(mocapKeys(raw.attack), raw.attack.duration, duration), duration, comEscudoParado(lines, andar)), andar, duration),
+      rig,
+    );
   return {
     ...warriorRigClips(bones),
     attack: swing('attack', HERO_SLASH, DURATION.attack),
