@@ -39,7 +39,7 @@ export interface BiomeKit {
   towers: string[];
   /** Árvores em GLB no tabuleiro (null = usa as árvores procedurais do bioma). */
   trees: string[] | null;
-  /** Árvores/plantas procedurais da decoração solta (vazio = a decoração usa só GLB). */
+  /** Árvores/plantas da decoração solta, só peças do dono (GLB do kit ou naturKit.ts); vazio = usa a crista do bioma. */
   ringTree: string[];
   /** Toco procedural/GLB (null = toco procedural do bioma). */
   stump: string | null;
@@ -69,7 +69,7 @@ export const KITS: Record<KitBiome, BiomeKit> = {
     peak: ['castle/tree-large', 'survival/tree-tall'],
     towers: [],
     trees: null,
-    ringTree: ['pine', 'oak'],
+    ringTree: [], // a floresta usa o naturKit (nat:arvore, nat:arbusto), ver BiomeScenery.ts
     stump: 'nature/stump_old',
     camp: { tent: 'nature/tent_smallClosed', fire: 'nature/campfire_logs', barrel: 'survival/barrel', crate: 'survival/box', bed: 'survival/bedroll', cart: 'nature/log_stack', flag: 'town/banner-green', sign: 'survival/signpost' },
     campTint: NONE,
@@ -85,7 +85,7 @@ export const KITS: Record<KitBiome, BiomeKit> = {
     peak: ['town/rock-wide', 'castle/rocks-large'],
     towers: [],
     trees: null,
-    ringTree: ['oak'],
+    ringTree: ['town/tree-high-round', 'town/tree', 'town/tree-high'],
     stump: 'nature/stump_old',
     camp: { tent: 'survival/tent-canvas', fire: 'survival/campfire-pit', barrel: 'survival/barrel-open', crate: 'survival/box-large', bed: 'nature/log_stack', cart: 'town/cart-high', flag: 'town/banner-green', sign: 'survival/signpost' },
     campTint: NONE,
@@ -101,8 +101,8 @@ export const KITS: Record<KitBiome, BiomeKit> = {
     peak: ['nat:arenito'],
     towers: ['castle/tower-hexagon-base', 'castle/tower-square-base'],
     trees: null,
-    ringTree: ['cactus'],
-    stump: null,
+    ringTree: [],
+    stump: null, // sem toco em GLB: o cenário usa a tora do naturKit (nat:tronco)
     camp: { tent: 'nature/tent_detailedOpen', fire: 'survival/campfire-pit', barrel: 'survival/barrel', crate: 'survival/box-large-open', bed: 'survival/bedroll', cart: 'town/cart', flag: 'town/banner-red', sign: 'town/pillar-stone' },
     campTint: NONE,
     contact: 0x3b2810,
@@ -133,7 +133,7 @@ export const KITS: Record<KitBiome, BiomeKit> = {
     peak: ['castle/rocks-large', 'survival/rock-b'],
     towers: ['castle/tower-square-mid-windows'],
     trees: null,
-    ringTree: ['deadTree'],
+    ringTree: [],
     stump: null,
     camp: { tent: 'survival/tent-canvas', fire: 'survival/campfire-pit', barrel: 'survival/barrel', crate: 'survival/box-large-open', bed: 'survival/bedroll', cart: 'town/cart', flag: 'town/banner-red', sign: 'town/pillar-stone' },
     campTint: { color: 0x2c2420, amount: 0.35 }, // fuligem

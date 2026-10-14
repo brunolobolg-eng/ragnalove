@@ -196,10 +196,8 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
   if (liquid) root.add(liquid.mesh);
 
   // ---------------- Props (dentro do tabuleiro + decoração em volta) ----------------
-  const place: Record<string, THREE.Matrix4[]> = {};
-  const put = (kind: string, x: number, z: number, s: number, rot = rnd() * Math.PI * 2, sy = s) => {
-    (place[kind] ??= []).push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rot), new THREE.Vector3(s, sy, s)));
-  };
+  // Tudo sai de arte do dono: GLB do kit (public/models/props) ou peças naturais texturizadas (naturKit.ts).
+  // Nada de árvore, cacto ou moita procedural de cor lisa.
   // Peças em GLB do kit (cada uma com a cor da ambientação) + sombra de contato sob cada uma
   const glb: Record<string, THREE.Matrix4[]> = {};
   /** Peças naturais (chave = nome da peça no naturKit.ts), desenhadas instanciadas no fim. */
@@ -216,12 +214,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     else (glb[path] ??= []).push(mx);
     contact.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0.015, z), new THREE.Quaternion(), new THREE.Vector3(s * 1.15, 1, s * 1.15)));
   };
-  /** Peça natural (token `nat:*`, pelo glbPut) ou procedural (pelo put). */
-  const anyPut = (token: string, x: number, z: number, s: number, rot?: number, sy?: number): void =>
-    token.startsWith('nat:') ? glbPut(token, x, z, s, rot, sy) : put(token, x, z, s, rot, sy);
   const pick = <T,>(list: T[]): T => list[Math.floor(rnd() * list.length)];
-  /** Árvore procedural da decoração (pinheiro, carvalho, cacto, morta...); sem kit, usa a de reserva. */
-  const procTree = (fallback: string) => (kit.ringTree.length ? pick(kit.ringTree) : fallback);
   /** Grupo de peças espalhadas num raio (uma crista, um morro, um paredão). */
   const cluster = (cx: number, cz: number, n: number, radius: number, s0: number, s1: number, list: string[]) => {
     for (let i = 0; i < n; i++) {
@@ -252,24 +245,23 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     switch (kind) {
       case 'tree':
         if (floresta) glbPut('nat:arvore', x, z, 0.85 + rnd() * 0.3);
-        else if (kit.trees && (natural || rnd() < 0.5)) glbPut(pick(kit.trees), x, z, 0.85 + rnd() * 0.3);
-        else anyPut(procTree(biome === 'mountain' ? 'pineSnow' : 'oak'), x, z, 0.85 + rnd() * 0.3);
+        else glbPut(pick(kit.trees ?? (kit.ringTree.length ? kit.ringTree : kit.ridge)), x, z, 0.85 + rnd() * 0.3);
         break;
       case 'rock':
         // pedras e paredes do mapa: tamanhos variados para não virarem um bloco repetido
         glbPut(pick(kit.rock), x, z, 0.9 + rnd() * 0.6);
         break;
       case 'cactus':
-        put('cactus', x, z, 0.85 + rnd() * 0.25);
+        // sem cacto em GLB do dono: o bloqueio do deserto é uma pedra de arenito (naturKit.ts, com a textura do dono)
+        glbPut('nat:arenito', x, z, 0.85 + rnd() * 0.25);
         break;
       case 'ruin':
-        if (floresta) glbPut('nat:ruina', x, z, 0.95 + rnd() * 0.15);
-        else if (natural) glbPut(pick(kit.ridge), x, z, 0.95 + rnd() * 0.15);
-        else put('ruin', x, z, 0.95 + rnd() * 0.15);
+        // ruínas de pedra do naturKit (texturas do dono); nos biomas com kit de rochas, a crista do kit
+        if (natural && !floresta) glbPut(pick(kit.ridge), x, z, 0.95 + rnd() * 0.15);
+        else glbPut('nat:ruina', x, z, 0.95 + rnd() * 0.15);
         break;
       case 'stump':
-        if (kit.stump) glbPut(kit.stump, x, z, 0.8 + rnd() * 0.25);
-        else put('deadTree', x, z, 0.75 + rnd() * 0.3);
+        glbPut(kit.stump ?? 'nat:tronco', x, z, 0.8 + rnd() * 0.25);
         break;
       case 'tent':
         glbPut(kit.camp.tent, x, z, 1, Math.floor(rnd() * 4) * (Math.PI / 2));
@@ -288,7 +280,8 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
       case 'cityWall':
         break; // muralha da cidade: construída inteira em CityGate
       case 'palm':
-        put('palm', x, z, 0.95 + rnd() * 0.3);
+        // sem palmeira em GLB do dono: moita do naturKit no oásis
+        glbPut('nat:arbusto', x, z, 1.1 + rnd() * 0.3);
         break;
       case 'lantern':
         glbPut('town/lantern', x, z, 1);
@@ -341,13 +334,11 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     const big = 0.9 + rnd() * 0.7;
     if (r < 0.2) glbPut(pick(kit.rock), x, z, big * (0.9 + rnd() * 0.4));
     else if (r < 0.5) {
-      if (kit.ringTree.length) anyPut(pick(kit.ringTree), x, z, big);
+      if (kit.ringTree.length) glbPut(pick(kit.ringTree), x, z, big);
       else if (kit.trees) glbPut(pick(kit.trees), x, z, big);
       else glbPut(pick(kit.ridge), x, z, big);
     } else if (biome === 'forest' || biome === 'plains') {
-      const plant = pick(['bush', 'bush', 'flowers'] as const);
-      if (plant === 'bush' && floresta) glbPut('nat:arbusto', x, z, 1.2 + rnd() * 0.9);
-      else put(plant, x, z, 1.2 + rnd() * 0.9);
+      glbPut('nat:arbusto', x, z, 1.2 + rnd() * 0.9);
     } else {
       const path = pick([kit.camp.barrel, kit.camp.crate, kit.camp.bed, kit.camp.cart, kit.camp.sign]);
       glbPut(path, x, z, big * 0.9);
@@ -359,16 +350,12 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
       const left = rnd() < 0.5;
       const x = (left ? -1 : 1) * (W / 2 + 0.25 + rnd() * 1.4);
       const z = -H / 2 + rnd() * H;
-      const plant = rnd() < 0.55 ? 'bush' : 'flowers';
-      if (plant === 'bush' && floresta) glbPut('nat:arbusto', x, z, 0.9 + rnd() * 0.8);
-      else put(plant, x, z, 0.9 + rnd() * 0.8);
+      glbPut('nat:arbusto', x, z, 0.9 + rnd() * 0.8);
     }
     for (let i = 0; i < 18 * edgeK; i++) {
-      const plant = rnd() < 0.6 ? 'bush' : 'flowers';
       const x = -W / 2 + rnd() * W;
       const z = -H / 2 - 0.3 - rnd() * 1.2;
-      if (plant === 'bush' && floresta) glbPut('nat:arbusto', x, z, 0.9 + rnd() * 0.7);
-      else put(plant, x, z, 0.9 + rnd() * 0.7);
+      glbPut('nat:arbusto', x, z, 0.9 + rnd() * 0.7);
     }
   }
   // Peças em GLB: uma chamada de desenho por tipo (instanciadas), com geada na neve
@@ -403,20 +390,6 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     root.add(sp);
   }
 
-  const geoKit = propKit(P, biome);
-  for (const [kind, mats] of Object.entries(place)) {
-    const geo = geoKit.geos[kind];
-    if (!geo) continue;
-    const im = new THREE.InstancedMesh(geo, geoKit.material, mats.length);
-    mats.forEach((m, i) => im.setMatrixAt(i, m));
-    im.castShadow = true;
-    im.receiveShadow = true;
-    root.add(im);
-  }
-
-  // Tufos/pedrinhas espalhados no tabuleiro (só visual, sem colisão)
-  const tufts = tuftMesh(zone, P, biome, X, Z, rnd, areaK);
-  if (tufts) root.add(tufts);
 
   // ---------------- Muralha e portão da cidade ----------------
   const cityGate = buildCityGate(zone, theme);
@@ -463,8 +436,6 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
 
   // ---------------- Deserto: oásis (reflexo), escaravelhos e abutres ----------------
   const glints: { s: THREE.Sprite; ph: number }[] = [];
-  const scarabs: { m: THREE.Object3D; a: THREE.Vector3; b: THREE.Vector3; t: number; spd: number }[] = [];
-  const vultures: { g: THREE.Group; wl: THREE.Mesh; wr: THREE.Mesh; c: THREE.Vector3; rad: number; h: number; spd: number; ph: number }[] = [];
   if (biome === 'desert') {
     const glintMat = new THREE.SpriteMaterial({ map: softCircle(), color: new THREE.Color(1.8, 1.6, 1.2), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
     for (const v of zone.voids) {
@@ -476,32 +447,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
       root.add(s2);
       glints.push({ s: s2, ph: rnd() * 6.28 });
     }
-    const sand = zone.floor.filter((f) => f.ground === 'plain');
-    const bug = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4).scale(1, 0.55, 1.35), new THREE.MeshLambertMaterial({ color: 0x1a2a30, emissive: 0x06101a }));
-    for (let i = 0; i < Math.min(18, Math.round(4 * Math.sqrt(areaK))); i++) {
-      const a = sand[Math.floor(rnd() * sand.length)];
-      const b2 = sand[Math.floor(rnd() * sand.length)];
-      const m = bug.clone();
-      root.add(m);
-      scarabs.push({ m, a: new THREE.Vector3(X(a.x), 0.03, Z(a.y)), b: new THREE.Vector3(X(a.x) + (rnd() - 0.5) * 6, 0.03, Z(a.y) + (rnd() - 0.5) * 6), t: rnd(), spd: 0.06 + rnd() * 0.05 });
-      void b2;
-    }
-    const vMat = new THREE.MeshLambertMaterial({ color: 0x2a1e18, side: THREE.DoubleSide });
-    for (let i = 0; i < 4; i++) {
-      const g2 = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 5), vMat);
-      body.scale.set(0.8, 0.6, 1.8);
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), new THREE.MeshLambertMaterial({ color: 0x8a5a4a }));
-      head.position.set(0, 0.05, 0.3);
-      const wing = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.15), new THREE.Vector3(0, 0, -0.15), new THREE.Vector3(0.9, 0, -0.1)]);
-      wing.computeVertexNormals();
-      const wl = new THREE.Mesh(wing, vMat);
-      const wr = new THREE.Mesh(wing, vMat);
-      wr.scale.x = -1;
-      g2.add(body, head, wl, wr);
-      root.add(g2);
-      vultures.push({ g: g2, wl, wr, c: new THREE.Vector3((rnd() - 0.5) * W * 0.6, 0, (rnd() - 0.5) * H * 0.6), rad: 4 + rnd() * 6, h: 7 + rnd() * 3, spd: (0.12 + rnd() * 0.08) * (i % 2 ? 1 : -1), ph: rnd() * 6.28 });
-    }
+    // escaravelhos e urubus saíram: eram esferas e triângulos de cor lisa (sem arte do dono para eles)
   }
 
   // ---------------- Ambiente animado ----------------
@@ -538,23 +484,6 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     cityGate.update(dt, particles);
     for (const sh of shafts) (sh.m.material as THREE.MeshBasicMaterial).opacity = sh.base * (0.7 + 0.3 * Math.sin(t * 0.35 + sh.ph));
     for (const g of glints) g.s.scale.setScalar(0.18 + Math.max(0, Math.sin(t * 2.2 + g.ph)) * 0.35);
-    for (const sc of scarabs) {
-      sc.t += dt * sc.spd;
-      const k = (Math.sin(sc.t * Math.PI * 2) + 1) / 2;
-      const prev = sc.m.position.clone();
-      sc.m.position.lerpVectors(sc.a, sc.b, k);
-      const d = sc.m.position.clone().sub(prev);
-      if (d.lengthSq() > 1e-8) sc.m.rotation.y = Math.atan2(d.x, d.z);
-    }
-    for (const v of vultures) {
-      const a = t * v.spd + v.ph;
-      v.g.position.set(v.c.x + Math.cos(a) * v.rad, v.h + Math.sin(t * 0.3 + v.ph) * 0.5, v.c.z + Math.sin(a) * v.rad);
-      v.g.rotation.y = -a + (v.spd > 0 ? Math.PI : 0);
-      v.g.rotation.z = v.spd > 0 ? 0.25 : -0.25;
-      const f = Math.sin(t * 1.5 + v.ph) * 0.15; // plana, quase sem bater asa
-      v.wl.rotation.z = f;
-      v.wr.rotation.z = -f;
-    }
     acc += dt;
     const step = 1 / (12 * Math.min(3, Math.sqrt(areaK)));
     while (acc > step) {
@@ -891,210 +820,7 @@ function liquidMesh(zone: ParsedZone, P: Palette, X: (x: number) => number, Z: (
   return { mesh: g, uniforms };
 }
 
-// ---------------- Props low-poly (cores por vértice) ----------------
-
-function tint(geo: THREE.BufferGeometry, color: number, jitter = 0.06, seed = 1): THREE.BufferGeometry {
-  const g = geo.index ? geo.toNonIndexed() : geo;
-  const n = g.attributes.position.count;
-  const col = new Float32Array(n * 3);
-  const c = new THREE.Color(color);
-  const r = mulberry(seed);
-  for (let i = 0; i < n; i += 3) {
-    const k = 1 + (r() - 0.5) * jitter * 2;
-    for (let j = 0; j < 3 && i + j < n; j++) {
-      col[(i + j) * 3] = c.r * k;
-      col[(i + j) * 3 + 1] = c.g * k;
-      col[(i + j) * 3 + 2] = c.b * k;
-    }
-  }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  if (g.attributes.uv) g.deleteAttribute('uv');
-  g.computeVertexNormals();
-  return g;
-}
-
-/** Cor por altura (base escura → topo iluminado) + variação por face: copas "pintadas". */
-function tintGrad(geo: THREE.BufferGeometry, bottom: number, top: number, jitter = 0.08, seed = 1): THREE.BufferGeometry {
-  const g = geo.index ? geo.toNonIndexed() : geo;
-  g.computeBoundingBox();
-  const bb = g.boundingBox!;
-  const pos = g.attributes.position;
-  const n = pos.count;
-  const col = new Float32Array(n * 3);
-  const a = new THREE.Color(bottom);
-  const b = new THREE.Color(top);
-  const c = new THREE.Color();
-  const r = mulberry(seed);
-  for (let i = 0; i < n; i += 3) {
-    const k = 1 + (r() - 0.5) * jitter * 2;
-    for (let j = 0; j < 3 && i + j < n; j++) {
-      const y = (pos.getY(i + j) - bb.min.y) / Math.max(0.001, bb.max.y - bb.min.y);
-      c.copy(a).lerp(b, Math.min(1, Math.max(0, y * 1.15 - 0.05)));
-      col[(i + j) * 3] = c.r * k;
-      col[(i + j) * 3 + 1] = c.g * k;
-      col[(i + j) * 3 + 2] = c.b * k;
-    }
-  }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  if (g.attributes.uv) g.deleteAttribute('uv');
-  g.computeVertexNormals();
-  return g;
-}
-
-function lighten(hex: number, k: number): number {
-  const c = new THREE.Color(hex);
-  c.lerp(new THREE.Color(0xfff4b0), k);
-  return c.getHex();
-}
-function darken(hex: number, k: number): number {
-  return new THREE.Color(hex).multiplyScalar(1 - k).getHex();
-}
-
-function propKit(P: Palette, biome: Biome): { geos: Record<string, THREE.BufferGeometry>; material: THREE.Material } {
-  const leaf = (i: number) => P.leaf[i % P.leaf.length];
-  const pine = mergeGeometries([
-    tint(new THREE.CylinderGeometry(0.07, 0.11, 0.55, 6).translate(0, 0.27, 0), P.trunk, 0.08, 2),
-    tintGrad(new THREE.ConeGeometry(0.52, 0.78, 9).translate(0, 0.72, 0), darken(leaf(2), 0.3), lighten(leaf(0), 0.1), 0.08, 3),
-    tintGrad(new THREE.ConeGeometry(0.42, 0.66, 9).translate(0, 1.06, 0), darken(leaf(0), 0.25), lighten(leaf(1), 0.18), 0.08, 4),
-    tintGrad(new THREE.ConeGeometry(0.28, 0.54, 9).translate(0, 1.4, 0), darken(leaf(1), 0.2), lighten(leaf(3), 0.3), 0.08, 5),
-  ])!;
-  const pineSnow = mergeGeometries([
-    tint(new THREE.CylinderGeometry(0.07, 0.11, 0.55, 6).translate(0, 0.27, 0), P.trunk, 0.08, 2),
-    tint(new THREE.ConeGeometry(0.5, 0.75, 7).translate(0, 0.72, 0), leaf(0), 0.1, 3),
-    tint(new THREE.ConeGeometry(0.4, 0.62, 7).translate(0, 1.06, 0), leaf(1), 0.1, 4),
-    tint(new THREE.ConeGeometry(0.3, 0.3, 7).translate(0, 1.2, 0), 0xe8eef6, 0.04, 8),
-    tint(new THREE.ConeGeometry(0.27, 0.5, 7).translate(0, 1.38, 0), 0xf2f6fb, 0.04, 9),
-  ])!;
-  // copa cheia: vários "tufos" arredondados, base sombreada e topo ensolarado
-  const clump = (r: number, x: number, y: number, z: number, i: number, seed: number) =>
-    tintGrad(new THREE.IcosahedronGeometry(r, 1).scale(1, 0.86, 1).translate(x, y, z), darken(leaf(i), 0.35), lighten(leaf(i), 0.28), 0.08, seed);
-  const oak = mergeGeometries([
-    tint(new THREE.CylinderGeometry(0.08, 0.14, 0.75, 7).translate(0, 0.37, 0), P.trunk, 0.08, 6),
-    clump(0.5, 0, 1.02, 0, 1, 7),
-    clump(0.36, 0.34, 1.12, 0.1, 3, 8),
-    clump(0.34, -0.32, 1.06, -0.12, 0, 9),
-    clump(0.32, 0.05, 1.08, 0.36, 2, 33),
-    clump(0.3, -0.06, 1.1, -0.36, 3, 34),
-    clump(0.3, 0.06, 1.42, 0.02, 1, 35),
-  ])!;
-  const bush = mergeGeometries([
-    clump(0.26, 0, 0.18, 0, 1, 36),
-    clump(0.2, 0.22, 0.14, 0.06, 3, 37),
-    clump(0.19, -0.2, 0.13, -0.05, 0, 38),
-    clump(0.16, 0.02, 0.3, 0.1, 2, 39),
-  ])!;
-  const blossom = (x: number, z: number, h: number, col: number, seed: number) =>
-    mergeGeometries([
-      tint(new THREE.CylinderGeometry(0.012, 0.012, h, 3).translate(x, h / 2, z), 0x3a7a2a, 0.05, seed),
-      tint(new THREE.IcosahedronGeometry(0.05, 0).translate(x, h, z), col, 0.06, seed + 1),
-    ])!;
-  const flowers = mergeGeometries([
-    blossom(0, 0, 0.16, 0xfff2f6, 41),
-    blossom(0.08, 0.05, 0.13, 0xffd84a, 43),
-    blossom(-0.07, 0.04, 0.14, 0xff8ab0, 45),
-    blossom(0.02, -0.08, 0.12, 0xb8a0ff, 47),
-    blossom(-0.05, -0.06, 0.15, 0xffffff, 49),
-  ])!;
-  const branch = (len: number, ang: number, yaw: number, y: number) =>
-    tint(new THREE.CylinderGeometry(0.025, 0.045, len, 5).translate(0, len / 2, 0).rotateZ(ang).rotateY(yaw).translate(0, y, 0), P.trunk, 0.1, 10);
-  const deadTree = mergeGeometries([
-    tint(new THREE.CylinderGeometry(0.06, 0.14, 1.05, 6).translate(0, 0.52, 0), biome === 'ash' ? 0x1e1612 : 0x5a4a3a, 0.1, 11),
-    branch(0.5, 0.8, 0, 0.7),
-    branch(0.42, -0.9, 1.3, 0.82),
-    branch(0.35, 0.7, 2.6, 0.95),
-    branch(0.3, -0.6, 4.1, 0.55),
-  ])!;
-  const rock = mergeGeometries([
-    tint(new THREE.DodecahedronGeometry(0.42, 0).scale(1.1, 0.8, 0.95).translate(0, 0.28, 0), P.rock[0], 0.12, 12),
-    tint(new THREE.DodecahedronGeometry(0.22, 0).translate(0.3, 0.12, 0.18), P.rock[1], 0.12, 13),
-    ...(P.snow ? [tint(new THREE.DodecahedronGeometry(0.3, 0).scale(1.1, 0.35, 0.95).translate(0, 0.55, 0), 0xeef3fa, 0.04, 14)] : []),
-  ])!;
-  const cactusArm = (x: number, y: number, h: number) =>
-    mergeGeometries([
-      tint(new THREE.CylinderGeometry(0.07, 0.07, 0.24, 7).rotateZ(Math.PI / 2).translate(x / 2, y, 0), 0x4e7a3a, 0.08, 15),
-      tint(new THREE.CylinderGeometry(0.07, 0.07, h, 7).translate(x, y + h / 2, 0), 0x5a8a42, 0.08, 16),
-    ])!;
-  const cactus = mergeGeometries([
-    tint(new THREE.CylinderGeometry(0.12, 0.14, 1.1, 8).translate(0, 0.55, 0), 0x5a8a42, 0.08, 17),
-    tint(new THREE.SphereGeometry(0.12, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 1.1, 0), 0x5a8a42, 0.08, 18),
-    cactusArm(0.24, 0.5, 0.34),
-    cactusArm(-0.22, 0.66, 0.26),
-  ])!;
-  const stone = biome === 'desert' ? 0xd2b080 : 0x9a968a;
-  const ruin = biome === 'desert' ? carvedRuin(stone) : mergeGeometries([
-    tint(new THREE.BoxGeometry(0.72, 0.18, 0.72).translate(0, 0.09, 0), stone, 0.08, 19),
-    tint(new THREE.CylinderGeometry(0.24, 0.27, 1.25, 10).translate(0, 0.8, 0), stone, 0.1, 20),
-    tint(new THREE.CylinderGeometry(0.22, 0.24, 0.22, 10).rotateZ(0.5).translate(0.34, 0.12, 0.2), stone, 0.1, 21),
-    tint(new THREE.BoxGeometry(0.5, 0.12, 0.5).translate(0, 1.48, 0), stone, 0.08, 22),
-  ])!;
-  // palmeira: tronco em gomos curvado + leque de folhas
-  const palmParts: THREE.BufferGeometry[] = [];
-  for (let i = 0; i < 6; i++) palmParts.push(tint(new THREE.CylinderGeometry(0.075 - i * 0.004, 0.09 - i * 0.004, 0.3, 7).translate(i * 0.035, 0.15 + i * 0.28, 0), i % 2 ? 0x7a5a3a : 0x8a6a44, 0.06, 60 + i));
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * Math.PI * 2;
-    // folha = caixa fina envergada (fechada: aparece de qualquer ângulo)
-    const leaf = new THREE.BoxGeometry(0.22, 0.95, 0.025, 1, 4, 1);
-    const pos = leaf.attributes.position as THREE.BufferAttribute;
-    for (let k = 0; k < pos.count; k++) {
-      const t = (pos.getY(k) + 0.475) / 0.95;
-      pos.setZ(k, pos.getZ(k) - t * t * 0.45);
-      pos.setX(k, pos.getX(k) * (1 - t * 0.6));
-    }
-    leaf.rotateX(-Math.PI / 2 + 0.25).translate(0, 0, 0.45).rotateY(a).translate(0.2, 1.72, 0);
-    palmParts.push(tint(leaf, i % 2 ? 0x5e8a36 : 0x4e7a2e, 0.1, 70 + i));
-  }
-  const palm = mergeGeometries(palmParts)!;
-  const block = mergeGeometries([
-    tint(new THREE.BoxGeometry(1, 0.95, 1).translate(0, 0.47, 0), stone, 0.1, 23),
-    tint(new THREE.BoxGeometry(1.04, 0.1, 1.04).translate(0, 1.0, 0), 0xe0c898, 0.06, 24),
-  ])!;
-  const tent = mergeGeometries([
-    tint(new THREE.ConeGeometry(0.62, 1.0, 4).rotateY(Math.PI / 4).translate(0, 0.5, 0), biome === 'desert' ? 0xd8c8a0 : 0x8a6a48, 0.1, 25),
-    tint(new THREE.CylinderGeometry(0.03, 0.03, 1.25, 5).translate(0, 0.62, 0), 0x3a2a1c, 0.05, 26),
-  ])!;
-  const rubble = mergeGeometries([
-    tint(new THREE.DodecahedronGeometry(0.2, 0).translate(-0.15, 0.12, 0.05), P.rock[0], 0.12, 27),
-    tint(new THREE.DodecahedronGeometry(0.16, 0).translate(0.2, 0.1, -0.1), P.rock[1], 0.12, 28),
-    tint(new THREE.BoxGeometry(0.34, 0.14, 0.18).rotateY(0.6).translate(0.05, 0.08, 0.22), P.rock[2] ?? P.rock[0], 0.1, 29),
-    tint(new THREE.BoxGeometry(0.28, 0.12, 0.2).rotateY(-0.4).translate(-0.1, 0.25, -0.05), P.rock[1], 0.1, 30),
-  ])!;
-  const barrel = (x: number, z: number) => tint(new THREE.CylinderGeometry(0.17, 0.17, 0.46, 9).translate(x, 0.23, z), 0x6a4a2e, 0.1, 31);
-  const barrels = mergeGeometries([barrel(-0.15, 0), barrel(0.18, 0.1), barrel(0, -0.2), tint(new THREE.BoxGeometry(0.34, 0.3, 0.34).translate(0.15, 0.15, -0.28), 0x7a5a38, 0.1, 32)])!;
-  const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-  return { geos: { pine, pineSnow, oak, bush, flowers, deadTree, rock, cactus, ruin, block, tent, rubble, barrels, palm }, material };
-}
-
-/**
- * Coluna solar entalhada (deserto): base em degraus, fuste com anéis de relevo, uma serpente
- * enrolada subindo e o disco do sol no capitel — nada de "pedra genérica".
- */
-function carvedRuin(stone: number): THREE.BufferGeometry {
-  const dark = darken(stone, 0.22);
-  const gold = 0xe0a848;
-  const parts: THREE.BufferGeometry[] = [
-    tint(new THREE.BoxGeometry(0.86, 0.14, 0.86).translate(0, 0.07, 0), darken(stone, 0.1), 0.08, 80),
-    tint(new THREE.BoxGeometry(0.7, 0.12, 0.7).translate(0, 0.2, 0), stone, 0.08, 81),
-    tint(new THREE.CylinderGeometry(0.23, 0.27, 1.35, 12).translate(0, 0.92, 0), stone, 0.08, 82),
-  ];
-  // anéis de relevo (faixas entalhadas)
-  for (const y of [0.45, 0.95, 1.45]) parts.push(tint(new THREE.TorusGeometry(0.255, 0.035, 5, 14).rotateX(Math.PI / 2).translate(0, y, 0), dark, 0.06, 83));
-  // serpente em espiral em volta do fuste
-  const pts: THREE.Vector3[] = [];
-  for (let i = 0; i <= 28; i++) {
-    const a = i * 0.42;
-    pts.push(new THREE.Vector3(Math.cos(a) * 0.27, 0.3 + i * 0.043, Math.sin(a) * 0.27));
-  }
-  parts.push(tint(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.035, 5), darken(stone, 0.35), 0.06, 84));
-  parts.push(tint(new THREE.SphereGeometry(0.06, 6, 5).scale(1.3, 0.8, 1).translate(pts[28].x, pts[28].y + 0.03, pts[28].z), darken(stone, 0.35), 0.05, 85));
-  // capitel + disco solar com raios
-  parts.push(tint(new THREE.BoxGeometry(0.62, 0.14, 0.62).translate(0, 1.66, 0), stone, 0.08, 86));
-  parts.push(tint(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 14).rotateX(Math.PI / 2).translate(0, 1.95, 0.02), gold, 0.05, 87));
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    parts.push(tint(new THREE.BoxGeometry(0.04, 0.12, 0.03).rotateZ(a).translate(Math.sin(a) * -0.27, 1.95 + Math.cos(a) * 0.27, 0.02), gold, 0.05, 88 + i));
-  }
-  return mergeGeometries(parts)!;
-}
+// (props procedurais de cor lisa saíram do cenário: só GLB do dono e naturKit.ts)
 
 /** Caminho mais curto (BFS) do spawn até o portão na grade da zona — só para pintar trilhas. */
 function routeToGate(zone: ParsedZone, from: { x: number; y: number }): { x: number; y: number }[] {
@@ -1180,33 +906,6 @@ function shaftTexture(): THREE.Texture {
   g.fillRect(0, 0, 64, 256);
   shaftTex = new THREE.CanvasTexture(c);
   return shaftTex;
-}
-
-function tuftMesh(zone: ParsedZone, P: Palette, biome: Biome, X: (x: number) => number, Z: (y: number) => number, rnd: () => number, areaK = 1): THREE.InstancedMesh | undefined {
-  const floor = zone.floor;
-  if (!floor.length) return undefined;
-  const geo =
-    biome === 'forest' || biome === 'plains'
-      ? tint(new THREE.ConeGeometry(0.05, 0.22, 3).translate(0, 0.11, 0), P.leaf[0], 0.15, 40)
-      : biome === 'mountain'
-        ? tint(new THREE.DodecahedronGeometry(0.07, 0).translate(0, 0.03, 0), 0xe2eaf5, 0.05, 41) // pedrinhas de gelo, claras
-        : tint(new THREE.DodecahedronGeometry(0.06, 0).translate(0, 0.03, 0), P.rock[0], 0.15, 41);
-  // neve: poucas pedrinhas (o mapa grande multiplica a quantidade; muitas viram "moedinhas" no chão)
-  const n = Math.min(Math.round((biome === 'mountain' ? 10 : 260) * areaK), floor.length * 2);
-  const im = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), n);
-  const m = new THREE.Matrix4();
-  for (let i = 0; i < n; i++) {
-    const f = floor[Math.floor(rnd() * floor.length)];
-    const s = 0.7 + rnd() * 0.8;
-    m.compose(
-      new THREE.Vector3(X(f.x) + (rnd() - 0.5) * 0.9, 0, Z(f.y) + (rnd() - 0.5) * 0.9),
-      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6.28),
-      new THREE.Vector3(s, s, s),
-    );
-    im.setMatrixAt(i, m);
-  }
-  im.receiveShadow = true;
-  return im;
 }
 
 function hashStr(s: string): number {
