@@ -4,8 +4,8 @@ import { VISUAL_CONFIG } from '../../config/visualConfig';
 import type { ParsedZone } from '../../config/zones';
 import type { ParticleLayer } from '../fx/Particles';
 import { softCircle } from '../textures';
-import { bridgeSideTexture, wallBlockTexture, woodTexture } from './bridgeTextures';
-import { muralhaRetas, muroMaterial } from './muralhaGlb';
+import { bridgeSideTexture, wallBlockTexture } from './bridgeTextures';
+import { muralhaRetas, type TrechoMuralha } from './muralhaGlb';
 import { KIT, instanceKit, kitMatrix, loadTexture } from './naturKit';
 import { placeProp } from './props';
 
@@ -54,40 +54,24 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   const wallZ = Z(H - 1) - 0.1; // muralha na última fileira (tiles 'W'), com o portão aberto nos tiles 'g'
 
   const lambert = (p: THREE.MeshLambertMaterialParameters) => new THREE.MeshLambertMaterial(p);
-  const shadow = <T extends THREE.Mesh>(m: T, cast = true): T => {
-    m.castShadow = cast;
-    m.receiveShadow = true;
-    return m;
-  };
 
   // ---------------- Tabuleiro da ponte e praça ----------------
   const deckTex = loadTexture('textures/pedras/pedra_lousa.webp');
   const deckLen = plazaN - FAR_Z;
   deckTex.repeat.set((deckR - deckL) / 4, deckLen / 4);
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(deckR - deckL, 0.6, deckLen), [
-    lambert({ color: 0x5a5e66 }),
-    lambert({ color: 0x5a5e66 }),
-    lambert({ map: deckTex }),
-    lambert({ color: 0x33363c }),
-    lambert({ color: 0x5a5e66 }),
-    lambert({ color: 0x5a5e66 }),
-  ]);
-  deck.position.set((deckL + deckR) / 2, -0.3, (FAR_Z + plazaN) / 2);
-  root.add(shadow(deck, false));
+  // tabuleiro: piso de pedra do dono, em plano (a beira do rio é a lateral de arcos, logo abaixo)
+  const deck = new THREE.Mesh(new THREE.PlaneGeometry(deckR - deckL, deckLen).rotateX(-Math.PI / 2), lambert({ map: deckTex }));
+  deck.position.set((deckL + deckR) / 2, 0.005, (FAR_Z + plazaN) / 2);
+  deck.receiveShadow = true;
+  root.add(deck);
 
   const plazaTex = loadTexture('textures/pedras/pedra_cinza.webp');
   const plazaDepth = wallZ + 1.5 - plazaN;
   plazaTex.repeat.set((plazaR - plazaL) / 4, plazaDepth / 4);
-  const plazaMesh = new THREE.Mesh(new THREE.BoxGeometry(plazaR - plazaL, 0.6, plazaDepth), [
-    lambert({ color: 0x5c554c }),
-    lambert({ color: 0x5c554c }),
-    lambert({ map: plazaTex, color: 0xc4c8d0 }),
-    lambert({ color: 0x33302b }),
-    lambert({ color: 0x5c554c }),
-    lambert({ color: 0x5c554c }),
-  ]);
-  plazaMesh.position.set((plazaL + plazaR) / 2, -0.3, plazaN + plazaDepth / 2);
-  root.add(shadow(plazaMesh, false));
+  const plazaMesh = new THREE.Mesh(new THREE.PlaneGeometry(plazaR - plazaL, plazaDepth).rotateX(-Math.PI / 2), lambert({ map: plazaTex, color: 0xc4c8d0 }));
+  plazaMesh.position.set((plazaL + plazaR) / 2, 0.005, plazaN + plazaDepth / 2);
+  plazaMesh.receiveShadow = true;
+  root.add(plazaMesh);
 
   // Laterais com arcos descendo até a água
   const sideTex = bridgeSideTexture();
@@ -99,13 +83,6 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
     side.rotation.y = s * (Math.PI / 2);
     side.position.set(s < 0 ? deckL : deckR, WATER_Y + sideH / 2 - 0.3, (FAR_Z + plazaN) / 2);
     root.add(side);
-    // pilares quebra-mar a cada 5 m
-    for (let z = plazaN - 2.5; z > FAR_Z; z -= 5) {
-      const pier = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.9, 1, 3, 1).rotateY(s < 0 ? Math.PI / 2 : -Math.PI / 2), lambert({ map: wallBlockTexture(3), flatShading: true }));
-      pier.scale.set(1, -WATER_Y - 0.6, 1);
-      pier.position.set((s < 0 ? deckL : deckR) + s * 0.25, (WATER_Y - 0.6) / 2, z);
-      root.add(pier);
-    }
   }
   const quayMat = lambert({ map: wallBlockTexture(21) });
   for (const [x0, x1, z0, z1] of [
@@ -121,29 +98,17 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   }
 
   // ---------------- Parapeitos (com trechos quebrados) ----------------
-  const stoneTex = wallBlockTexture(9);
-  stoneTex.repeat.set(0.5, 0.3);
-  const parapetMat = lambert({ map: stoneTex });
-  const capMat = lambert({ color: 0x7c7e84 });
-  const parGeos: THREE.BufferGeometry[] = [];
-  const capGeos: THREE.BufferGeometry[] = [];
+  // parapeito = muros.glb do dono (módulo de pedra com ameias), esticado até 0,55 (inteiro) ou 0,24 (quebrado)
+  const parapeitos: TrechoMuralha[] = [];
+  const parapeitosQuebrados: TrechoMuralha[] = [];
   const rubbleSpots: THREE.Vector3[] = [];
   const r = mulberry(7);
-  /** Segmento de parapeito de (x0,z0) a (x1,z1); `broken` = sem topo e mais baixo. */
+  /** Segmento reto de parapeito de a até b (sempre alinhado a X ou a Z); `broken` = sem topo e mais baixo. */
   const segment = (a: THREE.Vector2, b: THREE.Vector2, broken = false) => {
-    const len = a.distanceTo(b);
-    const h = broken ? 0.18 + r() * 0.12 : 0.55;
-    const g = new THREE.BoxGeometry(len, h, 0.42);
-    const ang = Math.atan2(b.y - a.y, b.x - a.x);
-    g.rotateY(-ang);
-    g.translate((a.x + b.x) / 2, h / 2, (a.y + b.y) / 2);
-    parGeos.push(g);
-    if (!broken) {
-      const cap = new THREE.BoxGeometry(len + 0.02, 0.08, 0.52);
-      cap.rotateY(-ang);
-      cap.translate((a.x + b.x) / 2, h + 0.04, (a.y + b.y) / 2);
-      capGeos.push(cap);
-    } else rubbleSpots.push(new THREE.Vector3((a.x + b.x) / 2, 0, (a.y + b.y) / 2));
+    const lista = broken ? parapeitosQuebrados : parapeitos;
+    if (Math.abs(a.x - b.x) < 1e-6) lista.push({ a: Math.min(a.y, b.y), b: Math.max(a.y, b.y), linha: a.x, eixo: 'z' });
+    else lista.push({ a: Math.min(a.x, b.x), b: Math.max(a.x, b.x), linha: a.y, eixo: 'x' });
+    if (broken) rubbleSpots.push(new THREE.Vector3((a.x + b.x) / 2, 0, (a.y + b.y) / 2));
   };
   const brokenZ = new Set([Z(3), -9.5, -15.5].map((v) => Math.round(v * 2) / 2));
   for (const s of [-1, 1]) {
@@ -164,51 +129,33 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
       segment(new THREE.Vector2(xb, plazaN + 0.25), new THREE.Vector2(xb, d0));
       segment(new THREE.Vector2(xb, d1), new THREE.Vector2(xb, wallZ - 0.5));
     } else segment(new THREE.Vector2(xb, plazaN + 0.25), new THREE.Vector2(xb, wallZ - 0.5));
-    // pilaretes a cada 3 m
-    for (let z = FAR_Z + 1.5; z < plazaN; z += 3) {
-      const post = new THREE.BoxGeometry(0.56, 0.78, 0.56);
-      post.translate(x, 0.39, z);
-      parGeos.push(post);
-      const cap = new THREE.BoxGeometry(0.64, 0.1, 0.64);
-      cap.translate(x, 0.83, z);
-      capGeos.push(cap);
-    }
   }
-  root.add(shadow(new THREE.Mesh(mergeGeometries(parGeos)!, parapetMat)));
-  root.add(shadow(new THREE.Mesh(mergeGeometries(capGeos)!, capMat)));
+  muralhaRetas(root, parapeitos, 0.55);
+  muralhaRetas(root, parapeitosQuebrados, 0.24);
   if (dockRows.length) {
     // escadaria do cais: por aqui sobem os mortos que vêm pelo rio
     const d0 = Z(Math.min(...dockRows)) - 0.5;
     const d1 = Z(Math.max(...dockRows)) + 0.5;
+    // degraus: cada um é só o piso (plano com a pedra do dono), empilhados até a água
     const steps: THREE.BufferGeometry[] = [];
-    for (let i = 0; i < 7; i++) steps.push(new THREE.BoxGeometry(0.7, 0.4, d1 - d0).translate(X(0) - 0.15 - i * 0.55, -0.2 - i * 0.4, (d0 + d1) / 2));
+    for (let i = 0; i < 7; i++) steps.push(new THREE.PlaneGeometry(0.7, d1 - d0).rotateX(-Math.PI / 2).translate(X(0) - 0.15 - i * 0.55, -i * 0.4 + 0.005, (d0 + d1) / 2));
     const stairs = new THREE.Mesh(mergeGeometries(steps)!, lambert({ map: wallBlockTexture(12) }));
     stairs.receiveShadow = true;
     root.add(stairs);
     const dockTex = loadTexture('textures/pedras/pedra_blocos.webp');
     dockTex.repeat.set(0.3, (d1 - d0) / 4);
-    const dock = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, d1 - d0), lambert({ map: dockTex }));
-    dock.position.set(X(0), -0.3, (d0 + d1) / 2);
+    const dock = new THREE.Mesh(new THREE.PlaneGeometry(1, d1 - d0).rotateX(-Math.PI / 2), lambert({ map: dockTex }));
+    dock.position.set(X(0), 0.005, (d0 + d1) / 2);
     dock.receiveShadow = true;
     root.add(dock);
   }
 
   // ---------------- Escombros, carroça, barris (tiles bloqueados do mapa) ----------------
-  const rockMat = lambert({ color: 0x6a6c72, flatShading: true });
-  const rockGeos: THREE.BufferGeometry[] = [];
-  const addRocks = (c: THREE.Vector3, n: number, spread: number, size: number) => {
-    for (let i = 0; i < n; i++) {
-      const g = new THREE.DodecahedronGeometry(size * (0.5 + r() * 0.7), 0);
-      g.scale(1, 0.6 + r() * 0.4, 1);
-      g.rotateY(r() * 6);
-      g.translate(c.x + (r() - 0.5) * spread, size * 0.3, c.z + (r() - 0.5) * spread);
-      rockGeos.push(g);
-    }
-  };
-  for (const s of rubbleSpots) addRocks(s, 4, 0.7, 0.16);
+  // pedras dos parapeitos quebrados: peças Kenney de pedra (com a cor da ponte), nada de poliedro liso
+  for (const s of rubbleSpots)
+    for (let i = 0; i < 3; i++)
+      placeProp(root, r() < 0.5 ? 'castle/rocks-small' : 'castle/rocks-large', s.x + (r() - 0.5) * 0.7, s.z + (r() - 0.5) * 0.7, { rot: r() * 6.28, scale: 0.45 + r() * 0.2, tint: ROCK_TINT });
 
-  const wood = lambert({ map: woodTexture() });
-  const iron = lambert({ color: 0x2f3036 });
   const props = new THREE.Group();
   const cartTiles = zone.props.filter((p) => p.kind === 'cart');
   if (cartTiles.length) {
@@ -239,58 +186,25 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
     placeProp(props, 'survival/barrel-open', x - 0.05, z + 0.35, { y: 0.27, rot: r() * 6.28, scale: 2.2, tiltX: Math.PI / 2 });
     placeProp(props, 'survival/box', x + 0.35, z - 0.35, { rot: r() * 6.28, scale: 2.2 });
   }
-  if (rockGeos.length) root.add(shadow(new THREE.Mesh(mergeGeometries(rockGeos)!, rockMat)));
   root.add(props);
 
   // ---------------- Muralha, torres e casa do portão (última fileira; portão aberto nos tiles 'g') ----------------
-  // muralha com a peça muros.glb do dono (torres e ameias já vêm no módulo); `muralha.glb: false` volta às caixas antigas
+  // muralha com a peça muros.glb do dono (torres e ameias já vêm no módulo)
   const trechos = [
     [plazaL - 2, gateL - 0.6],
     [gateR + 0.6, plazaR + 2],
   ];
-  let wallMat: THREE.Material;
-  if (VISUAL_CONFIG.muralha.glb) {
-    wallMat = muroMaterial();
-    muralhaRetas(root, trechos.map(([xa, xb]) => ({ a: xa, b: xb, linha: wallZ + 0.3, eixo: 'x' as const })), VISUAL_CONFIG.muralha.alturaCidade);
-  } else {
-    const wallTex = wallBlockTexture(33);
-    wallTex.repeat.set(4, 1);
-    wallMat = lambert({ map: wallTex });
-    const topMat = lambert({ color: 0x55575d });
-    const merlons: THREE.BufferGeometry[] = [];
-    const wallGeos: THREE.BufferGeometry[] = [];
-    for (const [xa, xb] of trechos) {
-      wallGeos.push(new THREE.BoxGeometry(xb - xa, 1.3, 1.2).translate((xa + xb) / 2, 0.65, wallZ + 0.3));
-      for (let x = xa + 0.3; x < xb - 0.1; x += 0.7) merlons.push(new THREE.BoxGeometry(0.4, 0.35, 0.28).translate(x, 1.47, wallZ - 0.18));
-    }
-    root.add(shadow(new THREE.Mesh(mergeGeometries(wallGeos)!, wallMat)));
-    root.add(shadow(new THREE.Mesh(mergeGeometries(merlons)!, wallMat)));
-    void topMat;
-  }
-  // casa do portão: arco sobre o vão, com telhado e portas abertas para dentro
+  muralhaRetas(root, trechos.map(([xa, xb]) => ({ a: xa, b: xb, linha: wallZ + 0.3, eixo: 'x' as const })), VISUAL_CONFIG.muralha.alturaCidade);
+  // casa do portão: duas torres do castelo do dono com bandeira azul (sem arco/telhado sobre o vão: ficaria
+  // entre a câmera e a defesa do portão)
   const gate = new THREE.Group();
   gate.position.set(gateC, 0, wallZ + 0.3);
   const span = gateR - gateL;
   for (const s2 of [-1, 1]) {
-    // pilares baixos (a câmera olha por cima: nada alto na frente da defesa)
-    const pier = shadow(new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.7, 1.6), wallMat));
-    pier.position.set(s2 * (span / 2 + 0.6), 0.85, 0);
-    const cap = shadow(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.16, 1.8), lambert({ color: 0x55575d })));
-    cap.position.set(s2 * (span / 2 + 0.6), 1.78, 0);
-    gate.add(cap);
-    gate.add(pier);
-  }
-  // (sem arco/telhado sobre o vão: ficaria entre a câmera e a defesa do portão)
-  // estandartes nas duas pontas
-  const banners: THREE.Mesh[] = [];
-  const bannerMat = lambert({ color: 0x2e4a8a, side: THREE.DoubleSide });
-  for (const s2 of [-1, 1]) {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 5), iron);
-    pole.position.set(s2 * (span / 2 + 0.6), 2.5, 0);
-    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.42, 6, 1).translate(0.35, 0, 0), bannerMat);
-    flag.position.set(s2 * (span / 2 + 0.6), 2.95, 0);
-    gate.add(pole, flag);
-    banners.push(flag);
+    const px = s2 * (span / 2 + 0.6);
+    // torres baixas (a câmera olha por cima: nada alto na frente da defesa)
+    placeProp(gate, 'castle/tower-square-mid-windows', px, 0, { scale: 1.4 });
+    placeProp(gate, 'castle/flag', px, 0, { y: 1.42, scale: 1.2, rot: s2 < 0 ? Math.PI : 0, tint: 0x2e4a8a });
   }
   root.add(gate);
   // torres de pedra nas pontas da praça (castelo Kenney: base + telhado alto) com estandarte
@@ -331,33 +245,15 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   // fogueiras do acampamento nas margens
   for (const f of BANK_FIRES) addFlame(f, 0.4);
   for (const l of BANK_LANTERNS) addFlame(l, 0.12);
+  // braseiro: a fogueira em pedra do kit do dono (campfire-pit) e o clarão por cima
   const brazier = (x: number, z: number) => {
-    const g = new THREE.Group();
-    g.position.set(x, 0, z);
-    const ped = shadow(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.28, 0.75, 8), parapetMat));
-    ped.position.y = 0.375;
-    const bowl = shadow(new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.2, 0.26, 10, 1, true), iron));
-    bowl.position.y = 0.88;
-    const coals = new THREE.Mesh(new THREE.CircleGeometry(0.3, 10).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.5, 0.7, 0.15) }));
-    coals.position.y = 0.95;
-    g.add(ped, bowl, coals);
-    root.add(g);
-    addFlame(new THREE.Vector3(x, 1.05, z), 0.36);
+    placeProp(root, 'survival/campfire-pit', x, z, { scale: 1.1 });
+    addFlame(new THREE.Vector3(x, 0.45, z), 0.36);
   };
+  // lampião de rua: peça do dono (town/lantern) e o clarão no vidro
   const lantern = (x: number, z: number) => {
-    const g = new THREE.Group();
-    g.position.set(x, 0, z);
-    const post = shadow(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.9, 6), iron));
-    post.position.y = 0.95;
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.4), iron);
-    arm.position.set(0, 1.85, -0.18);
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.26, 0.2), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.5, 0.6) }));
-    box.position.set(0, 1.66, -0.36);
-    const lid = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.14, 4).rotateY(Math.PI / 4), iron);
-    lid.position.set(0, 1.86, -0.36);
-    g.add(post, arm, box, lid);
-    root.add(g);
-    addFlame(new THREE.Vector3(x, 1.66, z - 0.36), 0.16);
+    placeProp(root, 'town/lantern', x, z, { scale: 1 });
+    addFlame(new THREE.Vector3(x, 1.3, z), 0.16);
   };
   for (const p of zone.props) {
     if (p.kind === 'brazier') {
@@ -367,63 +263,9 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
       brazier(onBridge ? (p.x === bx0 ? deckL + 0.25 : deckR - 0.25) : x, Z(p.y));
     } else if (p.kind === 'lantern') lantern(X(p.x), Z(p.y));
   }
-  // lanternas nos pilaretes da ponte, sumindo na névoa
+  // lampiões ao longo do parapeito da ponte, sumindo na névoa
   for (let z = plazaN - 4.5; z > FAR_Z + 6; z -= 6) {
-    for (const s of [-1, 1]) {
-      const x = s < 0 ? deckL + 0.25 : deckR - 0.25;
-      const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.16), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.0, 1.3, 0.5) }));
-      lamp.position.set(x, 1.0, z);
-      root.add(lamp);
-      addFlame(new THREE.Vector3(x, 1.0, z), 0.12);
-    }
-  }
-  // tochas no alto da muralha e nos pilares do portão
-  const sp = span / 2 + 0.6;
-  for (const x of [gateC - sp - 3.5, gateC - sp, gateC + sp, gateC + sp + 3.5]) {
-    const near = Math.abs(x - gateC) < sp + 0.1;
-    const y = near ? 2.05 : 1.55;
-    const torch = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.5, 5), wood);
-    torch.position.set(x, y - 0.3, wallZ - 0.55);
-    torch.rotation.x = -0.35;
-    root.add(torch);
-    addFlame(new THREE.Vector3(x, y, wallZ - 0.65), 0.2);
-  }
-
-  // ---------------- Corvos ----------------
-  const crowMat = new THREE.MeshLambertMaterial({ color: 0x14141a, side: THREE.DoubleSide });
-  const crows: { g: THREE.Group; wl: THREE.Mesh; wr: THREE.Mesh; rad: number; h: number; spd: number; ph: number; perched: boolean; c: THREE.Vector3 }[] = [];
-  const makeCrow = () => {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 5), crowMat);
-    body.scale.set(0.8, 0.7, 1.6);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), crowMat);
-    head.position.set(0, 0.04, 0.16);
-    const beak = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.07, 4).rotateX(Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x3a3a3a }));
-    beak.position.set(0, 0.03, 0.24);
-    const wingGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.08), new THREE.Vector3(0, 0, -0.08), new THREE.Vector3(0.34, 0, -0.06)]);
-    wingGeo.computeVertexNormals();
-    const wl = new THREE.Mesh(wingGeo, crowMat);
-    const wr = new THREE.Mesh(wingGeo, crowMat);
-    wr.scale.x = -1;
-    g.add(body, head, beak, wl, wr);
-    root.add(g);
-    return { g, wl, wr };
-  };
-  for (let i = 0; i < 6; i++) {
-    const c = makeCrow();
-    crows.push({ ...c, rad: 4 + r() * 5, h: 4.5 + r() * 2.5, spd: (0.25 + r() * 0.2) * (i % 2 ? 1 : -1), ph: r() * 6.28, perched: false, c: new THREE.Vector3((r() - 0.5) * 8, 0, Z(0) + 4 + r() * H * 0.6) });
-  }
-  // pousados no parapeito e na carroça
-  for (const [x, z] of [
-    [deckR - 0.25, Z(4)],
-    [deckL + 0.25, -12],
-    [cartTiles.length ? X(cartTiles[0].x) + 0.3 : 2, cartTiles.length ? Z(cartTiles[0].y) + 0.2 : -4],
-  ] as const) {
-    const c = makeCrow();
-    const y = z === Z(4) || z === -12 ? 0.68 : 0.78;
-    c.g.position.set(x, y, z);
-    c.g.rotation.y = r() * 6.28;
-    crows.push({ ...c, rad: 0, h: y, spd: 0, ph: r() * 6.28, perched: true, c: new THREE.Vector3(x, y, z) });
+    for (const s of [-1, 1]) lantern(s < 0 ? deckL + 0.25 : deckR - 0.25, z);
   }
 
   // ---------------- Fumaça ao longe (a outra margem queimando) ----------------
@@ -488,32 +330,6 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
       if (smokeAcc === 0)
         for (const m of mistSpots)
           particles.smoke.emit({ pos: m, posJitter: 2.5, vel: new THREE.Vector3(0.2, 0.05, 0), velJitter: 0.1, life: 7, size: 2.2, sizeEnd: 4.5, color: new THREE.Color(0.55, 0.62, 0.78), alpha: 0.07, count: 1 });
-      // estandartes ondulando
-      for (const b of banners) {
-        const pos = b.geometry.attributes.position as THREE.BufferAttribute;
-        for (let i = 0; i < pos.count; i++) {
-          const x = pos.getX(i);
-          pos.setZ(i, Math.sin(t * 4 + x * 7) * 0.08 * x);
-        }
-        pos.needsUpdate = true;
-      }
-      // corvos: voam em círculos; os pousados às vezes batem asas
-      for (const c of crows) {
-        if (c.perched) {
-          const flap = Math.max(0, Math.sin(t * 0.7 + c.ph * 3)) > 0.97 ? Math.sin(t * 30) * 0.8 : 0;
-          c.wl.rotation.z = 0.15 + flap;
-          c.wr.rotation.z = -0.15 - flap;
-          c.g.rotation.y += Math.sin(t * 0.5 + c.ph) * 0.002;
-          continue;
-        }
-        const a = t * c.spd + c.ph;
-        c.g.position.set(c.c.x + Math.cos(a) * c.rad, c.h + Math.sin(t * 0.7 + c.ph) * 0.4, c.c.z + Math.sin(a) * c.rad);
-        c.g.rotation.y = -a + (c.spd > 0 ? Math.PI : 0);
-        c.g.rotation.z = c.spd > 0 ? 0.3 : -0.3;
-        const f = Math.sin(t * 9 + c.ph) * 0.6;
-        c.wl.rotation.z = f;
-        c.wr.rotation.z = -f;
-      }
     },
   };
 }
@@ -710,17 +526,19 @@ function buildBanks(root: THREE.Group, L: BankLayout): void {
   const sideTex = wallBlockTexture(57);
   sideTex.repeat.set(len / 3, 1);
   const side = new THREE.MeshLambertMaterial({ map: sideTex, color: 0x7a6e60 });
-  const earth = new THREE.MeshLambertMaterial({ color: 0x3a3128 });
   const depth = -WATER_Y + 0.6;
   for (const s of [-1, 1]) {
     const edge = s * (W / 2 + 1.5); // um tile de água além da borda do mapa
     const width = 40;
-    const land = new THREE.Mesh(new THREE.BoxGeometry(width, depth, len), [side, side, top, earth, earth, earth]);
-    // a face do barranco voltada para o rio recebe a textura de pedra
-    land.material = s < 0 ? [side, earth, top, earth, earth, earth] : [earth, side, top, earth, earth, earth];
-    land.position.set(edge + (s * width) / 2, -0.15 - depth / 2, (z0 + z1) / 2);
-    land.receiveShadow = true;
-    root.add(land);
+    // barranco em planos (sem caixa lisa): o topo de grama e a face de pedra voltada para o rio
+    const relva = new THREE.Mesh(new THREE.PlaneGeometry(width, len).rotateX(-Math.PI / 2), top);
+    relva.position.set(edge + (s * width) / 2, -0.15, (z0 + z1) / 2);
+    relva.receiveShadow = true;
+    root.add(relva);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(len, depth).rotateY(s < 0 ? Math.PI / 2 : -Math.PI / 2), side);
+    face.position.set(edge, -0.15 - depth / 2, (z0 + z1) / 2);
+    face.receiveShadow = true;
+    root.add(face);
 
     // pedras na beira: algumas meio afundadas na água, outras no alto do barranco
     for (let z = z0 + 2; z < z1 - 1; z += 1.3 + r() * 1.4) {
@@ -784,8 +602,8 @@ function buildBanks(root: THREE.Group, L: BankLayout): void {
   const cityDepth = 26;
   const plaza = loadTexture('textures/pedras/pedra_cinza.webp');
   plaza.repeat.set((W + 60) / 4, cityDepth / 4);
-  const city = new THREE.Mesh(new THREE.BoxGeometry(W + 60, 0.6, cityDepth), new THREE.MeshLambertMaterial({ map: plaza, color: 0xc8ccd6 }));
-  city.position.set(0, -0.3, wallZ + 1 + cityDepth / 2);
+  const city = new THREE.Mesh(new THREE.PlaneGeometry(W + 60, cityDepth).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: plaza, color: 0xc8ccd6 }));
+  city.position.set(0, 0.005, wallZ + 1 + cityDepth / 2);
   city.receiveShadow = true;
   root.add(city);
 

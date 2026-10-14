@@ -1,24 +1,32 @@
 import * as THREE from 'three';
 import type { Board } from '../../core/grid/Board';
+import { loadTexture } from './naturKit';
 
 /**
- * Texturas "pintadas à mão" geradas em canvas (originais, nenhuma arte de terceiros).
- * Direção tirada das referências: pavimento bege em losangos com rejunte musgoso,
- * grama verde-amarelada saturada, arenito claro.
+ * Texturas do cenário da vila e do muro. Antes eram pintadas em canvas na hora do carregamento (borravam de
+ * perto); agora são imagens WebP geradas por scripts/gerarTexturasCenario.py e carregadas como textura normal.
+ * Repetem como antes: grama, pavimento e arenito cobrem 4 casas por imagem.
  */
 
-export const PALETTE = {
-  grass: ['#6f9a3c', '#7aa845', '#658e35', '#86b24e', '#5c8431'],
-  grassBlade: ['#9cc75a', '#4f7a2a', '#a8d066'],
-  dirt: ['#a48a5c', '#9a7f52', '#b39a6b'],
-  paving: ['#e0d2b0', '#d8c8a3', '#e6d9ba', '#d2c29c', '#dccdaa'],
-  grout: '#a9b27c', // rejunte com musgo (fino e claro)
-  sandstone: ['#d9c7a0', '#cdb98f', '#e2d2ae'],
-  flowers: ['#f2e25c', '#f4f0e6', '#e86a8a', '#b889e0'],
-};
+/** Pasta das imagens do cenário gerado (public/textures/cenario). */
+export const CENARIO_DIR = 'textures/cenario/';
 
-const TILE_PX = 64;
+/** Todas as imagens do cenário gerado: o jogo começa a carregá-las logo no arranque (ver BoardView.ts). */
+export const TEXTURAS_CENARIO: readonly string[] = [
+  'chao_planicie', 'chao_fora', 'grama_vila', 'losango_vila', 'arenito', 'tufo_grama', 'raio_floresta',
+  'bloco_ponte_12', 'bloco_ponte_21', 'bloco_ponte_57', 'ponte_lateral', 'runa_portal', 'grade_casa', 'laje_portao',
+].map((nome) => `${CENARIO_DIR}${nome}.webp`);
 
+/** Cor da terra batida da trilha da horda (a mesma do canvas antigo). */
+const COR_TERRA = '#a48a5c';
+/** Máscara da trilha: 8 px por casa (suave, como as manchas antigas). */
+const RES_TRILHA = 8;
+
+function cenario(nome: string): THREE.Texture {
+  return loadTexture(`${CENARIO_DIR}${nome}.webp`);
+}
+
+/** Gerador determinístico (LCG): a mesma semente sempre gera a mesma trilha. */
 function rng(seed: number): () => number {
   let s = seed >>> 0;
   return () => {
@@ -27,137 +35,56 @@ function rng(seed: number): () => number {
   };
 }
 
-function pick<T>(r: () => number, a: T[]): T {
-  return a[Math.floor(r() * a.length)];
+/** Grama repetível (4 casas por imagem). */
+export function grassTileTexture(): THREE.Texture {
+  return cenario('grama_vila');
 }
 
-function finish(c: HTMLCanvasElement, repeat = false): THREE.CanvasTexture {
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 8;
-  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return t;
+/** Pavimento em losangos repetível (4 casas por imagem). */
+export function pavingTileTexture(): THREE.Texture {
+  return cenario('losango_vila');
 }
 
-function paintGrass(g: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, r: () => number): void {
-  g.fillStyle = PALETTE.grass[0];
-  g.fillRect(x0, y0, w, h);
-  // manchas suaves
-  for (let i = 0; i < (w * h) / 900; i++) {
-    const x = x0 + r() * w;
-    const y = y0 + r() * h;
-    const rad = 8 + r() * 26;
-    const grd = g.createRadialGradient(x, y, 0, x, y, rad);
-    grd.addColorStop(0, pick(r, PALETTE.grass) + 'cc');
-    grd.addColorStop(1, pick(r, PALETTE.grass) + '00');
-    g.fillStyle = grd;
-    g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
-  }
-  // folhinhas
-  g.lineWidth = 1.2;
-  for (let i = 0; i < (w * h) / 40; i++) {
-    const x = x0 + r() * w;
-    const y = y0 + r() * h;
-    g.strokeStyle = pick(r, PALETTE.grassBlade) + '99';
-    g.beginPath();
-    g.moveTo(x, y);
-    g.lineTo(x + (r() - 0.5) * 3, y - 2 - r() * 4);
-    g.stroke();
-  }
+/** Blocos de arenito para muros e construções. */
+export function sandstoneBrickTexture(): THREE.Texture {
+  return cenario('arenito');
 }
 
-function paintFlowers(g: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, r: () => number, n: number): void {
-  for (let i = 0; i < n; i++) {
-    const x = x0 + r() * w;
-    const y = y0 + r() * h;
-    g.fillStyle = pick(r, PALETTE.flowers);
-    g.beginPath();
-    g.arc(x, y, 1.6 + r() * 1.2, 0, Math.PI * 2);
-    g.fill();
-  }
+/** Tufo de grama (billboard com alpha). */
+export function grassTuftTexture(): THREE.Texture {
+  return cenario('tufo_grama');
 }
 
-function paintDirt(g: CanvasRenderingContext2D, cx: number, cy: number, rad: number, r: () => number): void {
-  for (let i = 0; i < 6; i++) {
-    const x = cx + (r() - 0.5) * rad;
-    const y = cy + (r() - 0.5) * rad;
-    const rr = rad * (0.35 + r() * 0.4);
-    const grd = g.createRadialGradient(x, y, 0, x, y, rr);
-    grd.addColorStop(0, pick(r, PALETTE.dirt) + 'dd');
-    grd.addColorStop(0.7, pick(r, PALETTE.dirt) + '88');
-    grd.addColorStop(1, PALETTE.dirt[0] + '00');
-    g.fillStyle = grd;
-    g.fillRect(x - rr, y - rr, rr * 2, rr * 2);
-  }
-}
+/**
+ * Chão do tabuleiro da vila: campo de grama ao norte, pavimento ao sul, meio-fio entre os dois, trilha de terra
+ * que a horda abriu até o portão (manchas suaves) e a grade sutil. Só apresentação: a grade não muda.
+ */
+export function boardGround(board: Board, wallRow: number): THREE.Group {
+  const W = board.width;
+  const H = board.height;
+  const grupo = new THREE.Group();
+  const norte = wallRow + 1; // linhas do campo (de cima até o muro)
+  const sul = H - norte; // linhas da praça
+  const zCorte = -H / 2 + norte; // divisa campo / praça (z do mundo)
 
-/** Pavimento em losangos (grade girada 45°) com rejunte musgoso e sujeira leve. */
-function paintPaving(g: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, r: () => number): void {
-  g.save();
-  g.beginPath();
-  g.rect(x0, y0, w, h);
-  g.clip();
-  g.fillStyle = PALETTE.grout;
-  g.fillRect(x0, y0, w, h);
-  const s = TILE_PX / 2; // meia-diagonal do losango
-  for (let j = -1; j <= h / s + 1; j++) {
-    for (let i = -1; i <= w / s + 1; i++) {
-      if ((i + j) % 2 !== 0) continue;
-      const cx = x0 + i * s;
-      const cy = y0 + j * s;
-      const inset = 1.3;
-      g.fillStyle = pick(r, PALETTE.paving);
-      g.beginPath();
-      g.moveTo(cx, cy - s + inset);
-      g.lineTo(cx + s - inset, cy);
-      g.lineTo(cx, cy + s - inset);
-      g.lineTo(cx - s + inset, cy);
-      g.closePath();
-      g.fill();
-      // luz no canto superior, sombra no inferior (volume pintado)
-      g.strokeStyle = 'rgba(255,250,235,0.45)';
-      g.lineWidth = 1.2;
-      g.beginPath();
-      g.moveTo(cx - s + inset + 1, cy);
-      g.lineTo(cx, cy - s + inset + 1);
-      g.lineTo(cx + s - inset - 1, cy);
-      g.stroke();
-      g.strokeStyle = 'rgba(90,80,55,0.25)';
-      g.beginPath();
-      g.moveTo(cx - s + inset + 1, cy);
-      g.lineTo(cx, cy + s - inset - 1);
-      g.lineTo(cx + s - inset - 1, cy);
-      g.stroke();
-    }
-  }
-  // desgaste
-  for (let i = 0; i < (w * h) / 2500; i++) {
-    const x = x0 + r() * w;
-    const y = y0 + r() * h;
-    const rad = 4 + r() * 14;
-    const grd = g.createRadialGradient(x, y, 0, x, y, rad);
-    grd.addColorStop(0, r() < 0.5 ? 'rgba(150,135,95,0.07)' : 'rgba(255,250,235,0.10)');
-    grd.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = grd;
-    g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
-  }
-  g.restore();
-}
+  const grama = grassTileTexture();
+  grama.repeat.set(W / 4, norte / 4);
+  const campo = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, norte).rotateX(-Math.PI / 2).translate(0, 0, -H / 2 + norte / 2),
+    new THREE.MeshLambertMaterial({ map: grama }),
+  );
+  campo.receiveShadow = true;
 
-/** Textura única do tabuleiro: campo (norte) · portão (linha do muro) · praça da cidade (sul). */
-export function boardGroundTexture(board: Board, wallRow: number): THREE.CanvasTexture {
-  const W = board.width * TILE_PX;
-  const H = board.height * TILE_PX;
-  const c = document.createElement('canvas');
-  c.width = W;
-  c.height = H;
-  const g = c.getContext('2d')!;
-  const r = rng(7);
-  const T = TILE_PX;
+  const pavimento = pavingTileTexture();
+  pavimento.repeat.set(W / 4, sul / 4);
+  const praca = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, sul).rotateX(-Math.PI / 2).translate(0, 0, zCorte + sul / 2),
+    new THREE.MeshLambertMaterial({ map: pavimento }),
+  );
+  praca.receiveShadow = true;
+  grupo.add(campo, praca);
 
-  paintGrass(g, 0, 0, W, (wallRow + 1) * T, r);
-  paintFlowers(g, 0, 0, W, wallRow * T, r, 90);
-  // trilha de terra batida que a horda abriu até o portão
+  // meio-fio: faixa de arenito na divisa, com a sombra fina logo abaixo
   let gapMin = board.width;
   let gapMax = -1;
   for (let x = 0; x < board.width; x++)
@@ -165,95 +92,69 @@ export function boardGroundTexture(board: Board, wallRow: number): THREE.CanvasT
       gapMin = Math.min(gapMin, x);
       gapMax = Math.max(gapMax, x);
     }
-  const gateCx = ((gapMin + gapMax + 1) / 2) * T;
-  for (let y = 0; y <= wallRow; y++) {
+  const meio = cenario('arenito');
+  meio.repeat.set(W / 2, 1);
+  const meioFio = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, 9 / 64).rotateX(-Math.PI / 2).translate(0, 0.005, zCorte - 0.5 / 64),
+    new THREE.MeshLambertMaterial({ map: meio }),
+  );
+  const sombraMeio = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, 2 / 64).rotateX(-Math.PI / 2).translate(0, 0.004, zCorte + 4 / 64),
+    new THREE.MeshLambertMaterial({ color: 0x504632, transparent: true, opacity: 0.35, depthWrite: false }),
+  );
+  grupo.add(meioFio, sombraMeio);
+
+  // trilha de terra batida: manchas suaves desde o muro até o portão (máscara em baixa resolução)
+  const gateCx = (gapMin + gapMax + 1) / 2;
+  const r = rng(7);
+  const manchas: { cx: number; cy: number; rr: number }[] = [];
+  for (let y = 0; y <= wallRow && gapMax >= 0; y++) {
     const spread = 0.8 + (y / wallRow) * ((gapMax - gapMin + 1) * 0.35);
-    paintDirt(g, gateCx + Math.sin(y * 1.3) * T * 0.6, (y + 0.5) * T, spread * T, r);
-  }
-  paintPaving(g, 0, (wallRow + 1) * T, W, H - (wallRow + 1) * T, r);
-
-  // meio-fio entre o campo e a praça
-  const cy = (wallRow + 1) * T;
-  for (let x = 0; x < W; x += 21) {
-    g.fillStyle = pick(r, PALETTE.sandstone);
-    g.fillRect(x + 1, cy - 5, 19, 9);
-    g.fillStyle = 'rgba(80,70,50,0.35)';
-    g.fillRect(x + 1, cy + 3, 19, 2);
-  }
-
-  // Grade SQM sutil: só a sugestão das casas (o overlay forte aparece no planejamento).
-  g.strokeStyle = 'rgba(60,50,25,0.16)';
-  g.lineWidth = 1;
-  for (let x = 0; x <= board.width; x++) {
-    g.beginPath();
-    g.moveTo(x * T + 0.5, 0);
-    g.lineTo(x * T + 0.5, H);
-    g.stroke();
-  }
-  for (let y = 0; y <= board.height; y++) {
-    g.beginPath();
-    g.moveTo(0, y * T + 0.5);
-    g.lineTo(W, y * T + 0.5);
-    g.stroke();
-  }
-  return finish(c);
-}
-
-/** Grama repetível para o terreno fora do tabuleiro. */
-export function grassTileTexture(): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d')!;
-  const r = rng(11);
-  paintGrass(g, 0, 0, 256, 256, r);
-  paintFlowers(g, 0, 0, 256, 256, r, 10);
-  return finish(c, true);
-}
-
-/** Pavimento repetível para a cidade ao redor da praça. */
-export function pavingTileTexture(): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  paintPaving(c.getContext('2d')!, 0, 0, 256, 256, rng(5));
-  return finish(c, true);
-}
-
-/** Blocos de arenito para muros e construções. */
-export function sandstoneBrickTexture(): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const g = c.getContext('2d')!;
-  const r = rng(3);
-  g.fillStyle = '#b8a47c';
-  g.fillRect(0, 0, 128, 128);
-  const bh = 16;
-  for (let row = 0; row < 128 / bh; row++) {
-    const off = row % 2 ? 16 : 0;
-    for (let x = -32; x < 128; x += 32) {
-      g.fillStyle = pick(r, PALETTE.sandstone);
-      g.fillRect(x + off + 1, row * bh + 1, 30, bh - 2);
-      g.fillStyle = 'rgba(255,250,235,0.35)';
-      g.fillRect(x + off + 1, row * bh + 1, 30, 2);
+    const cx0 = gateCx + Math.sin(y * 1.3) * 0.6;
+    for (let k = 0; k < 6; k++) {
+      const cx = cx0 + (r() - 0.5) * spread;
+      const cy = y + 0.5 + (r() - 0.5) * spread;
+      manchas.push({ cx, cy, rr: spread * (0.35 + r() * 0.4) });
     }
   }
-  return finish(c, true);
-}
-
-/** Tufo de grama (billboard com alpha). */
-export function grassTuftTexture(): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const g = c.getContext('2d')!;
-  const r = rng(21);
-  for (let i = 0; i < 22; i++) {
-    const x = 10 + r() * 44;
-    const hgt = 20 + r() * 38;
-    g.strokeStyle = pick(r, ['#79a843', '#8fbe52', '#9fcc5e', '#6b9a3a']);
-    g.lineWidth = 2 + r() * 2;
-    g.beginPath();
-    g.moveTo(x, 64);
-    g.quadraticCurveTo(x + (r() - 0.5) * 10, 64 - hgt * 0.6, x + (r() - 0.5) * 16, 64 - hgt);
-    g.stroke();
+  const TW = W * RES_TRILHA;
+  const TH = H * RES_TRILHA;
+  const dados = new Uint8Array(TW * TH * 4);
+  for (let j = 0; j < TH; j++) {
+    // v cresce para o norte: a linha j da máscara é a casa (1 - v) * H de cima para baixo
+    const yTile = (1 - (j + 0.5) / TH) * H;
+    for (let i = 0; i < TW; i++) {
+      const xTile = (i + 0.5) / RES_TRILHA;
+      let a = 0;
+      for (const m of manchas) {
+        const d = Math.hypot(xTile - m.cx, yTile - m.cy) / m.rr;
+        if (d < 1) a = Math.max(a, 0.87 * (1 - d) * 1.4);
+      }
+      const v = Math.min(1, a) * 255;
+      const o = (j * TW + i) * 4;
+      dados[o] = dados[o + 1] = dados[o + 2] = v;
+      dados[o + 3] = 255;
+    }
   }
-  return finish(c);
+  const mascara = new THREE.DataTexture(dados, TW, TH, THREE.RGBAFormat);
+  mascara.minFilter = THREE.LinearFilter;
+  mascara.magFilter = THREE.LinearFilter;
+  mascara.colorSpace = THREE.NoColorSpace;
+  mascara.needsUpdate = true;
+  const trilha = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, H).rotateX(-Math.PI / 2).translate(0, 0.003, 0),
+    new THREE.MeshLambertMaterial({ color: COR_TERRA, alphaMap: mascara, transparent: true, depthWrite: false, opacity: 0.85 }),
+  );
+  trilha.receiveShadow = true;
+  grupo.add(trilha);
+
+  // grade sutil (uma linha por casa, repetida): só a sugestão das casas
+  const grade = cenario('grade_casa');
+  grade.repeat.set(W, H);
+  const grelha = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, H).rotateX(-Math.PI / 2).translate(0, 0.006, 0),
+    new THREE.MeshLambertMaterial({ map: grade, transparent: true, depthWrite: false }),
+  );
+  grupo.add(grelha);
+  return grupo;
 }

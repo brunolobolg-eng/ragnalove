@@ -4,7 +4,7 @@ import { VISUAL_CONFIG } from '../../config/visualConfig';
 import { tileToWorld } from '../coords';
 import { muralhaRetas, trechosDeTiles } from './muralhaGlb';
 import {
-  boardGroundTexture,
+  boardGround,
   grassTileTexture,
   grassTuftTexture,
   pavingTileTexture,
@@ -24,13 +24,8 @@ export function buildScenery(board: Board): THREE.Group {
 
   const lambert = (o: THREE.MeshLambertMaterialParameters) => new THREE.MeshLambertMaterial(o);
 
-  // --- Chão do tabuleiro (uma textura pintada, alinhada às casas) ---
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(W, H).rotateX(-Math.PI / 2),
-    lambert({ map: boardGroundTexture(board, wallRow) }),
-  );
-  ground.receiveShadow = true;
-  root.add(ground);
+  // --- Chão do tabuleiro: campo, praça, meio-fio, trilha e grade (texturas geradas, alinhadas às casas) ---
+  root.add(boardGround(board, wallRow));
 
   // --- Terreno em volta: grama ao norte, pavimento da cidade ao sul ---
   const grassTex = grassTileTexture();
