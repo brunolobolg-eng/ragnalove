@@ -457,12 +457,12 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   ratElite: { file: 'models/ratochefe.glb', height: 2.4, walkRate: 0.85, aura: [0.9, 0.3, 1.8] },
   ratBoss: { file: 'models/ratochefe.glb', height: 3.1, walkRate: 0.9, aura: [1.6, 0.15, 0.4] },
   // Ato II — goblins: um modelo só (goblin.glb, com textura e esqueleto Mixamo de 21 ossos) para todos os tipos comuns.
-  // Os tipos mudam tamanho, velocidade e aura, não o modelo. Clipes do cultista + pose de descanso = bind do arquivo.
-  goblin: { file: 'models/goblin.glb', height: 1.6, walkRate: 1.3, clips: 'cultist', bind: 'ibm' },
-  goblinRunner: { file: 'models/goblin.glb', height: 1.3, walkRate: 2.4, clips: 'cultist', bind: 'ibm' },
-  goblinBrute: { file: 'models/goblin.glb', height: 2.0, walkRate: 0.85, clips: 'cultist', bind: 'ibm' },
-  goblinNecro: { file: 'models/goblin.glb', height: 1.65, walkRate: 1.2, clips: 'cultist', bind: 'ibm', aura: [0.7, 0.2, 1.6] },
-  goblinElite: { file: 'models/goblin.glb', height: 2.5, walkRate: 0.85, clips: 'cultist', bind: 'ibm', aura: [0.9, 0.3, 1.8] },
+  // Os tipos mudam tamanho, velocidade e aura, não o modelo. Clipes do guerreiro (warriorRig, por direção de membro) + pose de descanso = bind do arquivo. O retarget UAL do cultista deixava as pernas viradas nestes rigs (pés no ar).
+  goblin: { file: 'models/goblin.glb', height: 1.6, walkRate: 1.3, clips: 'warriorRig', bind: 'ibm' },
+  goblinRunner: { file: 'models/goblin.glb', height: 1.3, walkRate: 2.4, clips: 'warriorRig', bind: 'ibm' },
+  goblinBrute: { file: 'models/goblin.glb', height: 2.0, walkRate: 0.85, clips: 'warriorRig', bind: 'ibm' },
+  goblinNecro: { file: 'models/goblin.glb', height: 1.65, walkRate: 1.2, clips: 'warriorRig', bind: 'ibm', aura: [0.7, 0.2, 1.6] },
+  goblinElite: { file: 'models/goblin.glb', height: 2.5, walkRate: 0.85, clips: 'warriorRig', bind: 'ibm', aura: [0.9, 0.3, 1.8] },
   goblinBoss: { file: 'models/goblinboss.glb', height: 3.4, walkRate: 0.9, aura: [2.0, 1.4, 0.3] },
   // Ato III — zumbi chibi (V2Fun no esqueleto padrão), animações de zumbi do jogo; 5 variantes fúnebres de cor
   zombie: { file: 'models/zombie.glb', height: 1.6, walkRate: 1.3, clips: 'zombie', skins: ZOMBIE_SKINS },
@@ -475,13 +475,13 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   orcWarrior: { file: 'models/orc.glb', height: 2.3, walkRate: 0.85, clips: 'brute', aura: [0.9, 0.3, 1.8], weapons: [ORC_AXE] },
   orcLord: { file: 'models/orc.glb', height: 3.3, walkRate: 0.9, clips: 'brute', aura: [1.6, 0.15, 0.4], weapons: [ORC_AXE] },
   // Dino (família do Ato II): esqueleto de 57 ossos no padrão do cultista; pose de descanso = bind do arquivo;
-  // movimentos da UAL (como o cultista). Grunt/corredor/brutamonte/necromante e mini-chefe (dinoBoss).
-  dino: { file: 'models/dino.glb', height: 1.8, walkRate: 1.2, clips: 'cultist', bind: 'ibm', ...DINO_COLORS },
-  dinoRunner: { file: 'models/dino.glb', height: 1.5, walkRate: 2.2, clips: 'cultist', bind: 'ibm', ...DINO_COLORS },
-  dinoBrute: { file: 'models/dino.glb', height: 2.3, walkRate: 0.85, clips: 'cultist', bind: 'ibm', ...DINO_COLORS },
-  dinoNecro: { file: 'models/dino.glb', height: 1.7, walkRate: 1.2, clips: 'cultist', bind: 'ibm', aura: [0.7, 0.2, 1.6], ...DINO_COLORS },
+  // movimentos do guerreiro (warriorRig, por direção de membro). Grunt/corredor/brutamonte/necromante e mini-chefe (dinoBoss).
+  dino: { file: 'models/dino.glb', height: 1.8, walkRate: 1.2, clips: 'warriorRig', bind: 'ibm', ...DINO_COLORS },
+  dinoRunner: { file: 'models/dino.glb', height: 1.5, walkRate: 2.2, clips: 'warriorRig', bind: 'ibm', ...DINO_COLORS },
+  dinoBrute: { file: 'models/dino.glb', height: 2.3, walkRate: 0.85, clips: 'warriorRig', bind: 'ibm', ...DINO_COLORS },
+  dinoNecro: { file: 'models/dino.glb', height: 1.7, walkRate: 1.2, clips: 'warriorRig', bind: 'ibm', aura: [0.7, 0.2, 1.6], ...DINO_COLORS },
   // Mini-chefe (tipo próprio de inimigo, como o Krexx): dino maior, com aura âmbar; mesma regra de cor por tema
-  dinoBoss: { file: 'models/dino.glb', height: 2.6, walkRate: 0.9, clips: 'cultist', bind: 'ibm', aura: [1.2, 0.8, 0.2], ...DINO_COLORS },
+  dinoBoss: { file: 'models/dino.glb', height: 2.6, walkRate: 0.9, clips: 'warriorRig', bind: 'ibm', aura: [1.2, 0.8, 0.2], ...DINO_COLORS },
   // Raydric (tipo 'raydric' da simulação, pesado comum): modelo de pedra com 57 ossos; clipes do guerreiro (o do cultista achata a figura); pose de descanso =
   // bind do arquivo. Altura 2,3 m (malha de 1,87 unidades, escala 1,23×). walkRate 0,75 = 0,85 do brutamonte × 10/12 ticks.
   raydric: { file: 'models/raydric.glb', height: 2.3, walkRate: 0.75, clips: 'warriorRig', bind: 'ibm', skins: RAYDRIC_SKINS, skinNames: RAYDRIC_SKIN_NAMES, themeColors: RAYDRIC_THEME_COLORS },
