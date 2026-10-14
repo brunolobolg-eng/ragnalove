@@ -892,6 +892,13 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   4. Cores de mitigação e velocidade têm pouco contraste sobre monstros claros.
 - **Não verificado:** FPS na GPU real; balanceamento em partida real; checagem visual depois dos três ajustes de código desta rodada (a mudança é pequena e as checagens passaram).
 
+## 2026-10-14 — goblin novo, palhaço, boneco de treino, Detarderus e animações (v0.11, em andamento)
+- **Modelos:** goblin.glb (52 MB → 1,8 MB) substitui os goblins verdes nos 5 tipos comuns do Ato II (clipes do cultista, bind 'ibm'), conferido em jogo. Palhaço = tipo novo 'palhaco' (Campos Cinzentos, 12% das ondas), auto-rig com juntas medidas. Boneco de treino = visual do 'trainingDummy' (Dev Lab). Detarderus = mini-chefe 'detarderus' no Passo da Geada (Ato III), no lugar do Krexx retorcido (que segue no Bastião), com zona própria provisória 'detarderusLair' (cópia do Cume das Cinzas), esqueleto do jogo com juntas medidas e simplificação com bordas travadas.
+- **Animações:** misturas de golpe/magia/reação 0,06 s → 0,1 s e volta ao parado 0,15 s → 0,22 s (`VISUAL_CONFIG.unit.fadeAction/fadeBack`). Bongun (flutuante): golpe com o gesto de magia em vez do soco, morte solta até o chão (antes dobrava suspensa no ar) e impacto no tempo padrão.
+- **Git:** `LOG_SESSOES.md` e `CHANGELOG.md` com `merge=union` no `.gitattributes`; no PC, `.git/info/attributes` com a mesma regra até ela chegar à main.
+- **Testes:** tsc, build, sim:check (determinístico; linhas novas de ashenFields e detarderusLair), bastion:check, aura:check, zoneReachCheck.
+- **Pendências:** pernas do palhaço ainda com massa no auto-rig; boneco de treino e malha do Detarderus sem foto limpa em jogo; bind 'ibm' do Bongun ainda não aplicado; goblin1/goblin2.glb sem uso (apagar só com o OK do dono); originais pesados na main devem ir zipados para a branch fontes; cenário definitivo do Detarderus (arquivos do dono).
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

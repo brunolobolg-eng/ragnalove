@@ -57,8 +57,9 @@ export const VISUAL_CONFIG = {
    * walkStepRef: passo (s) em que o andar tem a velocidade-base do modelo; passo mais lento anda mais devagar, passo mais rápido, mais depressa.
    * walkHold / walkHoldEnemy: tempo (s) que o andar segue depois do último passo, para o parado não piscar entre passos (inimigos esperam mais na fila).
    * heavyHitFrac: fração da vida máxima que faz um golpe ser "forte" (usa a reação forte, se o modelo tiver).
+   * fadeAction: mistura (s) ao entrar num golpe, magia ou reação (0,06 dava tranco). fadeBack: mistura (s) ao voltar ao parado/andar.
    */
-  unit: { hitFlashTime: 0.22, deathTime: 1.1, walkStepRef: 0.5, walkHold: 0.18, walkHoldEnemy: 0.45, heavyHitFrac: 0.2 },
+  unit: { hitFlashTime: 0.22, deathTime: 1.1, walkStepRef: 0.5, walkHold: 0.18, walkHoldEnemy: 0.45, heavyHitFrac: 0.2, fadeAction: 0.1, fadeBack: 0.22 },
   /** Planejamento: heróis passeiam em volta do posto (raio em tiles, velocidades em tiles/s, esperas em s). */
   idleWander: { radius: 0.85, speed: 0.9, orderSpeed: 3.2, waitMin: 1.5, waitMax: 4.5, lookAtCameraAfter: 1.2 },
   /** Ordem de posição: marca no chão (duração em s). */

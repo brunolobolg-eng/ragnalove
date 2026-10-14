@@ -243,7 +243,7 @@ export class ModelUnitView {
     this.current.play();
     this.mixer.addEventListener('finished', (e) => {
       if (e.action === this.actions.death) return;
-      if (e.action === this.current) this.to(this.base, 0.15);
+      if (e.action === this.current) this.to(this.base, VISUAL_CONFIG.unit.fadeBack);
     });
 
     // sombra de contato (a sombra projetada é real, do sol)
@@ -279,7 +279,7 @@ export class ModelUnitView {
     this.current = a;
   }
 
-  private oneShot(name: ClipName, fade = 0.06): void {
+  private oneShot(name: ClipName, fade = VISUAL_CONFIG.unit.fadeAction): void {
     if (this.dyingT >= 0) return;
     this.to(this.actions[name], fade);
   }
@@ -296,7 +296,7 @@ export class ModelUnitView {
     if (!this.hpLocked) this.hpVisible = true;
     // não interrompe golpe/magia: o tranco só entra se estiver parado ou andando
     if (this.current !== this.base || this.dyingT >= 0) return;
-    if (heavy && this.hitHeavyAction) this.to(this.hitHeavyAction, 0.06);
+    if (heavy && this.hitHeavyAction) this.to(this.hitHeavyAction, VISUAL_CONFIG.unit.fadeAction);
     else this.oneShot('hit');
   }
 
@@ -325,7 +325,7 @@ export class ModelUnitView {
       a.play();
       return;
     }
-    this.to(a, 0.06);
+    this.to(a, VISUAL_CONFIG.unit.fadeAction);
   }
 
   /** Instante (s) do impacto do golpe `style` no conjunto do modelo; `undefined` = sem medida (usa o tempo padrão). */

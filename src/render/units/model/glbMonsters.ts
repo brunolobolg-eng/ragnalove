@@ -404,7 +404,8 @@ export async function loadMonsterModels(onLoaded?: (kind: string) => void): Prom
           aura: v.aura ? new THREE.Color(...v.aura) : undefined,
           ghost: v.ghost ? new THREE.Color(...v.ghost) : undefined,
           weapons: v.weapons,
-          impact: SET_IMPACT[v.clips ?? ''],
+          // flutuante golpeia com o gesto de magia (hoverClips): o impacto do soco do conjunto não vale; usa o tempo padrão
+          impact: v.hover ? undefined : SET_IMPACT[v.clips ?? ''],
         };
         registerModel(kind, def);
         onLoaded?.(kind);

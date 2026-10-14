@@ -457,17 +457,21 @@ export function hoverOneShot(clip: THREE.AnimationClip, bones: BoneDef[], lift: 
   return new THREE.AnimationClip(clip.name, clip.duration, tracks);
 }
 
-/** Conjunto de clipes de um modelo flutuante (andar/repouso com vida própria; ações travadas no ar). */
+/**
+ * Conjunto de clipes de um modelo flutuante (andar/repouso com vida própria; ações travadas no ar).
+ * Flutuante é conjurador (Bongun): o golpe usa o gesto de magia, e não o soco do conjunto. A morte não fica travada no
+ * ar: com o quadril preso na altura do voo, o corpo se dobrava suspenso; solto, ele cai até o chão.
+ */
 export function hoverClips(base: Record<ClipName, THREE.AnimationClip>, bones: BoneDef[], lift: number): Record<ClipName, THREE.AnimationClip> {
   const air = (c: THREE.AnimationClip) => hoverOneShot(c, bones, lift);
   return {
     idle: hoverWalk(bones, lift),
     walk: hoverWalk(bones, lift),
-    attack: air(base.attack),
-    heavy: air(base.heavy),
+    attack: air(base.cast),
+    heavy: air(base.cast),
     cast: air(base.cast),
     hit: air(base.hit),
-    death: air(base.death),
+    death: base.death,
   };
 }
 
