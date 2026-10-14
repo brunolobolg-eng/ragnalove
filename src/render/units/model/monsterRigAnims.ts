@@ -5,6 +5,7 @@ import { mocapKeys } from './mocapDirs';
 import { buildRig, poseClip, type JointPose, type PoseKey, type V3 } from './rigPose';
 import { ualMixamoClips } from './ualMixamo';
 import { warriorRigClips } from './warriorAnims';
+import { monsterRigAttackClips, smoothAims, SMOOTH_SIGMA_BODY } from './monsterRigAttackAnims';
 
 /**
  * Variante do conjunto `warriorRig` para os monstros de rig Mixamo (goblin, dino, raydric). A base é o
@@ -76,10 +77,66 @@ function lowerStanding(clip: THREE.AnimationClip, duration: number): THREE.Anima
   return new THREE.AnimationClip(clip.name, clip.duration, tracks);
 }
 
-/** Conjunto de clipes dos monstros de rig Mixamo: o do guerreiro, com a morte com as pernas esticadas. */
+/**
+ * Fase da queda em que a malha já está no chão (0..1 da duração): o quadril sobe `liftLying` entre `from` e `to`.
+ * Depois do impacto e do quique (~1,0 s a 1,4 s no clipe de 2,4 s) o corpo deitado fica no nível de pé.
+ */
+const LIFT_PHASE = { from: 0.4, to: 0.6 };
+
+/**
+ * Malha deitada no chão (monstros de rig Mixamo): a pose só alinha as juntas ao chão (`ground: 'body'`), e a malha
+ * skinada desce abaixo delas (cabeça, costas, pernas) 0,16 a 0,50 unidades do modelo. `lift` (unidades do modelo,
+ * `deathLift` em visualConfig.ts) sobe o quadril no clipe, em rampa entre `LIFT_PHASE`: antes da queda não muda nada
+ * (a pose de pé segue igual), e no fim o ponto mais baixo da malha fica no nível do corpo de pé.
+ */
+export function liftLying(clip: THREE.AnimationClip, lift: number): THREE.AnimationClip {
+  if (!lift) return clip;
+  const tracks = clip.tracks.map((t) => {
+    if (t.name !== 'Hips.position') return t;
+    const v = Array.from(t.values);
+    for (let i = 0; i < t.times.length; i++) {
+      const w = smooth((t.times[i] / clip.duration - LIFT_PHASE.from) / (LIFT_PHASE.to - LIFT_PHASE.from));
+      v[i * 3 + 1] += lift * w;
+    }
+    return new THREE.VectorKeyframeTrack(t.name, Array.from(t.times), v);
+  });
+  return new THREE.AnimationClip(clip.name, clip.duration, tracks);
+}
+
+/**
+ * Cauda (dino, raydric): a cauda é skinada no quadril e fica atrás dele (z de `from` a `to`, em unidades do modelo).
+ * Na pose de repouso, a inclinação do quadril (idle, andar) puxa a ponta para baixo do chão. Sobe os vértices do
+ * quadril nessa faixa `amount` (degrau suave): o corpo (z > `from`) não muda. Mexe nas posições da malha (bind).
+ */
+export function raiseTail(pos: Float32Array, joint: Uint16Array | Uint8Array | Float32Array, weight: Float32Array, hipsJoint: number, cfg: { from: number; to: number; amount: number }): number {
+  let n = 0;
+  const count = pos.length / 3;
+  for (let k = 0; k < count; k++) {
+    let best = -1;
+    let bw = -1;
+    for (let c = 0; c < 4; c++) {
+      const w = weight[k * 4 + c];
+      if (w > bw) {
+        bw = w;
+        best = joint[k * 4 + c];
+      }
+    }
+    if (best !== hipsJoint) continue;
+    const z = pos[k * 3 + 2];
+    const f = smooth((cfg.from - z) / (cfg.from - cfg.to));
+    if (f <= 0) continue;
+    pos[k * 3 + 1] += cfg.amount * f;
+    n++;
+  }
+  return n;
+}
+
+/** Conjunto de clipes dos monstros de rig Mixamo: o do guerreiro (golpe próprio, sem o estalo) e a morte com as pernas esticadas. */
 export function monsterRigClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
   const raw = ualMixamoClips();
   const rig = buildRig(bones);
-  const fall = poseClip('death', raw.death.duration, straightenLegs(mocapKeys(raw.death), raw.death.duration), rig, {}, { ground: 'body' });
-  return { ...warriorRigClips(bones), death: lowerStanding(fall, raw.death.duration) };
+  const fall = poseClip('death', raw.death.duration, smoothAims(straightenLegs(mocapKeys(raw.death), raw.death.duration), SMOOTH_SIGMA_BODY), rig, {}, { ground: 'body' });
+  // andar: a captura do passo com o mesmo filtro (sem pico de 1 ou 2 quadros no joelho)
+  const walk = poseClip('walk', raw.walk.duration, smoothAims(mocapKeys(raw.walk), SMOOTH_SIGMA_BODY, raw.walk.duration), rig);
+  return { ...warriorRigClips(bones), ...monsterRigAttackClips(bones), walk, death: lowerStanding(fall, raw.death.duration) };
 }
