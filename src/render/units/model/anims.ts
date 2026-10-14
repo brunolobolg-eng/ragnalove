@@ -542,6 +542,15 @@ export const SET_IMPACT: Partial<Record<string, { attack?: number; heavy?: numbe
   cultist: { attack: UAL_IMPACT.punchJab, heavy: UAL_IMPACT.punchJab },
   // Krexx e líder (krexxAnims.ts): a mão do machado chega ao ponto mais baixo no quadro 15 de 60 (medido no clipe)
   goblinBossRig: { attack: 0.25 },
+  // Goblin, dino e raydric (monsterRigAnims.ts): o pico de velocidade da mão no golpe cai em 0,20 s (medido a 60 fps).
+  // Sem medida, o dano saía em 0,28 s, 80 ms depois do golpe visível.
+  monsterRig: { attack: 0.2, heavy: 0.43 },
+  // Zumbis (gruntClips): pico da mão em 0,25 s (medido a 60 fps)
+  zombie: { attack: 0.25, heavy: 0.25 },
+  zombieRunner: { attack: 0.25, heavy: 0.25 },
+  zombieBrute: { attack: 0.25, heavy: 0.25 },
+  // Orcs (orc.glb, golpe embutido no GLB): pico da mão em 0,37 s (medido a 60 fps)
+  brute: { attack: 0.37, heavy: 0.37 },
 };
 
 export function archerClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
