@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import type { BoneDef } from './ModelBuilder';
+import { heroShot } from './heroUAL';
+import { CLEAVE_IMPACT } from '../../fx/CleaveFX';
+import { BASH_IMPACT } from '../../fx/BashFX';
 
 /**
  * Animações dos personagens 3D como AnimationClips de verdade (tocadas pelo AnimationMixer).
@@ -195,6 +198,9 @@ export function warriorClips(bones: BoneDef[]): Record<ClipName, THREE.Animation
   };
 }
 
+/** Maga: o disparo do golpe básico cai este tempo (s) depois do evento; o orbe sai do cajado nesse instante. */
+const MAGE_RELEASE_S = 0.12;
+
 export function mageClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
   // Cajado em pé ao lado do corpo (o pulso compensa o antebraço erguido).
   const BASE: Pose = {
@@ -219,15 +225,8 @@ export function mageClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationCli
     // cajado firme na vertical ao lado do corpo; túnica balança com o passo
     h === 0 ? { 'foreArm.R': [-60, 0, 0], 'hand.R': [58, 0, 0] } : { 'foreArm.R': [-56, 0, 0], 'hand.R': [56, 0, 0] },
   ));
-  // Raio Gélido: recolhe o cajado enrolando o corpo → estocada com overshoot → segura a mira → recolhe
-  const attack = withBase(BASE, [
-    { t: 0, pose: {} },
-    { t: 0.07, pose: { spine: [-2, 20, 0], chest: [0, 10, 0], 'upperArm.R': [-28, 0, -26], 'foreArm.R': [-72, 0, 0], 'hand.R': [44, 0, 0] } },
-    { t: 0.13, pose: { spine: [-4, 20, 0], 'upperArm.R': [-38, 0, -26], 'foreArm.R': [-72, 0, 0], 'hand.R': [38, 0, 0], head: [-14, 8, 0] } },
-    { t: 0.22, hips: [0, -0.01, 0.02], pose: { spine: [7, -16, 0], chest: [5, -9, 0], head: [-18, -6, 0], 'upperArm.R': [-98, 0, -5], 'foreArm.R': [-3, 0, 0], 'hand.R': [-12, 0, 0], 'upperArm.L': [12, 0, 22] } },
-    { t: 0.3, pose: { spine: [6, -13, 0], chest: [4, -7, 0], 'upperArm.R': [-93, 0, -6], 'foreArm.R': [-7, 0, 0], 'hand.R': [-9, 0, 0], 'upperArm.L': [9, 0, 20] } },
-    { t: 0.5, pose: {} },
-  ]);
+  // Raio Gélido (golpe básico): o disparo da UAL (Spell_Simple_Shoot), cortado para o disparo cair em MAGE_RELEASE_S
+  const shoot = fitHips(heroShot({ clip: 'cast', impactAt: MAGE_RELEASE_S }), bones);
   // Barreira de Fogo: inspira erguendo o cajado ao céu → crava no chão com o peso do corpo → segura → solta
   const cast = withBase(BASE, [
     { t: 0, pose: {} },
@@ -242,8 +241,8 @@ export function mageClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationCli
   return {
     idle: makeClip('idle', 2.6, idle, bones, BASE),
     walk: makeClip('walk', 1.1, walk, bones, BASE),
-    attack: makeClip('attack', 0.5, attack, bones, BASE),
-    heavy: makeClip('heavy', 0.5, attack, bones, BASE),
+    attack: shoot,
+    heavy: shoot,
     cast: makeClip('cast', 0.85, cast, bones, BASE),
     hit: makeClip('hit', 0.32, hitKeys(BASE, { 'upperArm.R': [-24, 0, -15], 'foreArm.R': [-62, 0, 0], 'upperArm.L': [-16, 0, 18] }), bones, BASE),
     death: makeClip('death', 1.0, deathKeys(BASE, -1), bones, BASE),
@@ -510,8 +509,18 @@ function withUAL(bones: BoneDef[], proc: (b: BoneDef[]) => Record<ClipName, THRE
   };
 }
 
-/** Heróis com animações UAL (idle/walk/hit/death) + ataque/magia procedurais. */
-export const warriorClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, warriorClips);
+/**
+ * Guerreiro (chave `warriorUAL`, HERO_MODELS.warrior): captura UAL no descanso, andar, dano e morte. O golpe básico
+ * é a espada da UAL (Sword_Attack) cortada para cair no corte (CLEAVE_IMPACT); a investida é a mesma espada mais
+ * lenta e com mais amplitude, caindo na investida (BASH_IMPACT). O pacote só tem uma animação de espada, então a
+ * investida é variação dela. Fúria/Provocar (`cast`) continuam procedurais.
+ */
+export const warriorClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => ({
+  ...withUAL(b, warriorClips),
+  attack: fitHips(heroShot({ clip: 'attack', impactAt: CLEAVE_IMPACT }), b),
+  heavy: fitHips(heroShot({ clip: 'attack', impactAt: BASH_IMPACT, speed: 0.9, amp: 1.2 }), b),
+});
+/** Maga: captura UAL no descanso, andar, dano e morte; o golpe básico (`attack`) é o disparo da UAL (em mageClips). */
 export const mageClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, mageClips);
 export const archerClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, archerClips);
 
@@ -529,6 +538,8 @@ export type ClipSet = Record<ClipName, THREE.AnimationClip> & { hitHeavy?: THREE
  * (o golpe atinge quando a mão chega ao pico). Conjunto sem entrada usa o tempo padrão do jogo.
  */
 export const SET_IMPACT: Partial<Record<string, { attack?: number; heavy?: number }>> = {
+  // Guerreiro: os cortes do clipe UAL caem no instante do corte e da investida (ver warriorClipsUAL)
+  warriorUAL: { attack: CLEAVE_IMPACT, heavy: BASH_IMPACT },
   barbarianUAL: { attack: UAL_IMPACT.punchJab, heavy: UAL_IMPACT.punchCross },
   // dino e bongun: o ataque é o soco da UAL (Punch_Jab) retargetado
   cultist: { attack: UAL_IMPACT.punchJab, heavy: UAL_IMPACT.punchJab },

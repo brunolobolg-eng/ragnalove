@@ -320,7 +320,7 @@ const BARBARIAN_JOINTS: RigJointsVisual = {
 export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   // Guerreiro (modelo 3D do dono, 2,4 MB): espada e escudo presos nas mãos; animações pelo bind do arquivo
   warrior: {
-    file: 'models/guerreiro.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorRig', bind: 'ibm',
+    file: 'models/guerreiro.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorUAL', bind: 'ibm',
     // espada na mão direita: punho no centro da palma, lâmina inclinada para a frente (-120°); escudo na esquerda
     weapons: [{ type: 'sword', bone: 'RightHand', accent: 0xffd67a, tilt: -120, pos: [0, 0.07, 0] }, { type: 'shield', bone: 'LeftHand', accent: 0xffd67a }],
   },
