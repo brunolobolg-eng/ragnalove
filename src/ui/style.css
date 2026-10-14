@@ -2201,3 +2201,31 @@ body.sand-warn #app::after { opacity: 0.12; }
   .pk-veil .cf-band b.long { font-size: 8px; }
   .pk-veil .cf-band em { font-size: 7.5px; letter-spacing: 0.6px; }
 }
+
+/* ---------- Polimento de tela (pente fino): mapa no celular e cartões de caminho sob as janelas ---------- */
+/* celular (até 760 px): o mapa-múndi vira uma coluna que rola inteira — mapa, caminhos e painéis, nesta ordem. Nada fica sobre nada. */
+@media (max-width: 760px) {
+  .worldmap { display: flex; flex-direction: column; align-items: stretch; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px 28px; gap: 12px; }
+  .worldmap > * { flex: none; min-width: 0; }
+  .worldmap .wm-frame { flex: none; }
+  .worldmap .wm-title { margin: 0 0 6px 2px; font-size: 20px; flex-wrap: wrap; }
+  .worldmap .wm-title em { font-size: 11px; letter-spacing: 1.5px; }
+  .worldmap .wm-canvas { flex: none; width: 100%; aspect-ratio: 3 / 2; }
+  .worldmap .wm-canvas canvas { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; aspect-ratio: auto; }
+  .worldmap .wm-choices, .worldmap .wm-choices.low, .worldmap .wm-choices.folded { position: relative; left: auto; top: auto; transform: none; width: 100%; box-sizing: border-box; margin-top: 10px; padding: 10px 8px; gap: 8px; }
+  .worldmap .wm-ch-row { flex-direction: column; align-items: stretch; gap: 8px; width: 100%; }
+  .worldmap .wm-node { width: 100%; display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 10px; row-gap: 2px; align-items: center; text-align: left; padding: 8px 10px; }
+  .worldmap .wm-node img { grid-column: 1; grid-row: 1 / -1; width: 64px; height: 64px; }
+  .worldmap .wm-node b, .worldmap .wm-node em, .worldmap .wm-node small { grid-column: 2; }
+  .worldmap .wm-node b { font-size: 16px; }
+  .worldmap .wm-node small { font-size: 11px; }
+  .worldmap .wm-node:hover { transform: none; }
+  .worldmap .wm-panel { overflow: visible; width: 100%; min-width: 0; }
+  .worldmap .wm-party .win-body { max-height: none; overflow: visible; }
+  .worldmap .wm-choices.folded .wm-ch-head b { font-size: 18px; }
+}
+
+/* um modal aberto (evento, habilidades, coleção, roleta, pacote): o cartão de caminho do mapa some por trás dele */
+body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not([hidden]), .roulette-veil:not([hidden])) .worldmap .wm-choices {
+  visibility: hidden;
+}
