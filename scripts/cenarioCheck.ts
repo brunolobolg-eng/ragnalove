@@ -11,9 +11,10 @@
  * A LINHA_DE_BASE lista o que ainda falta trocar por arte do dono. Ela só pode cair: cada peça trocada
  * abaixa o número; qualquer primitiva a mais que a base falha o check.
  */
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { ACT_DRESSING, type ActPeca } from '../src/config/visualConfig';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PASTA = join(RAIZ, 'src/render/scenery');
@@ -78,3 +79,44 @@ if (falhas) {
   throw new Error(`cenarioCheck: ${falhas} arquivo(s) com primitiva acima da linha de base`);
 }
 console.log('\nCenário da campanha: nenhuma primitiva nova além da linha de base.');
+
+// ---------- Acampamentos dos monstros (ActDressing.ts): sem primitiva, peças do dono existentes ----------
+const root = RAIZ;
+let falhasAcampamentos = 0;
+const checkAcampamentos = (label: string, cond: boolean, extra = '') => {
+  console.log(`${cond ? 'ok  ' : 'FALHOU'} ${label}${extra ? ` · ${extra}` : ''}`);
+  if (!cond) falhasAcampamentos++;
+};
+
+// 1) código do cenário: nada de geometria primitiva, cor por vértice ou canvas
+const src = readFileSync(join(root, 'src/render/scenery/ActDressing.ts'), 'utf8');
+const codigo = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, ''); // ignora comentários
+const proibidos: [string, RegExp][] = [
+  ['colored(...)', /\bcolored\s*\(/],
+  ['geometria primitiva do three.js', /\b(Box|Cylinder|Cone|Sphere|Circle|Torus|Dodecahedron|Plane|Icosahedron|Octahedron|Tetrahedron|Ring|Lathe|Extrude|Tube|Polyhedron|Shape)Geometry\b/],
+  ['merge de geometrias próprias', /\bmergeGeometries\b/],
+  ['cor por vértice', /\bvertexColors\b/],
+  ['textura pintada por código', /\bCanvasTexture\b|createElement\(\s*['"]canvas['"]\s*\)/],
+];
+for (const [nome, re] of proibidos) checkAcampamentos(`ActDressing.ts sem ${nome}`, !re.test(codigo));
+checkAcampamentos('ActDressing.ts usa as peças GLB do dono (instanceProps)', /\binstanceProps\s*\(/.test(codigo));
+
+// 2) cada peça é um GLB existente, com escala positiva
+for (const [id, peca] of Object.entries(ACT_DRESSING.pecas)) {
+  const arquivo = join(root, 'public/models/props', `${peca.path}.glb`);
+  checkAcampamentos(`peça ${id} → ${peca.path}.glb existe`, existsSync(arquivo));
+  checkAcampamentos(`peça ${id} tem escala positiva`, peca.escala > 0, String(peca.escala));
+}
+
+// 3) kit dos três atos: peças cadastradas e kit completo
+for (const ato of [0, 1, 2]) {
+  const kit = ACT_DRESSING.atos[ato];
+  checkAcampamentos(`ato ${ato + 1} tem kit de peças baixas e altas`, !!kit && kit.baixas.length > 0 && kit.altas.length > 0);
+  if (!kit) continue;
+  const usadas: ActPeca[] = [...kit.baixas, ...kit.altas];
+  const desconhecidas = usadas.filter((p) => !(p in ACT_DRESSING.pecas));
+  checkAcampamentos(`ato ${ato + 1} só usa peças cadastradas`, desconhecidas.length === 0, desconhecidas.join(', ') || `${usadas.length} peças`);
+}
+
+console.log(falhasAcampamentos ? `\n${falhasAcampamentos} checagem(ns) dos acampamentos falharam.` : '\nTodas as checagens dos acampamentos dos monstros passaram.');
+if (falhasAcampamentos) throw new Error(`cenarioCheck: ${falhasAcampamentos} falha(s) nos acampamentos`);

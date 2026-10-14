@@ -564,12 +564,48 @@ export const PATH_ARROWS = {
   maxSteps: 400,
 };
 
-/** Cenário temático dos monstros do ato, espalhado em volta de cada portal de spawn. */
+/**
+ * Peças do acampamento dos monstros: arte do dono em GLB (public/models/props, com textura).
+ * `base` = altura da parte mais baixa do modelo (sem escala); o cenário a encosta no chão (y = 0).
+ */
+const ACT_PECAS = {
+  toca: { path: 'nature/stump_old', escala: 1.9, base: -0.05 },
+  montinho: { path: 'survival/rock-a', escala: 1.5, base: 0 },
+  montao: { path: 'survival/rock-c', escala: 1.8, base: 0 },
+  cama: { path: 'survival/bedroll', escala: 2.0, base: -0.05 },
+  saco: { path: 'survival/box', escala: 2.0, base: 0 },
+  sacoAberto: { path: 'survival/box-large-open', escala: 2.0, base: 0 },
+  barrica: { path: 'survival/barrel-open', escala: 2.2, base: 0 },
+  fogueiraApagada: { path: 'nature/campfire_logs', escala: 2.6, base: -0.05 },
+  fogueiraQueimada: { path: 'survival/campfire-pit', escala: 2.4, base: 0 },
+  balde: { path: 'survival/bucket', escala: 2.2, base: 0 },
+  tabuas: { path: 'survival/resource-planks', escala: 2.2, base: 0 },
+  totem: { path: 'survival/signpost', escala: 3.3, base: 0 },
+  cerca: { path: 'survival/fence-fortified', escala: 2.2, base: 0 },
+  estandarte: { path: 'castle/flag-banner-long', escala: 1.0, base: 0 },
+} as const;
+
+export type ActPeca = keyof typeof ACT_PECAS;
+
+/**
+ * Cenário temático dos monstros do ato, espalhado em volta de cada portal de spawn (só visual).
+ * `escala` 1 = 1 tile; a base de cada modelo fica em y = 0 (nada flutua nem afunda).
+ */
 export const ACT_DRESSING = {
   radiusMin: 1.6,
   radiusMax: 5.5,
-  flatPerSpawn: 7, // peças baixas (tocas, ossos, cinzas) — podem ficar no chão andável
-  tallPerSpawn: 4, // peças altas (totens, estandartes, estacas) — só em tiles bloqueados
+  flatPerSpawn: 7, // peças baixas (tocas, fogueiras, caixas) — podem ficar no chão andável
+  tallPerSpawn: 4, // peças altas (totens, estandartes, cercas) — só em tiles bloqueados
+  pecas: ACT_PECAS,
+  /** Kit de cada ato (0 = Ato I, 1 = Ato II, 2 = Ato III). `baixas` ficam no chão; `altas` só em tiles bloqueados. */
+  atos: {
+    // Ato I — toca de ratos
+    0: { baixas: ['toca', 'toca', 'cama', 'saco', 'montinho'], altas: ['sacoAberto', 'montao', 'barrica'] },
+    // Ato II — acampamento goblin
+    1: { baixas: ['fogueiraApagada', 'balde', 'tabuas'], altas: ['totem', 'cerca', 'totem'] },
+    // Ato III — acampamento orc
+    2: { baixas: ['fogueiraQueimada', 'tabuas', 'fogueiraQueimada'], altas: ['estandarte', 'cerca', 'estandarte'] },
+  } as Record<number, { baixas: ActPeca[]; altas: ActPeca[] }>,
 };
 
 /**
