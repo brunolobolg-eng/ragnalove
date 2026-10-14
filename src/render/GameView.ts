@@ -180,6 +180,11 @@ export class GameView {
   /** Temporários da interpolação de movimento (evita 2 allocs por frame). */
   private interp0 = new THREE.Vector3();
   private interp1 = new THREE.Vector3();
+  /**
+   * Passo atual de cada unidade (só apresentação). `desdeParado`: o passo começou depois de uma pausa, então
+   * só ele ganha arranque suave; passo que segue o anterior no mesmo tick anda em velocidade constante.
+   */
+  private steps = new Map<number, { start: number; ticks: number; desdeParado: boolean }>();
 
   /** Marca no chão onde o jogador mandou o herói ir (geometrias compartilhadas; materiais descartados no fim). */
   orderMarker(x: number, y: number, color: number): void {
@@ -1100,18 +1105,28 @@ export class GameView {
       const u = this.sim.units.get(id);
       if (!u) {
         // morte já decidida na simulação, impacto ainda a caminho: o corpo segue o clipe até o golpe (não congela)
+        this.steps.delete(id);
         v.update(dt, 1, 0, camQ);
         continue;
       }
       // neblina: inimigo escondido até um herói chegar perto (ou a tocha clarear)
       v.root.visible = this.sim.isVisible(u);
       // O passo começa no tick em que foi decidido; interpola até completar.
-      const t = THREE.MathUtils.clamp((renderTick - u.moveStartTick) / u.moveTicks, 0, 1);
+      // unidade recém-criada tem um "passo" de 1 tick sem deslocamento: não é andar (sem pose de andar parada)
+      const semDeslocar = u.prevX === u.x && u.prevY === u.y;
+      const t = semDeslocar ? 1 : THREE.MathUtils.clamp((renderTick - u.moveStartTick) / u.moveTicks, 0, 1);
       // o andar acompanha a cadência real do passo (passo lento = andar lento)
       if (v instanceof ModelUnitView) v.setStep(u.moveTicks / GAME_CONFIG.sim.tickRate);
       tileToWorld(u.prevX, u.prevY, p0);
       tileToWorld(u.x, u.y, p1);
-      const e = t * t * (3 - 2 * t);
+      // Curva do passo: velocidade constante de um tile ao seguinte (o smoothstep parava a unidade na borda).
+      // Só o passo que começa depois de uma pausa tem arranque: t²(2-t) sai com a velocidade do passo seguinte.
+      let st = this.steps.get(id);
+      if (!st || st.start !== u.moveStartTick) {
+        st = { start: u.moveStartTick, ticks: u.moveTicks, desdeParado: !st || u.moveStartTick > st.start + st.ticks };
+        this.steps.set(id, st);
+      }
+      const e = st.desdeParado ? t * t * (2 - t) : t;
       v.root.position.lerpVectors(p0, p1, e);
       if (t < 1 || u.team === 'enemy') v.setFacing(u.facing.x, u.facing.y);
       if (u.team === 'party' && u.kind === 'warrior') v.setFacing(u.facing.x, u.facing.y);

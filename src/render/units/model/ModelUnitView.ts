@@ -243,7 +243,7 @@ export class ModelUnitView {
     this.current.play();
     this.mixer.addEventListener('finished', (e) => {
       if (e.action === this.actions.death) return;
-      if (e.action === this.current) this.to(this.base, VISUAL_CONFIG.unit.fadeBack);
+      if (e.action === this.current) this.to(this.base, VISUAL_CONFIG.unit.fadeBack, true);
     });
 
     // sombra de contato (a sombra projetada é real, do sol)
@@ -270,9 +270,16 @@ export class ModelUnitView {
     this.root.add(this.hpBar);
   }
 
-  private to(a: THREE.AnimationAction, fade: number): void {
+  /**
+   * Troca de clipe com mistura. `retomar`: volta ao clipe de base (andar/parado) sem recomeçar a passada,
+   * para o andar continuar de onde estava depois de um golpe ou reação.
+   */
+  private to(a: THREE.AnimationAction, fade: number, retomar = false): void {
     if (a === this.current) return;
-    a.reset();
+    if (retomar) {
+      a.enabled = true;
+      a.paused = false;
+    } else a.reset();
     a.setEffectiveWeight(1);
     a.play();
     this.current.crossFadeTo(a, fade, false);
@@ -400,7 +407,8 @@ export class ModelUnitView {
       if (onBase) this.to(wantBase, 0.2);
     }
     // o ciclo de passos acompanha a cadência do deslocamento: passo mais lento = andar mais lento (o pé não desliza)
-    this.actions.walk.timeScale = this.def.walkRate * THREE.MathUtils.clamp(VISUAL_CONFIG.unit.walkStepRef / this.stepSec, 0.5, 1.6);
+    // limite largo: passo de 3 ticks (corredor) ou de 12 (Raydric) ainda batem com o deslocamento; corte curto deixava os pés patinando
+    this.actions.walk.timeScale = this.def.walkRate * THREE.MathUtils.clamp(VISUAL_CONFIG.unit.walkStepRef / this.stepSec, 0.3, 2.5);
     this.mixer.update(dt);
 
     // Capa: mola simples guiada pela velocidade + brisa (camada física por cima da animação)
