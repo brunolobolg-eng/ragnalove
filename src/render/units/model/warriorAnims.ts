@@ -100,3 +100,57 @@ export function warriorRigClips(bones: BoneDef[]): Record<ClipName, THREE.Animat
     death: plain('death', raw.death, raw.death.duration, 'body'),
   };
 }
+
+/**
+ * Golpe do guerreiro (GLB do dono): corte e investida re-cronometrados para o pico da lâmina cair no impacto do jogo
+ * (CLEAVE_IMPACT 0,26 s; BASH_IMPACT 0,29 s). Com as linhas de `warriorRigClips`, o corte caía em 0,20 s e a
+ * investida em 0,43 s: o dano saía antes (ou depois) da lâmina chegar.
+ */
+const HERO_SLASH: Record<string, Timeline> = {
+  RightArm: [
+    [0, [-0.55, -0.45, 0.6]],
+    [0.27, [-0.85, 0.25, -0.4]],
+    [0.52, [0.75, -0.1, 0.6]],
+    [0.68, [0.8, -0.3, 0.45]],
+    [1, [-0.55, -0.45, 0.6]],
+  ],
+  RightForeArm: [
+    [0, [-0.3, -0.2, 0.95]],
+    [0.27, [-0.55, 0.75, -0.35]],
+    [0.52, [0.8, -0.05, 0.55]],
+    [0.68, [0.85, -0.3, 0.4]],
+    [1, [-0.3, -0.2, 0.95]],
+  ],
+};
+const HERO_SMASH: Record<string, Timeline> = {
+  RightArm: [
+    [0, [-0.55, -0.45, 0.6]],
+    [0.32, [-0.25, 1, -0.05]],
+    [0.53, [-0.05, -0.55, 1]],
+    [0.7, [-0.05, -0.45, 0.9]],
+    [1, [-0.55, -0.45, 0.6]],
+  ],
+  RightForeArm: [
+    [0, [-0.3, -0.2, 0.95]],
+    [0.32, [-0.05, 1, -0.2]],
+    [0.53, [-0.05, -0.9, 0.45]],
+    [0.7, [-0.05, -0.7, 0.7]],
+    [1, [-0.3, -0.2, 0.95]],
+  ],
+};
+
+/**
+ * Guerreiro (GLB do dono, esqueleto Mixamo de 61 ossos): o mesmo conjunto de `warriorRigClips`, com o golpe básico e
+ * a investida re-cronometrados para o impacto do jogo. Os demais conjuntos (monstros, feiticeira, bruxa) não mudam.
+ */
+export function warriorRigHeroClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
+  const rig = buildRig(bones);
+  const raw = ualMixamoClips();
+  const swing = (name: string, lines: Record<string, Timeline>, duration: number): THREE.AnimationClip =>
+    poseClip(name, duration, override(retime(mocapKeys(raw.attack), raw.attack.duration, duration), duration, lines), rig);
+  return {
+    ...warriorRigClips(bones),
+    attack: swing('attack', HERO_SLASH, DURATION.attack),
+    heavy: swing('heavy', HERO_SMASH, 0.6),
+  };
+}

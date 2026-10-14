@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { BoneDef } from './ModelBuilder';
 import { heroShot } from './heroUAL';
+import { warriorRigHeroClips } from './warriorAnims';
 import { CLEAVE_IMPACT } from '../../fx/CleaveFX';
 import { BASH_IMPACT } from '../../fx/BashFX';
 
@@ -510,16 +511,12 @@ function withUAL(bones: BoneDef[], proc: (b: BoneDef[]) => Record<ClipName, THRE
 }
 
 /**
- * Guerreiro (chave `warriorUAL`, HERO_MODELS.warrior): captura UAL no descanso, andar, dano e morte. O golpe básico
- * é a espada da UAL (Sword_Attack) cortada para cair no corte (CLEAVE_IMPACT); a investida é a mesma espada mais
- * lenta e com mais amplitude, caindo na investida (BASH_IMPACT). O pacote só tem uma animação de espada, então a
- * investida é variação dela. Fúria/Provocar (`cast`) continuam procedurais.
+ * Guerreiro (chave `warriorUAL`, HERO_MODELS.warrior): o GLB do dono tem esqueleto Mixamo de 61 ossos, então usa o
+ * conjunto do rig (`warriorRigHeroClips`: captura por direção de membro, golpe e investida cronometrados para
+ * CLEAVE_IMPACT e BASH_IMPACT). Antes, o conjunto UAL de 20 ossos falhava nesse esqueleto (`fitHips` sem o osso
+ * `hips`) e o jogo caía no modelo procedural sem avisar na tela.
  */
-export const warriorClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => ({
-  ...withUAL(b, warriorClips),
-  attack: fitHips(heroShot({ clip: 'attack', impactAt: CLEAVE_IMPACT }), b),
-  heavy: fitHips(heroShot({ clip: 'attack', impactAt: BASH_IMPACT, speed: 0.9, amp: 1.2 }), b),
-});
+export const warriorClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => warriorRigHeroClips(b);
 /** Maga: captura UAL no descanso, andar, dano e morte; o golpe básico (`attack`) é o disparo da UAL (em mageClips). */
 export const mageClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, mageClips);
 export const archerClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, archerClips);
