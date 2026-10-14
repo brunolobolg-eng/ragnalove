@@ -2420,11 +2420,11 @@ if (import.meta.env.DEV) {
   (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, bastion: bastionSession, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview,
     // mapa do Último Bastião (só dev): grade nova em planejamento, sem horda, para conferir o cenário
     openBastionMap: () => { loadZone(ZONES[BASTION_ZONE_ID], { count: 0, boss: null, seed: 1 }); setMode('battle'); focusParty(true); },
-    // qualquer zona (só dev), em planejamento e sem horda; para testar a horda: sim.start(), hud.setPlanning(false), sim.spawnEnemy()
-    abrirZona: (id: string) => {
+    // qualquer zona (só dev), em planejamento e sem horda; `count` > 0 monta a horda de verdade (sim.start() para começar)
+    abrirZona: (id: string, count = 0) => {
       const zona = ZONES[id];
       if (!zona) throw new Error(`zona desconhecida: ${id}`);
-      loadZone(zona, { count: 0, boss: null, seed: 1 });
+      loadZone(zona, { count, boss: null, seed: 1 });
       setMode('battle');
       focusParty(true);
     },

@@ -606,8 +606,14 @@ check(
 );
 
 console.log('\n# 13) Horda por noite (comum, mini-chefe e MVP)');
-const INIMIGOS = Object.keys(GAME_CONFIG.enemies).filter((k) => k !== 'trainingDummy');
-check('são 13 inimigos de combate (tudo menos o boneco de treino)', INIMIGOS.length === 13 && !INIMIGOS.includes('trainingDummy'), `${INIMIGOS.length}`);
+// Tipos só da campanha: não entram na horda do Bastião (o palhaço vive nos Campos Cinzentos, Ato III).
+const SO_CAMPANHA = ['palhaco'];
+const INIMIGOS = Object.keys(GAME_CONFIG.enemies).filter((k) => k !== 'trainingDummy' && !SO_CAMPANHA.includes(k));
+check('são 13 inimigos de combate do Bastião (tudo menos o boneco de treino e os tipos só da campanha)', INIMIGOS.length === 13 && !INIMIGOS.includes('trainingDummy'), `${INIMIGOS.length}`);
+check(
+  'o palhaço é só da campanha: está na mistura dos Campos Cinzentos e fora da horda do Bastião',
+  ZONES.ashenFields.wave.mix.some((m) => m.kind === 'palhaco') && !JSON.stringify(BASTION_HORDE).includes('palhaco') && SO_CAMPANHA.every((k) => k in GAME_CONFIG.enemies),
+);
 check('todo inimigo de combate tem nome em pt-BR no Bastião', INIMIGOS.every((k) => !!BASTION_HORDE.names[k]));
 check('mini-chefes e MVPs existem na tabela de inimigos', [...BASTION_HORDE.minis, ...BASTION_HORDE.mvps].every((k) => k in GAME_CONFIG.enemies));
 check('cadência: mini a cada 5, MVP a cada 10, tropa comum de 60', BASTION_HORDE.miniEvery === 5 && BASTION_HORDE.mvpEvery === 10 && BASTION_HORDE.count === 60);
