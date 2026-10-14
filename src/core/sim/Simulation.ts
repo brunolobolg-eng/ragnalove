@@ -14,10 +14,14 @@ import { Rng } from './rng';
 import type { AreaEffect, CombatMoveStats, DamageSource, FrostMist, MapObject, Sanctuary, SimEvent, SimPhase, Trap, TrapKind, Unit, WaveReport } from './types';
 import { SKILL_NUM, lvOf, startingSkills, type HeroKind } from '../progression/skills';
 import { lockedSkillKeys } from '../progression/skillSlots';
-import type { CardRuntime } from '../progression/cards';
-import { cardTrigger } from './cardRules';
+import type { CardRuntime, CardStat } from '../progression/cards';
+import { applyStatDelta, cardDealMult, cardStatDelta, cardTakenMult, cardTrigger } from './cardRules';
 import { neutralMods, testRangeMult, type SimMods } from './RangeSystem';
 import { updateCombatMovement } from './CombatMovement';
+import { AURA, AURA_KINDS, type AuraKind } from '../../config/auras';
+
+/** Semente própria das auras (xor com a da onda): sorteio de portadores e de críticos, separado da horda e do combate. */
+const AURA_SEED = 0x6d2b5a1f;
 
 /** Números de cada tipo de zumbi (cai no comum se o tipo não existir). */
 export function enemyStats(kind: string) {
@@ -107,6 +111,8 @@ const MIST_MAX_PER_OWNER = 2;
 const CONTINUOUS = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'combust', 'curse', 'frost']);
 /** Fontes que não contam como golpe do herói para as cartas (dano de carta, reflexo, armadilha, torre, debug, contínuo). */
 const CARD_EXCLUDED = new Set<DamageSource>([...CONTINUOUS, 'card', 'reflect', 'trap', 'tower', 'debug']);
+/** Dano que não recebe o modDano 'causa' do herói: dano de carta (já herda o do golpe) e reflexo (volta do que sofreu). */
+const CARD_NO_MOD = new Set<DamageSource>(['card', 'reflect', 'debug']);
 
 export interface HeroLoadout {
   stats: HeroStats;
@@ -154,6 +160,10 @@ export class Simulation {
   private readonly rng: Rng; // horda (spawns) — separado para não mudar com loot/esquiva
   private readonly lootRng: Rng;
   private readonly combatRng: Rng;
+  /** Auras de monstro: quem é portador e os críticos das auras (RNG próprio; sem chance de aura, nunca sorteia). */
+  private readonly auraRng: Rng;
+  /** Monstros portadores de aura vivos (vazio = nenhuma aura nesta onda: nenhum custo nos ganchos). */
+  private readonly carriers: Unit[] = [];
   private events: SimEvent[] = [];
   private nextSpawnTick = 0;
   /** Meteoros anunciados (caem no tick marcado). */
@@ -258,6 +268,7 @@ export class Simulation {
     this.rng = new Rng(seed);
     this.lootRng = new Rng((seed ^ 0x9e3779b9) >>> 0);
     this.combatRng = new Rng((seed * 7 + 13) >>> 0);
+    this.auraRng = new Rng((seed ^ AURA_SEED) >>> 0);
     this.setup = structuredClone(setup);
     for (const m of this.setup.members) {
       const a = ARCHETYPES[m.archetype];
@@ -619,6 +630,12 @@ export class Simulation {
       this.emit({ type: 'avoid', unitId: u.id, how: 'cage' });
       return;
     }
+    // Cartas (modDano 'recebe'): o herói sofre mais ou menos dano de um grupo de inimigos
+    if (u.team === 'party' && sourceId !== undefined) {
+      const inimigo = this.units.get(sourceId);
+      const m = inimigo?.team === 'enemy' ? cardTakenMult(u, inimigo, source) : 1;
+      if (m !== 1) amount *= m;
+    }
     if (u.team === 'party' && u.stats) amount = Math.max(1, Math.round(amount * u.stats.damageTakenMult * 10) / 10);
     // Tempestade de areia: o vento desvia parte dos projéteis
     if (PROJECTILES.has(source) && this.stormActive && this.combatRng.next() < GAME_CONFIG.biome.sandstorm.deflectChance) {
@@ -674,6 +691,14 @@ export class Simulation {
         crit = true;
       }
     }
+    // Cartas (modDano 'causa'): o herói causa mais ou menos dano a cada grupo de inimigos
+    if (u.team === 'enemy' && sourceId !== undefined && !CARD_NO_MOD.has(source)) {
+      const a = this.units.get(sourceId);
+      const m = a?.team === 'party' ? cardDealMult(a, u, source) : 1;
+      if (m !== 1) amount *= m;
+    }
+    // Aura de mitigação: o monstro em alcance de um portador leva menos dano da party
+    if (u.team === 'enemy' && this.auraOn(u, 'mitigacao') && sourceId !== undefined && this.units.get(sourceId)?.team === 'party') amount *= 1 - AURA.mitigacao.reducao;
     // Dano infinito (Dev Lab): qualquer golpe da party mata
     if (this.cheats.oneHit && u.team === 'enemy' && sourceId !== undefined && this.units.get(sourceId)?.team === 'party') amount = u.hp;
     // Multiplicador de teste da Arena de Skills (neutro = 1: o jogo não muda)
@@ -741,6 +766,27 @@ export class Simulation {
     if (this.combatRng.next() < n.soulChance) {
       w.souls++;
       this.souls++;
+    }
+  }
+
+  /** Carta de atributo/derivado no começo da batalha: soma o que o equipamento daria (regra em cardRules). */
+  boostStat(u: Unit, stat: CardStat, value: number): void {
+    if (!u.stats || u.team !== 'party') return;
+    const manaAntes = u.stats.mana;
+    const d = cardStatDelta(u.kind, u.stats, stat, value);
+    u.stats = applyStatDelta(u.stats, d);
+    const dVida = d.nums.maxHp ?? 0;
+    if (dVida !== 0) {
+      u.maxHp += dVida;
+      u.hp = Math.max(1, Math.min(u.maxHp, u.hp + dVida));
+    }
+    // Mana nova (carta) abre slots de habilidade: sai da trava só o que a ordem automática libera com a Mana nova
+    // (a escolha manual do jogador não chega à batalha; a trava de início já veio dela).
+    if (u.locked && u.stats.mana !== manaAntes) {
+      const classe = u.kind as HeroKind;
+      const habilidades = { ...startingSkills(classe), ...u.stats.skills };
+      const abertas = lockedSkillKeys(classe, habilidades, manaAntes).filter((k) => !lockedSkillKeys(classe, habilidades, u.stats!.mana).includes(k));
+      u.locked = u.locked.filter((k) => !abertas.includes(k));
     }
   }
 
@@ -1258,10 +1304,11 @@ export class Simulation {
    * Spawna um inimigo num tile exato (Arena de Skills: posicionar bonecos). Não conta
    * na onda nem em contadores — só cria a unidade. `hp` sobrescreve a vida (boneco configurável).
    */
-  spawnEnemyAt(kind: string, x: number, y: number, hp?: number): Unit | undefined {
+  spawnEnemyAt(kind: string, x: number, y: number, hp?: number, aura?: AuraKind): Unit | undefined {
     if (!this.board.isWalkable(x, y) || this.unitAt(x, y)) return undefined;
     const u = this.createEnemy(kind, x, y, 0);
     if (hp !== undefined && hp > 0) u.maxHp = u.hp = Math.round(hp);
+    if (aura) this.giveAura(u, aura);
     return u;
   }
 
@@ -1429,6 +1476,7 @@ export class Simulation {
     this.applyBurn();
     this.tickDots();
     this.tickFrostMists();
+    this.tickMonsterAuras();
     this.landMeteors();
     this.updateEnemies();
     this.cleanupDead();
@@ -1556,7 +1604,8 @@ export class Simulation {
     if (this.overDensity()) return; // teto de vivos: recua em vez de empilhar
     const at = this.packSpawnTile();
     if (!at) return; // portais lotados: tenta de novo no próximo tick
-    this.createEnemy(this.rollKind(), at.t.x, at.t.y, at.i);
+    const comum = this.createEnemy(this.rollKind(), at.t.x, at.t.y, at.i);
+    this.rollAura(comum);
     this.spawned++;
     this.nextSpawnTick = this.tick + (this.spawned >= w.count ? w.bossDelayTicks : this.packDelay(w.spawnIntervalTicks));
   }
@@ -1652,6 +1701,63 @@ export class Simulation {
     u.nextActTick = this.tick + g.moveTicks;
     this.emit({ type: 'spawn', unitId: u.id });
     return u;
+  }
+
+  /**
+   * Sorteia se o monstro comum nasce portador de aura (chance da onda; RNG próprio). Sem chance
+   * (campanha sem o gate, sobrevivência, testes) não sorteia nada: a batalha segue igual.
+   */
+  private rollAura(u: Unit): void {
+    const p = GAME_CONFIG.wave.auraChance;
+    if (!(p > 0) || GAME_CONFIG.wave.endless || GAME_CONFIG.bossKinds.includes(u.kind)) return;
+    if (this.auraRng.next() >= p) return;
+    this.giveAura(u, AURA_KINDS[this.auraRng.int(AURA_KINDS.length)]);
+  }
+
+  /** Torna `u` portador de `kind` (entra na lista dos portadores). */
+  private giveAura(u: Unit, kind: AuraKind): void {
+    u.aura = kind;
+    this.carriers.push(u);
+  }
+
+  /** Portadores de aura vivos (só leitura: o render mostra; a regra fica aqui). */
+  auraCarriers(): readonly Unit[] {
+    return this.carriers;
+  }
+
+  /** A aura `kind` alcança `u`? Monstro a até `AURA.raio` de um portador vivo (nunca ele mesmo). Cada aura vale uma vez. */
+  private auraOn(u: Unit, kind: AuraKind): boolean {
+    if (!this.carriers.length || u.team !== 'enemy') return false;
+    for (const c of this.carriers) if (c !== u && c.aura === kind && c.alive && chebyshev(c, u) <= AURA.raio) return true;
+    return false;
+  }
+
+  /**
+   * Auras que agem por tempo: regeneração (monstros em alcance, `porSegundo` da vida máxima por segundo)
+   * e queimação (cada herói em alcance leva um pulso do portador mais próximo a cada `pulsoSeg` segundos).
+   */
+  private tickMonsterAuras(): void {
+    if (!this.carriers.length) return;
+    const tps = GAME_CONFIG.sim.tickRate;
+    if (this.tick % tps === 0) {
+      for (const e of this.sortedUnits('enemy')) if (this.auraOn(e, 'regeneracao')) this.heal(e, e.maxHp * AURA.regeneracao.porSegundo);
+    }
+    if (this.tick % Math.round(tps * AURA.queimacao.pulsoSeg) !== 0) return;
+    for (const h of this.sortedUnits('party')) {
+      let portador: Unit | undefined;
+      let perto = Infinity;
+      for (const c of this.carriers) {
+        if (c.aura !== 'queimacao' || !c.alive) continue;
+        const d = chebyshev(c, h);
+        if (d <= AURA.raio && d < perto) {
+          portador = c;
+          perto = d;
+        }
+      }
+      if (!portador) continue;
+      const pulso = AURA.queimacao.fracaoDoDano * enemyStats(portador.kind).damage * GAME_CONFIG.wave.dmgMult * (portador.dmgScale ?? 1);
+      this.damage(h, pulso, 'burn', portador.id);
+    }
   }
 
   private applyBurn(): void {
@@ -1943,7 +2049,11 @@ export class Simulation {
 
   private enemyAttack(u: Unit, target: Unit, g: ReturnType<typeof enemyStats>): void {
     u.facing = { x: Math.sign(target.x - u.x), y: Math.sign(target.y - u.y) };
-    this.damage(target, g.damage * GAME_CONFIG.wave.dmgMult * (u.dmgScale ?? 1), 'melee', u.id);
+    let dano = g.damage * GAME_CONFIG.wave.dmgMult * (u.dmgScale ?? 1);
+    // Aura de crítico (em alcance de um portador): chance extra e dano crítico; sorteio só quando a aura age
+    const critico = this.auraOn(u, 'critico') && this.auraRng.next() < AURA.critico.chanceExtra;
+    if (critico) dano *= AURA.critico.dano;
+    this.damage(target, dano, 'melee', u.id, critico || undefined);
     this.emit({ type: 'melee', unitId: u.id, targetId: target.id });
     u.nextActTick = this.tick + this.enemyInterval(u, g.attackTicks);
   }
@@ -1962,7 +2072,9 @@ export class Simulation {
     const slowed = (u.slowUntil ?? 0) > this.tick ? (u.slowMult ?? 1) : 1;
     // Frio: cada passo custa `moveMult` vezes mais
     const chilled = (u.chilledUntil ?? 0) > this.tick ? GAME_CONFIG.archetypes.warlock.chill.moveMult : 1;
-    u.moveTicks = Math.max(1, Math.round(base * this.board.slowAt(u.x, u.y) * slowed * chilled));
+    // Aura de velocidade (em alcance de um portador): o passo custa `passo` vezes o tempo
+    const veloz = this.auraOn(u, 'velocidade') ? AURA.velocidade.passo : 1;
+    u.moveTicks = Math.max(1, Math.round(base * this.board.slowAt(u.x, u.y) * slowed * chilled * veloz));
     u.nextActTick = this.tick + u.moveTicks;
     this.emit({ type: 'move', unitId: u.id });
     if (this.traps.length) this.triggerTrap(u);
@@ -2042,6 +2154,8 @@ export class Simulation {
   private cleanupDead(): void {
     // O render guarda seu próprio cadáver; a simulação descarta mortos.
     for (const [id, u] of this.units) if (!u.alive) this.units.delete(id);
+    // portador morto perde a aura (sai da lista)
+    for (let i = this.carriers.length - 1; i >= 0; i--) if (!this.carriers[i].alive) this.carriers.splice(i, 1);
   }
 
   private checkEnd(): void {

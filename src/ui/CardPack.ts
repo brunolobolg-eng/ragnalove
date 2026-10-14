@@ -1,13 +1,23 @@
 /**
  * Pacote de fim de run (só vitória). Abertura no estilo Hearthstone: o pacote fica selado; o jogador arrasta
  * (ou toca) o topo para rasgar; as cartas saem viradas para baixo e são reveladas uma a uma (ou todas de uma
- * vez). Cada raridade tem a sua reação: Normal = brilho e moeda; Mini-Boss = aura roxa e faíscas; MVP = clarão,
- * raios, faíscas douradas e a faixa "VOCÊ ENCONTROU ...". As cartas já entraram na coleção ao conceder (main.ts):
- * aqui é só a revelação (e a dica do efeito ao passar o mouse numa carta virada). A apresentação não decide nada: a lista de cartas vem pronta.
+ * vez). Toda carta revela do mesmo jeito (moeda e brilho); a faixa mostra o nome (nível 1) e a categoria.
+ * As cartas já entraram na coleção ao conceder (main.ts): aqui é só a revelação (e a dica do efeito ao passar o
+ * mouse numa carta virada). A apresentação não decide nada: a lista de cartas vem pronta.
  */
-import { CARD_BY_ID, CARD_TIER_NAMES, revealOrder, type CardRarity } from '../core/progression/cards';
+import { CARD_BY_ID, cardLevelLabel } from '../core/progression/cards';
 import type { SfxName } from '../audio/AudioEngine';
-import { RARITY_COLOR, RARITY_LABEL, cardBackHtml, cardBaseText, cardFaceHtml, cardVocationText } from './CardFace';
+import {
+  CARD_GOLD,
+  NIVEL_MAX_TAG,
+  cardBackHtml,
+  cardBonusText,
+  cardFaceHtml,
+  cardUnlockText,
+  categoriaTexto,
+  escTxt,
+  origemTexto,
+} from './CardFace';
 import { CardPackFx } from './CardPackFx';
 
 type Sfx = (name: SfxName) => void;
@@ -51,23 +61,21 @@ export class CardPack {
 
   show(ids: string[], onClose: () => void): void {
     this.onClose = onClose;
-    this.ids = revealOrder(ids).filter((id) => CARD_BY_ID[id]);
+    this.ids = ids.filter((id) => CARD_BY_ID[id]);
     this.flipped = this.ids.map(() => false);
     this.stage = 'sealed';
     this.clearTimers();
     const cards = this.ids
-      .map((id, i) => {
-        const d = CARD_BY_ID[id];
-        return `<button class="cf-wrap" data-i="${i}" style="--d:${i * 110}ms" aria-label="Carta ${i + 1} virada para baixo. Toque para revelar">
-          <span class="cf ${d.rarity}" style="--rc:${RARITY_COLOR[d.rarity]}">
+      .map(
+        (id, i) => `<button class="cf-wrap" data-i="${i}" style="--d:${i * 110}ms" aria-label="Carta ${i + 1} virada para baixo. Toque para revelar">
+          <span class="cf">
             <span class="cf-inner"><span class="cf-face cf-back">${cardBackHtml()}</span><span class="cf-face cf-front">${cardFaceHtml(id)}</span></span>
-          </span></button>`;
-      })
+          </span></button>`,
+      )
       .join('');
     this.el.innerHTML = `
       <canvas class="pk-fx" aria-hidden="true"></canvas>
       <div class="pk-glow" aria-hidden="true"></div>
-      <div class="pk-flash" aria-hidden="true"></div>
       <header class="pk-head">
         <p class="pk-kicker">Vitória!</p>
         <h2>Pacote de cartas</h2>
@@ -78,8 +86,6 @@ export class CardPack {
           <span class="pk-body"><img class="pk-emb" src="emblem.png" alt="" draggable="false"><b>PACOTE</b><small>${this.ids.length} cartas</small></span>
         </button>
         <div class="pk-row" hidden>${cards}</div>
-        <div class="pk-rays" hidden></div>
-        <div class="pk-banner" hidden></div>
         <div class="pk-tip" hidden></div>
       </div>
       <p class="pk-hint">Arraste o topo do pacote para rasgar</p>
@@ -202,32 +208,16 @@ export class CardPack {
   private reveal(i: number): void {
     if (this.stage !== 'revealing' || this.flipped[i]) return;
     this.flipped[i] = true;
-    const id = this.ids[i];
-    const rarity: CardRarity = CARD_BY_ID[id].rarity;
+    const d = CARD_BY_ID[this.ids[i]];
     const wrap = this.el.querySelector<HTMLElement>(`.cf-wrap[data-i="${i}"]`);
     const card = wrap?.querySelector<HTMLElement>('.cf');
     wrap?.classList.add('flipped');
-    wrap?.setAttribute('aria-label', `${CARD_BY_ID[id].name}, ${RARITY_LABEL[rarity]}`);
+    wrap?.setAttribute('aria-label', `${cardLevelLabel(d, 1)}, ${categoriaTexto(d)}`);
+    // mesma reação para toda carta (sem raridade): moeda e brilho
+    this.sfx('coin');
+    card?.classList.add('glint');
     const c = this.centerOf(card);
-    if (rarity === 'normal') {
-      this.sfx('coin');
-      card?.classList.add('glint');
-      this.fx?.burst(c.x, c.y, '#fff3c4', 14, 170);
-    } else if (rarity === 'miniboss') {
-      this.sfx('drop');
-      card?.classList.add('aura');
-      this.fx?.burst(c.x, c.y, RARITY_COLOR.miniboss, 40, 260);
-      this.shake(false);
-    } else {
-      this.sfx('jackpot');
-      card?.classList.add('aura', 'gold');
-      this.fx?.burst(c.x, c.y, '#ffd700', 90, 380);
-      this.fx?.burst(c.x, c.y, '#fff4c0', 40, 240);
-      this.flash();
-      this.shake(true);
-      this.rays(true);
-      this.banner(CARD_BY_ID[id].name);
-    }
+    this.fx?.burst(c.x, c.y, '#fff3c4', 14, 170);
     if (this.hoverI === i) this.showTip(i); // o mouse já estava sobre a carta: mostra a dica agora
     if (this.flipped.every(Boolean)) this.finish();
   }
@@ -237,43 +227,12 @@ export class CardPack {
     this.el.querySelector<HTMLElement>('.pk-reveal-all')!.hidden = true;
     this.el.querySelector<HTMLElement>('.pk-hint')!.textContent = this.summary();
     this.el.querySelector<HTMLButtonElement>('.pk-save')!.disabled = false;
-    this.el.querySelector<HTMLElement>('.pk-glow')!.style.setProperty('--glow', RARITY_COLOR[this.bestRarity()]);
-    this.el.querySelector<HTMLElement>('.pk-glow')!.classList.add('on');
+    const glow = this.el.querySelector<HTMLElement>('.pk-glow')!;
+    glow.style.setProperty('--glow', CARD_GOLD);
+    glow.classList.add('on');
   }
 
   // ---------- Efeitos ----------
-
-  private shake(big: boolean): void {
-    if (reduced()) return;
-    const stage = this.el.querySelector<HTMLElement>('.pk-stage');
-    if (!stage) return;
-    stage.classList.remove('shake', 'shake-big');
-    void stage.offsetWidth;
-    stage.classList.add(big ? 'shake-big' : 'shake');
-  }
-
-  private flash(): void {
-    const f = this.el.querySelector<HTMLElement>('.pk-flash');
-    if (!f || reduced()) return;
-    f.classList.remove('go');
-    void f.offsetWidth;
-    f.classList.add('go');
-  }
-
-  private rays(on: boolean): void {
-    const r = this.el.querySelector<HTMLElement>('.pk-rays');
-    if (r) r.hidden = !on;
-  }
-
-  private banner(name: string): void {
-    const b = this.el.querySelector<HTMLElement>('.pk-banner');
-    if (!b) return;
-    b.textContent = `VOCÊ ENCONTROU ${name}!`;
-    b.hidden = false;
-    b.classList.remove('in');
-    void b.offsetWidth;
-    b.classList.add('in');
-  }
 
   /** Inclinação holográfica da carta virada, seguindo o ponteiro (só desktop). */
   private tilt(e: PointerEvent): void {
@@ -332,9 +291,8 @@ export class CardPack {
     const wrap = this.el.querySelector<HTMLElement>(`.cf-wrap[data-i="${i}"]`);
     const stage = this.el.querySelector<HTMLElement>('.pk-stage');
     if (!tip || !stage || !wrap?.classList.contains('flipped')) return;
-    const id = this.ids[i];
-    tip.style.setProperty('--rc', RARITY_COLOR[CARD_BY_ID[id].rarity]);
-    tip.innerHTML = tipHtml(id);
+    tip.style.setProperty('--rc', CARD_GOLD);
+    tip.innerHTML = tipHtml(this.ids[i]);
     tip.hidden = false;
     const r = wrap.getBoundingClientRect();
     const s = stage.getBoundingClientRect();
@@ -362,20 +320,9 @@ export class CardPack {
     return { x: r.left + r.width / 2 - veil.left, y: r.top + r.height / 2 - veil.top };
   }
 
-  private bestRarity(): CardRarity {
-    const order: CardRarity[] = ['mvp', 'miniboss', 'normal'];
-    return order.find((r) => this.ids.some((id) => CARD_BY_ID[id].rarity === r)) ?? 'normal';
-  }
-
   private summary(): string {
-    const n = { normal: 0, miniboss: 0, mvp: 0 };
-    for (const id of this.ids) n[CARD_BY_ID[id].rarity]++;
-    const parts = [
-      n.normal ? `${n.normal} ${n.normal > 1 ? 'Normais' : 'Normal'}` : '',
-      n.miniboss ? `${n.miniboss} Mini-Boss` : '',
-      n.mvp ? `${n.mvp} MVP` : '',
-    ].filter(Boolean);
-    return `Você revelou ${parts.join(' · ')}`;
+    const n = this.ids.length;
+    return `Você revelou ${n} ${n === 1 ? 'carta' : 'cartas'}`;
   }
 
   private later(ms: number, fn: () => void): void {
@@ -392,10 +339,10 @@ function reduced(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 }
 
-/** Dica da carta: nome e raridade, o efeito (atributo e valor), as classes com bônus cheio e quando ele entra. */
+/** Dica da carta: nome (nível 1), categoria e onde vai, o bônus no nível 1 e o desbloqueio do nível 5. */
 function tipHtml(id: string): string {
   const d = CARD_BY_ID[id];
-  return `<b class="pt-name">${d.name}</b><em>${CARD_TIER_NAMES[d.tier]} · ${RARITY_LABEL[d.rarity]}</em>
-    <p class="pt-eff">${cardBaseText(id)}</p>
-    <p>${cardVocationText(id)}</p>`;
+  return `<b class="pt-name">${escTxt(cardLevelLabel(d, 1))}</b><em>${categoriaTexto(d)} · ${escTxt(origemTexto(d))}</em>
+    <p class="pt-eff">${cardBonusText(id, 1)}</p>
+    <p>${NIVEL_MAX_TAG} ${cardUnlockText(id)}</p>`;
 }

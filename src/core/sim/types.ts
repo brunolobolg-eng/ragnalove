@@ -4,6 +4,7 @@ import type { MapObjectType } from '../../config/zones';
 import type { HeroStats } from '../progression/attributes';
 import type { Item } from '../progression/equipment';
 import type { CardRuntime } from '../progression/cards';
+import type { AuraKind } from '../../config/auras';
 
 export type Team = 'party' | 'enemy';
 
@@ -48,6 +49,8 @@ export interface Unit {
   dmgScale?: number;
   /** Só inimigos: comportamento de aggro (ENEMY_CONFIG.aggroType). */
   aggro?: AggroType;
+  /** Só monstros comuns: portador de aura (config/auras.ts). Quem a tem não recebe o próprio efeito; morto, perde a aura. */
+  aura?: AuraKind;
   /** Provocado: persegue esta unidade até `tauntUntil` (ignorando a cidade). */
   tauntedBy?: number;
   tauntUntil?: number;

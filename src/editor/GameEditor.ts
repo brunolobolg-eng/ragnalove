@@ -23,6 +23,7 @@ const TABS: { id: TabId; label: string; prefixes: string[] }[] = [
 const KIND_LABEL: Record<string, string> = {
   grunt: 'Comum',
   runner: 'Rápido',
+  palhaco: 'Palhaço',
   brute: 'Pesado',
   raydric: 'Raydric (pesado)',
   necro: 'Necromante',

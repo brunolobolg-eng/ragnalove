@@ -143,6 +143,14 @@ const FAST: WaveMix[] = [
   { kind: 'brute', weight: 12 },
   { kind: 'necro', weight: 6 },
 ];
+/** Campos Cinzentos (Ato III): FAST com o palhaço (novo) no lugar de parte dos corredores e comuns (soma 100). */
+const CAMPOS_CINZENTOS: WaveMix[] = [
+  { kind: 'grunt', weight: 36 },
+  { kind: 'runner', weight: 34 },
+  { kind: 'brute', weight: 12 },
+  { kind: 'necro', weight: 6 },
+  { kind: 'palhaco', weight: 12 },
+];
 const HEAVY: WaveMix[] = [
   { kind: 'grunt', weight: 46 },
   { kind: 'runner', weight: 20 },
@@ -853,7 +861,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(4101, FAST, 600, 6),
+    wave: wave(4101, CAMPOS_CINZENTOS, 600, 6),
   },
   rustGorge: {
     id: 'rustGorge',

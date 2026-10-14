@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BASTION_ZONE_ID, PROJECTS, PROJECT_IDS, STRUCTURES, type StructureKind } from '../config/bastion';
 import { GAME_CONFIG, type WaveOptions } from '../config/gameConfig';
+import { AURA } from '../config/auras';
 import { HERO_NAME, HERO_ORDER } from '../config/heroes';
 import { ZONES, parseZone } from '../config/zones';
 import { findStructure, migrateBastion, newBastion, structureMaxHp, structureStatus, type BastionState, type Structure } from '../core/bastion/bastion';
@@ -444,9 +445,11 @@ export class BastionSession {
 
   /** Carrega o mapa do planejamento com a semente e a horda da próxima noite (a tropa comum e o chefe dela). */
   private loadWave(b: BastionState): void {
-    const h = hordeOf(b.nights + 1);
+    const noite = b.nights + 1;
+    const h = hordeOf(noite);
     // noite comum não tem chefe: null desliga o chefe da zona (undefined colocaria o chefe dela em toda noite)
-    this.d.loadMap(waveSeed(b), { count: h.count, mix: h.mix, boss: h.boss ?? null });
+    // auras de monstro só a partir de AURA.minNoiteBastiao (a noite da horda é nights + 1)
+    this.d.loadMap(waveSeed(b), { count: h.count, mix: h.mix, boss: h.boss ?? null, auraChance: noite >= AURA.minNoiteBastiao ? AURA.chanceBastion : 0 });
   }
 
   /** Depois do relatório: planejamento da próxima noite e menu do modo. */

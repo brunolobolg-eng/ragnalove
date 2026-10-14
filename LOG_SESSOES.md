@@ -875,6 +875,43 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   1. Confirmar se a ponte deve continuar noturna ou ir para um tom de dia/entardecer.
   2. Dizer se a barreira com a pedra clara fica boa no PC (`BAIXAR_DO_GITHUB.bat`, depois `ATUALIZAR_JOGO.bat`).
   3. Dizer se a próxima etapa deve trocar os chãos de planície e floresta pelas texturas do pacote.
+## 2026-10-12 — cartas com tier por fusão (escada 5-2-2-2), bônus por nível e habilidade no nível 5 (v0.11, em andamento)
+- **Pedido do dono:** raridade passa a ser tier da carta. Cinco cópias viram a carta "+" (Fabre → Fabre+). No nível 5 a carta libera uma habilidade própria. Bônus refeitos com base na tabela dele (Carta / Onde vai / Efeito), adaptando o que não existe no jogo.
+- **Decisões do dono:** "Onde vai" é só categoria do bônus (as cartas continuam nos slots do herói). Escada de fusão 5-2-2-2: 5 cópias do nível 1 viram nível 2; depois 2 cópias por nível (nível 5 = 40 cópias base).
+- **Como ficou:**
+  - Catálogo: 102 cartas (`normaisA.ts`, `normaisB.ts`, `especiais.ts`). Cada carta tem categoria (ofensiva, defensiva, sustentação, utilidade, mobilidade), bônus do nível 1 escalado por nível (1 · 1,25 · 1,5 · 1,75 · 2) e habilidade do nível 5 (sem escala).
+  - Fusão por carta e nível (`fuseCard`); equipar guarda carta e nível; cópia equipada não conta como livre.
+  - Pacote: 5 cartas sorteadas de forma uniforme do catálogo (raridade saiu).
+  - Motor: novos efeitos `stat` (atributo ou derivado no começo da batalha), `modDano` (dano causado ou recebido por grupo de inimigo e fonte) e `respingo` (dano em área no acerto). Piso de 25% no multiplicador de `modDano`, para várias cópias não zerarem nem inverterem o dano.
+  - Save: coleção migrada (posse numérica vira nível 1; equipadas em texto viram {id, nível 1}); 10 ids `_2` antigos viram a carta base (`CARD_ID_ALIAS`).
+  - Interface: álbum com sufixo de nível, categoria, cópias por nível e botão "Fundir 5 → +"; pacote sem selos de raridade.
+- **Testes:** `tsc`, `build`, `cardCheck` (63 ok), `cardRuleCheck` (29 ok, inclui o piso), `bastion:check`, `bastion:path`, `vocation:check` passam. `sim:check`: a diferença do bastionKeep é a do mapa de rochas (commit b47efdc), não das cartas. Navegador: álbum e pacote sem erro de console.
+- **Decisões para confirmar:**
+  1. Pacote: 5 cartas uniformes do catálogo (as antigas chances de mini-chefe e MVP saíram). Quer raridade de volta em algum lugar?
+  2. Habilidade do nível 5 não escala (os números já são os finais).
+  3. Aproximações de família: o motor não tem família por monstro. Inseto → comuns; humanoide → chefes e minis goblin/orc; animal → chefe rato e dino; demônio → chefe orc; morto-vivo e fantasma → necromante. A aproximação de inseto (BIGFOOT, CARAMEL) é a de maior impacto no balanço.
+  4. Estados que o jogo não tem (sono, cegueira, atordoar, caos, petrificar, ressurreição, imunidades) viraram efeitos reais parecidos. Ex.: OSIRIS virou cura de 20% uma vez por batalha.
+  5. Atributos: AGI = Destreza e ASPD = Skill Haste (o jogo não tem esses nomes).
+  6. Classificação Fiel/Adaptado/Novo: só 4 cartas são fiéis à tabela, 27 adaptadas, 71 com efeito novo.
+- **Não verificado:** combate real com cartas no navegador (respingo, modDano, gatilhos na tela); carregar um save real do HEAD pela interface (a migração foi testada só no cardCheck); largura de celular e executável.
+- **Commit:** (ver o commit desta entrada).
+
+## 2026-10-13 — auras de monstro: núcleo, visual e revisão (v0.11, em andamento)
+- **Pedido do dono:** cinco auras para monstros (velocidade, crítico, mitigação de dano, regeneração de vida e queimação constante, que atinge heróis próximos). Sorteadas no Bastião a partir da noite 20 e na campanha depois de liberar o terceiro herói jogando (Feiticeira, Bruxa e Assassino).
+- **Decisões do dono:** queimação atinge heróis perto do monstro; terceiro campeão = os três heróis que se liberam jogando todos liberados.
+- **Como ficou:**
+  - Sorteio determinístico com semente própria. Chance 12% por comum no Bastião (noite ≥ 20) e 8% na campanha. Sem auras, nenhum número a mais é sorteado (campanha idêntica).
+  - Efeitos (números em `src/config/auras.ts`): velocidade ×0,75 no passo; crítico +20% de chance e ×1,5; mitigação −25% do dano da party; regeneração 2% da vida máxima por segundo; queimação 1 pulso por segundo, metade do dano do portador, no máximo um por segundo por herói.
+  - Raio 2. Cada aura age uma vez por unidade. Chefes, elites e sobrevivência ficam sem aura.
+  - Visual: anel no chão e faixa na cor do tipo para os 12 portadores mais próximos; brasas na queimação. Um material por tipo.
+- **Correções da revisão:** recursos do kit de auras ficam marcados como compartilhados e o `UnitView.dispose` não os descarta mais; crítico de monstro sobre herói mostra "CRÍTICO INIMIGO!" em vermelho; a faixa deixou de alocar um vetor por quadro.
+- **Testes:** `tsc`, `build`, `aura:check` (34 ok), `sim:check` idêntico, `bastion:check`, `bastion:path`, `vocation:check`, `cardCheck`, `cardRuleCheck`. Navegador (SwiftShader): cinco portadores com cinco materiais, teto de 12 faixas visíveis, morte remove anel e faixa, sem erro de console.
+- **Decisões para confirmar:**
+  1. Chefes e elites recebem o efeito das auras próximas, mesmo sem portar aura (regeneração inclusive). Intencional?
+  2. Crítico vale só para golpe corpo a corpo; conjurações inimigas não criticam.
+  3. Mitigação só reduz dano da party; torre do Bastião não é mitigada.
+  4. Cores de mitigação e velocidade têm pouco contraste sobre monstros claros.
+- **Não verificado:** FPS na GPU real; balanceamento em partida real; checagem visual depois dos três ajustes de código desta rodada (a mudança é pequena e as checagens passaram).
 
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.

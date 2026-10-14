@@ -1,3 +1,5 @@
+import type { AuraKind } from './auras';
+
 /** Constantes puramente visuais (não afetam a simulação). */
 export const VISUAL_CONFIG = {
   background: 0x000000, // vazio preto além do mapa (referências: sem céu)
@@ -373,6 +375,49 @@ const RAYDRIC_THEME_COLORS: Record<string, string[]> = {
   town: ['grama'],
   ash: ['sombra'], // cinzas (ashPeak)
 };
+/**
+ * Palhaço (malha de 0,98 unidades, pés em 0): juntas medidas no corte da malha. Pernas curtas (virilha em 15% da altura),
+ * cintura em 20%, peito em 46%, cabeça em 70%, braços pendidos ao longo do tronco.
+ */
+const PALHACO_JOINTS: RigJointsVisual = {
+  root: [0, 0, 0],
+  hips: [0, 0.24, 0],
+  spine: [0, 0.32, 0],
+  chest: [0, 0.45, 0],
+  neck: [0, 0.548, 0],
+  head: [0, 0.685, 0],
+  shoulder: [0.12, 0.49, 0],
+  upperArm: [0.2, 0.44, 0],
+  foreArm: [0.22, 0.3, 0],
+  hand: [0.22, 0.2, 0],
+  thigh: [0.08, 0.25, 0],
+  shin: [0.08, 0.12, 0],
+  foot: [0.08, 0.03, 0.04],
+  armX: 0.22,
+  crotchY: 0.147,
+  armMinY: 0.2,
+  armMaxY: 0.55,
+};
+/** Boneco de treino (espantalho de manto, sem pernas visíveis): juntas aproximadas, só para a pele não rasgar no golpe. */
+const DUMMY_JOINTS: RigJointsVisual = {
+  root: [0, 0, 0],
+  hips: [0, 0.24, 0],
+  spine: [0, 0.38, 0],
+  chest: [0, 0.55, 0],
+  neck: [0, 0.72, 0],
+  head: [0, 0.84, 0],
+  shoulder: [0.12, 0.62, 0],
+  upperArm: [0.16, 0.56, 0],
+  foreArm: [0.16, 0.42, 0],
+  hand: [0.15, 0.3, 0],
+  thigh: [0.06, 0.12, 0],
+  shin: [0.06, 0.06, 0],
+  foot: [0.07, 0.01, 0.03],
+  armX: 0.16,
+  crotchY: 0.16,
+  armMinY: 0.3,
+  armMaxY: 0.62,
+};
 /** Machado de batalha do orc: mão direita, cabo inclinado 35° para baixo, brilho do gume avermelhado. */
 const ORC_AXE = { type: 'axe' as const, bone: 'hand.R', accent: 0xff7040, tilt: 35, scale: 1.35 };
 /** Machado do Krexx: o arquivo do goblin usa os nomes do rig Mixamo (RightHand). */
@@ -385,12 +430,13 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   ratNecro: { file: 'models/rato.glb', height: 1.5, walkRate: 1.2, aura: [0.7, 0.2, 1.6] },
   ratElite: { file: 'models/ratochefe.glb', height: 2.4, walkRate: 0.85, aura: [0.9, 0.3, 1.8] },
   ratBoss: { file: 'models/ratochefe.glb', height: 3.1, walkRate: 0.9, aura: [1.6, 0.15, 0.4] },
-  // Ato II — goblins (o chefe é o goblin grande repintado, maior e com aura dourada)
-  goblin: { file: 'models/goblin2.glb', height: 1.6, walkRate: 1.3, },
-  goblinRunner: { file: 'models/goblin2.glb', height: 1.3, walkRate: 2.4, },
-  goblinBrute: { file: 'models/goblin1.glb', height: 2.0, walkRate: 0.85, },
-  goblinNecro: { file: 'models/goblin2.glb', height: 1.65, walkRate: 1.2, aura: [0.7, 0.2, 1.6] },
-  goblinElite: { file: 'models/goblin1.glb', height: 2.5, walkRate: 0.85, aura: [0.9, 0.3, 1.8] },
+  // Ato II — goblins: um modelo só (goblin.glb, com textura e esqueleto Mixamo de 21 ossos) para todos os tipos comuns.
+  // Os tipos mudam tamanho, velocidade e aura, não o modelo. Clipes do cultista + pose de descanso = bind do arquivo.
+  goblin: { file: 'models/goblin.glb', height: 1.6, walkRate: 1.3, clips: 'cultist', bind: 'ibm' },
+  goblinRunner: { file: 'models/goblin.glb', height: 1.3, walkRate: 2.4, clips: 'cultist', bind: 'ibm' },
+  goblinBrute: { file: 'models/goblin.glb', height: 2.0, walkRate: 0.85, clips: 'cultist', bind: 'ibm' },
+  goblinNecro: { file: 'models/goblin.glb', height: 1.65, walkRate: 1.2, clips: 'cultist', bind: 'ibm', aura: [0.7, 0.2, 1.6] },
+  goblinElite: { file: 'models/goblin.glb', height: 2.5, walkRate: 0.85, clips: 'cultist', bind: 'ibm', aura: [0.9, 0.3, 1.8] },
   goblinBoss: { file: 'models/goblinboss.glb', height: 3.4, walkRate: 0.9, aura: [2.0, 1.4, 0.3] },
   // Ato III — zumbi chibi (V2Fun no esqueleto padrão), animações de zumbi do jogo; 5 variantes fúnebres de cor
   zombie: { file: 'models/zombie.glb', height: 1.6, walkRate: 1.3, clips: 'zombie', skins: ZOMBIE_SKINS },
@@ -418,6 +464,12 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   goblinLeader: { file: 'models/goblin_leader.glb', height: 2.8, walkRate: 0.9, clips: 'warriorRig', bind: 'ibm', aura: [1.2, 0.8, 0.2] },
   // Krexx retorcido (mini-chefe do Passo Gélido): mesmo arquivo do Krexx pequeno, pelo caminho do líder goblin (esqueleto do arquivo)
   goblinWarlord: { file: 'models/goblin_warlord.glb', height: 2.9, walkRate: 0.8, clips: 'warriorRig', bind: 'ibm', aura: [1.6, 0.15, 0.4], weapons: [KREXX_AXE] },
+  // Boneco de treino (Arena do Dev Lab, tipo 'trainingDummy'): só dev, não anda nem ataca. Malha sem esqueleto e de manto
+  // (sem pernas visíveis): auto-rig com juntas aproximadas e o conjunto do bárbaro (idle e reação ao golpe).
+  trainingDummy: { file: 'models/dummy_de_treino.glb', height: 1.8, walkRate: 1, rig: 'auto', clips: 'barbarianUAL', juntas: DUMMY_JOINTS },
+  // Palhaço (tipo 'palhaco', Ato III): malha sem esqueleto; auto-rig com juntas medidas (a detecção automática punha a
+  // virilha nos pés) e o conjunto do bárbaro (andar, golpe, dano, morte).
+  palhaco: { file: 'models/palhaco.glb', height: 1.4, walkRate: 2, rig: 'auto', clips: 'barbarianUAL', juntas: PALHACO_JOINTS },
 };
 
 /**
@@ -762,3 +814,53 @@ export const AURA_VISUAL = {
   ringAlpha: 0.5,
   ringSpin: 0.4,
 } as const;
+
+/** Como cada aura aparece na faixa do portador (o shader do pacote, AURA_FRAG). Só visual: a regra está em config/auras.ts. */
+export interface AuraMonstroTipo {
+  /** Brilho da faixa (multiplica a cor). */
+  emissao: number;
+  /** Velocidade de escorrer da faixa (x, y): quanto maior, mais "rápido" o tipo parece. */
+  rolagem: readonly [number, number];
+  /** Torção da faixa (0 = faixa reta, como placa; 1 = espiral). */
+  torcao: number;
+  /** Ondulação da borda. */
+  ondulacao: number;
+  /** Tremulação do brilho (0 = sem tremular) e a velocidade dela. */
+  pisca: number;
+  piscaVel: number;
+}
+
+const AURA_MONSTRO_TIPOS: Record<AuraKind, AuraMonstroTipo> = {
+  velocidade: { emissao: 1.5, rolagem: [0.5, 1.6], torcao: 1, ondulacao: 0.5, pisca: 0, piscaVel: 0 },
+  critico: { emissao: 1.3, rolagem: [0.25, 0.9], torcao: 1, ondulacao: 0.3, pisca: 0.25, piscaVel: 9 },
+  mitigacao: { emissao: 1.1, rolagem: [0.05, 0.15], torcao: 0.3, ondulacao: 0.1, pisca: 0, piscaVel: 0 },
+  regeneracao: { emissao: 1.1, rolagem: [0.1, 0.6], torcao: 1, ondulacao: 0.2, pisca: 0, piscaVel: 0 },
+  queimacao: { emissao: 1.4, rolagem: [0.1, 1.2], torcao: 1, ondulacao: 0.4, pisca: 0.15, piscaVel: 13 },
+};
+
+/**
+ * Auras dos monstros portadores: anel no chão, faixa colorida (por tipo) e brasas da queimação, que caem
+ * nos heróis em alcance. Só visual; a cor de cada tipo está em config/auras.ts (AURA_VISUAL).
+ */
+export const AURA_MONSTRO_VISUAL = {
+  /** Anel no chão do portador: diâmetro (tiles), opacidade base, giro (rad/s) e altura acima do chão (m). */
+  anelLargura: 1.5,
+  anelAlfa: 0.6,
+  anelGiro: 0.5,
+  anelAltura: 0.03,
+  /** Pulso do anel: variação da opacidade (fração) e velocidade (rad/s). */
+  anelPulso: 0.2,
+  anelPulsoVel: 2.4,
+  /** Faixa cilíndrica: raio e altura (m), e o tempo (s) que ela leva para crescer quando o portador nasce. */
+  faixaRaio: 0.55,
+  faixaAltura: 1.8,
+  faixaEntrada: 0.4,
+  /** Faixas desenhadas: só as mais perto da câmera. Os demais portadores ficam só com o anel. */
+  faixasMax: 12,
+  /** Brasas por segundo de cada portador de queimação (sorteadas entre os heróis em alcance) e a vida de cada uma (s). */
+  brasasPorSeg: 3,
+  brasaVida: 0.7,
+  /** Realce das cores da brasa (acima de 1 o bloom pega). */
+  brasaBrilho: 1.4,
+  tipos: AURA_MONSTRO_TIPOS,
+};

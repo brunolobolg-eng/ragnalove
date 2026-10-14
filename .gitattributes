@@ -1,2 +1,6 @@
 # Scripts do Windows sempre com quebra de linha CRLF
 *.bat text eol=crlf
+
+# Logs de sessão e changelog: só acrescentam linhas. Em conflito, o Git junta as duas versões (sem marcas de conflito).
+LOG_SESSOES.md merge=union
+CHANGELOG.md merge=union

@@ -296,8 +296,10 @@ export class UnitView {
   dispose(): void {
     this.root.traverse((o) => {
       if (o instanceof THREE.Mesh) {
-        o.geometry.dispose();
-        (o.material as THREE.Material).dispose();
+        // recursos compartilhados (kit das auras) ficam: quem os criou os descarta
+        if (!o.geometry.userData.compartilhado) o.geometry.dispose();
+        const mat = o.material as THREE.Material;
+        if (!mat.userData.compartilhado) mat.dispose();
       }
     });
     this.root.removeFromParent();
