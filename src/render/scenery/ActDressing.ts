@@ -7,11 +7,12 @@ import { tileToWorld } from '../coords';
 import { instanceProps } from './props';
 
 /**
- * Cenário dos monstros do ato, em volta de cada portal de spawn (só visual). Todas as peças são arte do dono
- * (GLB com textura em public/models/props, kit em `ACT_DRESSING.atos` no visualConfig.ts):
- *   Ato I  — toca de ratos: toco, montes de pedra, cama de palha, caixas e barricas rasgadas.
- *   Ato II — acampamento goblin: totens de madeira, cercas de estacas, fogueira apagada, baldes e tábuas.
- *   Ato III — acampamento orc: estandartes, barricadas, fogueiras queimadas e tábuas.
+ * Cenário dos monstros do ato, em volta de cada portal de spawn (só visual). Todas as peças são GLB com textura
+ * (GLB com textura em public/models/props: arte do dono, e as peças `camp/` geradas por scripts/gerarPropsAcampamento.py;
+ *  kit em `ACT_DRESSING.atos` no visualConfig.ts):
+ *   Ato I  — toca de ratos: buracos de toca, montes de pedra, cama de palha, caixas e barricas rasgadas.
+ *   Ato II — acampamento goblin: totens de caveira, cercas de estacas, fogueira apagada, ossos, baldes e tábuas.
+ *   Ato III — acampamento orc: estandartes, barricadas, marcas de queimado, ossos, fogueiras queimadas e tábuas.
  * Peças baixas podem ficar no chão andável; peças altas só em tiles bloqueados (não enganam o jogador).
  */
 

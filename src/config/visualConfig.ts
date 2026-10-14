@@ -565,24 +565,27 @@ export const PATH_ARROWS = {
 };
 
 /**
- * Peças do acampamento dos monstros: arte do dono em GLB (public/models/props, com textura).
+ * Peças do acampamento dos monstros: GLB com textura (public/models/props: arte do dono e `camp/`, procedural).
  * `base` = altura da parte mais baixa do modelo (sem escala); o cenário a encosta no chão (y = 0).
  */
 const ACT_PECAS = {
-  toca: { path: 'nature/stump_old', escala: 1.9, base: -0.05 },
+  // procedurais (scripts/gerarPropsAcampamento.py): buraco, ossos, queimado, totem e estandarte não existiam na biblioteca
+  buraco: { path: 'camp/buraco_toca', escala: 0.85, base: 0 },
   montinho: { path: 'survival/rock-a', escala: 1.5, base: 0 },
   montao: { path: 'survival/rock-c', escala: 1.8, base: 0 },
   cama: { path: 'survival/bedroll', escala: 2.0, base: -0.05 },
   saco: { path: 'survival/box', escala: 2.0, base: 0 },
   sacoAberto: { path: 'survival/box-large-open', escala: 2.0, base: 0 },
   barrica: { path: 'survival/barrel-open', escala: 2.2, base: 0 },
-  fogueiraApagada: { path: 'nature/campfire_logs', escala: 2.6, base: -0.05 },
+  troncos: { path: 'survival/tree-log', escala: 1.1, base: -0.11 },
   fogueiraQueimada: { path: 'survival/campfire-pit', escala: 2.4, base: 0 },
   balde: { path: 'survival/bucket', escala: 2.2, base: 0 },
   tabuas: { path: 'survival/resource-planks', escala: 2.2, base: 0 },
-  totem: { path: 'survival/signpost', escala: 3.3, base: 0 },
+  ossos: { path: 'camp/pilha_ossos', escala: 1.6, base: 0 },
+  queimado: { path: 'camp/marca_queimado', escala: 0.95, base: 0 },
+  totem: { path: 'camp/totem_caveira', escala: 1.2, base: 0 },
   cerca: { path: 'survival/fence-fortified', escala: 2.2, base: 0 },
-  estandarte: { path: 'castle/flag-banner-long', escala: 1.0, base: 0 },
+  estandarte: { path: 'camp/estandarte_orc', escala: 1.2, base: 0 },
 } as const;
 
 export type ActPeca = keyof typeof ACT_PECAS;
@@ -600,11 +603,11 @@ export const ACT_DRESSING = {
   /** Kit de cada ato (0 = Ato I, 1 = Ato II, 2 = Ato III). `baixas` ficam no chão; `altas` só em tiles bloqueados. */
   atos: {
     // Ato I — toca de ratos
-    0: { baixas: ['toca', 'toca', 'cama', 'saco', 'montinho'], altas: ['sacoAberto', 'montao', 'barrica'] },
+    0: { baixas: ['buraco', 'buraco', 'cama', 'saco', 'montinho'], altas: ['sacoAberto', 'montao', 'barrica'] },
     // Ato II — acampamento goblin
-    1: { baixas: ['fogueiraApagada', 'balde', 'tabuas'], altas: ['totem', 'cerca', 'totem'] },
+    1: { baixas: ['troncos', 'balde', 'tabuas', 'ossos'], altas: ['totem', 'cerca', 'totem'] },
     // Ato III — acampamento orc
-    2: { baixas: ['fogueiraQueimada', 'tabuas', 'fogueiraQueimada'], altas: ['estandarte', 'cerca', 'estandarte'] },
+    2: { baixas: ['queimado', 'fogueiraQueimada', 'ossos', 'tabuas'], altas: ['estandarte', 'cerca', 'estandarte'] },
   } as Record<number, { baixas: ActPeca[]; altas: ActPeca[] }>,
 };
 
