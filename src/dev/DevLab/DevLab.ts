@@ -98,6 +98,7 @@ const ENEMY_LABEL: Record<string, string> = {
   orcboss: 'Chefe final',
   trainingDummy: 'Boneco de treino',
   palhaco: 'Palhaço',
+  detarderus: 'Detarderus',
 };
 export const enemyLabel = (k: string) => (ENEMY_LABEL[k] ? `${ENEMY_LABEL[k]} (${k})` : k);
 const label = enemyLabel;

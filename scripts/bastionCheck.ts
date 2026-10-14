@@ -607,7 +607,7 @@ check(
 
 console.log('\n# 13) Horda por noite (comum, mini-chefe e MVP)');
 // Tipos só da campanha: não entram na horda do Bastião (o palhaço vive nos Campos Cinzentos, Ato III).
-const SO_CAMPANHA = ['palhaco'];
+const SO_CAMPANHA = ['palhaco', 'detarderus'];
 const INIMIGOS = Object.keys(GAME_CONFIG.enemies).filter((k) => k !== 'trainingDummy' && !SO_CAMPANHA.includes(k));
 check('são 13 inimigos de combate do Bastião (tudo menos o boneco de treino e os tipos só da campanha)', INIMIGOS.length === 13 && !INIMIGOS.includes('trainingDummy'), `${INIMIGOS.length}`);
 check(

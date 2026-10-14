@@ -376,6 +376,31 @@ const RAYDRIC_THEME_COLORS: Record<string, string[]> = {
   ash: ['sombra'], // cinzas (ashPeak)
 };
 /**
+ * Detarderus (malha de 1,89 unidades, pés em 0, frente em +Z): esqueleto novo, com as juntas medidas no corte da malha
+ * (a detecção automática punha a virilha em 14% da altura, e ela fica em 27%). Pernas de 0 a 27%, quadril em 31%,
+ * peito em 51%, pescoço em 62%, cabeça em 72%. Os braços saem dos ombros, em torno de 61%. Cauda do lado +X: não tem osso
+ * próprio, segue o quadril.
+ */
+const DETARDERUS_JOINTS: RigJointsVisual = {
+  root: [0, 0, 0],
+  hips: [0, 0.586, 0],
+  spine: [0, 0.74, 0],
+  chest: [0, 0.97, 0],
+  neck: [0, 1.17, 0],
+  head: [0, 1.36, 0],
+  shoulder: [0.5, 1.15, 0],
+  upperArm: [0.7, 0.97, 0],
+  foreArm: [0.85, 0.72, 0],
+  hand: [0.9, 0.5, 0],
+  thigh: [0.12, 0.45, 0],
+  shin: [0.12, 0.227, 0],
+  foot: [0.12, 0.05, 0.1],
+  armX: 0.7,
+  crotchY: 0.51,
+  armMinY: 0.5,
+  armMaxY: 1.15,
+};
+/**
  * Palhaço (malha de 0,98 unidades, pés em 0): juntas medidas no corte da malha. Pernas curtas (virilha em 15% da altura),
  * cintura em 20%, peito em 46%, cabeça em 70%, braços pendidos ao longo do tronco.
  */
@@ -470,6 +495,9 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   // Palhaço (tipo 'palhaco', Ato III): malha sem esqueleto; auto-rig com juntas medidas (a detecção automática punha a
   // virilha nos pés) e o conjunto do bárbaro (andar, golpe, dano, morte).
   palhaco: { file: 'models/palhaco.glb', height: 1.4, walkRate: 2, rig: 'auto', clips: 'barbarianUAL', juntas: PALHACO_JOINTS },
+  // Detarderus (mini-chefe do Passo da Geada, Ato III, tipo 'detarderus'): modelo do dono otimizado (2,5 MB, bordas travadas
+  // na simplificação para não abrir buracos). Esqueleto do jogo (auto-rig com as juntas acima) e clipes do bárbaro.
+  detarderus: { file: 'models/detarderuspai.glb', height: 2.9, walkRate: 0.8, rig: 'auto', clips: 'barbarianUAL', juntas: DETARDERUS_JOINTS, aura: [1.2, 0.8, 0.2] },
 };
 
 /**

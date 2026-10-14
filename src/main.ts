@@ -2421,10 +2421,11 @@ if (import.meta.env.DEV) {
     // mapa do Último Bastião (só dev): grade nova em planejamento, sem horda, para conferir o cenário
     openBastionMap: () => { loadZone(ZONES[BASTION_ZONE_ID], { count: 0, boss: null, seed: 1 }); setMode('battle'); focusParty(true); },
     // qualquer zona (só dev), em planejamento e sem horda; `count` > 0 monta a horda de verdade (sim.start() para começar)
-    abrirZona: (id: string, count = 0) => {
+    // `boss` (opcional) põe o chefe da onda, como o nó de elite faz (ex.: abrirZona('detarderusLair', 1, 'detarderus'))
+    abrirZona: (id: string, count = 0, boss?: string) => {
       const zona = ZONES[id];
       if (!zona) throw new Error(`zona desconhecida: ${id}`);
-      loadZone(zona, { count, boss: null, seed: 1 });
+      loadZone(zona, { count, boss: boss ?? null, seed: 1 });
       setMode('battle');
       focusParty(true);
     },
