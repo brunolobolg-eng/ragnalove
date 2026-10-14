@@ -276,7 +276,7 @@ export class WorldMap {
           <div class="wm-region"><b>${reg.name}</b><span>${BIOME_LABEL[reg.biome]}</span></div>
         </div>
       </div>
-      <div class="win wm-card">
+      <div class="win wm-card wm-party">
         <div class="win-title"><i class="au-ico"><img src="${kitIcon('ico_group')}" alt=""></i><span>Party</span><i class="dots"></i></div>
         <div class="win-body">
           ${heroes}

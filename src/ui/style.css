@@ -1189,7 +1189,6 @@ body.sand-warn #app::after { opacity: 0.12; }
 .worldmap .wm-wpn { flex: none; width: 34px; height: 34px; border-radius: 50%; padding: 3px; background: #0c1430; box-shadow: 0 0 0 1.5px var(--rc, #4a5a94); }
 .worldmap .wm-wpn.none { display: block; opacity: 0.4; }
 .worldmap .wm-hero.dead .wm-pic { filter: grayscale(1) brightness(0.5); }
-.worldmap .wm-hero button { position: absolute; right: 8px; bottom: 6px; }
 .worldmap .wm-bank { gap: 12px; font-weight: normal; color: #e9eefc; flex-wrap: wrap; padding-top: 4px; border-top: 1px solid rgba(184, 145, 63, 0.35); }
 .worldmap .wm-card button { background: linear-gradient(180deg, #2a3f86, #182a60); color: #f2f5ff; border: 1px solid #6f82c8; border-radius: 5px; padding: 6px 8px; font-size: 12px; }
 .worldmap .wm-card button:hover:not(:disabled) { border-color: #ffd36a; }
@@ -2134,6 +2133,13 @@ body.sand-warn #app::after { opacity: 0.12; }
 /* três ações lado a lado na largura do painel: moldura mais fina, texto menor e quebra de linha */
 .worldmap .wm-btns { gap: 5px; }
 .worldmap .wm-btns button { flex: 1 1 0; min-width: 0; --bw: 6px; padding: 5px 2px; font-size: 10px; line-height: 1.15; white-space: normal; }
+/* ---------- Party no mapa: o reviver fica na linha do próprio cartão (nada sobre os outros botões); com 3 membros a lista rola dentro do painel ---------- */
+.worldmap .wm-hero { flex-wrap: wrap; row-gap: 4px; }
+.worldmap .wm-hero button { position: static; flex: 0 0 100%; margin: 0; padding: 4px 8px; font-size: 11px; }
+.worldmap .wm-party .win-body { max-height: min(58vh, 520px); overflow-y: auto; padding-right: 6px; }
+.worldmap .wm-party .wm-hero { padding: 5px 7px; }
+.worldmap .wm-party .wm-hero .wm-pic { width: 44px; height: 44px; }
+
 /* ---------- Polimento (padrão AAA): caixa de desbloqueio com a moldura de aviso do kit ---------- */
 .nr-extra .unlock { border: 7px solid transparent; border-radius: 0; border-image: var(--kit-msg_quest) var(--kit-msg_quest-s, 10) / 7px stretch; background: rgba(8, 12, 30, 0.6); background-clip: padding-box; box-shadow: none; animation: none; padding: 6px 10px; }
 
