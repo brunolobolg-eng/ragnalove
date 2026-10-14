@@ -240,7 +240,7 @@ export interface MonsterModelVisual {
    * `barbarianUAL` = a mesma captura, com socos (UAL) no lugar da espada.
    * `monsterRig` = `warriorRig` com a morte própria dos monstros de rig Mixamo (goblin, dino, raydric; monsterRigAnims.ts).
    */
-  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig' | 'monsterRig' | 'warriorUAL' | 'barbarianUAL';
+  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig' | 'monsterRig' | 'goblinBossRig' | 'warriorUAL' | 'barbarianUAL';
   /** `auto` = GLB sem esqueleto (malha estática): o jogo põe o esqueleto humanoide (auto-rig) e usa os `clips`. */
   rig?: 'auto';
   /** Juntas medidas para o auto-rig (com `rig: 'auto'`); sem elas, a detecção automática decide. */
@@ -488,9 +488,9 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   raydric: { file: 'models/raydric.glb', height: 2.3, walkRate: 0.75, clips: 'monsterRig', bind: 'ibm', skins: RAYDRIC_SKINS, skinNames: RAYDRIC_SKIN_NAMES, themeColors: RAYDRIC_THEME_COLORS },
   // Mini-chefe goblin (líder da tribo, tipo próprio 'goblinLeader'): modelo do dono de 67 MB otimizado para 2,5 MB, sem recolor.
   // Clipes do guerreiro: o do cultista achata a figura (testado na vitrine). Pose de descanso = bind do arquivo; aura âmbar como o dino-chefe.
-  goblinLeader: { file: 'models/goblin_leader.glb', height: 2.8, walkRate: 0.9, clips: 'warriorRig', bind: 'ibm', aura: [1.2, 0.8, 0.2] },
+  goblinLeader: { file: 'models/goblin_leader.glb', height: 2.8, walkRate: 0.9, clips: 'goblinBossRig', bind: 'ibm', aura: [1.2, 0.8, 0.2] },
   // Krexx retorcido (mini-chefe do Passo Gélido): mesmo arquivo do Krexx pequeno, pelo caminho do líder goblin (esqueleto do arquivo)
-  goblinWarlord: { file: 'models/goblin_warlord.glb', height: 2.9, walkRate: 0.8, clips: 'warriorRig', bind: 'ibm', aura: [1.6, 0.15, 0.4], weapons: [KREXX_AXE] },
+  goblinWarlord: { file: 'models/goblin_warlord.glb', height: 2.9, walkRate: 0.8, clips: 'goblinBossRig', bind: 'ibm', aura: [1.6, 0.15, 0.4], weapons: [KREXX_AXE] },
   // Boneco de treino (Arena do Dev Lab, tipo 'trainingDummy'): só dev, não anda nem ataca. Malha sem esqueleto e de manto
   // (sem pernas visíveis): auto-rig com juntas aproximadas e o conjunto do bárbaro (idle e reação ao golpe).
   trainingDummy: { file: 'models/dummy_de_treino.glb', height: 1.8, walkRate: 1, rig: 'auto', clips: 'barbarianUAL', juntas: DUMMY_JOINTS },

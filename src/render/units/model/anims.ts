@@ -540,6 +540,8 @@ export const SET_IMPACT: Partial<Record<string, { attack?: number; heavy?: numbe
   barbarianUAL: { attack: UAL_IMPACT.punchJab, heavy: UAL_IMPACT.punchCross },
   // dino e bongun: o ataque é o soco da UAL (Punch_Jab) retargetado
   cultist: { attack: UAL_IMPACT.punchJab, heavy: UAL_IMPACT.punchJab },
+  // Krexx e líder (krexxAnims.ts): a mão do machado chega ao ponto mais baixo no quadro 15 de 60 (medido no clipe)
+  goblinBossRig: { attack: 0.25 },
 };
 
 export function archerClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {

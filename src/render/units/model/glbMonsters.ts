@@ -6,6 +6,7 @@ import { prepareRiggedModel, type HumanoidJoints } from './autoRig';
 import { ualMixamoClips } from './ualMixamo';
 import { warriorRigClips } from './warriorAnims';
 import { monsterRigClips } from './monsterRigAnims';
+import { goblinBossRigClips } from './krexxAnims';
 import { MIXAMO_CULTIST_REST } from './mixamoRest';
 
 /** Escala UAL->cultista pela altura (modelo nativo 1.82m, personagem UAL ~1.75m). */
@@ -123,6 +124,7 @@ const GAME_CLIPS = {
   warriorRig: warriorRigClips,
   // monstros de rig Mixamo (goblin, dino, raydric): o warriorRig com a morte própria (monsterRigAnims.ts)
   monsterRig: monsterRigClips,
+  goblinBossRig: goblinBossRigClips,
   warriorUAL: warriorClipsUAL,
   barbarianUAL: barbarianClipsUAL,
 };
