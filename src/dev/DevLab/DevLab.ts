@@ -99,6 +99,12 @@ const ENEMY_LABEL: Record<string, string> = {
   trainingDummy: 'Boneco de treino',
   palhaco: 'Palhaço',
   detarderus: 'Detarderus',
+  raydric: 'Raydric',
+  goblinImp: 'Krexx pequeno',
+  goblinWarlord: 'Krexx retorcido',
+  dinoBoss: 'Dino (mini-chefe)',
+  goblinLeader: 'Líder goblin (mini-chefe)',
+  satanMorroc: 'Senhor do Abismo (lendário)',
 };
 export const enemyLabel = (k: string) => (ENEMY_LABEL[k] ? `${ENEMY_LABEL[k]} (${k})` : k);
 const label = enemyLabel;
@@ -303,6 +309,11 @@ function buildArena(el: HTMLElement, api: DevLabApi, spawner: SpawnController): 
         <select data-skin>${opt('', 'Cor sorteada')}${opt('0', 'Cor original')}${skinFiles.map((f, i) => opt(String(i + 1), skinName(f))).join('')}</select></div>
       <div class="dl-note">Aparência e cor valem para os próximos inimigos (spawn, wave e boss); vida e dano continuam os do tipo escolhido. Cores: só criaturas com variantes (zumbis).</div>
     </div>
+    <div class="dl-sec"><h4>Galeria (todos os monstros)</h4>
+      <div class="dl-row">${Object.keys(ACT_MONSTERS).map((act) => `<button class="dl-btn dl-primary" data-gallery="${act}">Todos · Ato ${ROMAN[Number(act)]}</button>`).join('')}
+        <button class="dl-btn" data-gallery="bosses">Só os chefes</button></div>
+      <div class="dl-note">Põe na fila um de cada tipo de inimigo, com a aparência do ato escolhido (o mesmo que o seletor "Aparência" faz). "Só os chefes" usa o modelo de cada chefe. Use ⏸ para olhar com calma.</div>
+    </div>
     <div class="dl-sec"><h4>Wave</h4>
       <div class="dl-row"><select data-phase>${phases.map((p, i) => opt(String(i), phaseLabel(p))).join('')}</select>
         <button class="dl-btn" data-cmd="wave">Spawnar wave</button></div>
@@ -337,6 +348,18 @@ function buildArena(el: HTMLElement, api: DevLabApi, spawner: SpawnController): 
   el.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
     if (!b) return;
+    if (b.dataset.gallery !== undefined) {
+      const g = b.dataset.gallery;
+      const isBosses = g === 'bosses';
+      spawner.clear();
+      const act = isBosses ? undefined : Number(g);
+      DEV_VISUAL.act = act;
+      q<HTMLSelectElement>('[data-look]').value = act === undefined ? '' : String(act);
+      const lista = isBosses ? bosses : kinds;
+      for (const k of lista) spawner.spawn(k, 1);
+      api.base.log(`[dev lab] Galeria: ${lista.length} inimigo(s) na fila${act === undefined ? ' (chefes)' : ` · aparência do Ato ${ROMAN[act]}`}. Use ⏸ para olhar com calma.`);
+      return;
+    }
     if (b.dataset.speed !== undefined) {
       const s = Number(b.dataset.speed);
       lastSpeed = s;

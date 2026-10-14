@@ -45,6 +45,15 @@ export const VOCATIONS: Record<HeroKind, [VocationDef | null, VocationDef | null
   mage: [null, null],
   archer: [null, null],
   sorcerer: [null, null],
-  warlock: [null, null],
+  warlock: [
+    {
+      id: 'hypnomancer',
+      nome: 'Hypnomancer',
+      descricao: 'Evolução da Bruxa que troca a maldição pelo controle da mente: menos dano direto, mais influência sobre a horda.',
+      bonus: { int: 3, luk: 1 },
+      modelo: 'hypnomancer',
+    },
+    null,
+  ],
   assassin: [null, null],
 };

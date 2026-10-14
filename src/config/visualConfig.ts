@@ -350,6 +350,8 @@ export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   // Bruxa: modelo novo (2,3 MB, 47 mil vértices, textura WebP de 1024 px, sem redistribuir pesos). Sem animações próprias:
   // usa o conjunto do guerreiro com a pose de descanso do arquivo (o conjunto do cultista deixa a figura achatada).
   warlock: { file: 'models/warlock.glb', height: 1.75, walkRate: 1, ghost: [1.6, 0.25, 0.6], clips: 'warriorRig', bind: 'ibm' },
+  // Hypnomancer (2ª forma da Bruxa, a vocação de nível 10): modelo do dono, mais alto que a bruxa (proporção de adulto).
+  hypnomancer: { file: 'models/hypnomancer.glb', height: 1.9, walkRate: 1, ghost: [1.6, 0.25, 0.6], clips: 'warriorRig', bind: 'ibm' },
   // Cavaleiro sombrio (modelo do V2Fun no esqueleto padrão): animações de golpe do Guerreiro (corpo a corpo)
   assassin: { file: 'models/assassin_dk.glb', height: 1.9, walkRate: 1.05, ghost: [1.6, 1.3, 0.3], clips: 'warrior', weapons: [{ type: 'dagger', bone: 'hand.R', accent: 0xc070ff }, { type: 'dagger', bone: 'hand.L', accent: 0xc070ff }] },
   // Bárbaro (vocação do Guerreiro): modelo do dono sem esqueleto → auto-rig com as juntas medidas acima. Animações:
