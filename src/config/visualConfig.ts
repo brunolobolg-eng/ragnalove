@@ -336,6 +336,10 @@ export const HERO_MODELS: Record<string, MonsterModelVisual> = {
     // espada na mão direita: punho no centro da palma, lâmina inclinada para a frente (-120°); escudo na esquerda
     weapons: [{ type: 'sword', bone: 'RightHand', accent: 0xffd67a, tilt: -120, pos: [0, 0.07, 0] }, { type: 'shield', bone: 'LeftHand', accent: 0xffd67a }],
   },
+  // Crusado (2ª vocação do Guerreiro): mesmo esqueleto e a mesma espada e escudo do guerreiro; modelo do dono otimizado
+  crusado: { file: 'models/crusado.glb', height: 1.95, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorUAL', bind: 'ibm',
+    weapons: [{ type: 'sword', bone: 'RightHand', accent: 0xffd67a, tilt: -120, pos: [0, 0.07, 0] }, { type: 'shield', bone: 'LeftHand', accent: 0xffd67a }],
+  },
   // Cléria (arte do jogador → 3D): cajado com cristal e livro; animações da Maga
   mage: { file: 'models/cleria.glb', height: 1.9, walkRate: 1, ghost: [0.55, 0.8, 1.6], clips: 'mage' },
   // Líria (modelo do V2Fun no esqueleto padrão): animações da Arqueira
@@ -504,6 +508,8 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   goblinLeader: { file: 'models/goblin_leader.glb', height: 2.8, walkRate: 0.9, clips: 'goblinBossRig', bind: 'ibm', aura: [1.2, 0.8, 0.2] },
   // Krexx retorcido (mini-chefe do Passo Gélido): mesmo arquivo do Krexx pequeno, pelo caminho do líder goblin (esqueleto do arquivo)
   goblinWarlord: { file: 'models/goblin_warlord.glb', height: 2.9, walkRate: 0.8, clips: 'goblinBossRig', bind: 'ibm', aura: [1.6, 0.15, 0.4], weapons: [KREXX_AXE] },
+  // Chefe lendário do Bastião (a cada 100 noites): modelo do dono (satanmorroc.glb), esqueleto Mixamo de 61 ossos.
+  satanMorroc: { file: 'models/satanmorroc.glb', height: 3.2, walkRate: 0.9, clips: 'warriorRig', bind: 'ibm', aura: [1.6, 0.15, 0.4] },
   // Boneco de treino (Arena do Dev Lab, tipo 'trainingDummy'): só dev, não anda nem ataca. Malha sem esqueleto e de manto
   // (sem pernas visíveis): auto-rig com juntas aproximadas e o conjunto do bárbaro (idle e reação ao golpe).
   trainingDummy: { file: 'models/dummy_de_treino.glb', height: 1.8, walkRate: 1, rig: 'auto', clips: 'barbarianUAL', juntas: DUMMY_JOINTS },
