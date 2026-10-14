@@ -147,7 +147,9 @@ export class SkillTree {
           const y0 = a.y + 74;
           const x1 = b.x + NODE_W / 2;
           const y1 = b.y + 6;
-          return `<path d="M${x0},${y0} C${x0},${(y0 + y1) / 2} ${x1},${(y0 + y1) / 2} ${x1},${y1}" class="${ok ? 'ok' : ''}"/><text x="${(x0 + x1) / 2 + 4}" y="${(y0 + y1) / 2}" class="${ok ? 'ok' : ''}">nv ${req.level}</text>`;
+          // o rótulo "nv" fica no meio do vão entre as duas linhas de cartões (não sobre a borda do cartão)
+          const ly = (a.y + NODE_H + b.y) / 2 + 3;
+          return `<path d="M${x0},${y0} C${x0},${(y0 + y1) / 2} ${x1},${(y0 + y1) / 2} ${x1},${y1}" class="${ok ? 'ok' : ''}"/><text x="${(x0 + x1) / 2 + 8}" y="${ly}" class="${ok ? 'ok' : ''}">nv ${req.level}</text>`;
         }),
       )
       .join('');

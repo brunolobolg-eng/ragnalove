@@ -1045,7 +1045,8 @@ function openEvent(): void {
     ev.title,
     body,
     ev.options.map((o) => ({
-      label: `${o.label}${o.cost ? ` (${o.cost} Zen)` : ''}`,
+      // o custo aparece uma vez só: some o "(120 z)" que já vem no rótulo dos dados antes de pôr o "(120 Zen)" padrão
+      label: `${o.label.replace(/\s*\(\s*\d+\s*(z|Zen)\s*\)\s*$/i, '')}${o.cost ? ` (${o.cost} Zen)` : ''}`,
       disabled: (o.cost ?? 0) > profile.zeni,
       onClick: () => {
         const payKey = `e:${run.act}:${run.node}:${ev.id}`;
