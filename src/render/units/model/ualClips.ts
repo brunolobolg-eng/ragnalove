@@ -3811,7 +3811,7 @@ const D: Record<UALClipName, { duration: number; times: number[]; tracks: { name
 };
 
 /** Instante (s) do impacto de cada golpe: pico da velocidade das mãos no clipe (medido na extração). */
-export const UAL_IMPACT: Partial<Record<UALClipName, number>> = { attack: 0.400, punchJab: 0.167, punchCross: 0.233 };
+export const UAL_IMPACT: Partial<Record<UALClipName, number>> = { attack: 0.400, punchJab: 0.167, punchCross: 0.233, cast: 0.333 };
 
 /** Clipes Three.js a partir dos dados extraidos (hips.position em espaco UAL). */
 export function ualRawClips(): Record<UALClipName, THREE.AnimationClip> {

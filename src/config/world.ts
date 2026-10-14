@@ -32,6 +32,7 @@ export const WORLD = { cols: 7, rows: 4, name: 'Aurenthal' };
 
 export const REGIONS: Region[] = [
   { id: 'ashPeak', name: 'Cume das Cinzas', biome: 'ash', gx: 1, gy: 0, zone: 'ashPeak', act: 2, bossOfAct: 2, enemies: 'Mortos-vivos calcinados e o Senhor Orc' },
+  { id: 'detarderusLair', name: 'Covil do Detarderus', biome: 'ash', gx: 4, gy: 0, zone: 'detarderusLair', act: 2, enemies: 'O Detarderus' },
   { id: 'frostPass', name: 'Passo da Geada', biome: 'mountain', gx: 2, gy: 0, zone: 'frostPass', act: 2, cities: [{ name: 'Kaldrun', access: 'open' }], enemies: 'Mortos congelados, brutamontes' },
   { id: 'rustGorge', name: 'Garganta de Ferrugem', biome: 'mountain', gx: 3, gy: 0, zone: 'rustGorge', act: 2, enemies: 'Brutamontes e corredores' },
   { id: 'whisperWood', name: 'Floresta dos Sussurros', biome: 'forest', gx: 0, gy: 1, zone: 'whisperWood', act: 0, cities: [{ name: 'Ardenfall', access: 'open' }], enemies: 'Corredores entre as árvores' },
@@ -142,7 +143,8 @@ export const ACTS: ActDef[] = [
       { region: 'ashenFields', options: ['horde', 'event'] },
       { region: 'rustGorge', options: ['elite', 'horde', 'survival'] },
       { region: 'frostPass', options: ['city', 'event'], city: 'Kaldrun' },
-      { region: 'frostPass', options: ['elite', 'horde'], elite: 'goblinWarlord' },
+      // Detarderus (mini-chefe com cenário próprio) no lugar do Krexx retorcido, que segue nas ondas do Bastião.
+      { region: 'detarderusLair', options: ['elite'], elite: 'detarderus' },
       { region: 'ashPeak', options: ['boss'] },
     ],
   },

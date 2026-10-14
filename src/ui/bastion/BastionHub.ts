@@ -16,7 +16,7 @@ const fmt = (n: number): string => n.toLocaleString('pt-BR');
 const frac = (v: number, max: number): number => (max > 0 ? Math.min(1, Math.max(0, v / max)) : 0);
 const STATUS: Record<BastionStructureRow['status'], string> = { intact: 'Inteira', damaged: 'Danificada', destroyed: 'Destruída' };
 const zenLabel = (verb: string, cost: number, none: string): string => `${verb} · ${cost > 0 ? `${fmt(cost)} Zen` : none}`;
-const TIER_LABEL: Record<BastionHordeRow['tier'], string> = { comum: 'Comum', mini: 'Mini-chefe', mvp: 'MVP' };
+const TIER_LABEL: Record<BastionHordeRow['tier'], string> = { comum: 'Comum', mini: 'Mini-chefe', mvp: 'MVP', lenda: 'Lendário' };
 const upLabel = (s: BastionStructureRow): string =>
   s.upgradeCost !== undefined ? zenLabel('Aprimorar', s.upgradeCost, '') : `Aprimorar · ${s.status === 'destroyed' ? 'indisponível' : 'nível máximo'}`;
 const meter = (v: number, max: number, label: string, text = '', cls = ''): string =>

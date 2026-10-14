@@ -57,8 +57,9 @@ export const VISUAL_CONFIG = {
    * walkStepRef: passo (s) em que o andar tem a velocidade-base do modelo; passo mais lento anda mais devagar, passo mais rápido, mais depressa.
    * walkHold / walkHoldEnemy: tempo (s) que o andar segue depois do último passo, para o parado não piscar entre passos (inimigos esperam mais na fila).
    * heavyHitFrac: fração da vida máxima que faz um golpe ser "forte" (usa a reação forte, se o modelo tiver).
+   * fadeAction: mistura (s) ao entrar num golpe, magia ou reação (0,06 dava tranco). fadeBack: mistura (s) ao voltar ao parado/andar.
    */
-  unit: { hitFlashTime: 0.22, deathTime: 1.1, walkStepRef: 0.5, walkHold: 0.18, walkHoldEnemy: 0.45, heavyHitFrac: 0.2 },
+  unit: { hitFlashTime: 0.22, deathTime: 1.1, walkStepRef: 0.5, walkHold: 0.18, walkHoldEnemy: 0.45, heavyHitFrac: 0.2, fadeAction: 0.1, fadeBack: 0.22 },
   /** Planejamento: heróis passeiam em volta do posto (raio em tiles, velocidades em tiles/s, esperas em s). */
   idleWander: { radius: 0.85, speed: 0.9, orderSpeed: 3.2, waitMin: 1.5, waitMax: 4.5, lookAtCameraAfter: 1.2 },
   /** Ordem de posição: marca no chão (duração em s). */
@@ -237,8 +238,9 @@ export interface MonsterModelVisual {
    * Usa as animações do personagem do jogo (o GLB traz só malha + esqueleto com os mesmos nomes de ossos).
    * `warriorUAL` = captura UAL (descanso, andar, dano, morte) com os golpes do Guerreiro.
    * `barbarianUAL` = a mesma captura, com socos (UAL) no lugar da espada.
+   * `monsterRig` = `warriorRig` com a morte própria dos monstros de rig Mixamo (goblin, dino, raydric; monsterRigAnims.ts).
    */
-  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig' | 'warriorUAL' | 'barbarianUAL';
+  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig' | 'monsterRig' | 'goblinBossRig' | 'warriorUAL' | 'barbarianUAL';
   /** `auto` = GLB sem esqueleto (malha estática): o jogo põe o esqueleto humanoide (auto-rig) e usa os `clips`. */
   rig?: 'auto';
   /** Juntas medidas para o auto-rig (com `rig: 'auto'`); sem elas, a detecção automática decide. */
@@ -319,7 +321,7 @@ const BARBARIAN_JOINTS: RigJointsVisual = {
 export const HERO_MODELS: Record<string, MonsterModelVisual> = {
   // Guerreiro (modelo 3D do dono, 2,4 MB): espada e escudo presos nas mãos; animações pelo bind do arquivo
   warrior: {
-    file: 'models/guerreiro.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorRig', bind: 'ibm',
+    file: 'models/guerreiro.glb', height: 1.9, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorUAL', bind: 'ibm',
     // espada na mão direita: punho no centro da palma, lâmina inclinada para a frente (-120°); escudo na esquerda
     weapons: [{ type: 'sword', bone: 'RightHand', accent: 0xffd67a, tilt: -120, pos: [0, 0.07, 0] }, { type: 'shield', bone: 'LeftHand', accent: 0xffd67a }],
   },
@@ -374,6 +376,31 @@ const RAYDRIC_THEME_COLORS: Record<string, string[]> = {
   bridge: ['grama'],
   town: ['grama'],
   ash: ['sombra'], // cinzas (ashPeak)
+};
+/**
+ * Detarderus (malha de 1,89 unidades, pés em 0, frente em +Z): esqueleto novo, com as juntas medidas no corte da malha
+ * (a detecção automática punha a virilha em 14% da altura, e ela fica em 27%). Pernas de 0 a 27%, quadril em 31%,
+ * peito em 51%, pescoço em 62%, cabeça em 72%. Os braços saem dos ombros, em torno de 61%. Cauda do lado +X: não tem osso
+ * próprio, segue o quadril.
+ */
+const DETARDERUS_JOINTS: RigJointsVisual = {
+  root: [0, 0, 0],
+  hips: [0, 0.586, 0],
+  spine: [0, 0.74, 0],
+  chest: [0, 0.97, 0],
+  neck: [0, 1.17, 0],
+  head: [0, 1.36, 0],
+  shoulder: [0.5, 1.15, 0],
+  upperArm: [0.7, 0.97, 0],
+  foreArm: [0.85, 0.72, 0],
+  hand: [0.9, 0.5, 0],
+  thigh: [0.12, 0.45, 0],
+  shin: [0.12, 0.227, 0],
+  foot: [0.12, 0.05, 0.1],
+  armX: 0.7,
+  crotchY: 0.51,
+  armMinY: 0.5,
+  armMaxY: 1.15,
 };
 /**
  * Palhaço (malha de 0,98 unidades, pés em 0): juntas medidas no corte da malha. Pernas curtas (virilha em 15% da altura),
@@ -431,12 +458,12 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   ratElite: { file: 'models/ratochefe.glb', height: 2.4, walkRate: 0.85, aura: [0.9, 0.3, 1.8] },
   ratBoss: { file: 'models/ratochefe.glb', height: 3.1, walkRate: 0.9, aura: [1.6, 0.15, 0.4] },
   // Ato II — goblins: um modelo só (goblin.glb, com textura e esqueleto Mixamo de 21 ossos) para todos os tipos comuns.
-  // Os tipos mudam tamanho, velocidade e aura, não o modelo. Clipes do cultista + pose de descanso = bind do arquivo.
-  goblin: { file: 'models/goblin.glb', height: 1.6, walkRate: 1.3, clips: 'cultist', bind: 'ibm' },
-  goblinRunner: { file: 'models/goblin.glb', height: 1.3, walkRate: 2.4, clips: 'cultist', bind: 'ibm' },
-  goblinBrute: { file: 'models/goblin.glb', height: 2.0, walkRate: 0.85, clips: 'cultist', bind: 'ibm' },
-  goblinNecro: { file: 'models/goblin.glb', height: 1.65, walkRate: 1.2, clips: 'cultist', bind: 'ibm', aura: [0.7, 0.2, 1.6] },
-  goblinElite: { file: 'models/goblin.glb', height: 2.5, walkRate: 0.85, clips: 'cultist', bind: 'ibm', aura: [0.9, 0.3, 1.8] },
+  // Os tipos mudam tamanho, velocidade e aura, não o modelo. Clipes do guerreiro (warriorRig, por direção de membro) + pose de descanso = bind do arquivo. O retarget UAL do cultista deixava as pernas viradas nestes rigs (pés no ar).
+  goblin: { file: 'models/goblin.glb', height: 1.6, walkRate: 1.3, clips: 'monsterRig', bind: 'ibm' },
+  goblinRunner: { file: 'models/goblin.glb', height: 1.3, walkRate: 2.4, clips: 'monsterRig', bind: 'ibm' },
+  goblinBrute: { file: 'models/goblin.glb', height: 2.0, walkRate: 0.85, clips: 'monsterRig', bind: 'ibm' },
+  goblinNecro: { file: 'models/goblin.glb', height: 1.65, walkRate: 1.2, clips: 'monsterRig', bind: 'ibm', aura: [0.7, 0.2, 1.6] },
+  goblinElite: { file: 'models/goblin.glb', height: 2.5, walkRate: 0.85, clips: 'monsterRig', bind: 'ibm', aura: [0.9, 0.3, 1.8] },
   goblinBoss: { file: 'models/goblinboss.glb', height: 3.4, walkRate: 0.9, aura: [2.0, 1.4, 0.3] },
   // Ato III — zumbi chibi (V2Fun no esqueleto padrão), animações de zumbi do jogo; 5 variantes fúnebres de cor
   zombie: { file: 'models/zombie.glb', height: 1.6, walkRate: 1.3, clips: 'zombie', skins: ZOMBIE_SKINS },
@@ -449,27 +476,30 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   orcWarrior: { file: 'models/orc.glb', height: 2.3, walkRate: 0.85, clips: 'brute', aura: [0.9, 0.3, 1.8], weapons: [ORC_AXE] },
   orcLord: { file: 'models/orc.glb', height: 3.3, walkRate: 0.9, clips: 'brute', aura: [1.6, 0.15, 0.4], weapons: [ORC_AXE] },
   // Dino (família do Ato II): esqueleto de 57 ossos no padrão do cultista; pose de descanso = bind do arquivo;
-  // movimentos da UAL (como o cultista). Grunt/corredor/brutamonte/necromante e mini-chefe (dinoBoss).
-  dino: { file: 'models/dino.glb', height: 1.8, walkRate: 1.2, clips: 'cultist', bind: 'ibm', ...DINO_COLORS },
-  dinoRunner: { file: 'models/dino.glb', height: 1.5, walkRate: 2.2, clips: 'cultist', bind: 'ibm', ...DINO_COLORS },
-  dinoBrute: { file: 'models/dino.glb', height: 2.3, walkRate: 0.85, clips: 'cultist', bind: 'ibm', ...DINO_COLORS },
-  dinoNecro: { file: 'models/dino.glb', height: 1.7, walkRate: 1.2, clips: 'cultist', bind: 'ibm', aura: [0.7, 0.2, 1.6], ...DINO_COLORS },
+  // movimentos do guerreiro (warriorRig, por direção de membro). Grunt/corredor/brutamonte/necromante e mini-chefe (dinoBoss).
+  dino: { file: 'models/dino.glb', height: 1.8, walkRate: 1.2, clips: 'monsterRig', bind: 'ibm', ...DINO_COLORS },
+  dinoRunner: { file: 'models/dino.glb', height: 1.5, walkRate: 2.2, clips: 'monsterRig', bind: 'ibm', ...DINO_COLORS },
+  dinoBrute: { file: 'models/dino.glb', height: 2.3, walkRate: 0.85, clips: 'monsterRig', bind: 'ibm', ...DINO_COLORS },
+  dinoNecro: { file: 'models/dino.glb', height: 1.7, walkRate: 1.2, clips: 'monsterRig', bind: 'ibm', aura: [0.7, 0.2, 1.6], ...DINO_COLORS },
   // Mini-chefe (tipo próprio de inimigo, como o Krexx): dino maior, com aura âmbar; mesma regra de cor por tema
-  dinoBoss: { file: 'models/dino.glb', height: 2.6, walkRate: 0.9, clips: 'cultist', bind: 'ibm', aura: [1.2, 0.8, 0.2], ...DINO_COLORS },
+  dinoBoss: { file: 'models/dino.glb', height: 2.6, walkRate: 0.9, clips: 'monsterRig', bind: 'ibm', aura: [1.2, 0.8, 0.2], ...DINO_COLORS },
   // Raydric (tipo 'raydric' da simulação, pesado comum): modelo de pedra com 57 ossos; clipes do guerreiro (o do cultista achata a figura); pose de descanso =
   // bind do arquivo. Altura 2,3 m (malha de 1,87 unidades, escala 1,23×). walkRate 0,75 = 0,85 do brutamonte × 10/12 ticks.
-  raydric: { file: 'models/raydric.glb', height: 2.3, walkRate: 0.75, clips: 'warriorRig', bind: 'ibm', skins: RAYDRIC_SKINS, skinNames: RAYDRIC_SKIN_NAMES, themeColors: RAYDRIC_THEME_COLORS },
+  raydric: { file: 'models/raydric.glb', height: 2.3, walkRate: 0.75, clips: 'monsterRig', bind: 'ibm', skins: RAYDRIC_SKINS, skinNames: RAYDRIC_SKIN_NAMES, themeColors: RAYDRIC_THEME_COLORS },
   // Mini-chefe goblin (líder da tribo, tipo próprio 'goblinLeader'): modelo do dono de 67 MB otimizado para 2,5 MB, sem recolor.
   // Clipes do guerreiro: o do cultista achata a figura (testado na vitrine). Pose de descanso = bind do arquivo; aura âmbar como o dino-chefe.
-  goblinLeader: { file: 'models/goblin_leader.glb', height: 2.8, walkRate: 0.9, clips: 'warriorRig', bind: 'ibm', aura: [1.2, 0.8, 0.2] },
+  goblinLeader: { file: 'models/goblin_leader.glb', height: 2.8, walkRate: 0.9, clips: 'goblinBossRig', bind: 'ibm', aura: [1.2, 0.8, 0.2] },
   // Krexx retorcido (mini-chefe do Passo Gélido): mesmo arquivo do Krexx pequeno, pelo caminho do líder goblin (esqueleto do arquivo)
-  goblinWarlord: { file: 'models/goblin_warlord.glb', height: 2.9, walkRate: 0.8, clips: 'warriorRig', bind: 'ibm', aura: [1.6, 0.15, 0.4], weapons: [KREXX_AXE] },
+  goblinWarlord: { file: 'models/goblin_warlord.glb', height: 2.9, walkRate: 0.8, clips: 'goblinBossRig', bind: 'ibm', aura: [1.6, 0.15, 0.4], weapons: [KREXX_AXE] },
   // Boneco de treino (Arena do Dev Lab, tipo 'trainingDummy'): só dev, não anda nem ataca. Malha sem esqueleto e de manto
   // (sem pernas visíveis): auto-rig com juntas aproximadas e o conjunto do bárbaro (idle e reação ao golpe).
   trainingDummy: { file: 'models/dummy_de_treino.glb', height: 1.8, walkRate: 1, rig: 'auto', clips: 'barbarianUAL', juntas: DUMMY_JOINTS },
   // Palhaço (tipo 'palhaco', Ato III): malha sem esqueleto; auto-rig com juntas medidas (a detecção automática punha a
   // virilha nos pés) e o conjunto do bárbaro (andar, golpe, dano, morte).
   palhaco: { file: 'models/palhaco.glb', height: 1.4, walkRate: 2, rig: 'auto', clips: 'barbarianUAL', juntas: PALHACO_JOINTS },
+  // Detarderus (mini-chefe do Passo da Geada, Ato III, tipo 'detarderus'): modelo do dono otimizado (2,5 MB, bordas travadas
+  // na simplificação para não abrir buracos). Esqueleto do jogo (auto-rig com as juntas acima) e clipes do bárbaro.
+  detarderus: { file: 'models/detarderuspai.glb', height: 2.9, walkRate: 0.8, rig: 'auto', clips: 'barbarianUAL', juntas: DETARDERUS_JOINTS, aura: [1.2, 0.8, 0.2] },
 };
 
 /**

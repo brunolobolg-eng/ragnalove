@@ -913,6 +913,25 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   4. Cores de mitigação e velocidade têm pouco contraste sobre monstros claros.
 - **Não verificado:** FPS na GPU real; balanceamento em partida real; checagem visual depois dos três ajustes de código desta rodada (a mudança é pequena e as checagens passaram).
 
+## 2026-10-14 — goblin novo, palhaço, boneco de treino, Detarderus e animações (v0.11, em andamento)
+- **Modelos:** goblin.glb (52 MB → 1,8 MB) substitui os goblins verdes nos 5 tipos comuns do Ato II (clipes do cultista, bind 'ibm'), conferido em jogo. Palhaço = tipo novo 'palhaco' (Campos Cinzentos, 12% das ondas), auto-rig com juntas medidas. Boneco de treino = visual do 'trainingDummy' (Dev Lab). Detarderus = mini-chefe 'detarderus' no Passo da Geada (Ato III), no lugar do Krexx retorcido (que segue no Bastião), com zona própria provisória 'detarderusLair' (cópia do Cume das Cinzas), esqueleto do jogo com juntas medidas e simplificação com bordas travadas.
+- **Animações:** misturas de golpe/magia/reação 0,06 s → 0,1 s e volta ao parado 0,15 s → 0,22 s (`VISUAL_CONFIG.unit.fadeAction/fadeBack`). Bongun (flutuante): golpe com o gesto de magia em vez do soco, morte solta até o chão (antes dobrava suspensa no ar) e impacto no tempo padrão.
+- **Git:** `LOG_SESSOES.md` e `CHANGELOG.md` com `merge=union` no `.gitattributes`; no PC, `.git/info/attributes` com a mesma regra até ela chegar à main.
+- **Testes:** tsc, build, sim:check (determinístico; linhas novas de ashenFields e detarderusLair), bastion:check, aura:check, zoneReachCheck.
+- **Pendências:** pernas do palhaço ainda com massa no auto-rig; boneco de treino e malha do Detarderus sem foto limpa em jogo; bind 'ibm' do Bongun ainda não aplicado; goblin1/goblin2.glb sem uso (apagar só com o OK do dono); originais pesados na main devem ir zipados para a branch fontes; cenário definitivo do Detarderus (arquivos do dono).
+
+## 2026-10-14 — movimento contínuo, sem parada a cada tile (render)
+- **Pedido:** animação bem fluida em todos os heróis e monstros.
+- **Diagnóstico:** a posição já era interpolada entre o tile anterior e o atual, com a fração do tick (`renderTick = sim.tick + acc/tickDt`). O degrau vinha da curva do passo: o smoothstep zera a velocidade na borda de cada tile, então a unidade parava a cada passo (8,8% dos pares de quadros em passo andavam a menos de 25% da velocidade). Também: voltar de golpe ou reação ao andar recomeçava a passada do zero.
+- **Mudanças (só apresentação, `src/render`):** passo de velocidade constante de tile a tile; arranque suave só depois de pausa (`t²(2−t)`, que sai na velocidade do passo seguinte); unidade recém-criada não toca a pose de andar; voltar ao andar retoma a passada; limite do ritmo do passo do andar alargado de [0,5; 1,6] para [0,3; 2,5] (corredor e passo longo batem com o deslocamento).
+- **Medição** (laço do `main.ts` sem render, 40 s de jogo, zona rootVale): pares em passo com deslocamento 7.821; quadros lentos 685 (8,8%) → 18 (0,2%); pior sequência 2 quadros (~33 ms), só no arranque; reinícios do andar após golpe ou reação 6 → 0.
+- **Em tela:** três capturas com um inimigo focado (velocidade ×4, passo fixo 1/60 s): a cena e a câmera seguem a unidade, sem falha de render. A suavidade foi medida pelo laço, não a olho.
+- **Pendências:**
+  1. Hit-stop (até 0,3 s): a animação congela em 5%, mas a posição segue, então os pés deslizam nesse instante. Corrigir pede um relógio visual que também congele a posição. Decisão de design.
+  2. Parada seca: quando a unidade para (fila bloqueada), para no centro do tile sem freio; o andar segue por 0,45 s nos inimigos.
+  3. FPS real na GPU do dono não medido (o SwiftShader leva 5 a 9 s por quadro).
+- **Testes:** `npm run build`, `sim:check` (determinístico: true, núcleo intocado), `bastion:check`.
+
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
 - **Nada pode flutuar:** conferir a altura (y) e o screenshot de perto.

@@ -1189,7 +1189,6 @@ body.sand-warn #app::after { opacity: 0.12; }
 .worldmap .wm-wpn { flex: none; width: 34px; height: 34px; border-radius: 50%; padding: 3px; background: #0c1430; box-shadow: 0 0 0 1.5px var(--rc, #4a5a94); }
 .worldmap .wm-wpn.none { display: block; opacity: 0.4; }
 .worldmap .wm-hero.dead .wm-pic { filter: grayscale(1) brightness(0.5); }
-.worldmap .wm-hero button { position: absolute; right: 8px; bottom: 6px; }
 .worldmap .wm-bank { gap: 12px; font-weight: normal; color: #e9eefc; flex-wrap: wrap; padding-top: 4px; border-top: 1px solid rgba(184, 145, 63, 0.35); }
 .worldmap .wm-card button { background: linear-gradient(180deg, #2a3f86, #182a60); color: #f2f5ff; border: 1px solid #6f82c8; border-radius: 5px; padding: 6px 8px; font-size: 12px; }
 .worldmap .wm-card button:hover:not(:disabled) { border-color: #ffd36a; }
@@ -2134,6 +2133,13 @@ body.sand-warn #app::after { opacity: 0.12; }
 /* três ações lado a lado na largura do painel: moldura mais fina, texto menor e quebra de linha */
 .worldmap .wm-btns { gap: 5px; }
 .worldmap .wm-btns button { flex: 1 1 0; min-width: 0; --bw: 6px; padding: 5px 2px; font-size: 10px; line-height: 1.15; white-space: normal; }
+/* ---------- Party no mapa: o reviver fica na linha do próprio cartão (nada sobre os outros botões); com 3 membros a lista rola dentro do painel ---------- */
+.worldmap .wm-hero { flex-wrap: wrap; row-gap: 4px; }
+.worldmap .wm-hero button { position: static; flex: 0 0 100%; margin: 0; padding: 4px 8px; font-size: 11px; }
+.worldmap .wm-party .win-body { max-height: min(58vh, 520px); overflow-y: auto; padding-right: 6px; }
+.worldmap .wm-party .wm-hero { padding: 5px 7px; }
+.worldmap .wm-party .wm-hero .wm-pic { width: 44px; height: 44px; }
+
 /* ---------- Polimento (padrão AAA): caixa de desbloqueio com a moldura de aviso do kit ---------- */
 .nr-extra .unlock { border: 7px solid transparent; border-radius: 0; border-image: var(--kit-msg_quest) var(--kit-msg_quest-s, 10) / 7px stretch; background: rgba(8, 12, 30, 0.6); background-clip: padding-box; box-shadow: none; animation: none; padding: 6px 10px; }
 
@@ -2194,4 +2200,93 @@ body.sand-warn #app::after { opacity: 0.12; }
   .pk-veil .cf-band b { font-size: 10px; letter-spacing: 0; }
   .pk-veil .cf-band b.long { font-size: 8px; }
   .pk-veil .cf-band em { font-size: 7.5px; letter-spacing: 0.6px; }
+}
+
+/* ---------- Polimento de tela (pente fino): mapa no celular e cartões de caminho sob as janelas ---------- */
+/* celular (até 760 px): o mapa-múndi vira uma coluna que rola inteira — mapa, caminhos e painéis, nesta ordem. Nada fica sobre nada. */
+@media (max-width: 760px) {
+  .worldmap { display: flex; flex-direction: column; align-items: stretch; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px 28px; gap: 12px; }
+  .worldmap > * { flex: none; min-width: 0; }
+  .worldmap .wm-frame { flex: none; }
+  .worldmap .wm-title { margin: 0 0 6px 2px; font-size: 20px; flex-wrap: wrap; }
+  .worldmap .wm-title em { font-size: 11px; letter-spacing: 1.5px; }
+  .worldmap .wm-canvas { flex: none; width: 100%; aspect-ratio: 3 / 2; }
+  .worldmap .wm-canvas canvas { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; aspect-ratio: auto; }
+  .worldmap .wm-choices, .worldmap .wm-choices.low, .worldmap .wm-choices.folded { position: relative; left: auto; top: auto; transform: none; width: 100%; box-sizing: border-box; margin-top: 10px; padding: 10px 8px; gap: 8px; }
+  .worldmap .wm-ch-row { flex-direction: column; align-items: stretch; gap: 8px; width: 100%; }
+  .worldmap .wm-node { width: 100%; display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 10px; row-gap: 2px; align-items: center; text-align: left; padding: 8px 10px; }
+  .worldmap .wm-node img { grid-column: 1; grid-row: 1 / -1; width: 64px; height: 64px; }
+  .worldmap .wm-node b, .worldmap .wm-node em, .worldmap .wm-node small { grid-column: 2; }
+  .worldmap .wm-node b { font-size: 16px; }
+  .worldmap .wm-node small { font-size: 11px; }
+  .worldmap .wm-node:hover { transform: none; }
+  .worldmap .wm-panel { overflow: visible; width: 100%; min-width: 0; }
+  .worldmap .wm-party .win-body { max-height: none; overflow: visible; }
+  .worldmap .wm-choices.folded .wm-ch-head b { font-size: 18px; }
+}
+
+/* um modal aberto (evento, habilidades, coleção, roleta, pacote): o cartão de caminho do mapa some por trás dele */
+body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not([hidden]), .roulette-veil:not([hidden])) .worldmap .wm-choices {
+  visibility: hidden;
+}
+
+/* ---------- Pente fino 2 (segunda rodada) ---------- */
+/* cidade no celular (até 760 px): a arte inteira cabe na tela com 16 px de margem (nada cortado nem saindo pela borda);
+   o cabeçalho quebra em linhas (título, saldo, Nv. dos heróis) e o botão de seguir viagem fica dentro da tela */
+@media (max-width: 760px) {
+  .city-screen .city-stage { left: 16px; top: calc(50% + 10px); width: calc(100% - 32px); height: auto; aspect-ratio: var(--ar); transform: translateY(-50%); }
+  .city-screen .city-ui { padding: 12px 16px; }
+  .city-screen .city-head { margin: -12px -16px 0; padding: 12px 16px 28px; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .city-screen .city-head h1 { font-size: 22px; padding: 4px 18px; }
+  .city-screen .city-bank { margin-left: 0; flex-wrap: wrap; justify-content: center; max-width: 100%; gap: 6px 10px; padding: 6px 12px; border-radius: 16px; }
+  .city-screen .city-bank .pchip { font-size: 12px; }
+  .city-screen .city-bank .pchip img { width: 22px; height: 22px; }
+  .city-screen .city-actions { width: 100%; justify-content: center; }
+  /* área de toque dos serviços maior que a placa, sem mudar o centro */
+  .city-screen .city-spot::before { content: ''; position: absolute; inset: -12px -14px; }
+  .city-screen .city-spot span { font-size: 11px; padding: 3px 9px; }
+  .city-screen .city-go { left: 16px; right: 16px; bottom: 16px; justify-content: center; padding: 12px 16px 12px 20px !important; }
+  .city-screen .city-go b { font-size: 20px; }
+}
+
+/* árvore de habilidades (K): abas e slots de mana sem a moldura de botão (que dobrava o contorno e cortava o ícone) */
+.skilltree-veil .tabs-row button { border-image: none; border: 1.5px solid #4a5a94; border-radius: 20px; background: linear-gradient(180deg, rgba(36, 52, 104, 0.95), rgba(16, 26, 60, 0.95)); }
+.skilltree-veil .tabs-row button.on { border-image: none !important; border-color: var(--au-gold-hi) !important; box-shadow: 0 0 10px rgba(255, 196, 80, 0.45) !important; }
+.skilltree-veil .sk-cells .sk-cell { border-image: none; padding: 0; box-sizing: border-box; width: 40px; height: 40px; min-width: 40px; border-radius: 8px; overflow: hidden; display: grid; place-items: center; }
+.skilltree-veil .sk-cells .sk-cell.on { border: 1.5px solid #ffd36a; }
+.skilltree-veil .sk-cells .sk-cell.locked { border: 1.5px solid #1a1f33; }
+.skilltree-veil .sk-cells .sk-cell img { width: 32px; height: 32px; display: block; }
+/* rótulo "nv" entre as linhas: fundo escuro em volta do texto para a linha pontilhada não passar por cima */
+.skilltree-veil .sk-tree text { font: 700 10px Tahoma, sans-serif; fill: #b8c2e6; paint-order: stroke; stroke: #0c1334; stroke-width: 3px; stroke-linejoin: round; }
+.skilltree-veil .sk-tree text.ok { fill: #ffe2a0; }
+
+/* árvore no celular (até 760 px): janela com 16 px de margem; a árvore rola na horizontal dentro do próprio quadro; o detalhe vai para baixo */
+@media (max-width: 760px) {
+  .skilltree-veil .skilltree { width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .skilltree-veil .skilltree > .win-title { min-height: 44px; }
+  .skilltree-veil .skilltree > .win-body { padding: 10px 10px 12px; }
+  .skilltree-veil .tabs-row { flex-wrap: wrap; }
+  .skilltree-veil .sk-bank { margin-left: 0; width: 100%; }
+  .skilltree-veil .sk-wrap { grid-template-columns: minmax(0, 1fr); }
+  .skilltree-veil .sk-tree { max-width: 100%; height: 400px; overflow: auto; -webkit-overflow-scrolling: touch; }
+  .skilltree-veil .sk-slots { gap: 8px 10px; }
+}
+
+/* ficha do herói (mapa, janelinha) no celular (até 760 px): vira um painel por cima da tela, com 16 px de margem e rolagem própria;
+   a coluna de Pet/Asas desce para baixo do equipamento, sem sobrepor a figura */
+@media (max-width: 760px) {
+  .hc-veil { position: fixed; inset: 0; z-index: 60; padding: 16px; box-sizing: border-box; background: rgba(4, 6, 16, 0.6); }
+  .hc { width: 100%; max-width: 560px; max-height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; box-sizing: border-box; grid-template-columns: minmax(0, 1fr); padding: 12px 12px 14px; gap: 10px; }
+  .hc-head { gap: 8px; }
+  .hc-head b { font-size: 20px; letter-spacing: 1px; min-width: 0; overflow-wrap: anywhere; }
+  .hc-lv { white-space: nowrap; padding-left: 8px; }
+  .hc-doll { grid-template-columns: 56px minmax(0, 1fr) 56px; gap: 8px; }
+  .hc-col { gap: 6px; }
+  .hc-col .au-slot { width: 56px; height: 56px; }
+  .hc-figure { height: 240px; }
+  .hc-side { grid-column: 1; grid-row: auto; flex-direction: row; gap: 8px; padding-top: 0; }
+  .hc-side .hc-extra { flex: 1 1 0; min-width: 0; }
+  .hc-big { height: 80px; }
+  .hc-big svg { width: 34px; height: 34px; }
+  .hc-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 }

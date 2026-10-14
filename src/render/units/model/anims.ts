@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import type { BoneDef } from './ModelBuilder';
+import { heroShot } from './heroUAL';
+import { warriorRigHeroClips } from './warriorAnims';
+import { CLEAVE_IMPACT } from '../../fx/CleaveFX';
+import { BASH_IMPACT } from '../../fx/BashFX';
 
 /**
  * Animações dos personagens 3D como AnimationClips de verdade (tocadas pelo AnimationMixer).
@@ -195,6 +199,55 @@ export function warriorClips(bones: BoneDef[]): Record<ClipName, THREE.Animation
   };
 }
 
+/** Maga: o disparo do golpe básico cai este tempo (s) depois do evento; o orbe sai do cajado nesse instante. */
+const MAGE_RELEASE_S = 0.12;
+/** Maga: tempo (s) de recuperação depois do último quadro do disparo, até o cajado voltar à pose de descanso. */
+const MAGE_RECOVERY_S = 0.45;
+
+/**
+ * Cauda de recuperação: depois do último quadro do clipe, cada osso vai até a pose `base` em `dur` s, com a
+ * velocidade desacelerando até zero. Sem ela, o disparo parava com a mão ainda rápida (5,8 u/s no último quadro)
+ * e a volta ao andar começava brusca. O disparo (e o instante de soltar o orbe) não muda: a cauda vem depois.
+ */
+function withRecovery(clip: THREE.AnimationClip, bones: BoneDef[], base: Pose, dur: number): THREE.AnimationClip {
+  const N = Math.max(2, Math.round(dur * 60));
+  const hips = bones.find((b) => b.name === 'hips')!;
+  const e = new THREE.Euler();
+  const q = new THREE.Quaternion();
+  const last = new THREE.Quaternion();
+  const target = new THREE.Quaternion();
+  const tracks = clip.tracks.map((tr) => {
+    const times = Array.from(tr.times) as number[];
+    const vals = Array.from(tr.values) as number[];
+    const n = times.length - 1;
+    const endT = times[n];
+    const newTimes = [...times];
+    const newVals = [...vals];
+    if (tr.getValueSize() === 4) {
+      const r = base[tr.name.slice(0, -'.quaternion'.length)] ?? [0, 0, 0];
+      target.setFromEuler(e.set(r[0] * D2R, r[1] * D2R, r[2] * D2R));
+      last.set(vals[n * 4], vals[n * 4 + 1], vals[n * 4 + 2], vals[n * 4 + 3]);
+      for (let i = 1; i <= N; i++) {
+        const k = i / N;
+        newTimes.push(endT + k * dur);
+        q.copy(last).slerp(target, k * k * (3 - 2 * k));
+        newVals.push(q.x, q.y, q.z, q.w);
+      }
+      return new THREE.QuaternionKeyframeTrack(tr.name, newTimes, newVals);
+    }
+    const from = [vals[n * 3], vals[n * 3 + 1], vals[n * 3 + 2]];
+    const to = [hips.pos[0], hips.pos[1], hips.pos[2]];
+    for (let i = 1; i <= N; i++) {
+      const k = i / N;
+      const w = k * k * (3 - 2 * k);
+      newTimes.push(endT + k * dur);
+      newVals.push(from[0] + (to[0] - from[0]) * w, from[1] + (to[1] - from[1]) * w, from[2] + (to[2] - from[2]) * w);
+    }
+    return new THREE.VectorKeyframeTrack(tr.name, newTimes, newVals);
+  });
+  return new THREE.AnimationClip(clip.name, clip.duration + dur, tracks);
+}
+
 export function mageClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
   // Cajado em pé ao lado do corpo (o pulso compensa o antebraço erguido).
   const BASE: Pose = {
@@ -219,30 +272,24 @@ export function mageClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationCli
     // cajado firme na vertical ao lado do corpo; túnica balança com o passo
     h === 0 ? { 'foreArm.R': [-60, 0, 0], 'hand.R': [58, 0, 0] } : { 'foreArm.R': [-56, 0, 0], 'hand.R': [56, 0, 0] },
   ));
-  // Raio Gélido: recolhe o cajado enrolando o corpo → estocada com overshoot → segura a mira → recolhe
-  const attack = withBase(BASE, [
-    { t: 0, pose: {} },
-    { t: 0.07, pose: { spine: [-2, 20, 0], chest: [0, 10, 0], 'upperArm.R': [-28, 0, -26], 'foreArm.R': [-72, 0, 0], 'hand.R': [44, 0, 0] } },
-    { t: 0.13, pose: { spine: [-4, 20, 0], 'upperArm.R': [-38, 0, -26], 'foreArm.R': [-72, 0, 0], 'hand.R': [38, 0, 0], head: [-14, 8, 0] } },
-    { t: 0.22, hips: [0, -0.01, 0.02], pose: { spine: [7, -16, 0], chest: [5, -9, 0], head: [-18, -6, 0], 'upperArm.R': [-98, 0, -5], 'foreArm.R': [-3, 0, 0], 'hand.R': [-12, 0, 0], 'upperArm.L': [12, 0, 22] } },
-    { t: 0.3, pose: { spine: [6, -13, 0], chest: [4, -7, 0], 'upperArm.R': [-93, 0, -6], 'foreArm.R': [-7, 0, 0], 'hand.R': [-9, 0, 0], 'upperArm.L': [9, 0, 20] } },
-    { t: 0.5, pose: {} },
-  ]);
+  // Raio Gélido (golpe básico): o disparo da UAL (Spell_Simple_Shoot), cortado para o disparo cair em MAGE_RELEASE_S
+  const shoot = withRecovery(fitHips(heroShot({ clip: 'cast', impactAt: MAGE_RELEASE_S }), bones), bones, BASE, MAGE_RECOVERY_S);
   // Barreira de Fogo: inspira erguendo o cajado ao céu → crava no chão com o peso do corpo → segura → solta
   const cast = withBase(BASE, [
     { t: 0, pose: {} },
     { t: 0.15, hips: [0, 0.012, -0.01], pose: { spine: [-6, 0, 0], chest: [-4, 0, 0], head: [-16, 0, 0], 'upperArm.R': [-120, 0, -8], 'foreArm.R': [-18, 0, 0], 'upperArm.L': [-110, 0, 20], 'foreArm.L': [-32, 0, 0] } },
     { t: 0.3, hips: [0, 0.025, 0], pose: { spine: [-13, 0, 0], chest: [-9, 0, 0], head: [-13, 0, 0], 'upperArm.R': [-167, 0, -8], 'foreArm.R': [-11, 0, 0], 'hand.R': [0, 0, 0], 'upperArm.L': [-152, 0, 22], 'foreArm.L': [-28, 0, 0] } },
-    { t: 0.5, hips: [0, -0.055, 0.055], pose: { spine: [19, 0, 0], chest: [9, 0, 0], head: [5, 0, 0], 'upperArm.R': [-76, 0, -8], 'foreArm.R': [-22, 0, 0], 'hand.R': [42, 0, 0], 'upperArm.L': [-68, 0, 18], 'foreArm.L': [-32, 0, 0], 'thigh.L': [-26, 0, 0], 'shin.L': [28, 0, 0] } },
-    { t: 0.62, hips: [0, -0.05, 0.05], pose: { spine: [17, 0, 0], chest: [8, 0, 0], 'upperArm.R': [-74, 0, -8], 'foreArm.R': [-20, 0, 0], 'hand.R': [40, 0, 0], 'upperArm.L': [-66, 0, 18], 'foreArm.L': [-30, 0, 0], 'thigh.L': [-22, 0, 0], 'shin.L': [24, 0, 0] } },
+    // o tronco cede para trás na cravada (antes curvava 19° para frente e o chapéu cobria o rosto)
+    { t: 0.5, hips: [0, -0.055, 0.055], pose: { spine: [9, 0, 0], chest: [4, 0, 0], head: [-10, 0, 0], 'upperArm.R': [-76, 0, -8], 'foreArm.R': [-22, 0, 0], 'hand.R': [42, 0, 0], 'upperArm.L': [-68, 0, 18], 'foreArm.L': [-32, 0, 0], 'thigh.L': [-26, 0, 0], 'shin.L': [28, 0, 0] } },
+    { t: 0.62, hips: [0, -0.05, 0.05], pose: { spine: [8, 0, 0], chest: [3, 0, 0], 'upperArm.R': [-74, 0, -8], 'foreArm.R': [-20, 0, 0], 'hand.R': [40, 0, 0], 'upperArm.L': [-66, 0, 18], 'foreArm.L': [-30, 0, 0], 'thigh.L': [-22, 0, 0], 'shin.L': [24, 0, 0] } },
     { t: 0.74, hips: [0, -0.02, 0.01], pose: { spine: [6, 0, 0], 'upperArm.R': [-40, 0, -10], 'foreArm.R': [-40, 0, 0], 'upperArm.L': [-30, 0, 14] } },
     { t: 0.85, pose: {} },
   ]);
   return {
     idle: makeClip('idle', 2.6, idle, bones, BASE),
     walk: makeClip('walk', 1.1, walk, bones, BASE),
-    attack: makeClip('attack', 0.5, attack, bones, BASE),
-    heavy: makeClip('heavy', 0.5, attack, bones, BASE),
+    attack: shoot,
+    heavy: shoot,
     cast: makeClip('cast', 0.85, cast, bones, BASE),
     hit: makeClip('hit', 0.32, hitKeys(BASE, { 'upperArm.R': [-24, 0, -15], 'foreArm.R': [-62, 0, 0], 'upperArm.L': [-16, 0, 18] }), bones, BASE),
     death: makeClip('death', 1.0, deathKeys(BASE, -1), bones, BASE),
@@ -457,17 +504,21 @@ export function hoverOneShot(clip: THREE.AnimationClip, bones: BoneDef[], lift: 
   return new THREE.AnimationClip(clip.name, clip.duration, tracks);
 }
 
-/** Conjunto de clipes de um modelo flutuante (andar/repouso com vida própria; ações travadas no ar). */
+/**
+ * Conjunto de clipes de um modelo flutuante (andar/repouso com vida própria; ações travadas no ar).
+ * Flutuante é conjurador (Bongun): o golpe usa o gesto de magia, e não o soco do conjunto. A morte não fica travada no
+ * ar: com o quadril preso na altura do voo, o corpo se dobrava suspenso; solto, ele cai até o chão.
+ */
 export function hoverClips(base: Record<ClipName, THREE.AnimationClip>, bones: BoneDef[], lift: number): Record<ClipName, THREE.AnimationClip> {
   const air = (c: THREE.AnimationClip) => hoverOneShot(c, bones, lift);
   return {
     idle: hoverWalk(bones, lift),
     walk: hoverWalk(bones, lift),
-    attack: air(base.attack),
-    heavy: air(base.heavy),
+    attack: air(base.cast),
+    heavy: air(base.cast),
     cast: air(base.cast),
     hit: air(base.hit),
-    death: air(base.death),
+    death: base.death,
   };
 }
 
@@ -505,8 +556,14 @@ function withUAL(bones: BoneDef[], proc: (b: BoneDef[]) => Record<ClipName, THRE
   };
 }
 
-/** Heróis com animações UAL (idle/walk/hit/death) + ataque/magia procedurais. */
-export const warriorClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, warriorClips);
+/**
+ * Guerreiro (chave `warriorUAL`, HERO_MODELS.warrior): o GLB do dono tem esqueleto Mixamo de 61 ossos, então usa o
+ * conjunto do rig (`warriorRigHeroClips`: captura por direção de membro, golpe e investida cronometrados para
+ * CLEAVE_IMPACT e BASH_IMPACT). Antes, o conjunto UAL de 20 ossos falhava nesse esqueleto (`fitHips` sem o osso
+ * `hips`) e o jogo caía no modelo procedural sem avisar na tela.
+ */
+export const warriorClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => warriorRigHeroClips(b);
+/** Maga: captura UAL no descanso, andar, dano e morte; o golpe básico (`attack`) é o disparo da UAL (em mageClips). */
 export const mageClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, mageClips);
 export const archerClipsUAL = (b: BoneDef[]): Record<ClipName, THREE.AnimationClip> => withUAL(b, archerClips);
 
@@ -524,9 +581,22 @@ export type ClipSet = Record<ClipName, THREE.AnimationClip> & { hitHeavy?: THREE
  * (o golpe atinge quando a mão chega ao pico). Conjunto sem entrada usa o tempo padrão do jogo.
  */
 export const SET_IMPACT: Partial<Record<string, { attack?: number; heavy?: number }>> = {
+  // Guerreiro: os cortes do clipe UAL caem no instante do corte e da investida (ver warriorClipsUAL)
+  warriorUAL: { attack: CLEAVE_IMPACT, heavy: BASH_IMPACT },
   barbarianUAL: { attack: UAL_IMPACT.punchJab, heavy: UAL_IMPACT.punchCross },
   // dino e bongun: o ataque é o soco da UAL (Punch_Jab) retargetado
   cultist: { attack: UAL_IMPACT.punchJab, heavy: UAL_IMPACT.punchJab },
+  // Krexx e líder (krexxAnims.ts): a mão do machado chega ao ponto mais baixo no quadro 15 de 60 (medido no clipe)
+  goblinBossRig: { attack: 0.25 },
+  // Goblin, dino e raydric (monsterRigAnims.ts): o pico de velocidade da mão no golpe cai em 0,20 s (medido a 60 fps).
+  // Sem medida, o dano saía em 0,28 s, 80 ms depois do golpe visível.
+  monsterRig: { attack: 0.2, heavy: 0.43 },
+  // Zumbis (gruntClips): pico da mão em 0,25 s (medido a 60 fps)
+  zombie: { attack: 0.25, heavy: 0.25 },
+  zombieRunner: { attack: 0.25, heavy: 0.25 },
+  zombieBrute: { attack: 0.25, heavy: 0.25 },
+  // Orcs (orc.glb, golpe embutido no GLB): pico da mão em 0,37 s (medido a 60 fps)
+  brute: { attack: 0.37, heavy: 0.37 },
 };
 
 export function archerClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {

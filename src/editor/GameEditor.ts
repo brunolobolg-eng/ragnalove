@@ -24,6 +24,7 @@ const KIND_LABEL: Record<string, string> = {
   grunt: 'Comum',
   runner: 'Rápido',
   palhaco: 'Palhaço',
+  detarderus: 'Detarderus',
   brute: 'Pesado',
   raydric: 'Raydric (pesado)',
   necro: 'Necromante',

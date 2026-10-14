@@ -76,14 +76,16 @@ export const GAME_CONFIG = {
     goblinLeader: { hp: 130, moveTicks: 7, attackTicks: 12, damage: 10 }, // Líder goblin (mini-chefe do Ato II): entre o Krexx pequeno e o dino
     boss2: { hp: 300, moveTicks: 9, attackTicks: 14, damage: 12 }, // Colosso Solar (chefe do Ato II)
     orcboss: { hp: 380, moveTicks: 10, attackTicks: 15, damage: 14 }, // Senhor Orc (chefe final)
+    satanMorroc: { hp: 600, moveTicks: 10, attackTicks: 15, damage: 16 }, // Chefe lendário do Bastião (a cada 100 noites); números provisórios
     palhaco: { hp: 22, moveTicks: 4, attackTicks: 9, damage: 5 }, // Palhaço (novo, Ato III): mais rápido que o comum, mais frágil que o brutamonte; bate de perto
+    detarderus: { hp: 160, moveTicks: 8, attackTicks: 13, damage: 12 }, // Detarderus (mini-chefe do Passo da Geada, Ato III): lento e pesado; mesma faixa do Krexx retorcido
   } as Record<string, { hp: number; moveTicks: number; attackTicks: number; damage: number }>,
   /**
    * Roubo de alma: cada monstro morto rende almas ao herói que o abateu.
    * Almas são a moeda de progressão (atributos hoje; habilidades/upgrades no futuro).
    */
   souls: {
-    dropPerKill: { grunt: 1, runner: 1, brute: 2, raydric: 3, necro: 1, elite: 8, boss: 18, boss2: 25, orcboss: 35, goblinImp: 7, goblinWarlord: 21, dinoBoss: 9, goblinLeader: 8, palhaco: 1, trainingDummy: 0 } as Record<string, number>,
+    dropPerKill: { grunt: 1, runner: 1, brute: 2, raydric: 3, necro: 1, elite: 8, boss: 18, boss2: 25, orcboss: 35, satanMorroc: 60, goblinImp: 7, goblinWarlord: 21, dinoBoss: 9, goblinLeader: 8, palhaco: 1, detarderus: 20, trainingDummy: 0 } as Record<string, number>,
     defaultDrop: 1,
   },
   /**
@@ -91,7 +93,7 @@ export const GAME_CONFIG = {
    * e vai para a bolsa da party. Almas continuam sendo a moeda de CRESCIMENTO (EXP, despertar).
    */
   zeni: {
-    dropPerKill: { grunt: 3, runner: 2, brute: 8, raydric: 10, necro: 6, elite: 56, boss: 105, boss2: 154, orcboss: 280, goblinImp: 42, goblinWarlord: 140, dinoBoss: 50, goblinLeader: 46, palhaco: 2, trainingDummy: 0 } as Record<string, number>,
+    dropPerKill: { grunt: 3, runner: 2, brute: 8, raydric: 10, necro: 6, elite: 56, boss: 105, boss2: 154, orcboss: 280, satanMorroc: 350, goblinImp: 42, goblinWarlord: 140, dinoBoss: 50, goblinLeader: 46, palhaco: 2, detarderus: 120, trainingDummy: 0 } as Record<string, number>,
     defaultDrop: 2,
     /** Bônus ao vencer a onda. */
     waveClearBonus: 42,
@@ -103,7 +105,7 @@ export const GAME_CONFIG = {
   },
   /** EXP e níveis: cada abate dá EXP a toda a party viva; cada nível dá pontos de atributo. */
   progression: {
-    expPerKill: { grunt: 2, runner: 2, brute: 4, raydric: 5, necro: 3, elite: 14, boss: 28, boss2: 42, orcboss: 70, goblinImp: 10, goblinWarlord: 38, dinoBoss: 14, goblinLeader: 12, palhaco: 2, trainingDummy: 0 } as Record<string, number>,
+    expPerKill: { grunt: 2, runner: 2, brute: 4, raydric: 5, necro: 3, elite: 14, boss: 28, boss2: 42, orcboss: 70, satanMorroc: 90, goblinImp: 10, goblinWarlord: 38, dinoBoss: 14, goblinLeader: 12, palhaco: 2, detarderus: 36, trainingDummy: 0 } as Record<string, number>,
     defaultExp: 2,
     expCurve: { base: 20, growth: 1.6 }, // EXP para passar do nível L = base * L^growth
     pointsPerLevel: 3,
@@ -243,7 +245,7 @@ export const GAME_CONFIG = {
    */
   cityDefense: {
     maxHp: 1000,
-    threat: { grunt: 3, runner: 2, brute: 8, raydric: 9, necro: 4, elite: 24, boss: 48, boss2: 60, orcboss: 80, goblinImp: 20, goblinWarlord: 60, dinoBoss: 22, goblinLeader: 21, palhaco: 2 } as Record<string, number>,
+    threat: { grunt: 3, runner: 2, brute: 8, raydric: 9, necro: 4, elite: 24, boss: 48, boss2: 60, orcboss: 80, satanMorroc: 100, goblinImp: 20, goblinWarlord: 60, dinoBoss: 22, goblinLeader: 21, palhaco: 2, detarderus: 60 } as Record<string, number>,
     defaultThreat: 3,
     /** Peso da ameaça por ato (o Ato I começa com um herói só). */
     threatActMult: [0.6, 0.9, 1.2],
@@ -265,7 +267,7 @@ export const GAME_CONFIG = {
    *    Se um deles alcançar o portão, invade a cidade do mesmo jeito.
    */
   aggro: {
-    byKind: { grunt: 'tauntable', runner: 'bypass', brute: 'heavy', raydric: 'heavy', necro: 'city', elite: 'hunter', boss: 'hunter', boss2: 'hunter', orcboss: 'hunter', goblinImp: 'heavy', goblinWarlord: 'hunter', dinoBoss: 'hunter', goblinLeader: 'hunter', palhaco: 'bypass' } as Record<string, AggroType>,
+    byKind: { grunt: 'tauntable', runner: 'bypass', brute: 'heavy', raydric: 'heavy', necro: 'city', elite: 'hunter', boss: 'hunter', boss2: 'hunter', orcboss: 'hunter', satanMorroc: 'hunter', goblinImp: 'heavy', goblinWarlord: 'hunter', dinoBoss: 'hunter', goblinLeader: 'hunter', palhaco: 'bypass', detarderus: 'hunter' } as Record<string, AggroType>,
     defaultType: 'tauntable' as AggroType,
     /** Tipos que trocam de alvo com Provocar. */
     tauntAffects: ['tauntable', 'heavy'] as AggroType[],
@@ -288,7 +290,7 @@ export const GAME_CONFIG = {
     /** Reavalia aquisição a cada N ticks (escalonado pelo id, sem pico). */
     checkEveryTicks: 5,
     /** Alcance de aquisição por tipo (0 = nunca tranca: conjurador e infiltrador ignoram heróis por desenho). Perto = reage; longe = segue a horda. */
-    range: { grunt: 3, runner: 0, brute: 3, raydric: 3, necro: 0, elite: 5, boss: 6, boss2: 6, orcboss: 6, goblinImp: 4, goblinWarlord: 6, dinoBoss: 5, goblinLeader: 4, palhaco: 0 } as Record<string, number>,
+    range: { grunt: 3, runner: 0, brute: 3, raydric: 3, necro: 0, elite: 5, boss: 6, boss2: 6, orcboss: 6, satanMorroc: 6, goblinImp: 4, goblinWarlord: 6, dinoBoss: 5, goblinLeader: 4, palhaco: 0, detarderus: 6 } as Record<string, number>,
     defaultRange: 5,
   },
   /** Objetos interativos dos mapas (regras em core/sim/objects.ts). */
@@ -383,7 +385,7 @@ export const GAME_CONFIG = {
     diagonalMult: 1.4,
   },
   /** Tipos que contam como chefe/mini-chefe: derrotá-los dá +1 nível a toda a party e drop garantido. */
-  bossKinds: ['elite', 'boss', 'boss2', 'orcboss', 'goblinImp', 'goblinWarlord', 'dinoBoss', 'goblinLeader'] as string[],
+  bossKinds: ['elite', 'boss', 'boss2', 'orcboss', 'goblinImp', 'goblinWarlord', 'dinoBoss', 'goblinLeader', 'detarderus', 'satanMorroc'] as string[],
   archetypes: {
     mage: {
       hp: 75,
