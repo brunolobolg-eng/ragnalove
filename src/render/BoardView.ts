@@ -13,44 +13,17 @@ import type { ParticleLayer } from './fx/Particles';
 import { isSharedTexture, sharedTexture, softCircle, tileOutline } from './textures';
 import { PathArrows } from './PathArrows';
 import { buildActDressing } from './scenery/ActDressing';
+import { loadTexture, precarregarImagens } from './scenery/naturKit';
+import { CENARIO_DIR, TEXTURAS_CENARIO } from './scenery/sceneryTextures';
 
-/** Textura do portal de spawn (círculo rúnico). */
+/** Textura do portal de spawn (círculo rúnico): imagem gerada em public/textures/cenario/runa_portal.webp. */
 let portalTex: THREE.Texture | undefined;
 function portalTexture(): THREE.Texture {
-  if (portalTex) return portalTex;
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const g = c.getContext('2d')!;
-  g.translate(64, 64);
-  g.strokeStyle = 'rgba(255,255,255,0.95)';
-  g.lineWidth = 3;
-  g.beginPath();
-  g.arc(0, 0, 56, 0, Math.PI * 2);
-  g.stroke();
-  g.lineWidth = 1.5;
-  g.beginPath();
-  g.arc(0, 0, 44, 0, Math.PI * 2);
-  g.stroke();
-  for (let i = 0; i < 12; i++) {
-    g.save();
-    g.rotate((i / 12) * Math.PI * 2);
-    g.fillStyle = 'rgba(255,255,255,0.9)';
-    g.fillRect(-2, -54, 4, 9);
-    g.beginPath();
-    g.moveTo(-5, -38);
-    g.lineTo(0, -30);
-    g.lineTo(5, -38);
-    g.stroke();
-    g.restore();
-  }
-  const r = g.createRadialGradient(0, 0, 0, 0, 0, 40);
-  r.addColorStop(0, 'rgba(255,255,255,0.5)');
-  r.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = r;
-  g.fillRect(-40, -40, 80, 80);
-  portalTex = sharedTexture(new THREE.CanvasTexture(c));
-  return portalTex;
+  return (portalTex ??= sharedTexture(loadTexture(`${CENARIO_DIR}runa_portal.webp`)));
 }
+
+// começa a carregar as imagens do cenário já no arranque: a primeira batalha monta o chão com textura pronta
+precarregarImagens(TEXTURAS_CENARIO);
 
 /** Cenário + camada de indicadores de grade + picking de tiles. */
 export class BoardView {

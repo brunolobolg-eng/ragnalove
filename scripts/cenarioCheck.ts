@@ -11,7 +11,7 @@
  * A LINHA_DE_BASE lista o que ainda falta trocar por arte do dono. Ela só pode cair: cada peça trocada
  * abaixa o número; qualquer primitiva a mais que a base falha o check.
  */
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { ACT_DRESSING, type ActPeca } from '../src/config/visualConfig';
@@ -79,6 +79,31 @@ if (falhas) {
   throw new Error(`cenarioCheck: ${falhas} arquivo(s) com primitiva acima da linha de base`);
 }
 console.log('\nCenário da campanha: nenhuma primitiva nova além da linha de base.');
+
+// ---------- Texturas do cenário sem canvas: a imagem vem de public/textures/cenario (scripts/gerarTexturasCenario.py) ----------
+// Todo arquivo da pasta de cenário (menos ActDressing.ts, que é de outro agente) e o BoardView.ts não podem criar
+// textura em canvas nem desenhar em canvas: canvas feito na hora fica borrado de perto.
+const CANVAS_PROIBIDO: [string, RegExp][] = [
+  ['new THREE.CanvasTexture', /new\s+THREE\.CanvasTexture\b/],
+  ["createElement('canvas')", /createElement\(\s*['"]canvas['"]\s*\)/],
+  ["getContext('2d')", /getContext\(\s*['"]2d['"]\s*\)/],
+];
+const ARQUIVOS_SEM_CANVAS = [
+  ...readdirSync(PASTA).filter((f) => f.endsWith('.ts') && f !== 'ActDressing.ts').map((f) => join(PASTA, f)),
+  join(RAIZ, 'src/render/BoardView.ts'),
+];
+let falhasCanvas = 0;
+for (const arquivo of ARQUIVOS_SEM_CANVAS) {
+  const codigo = readFileSync(arquivo, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  for (const [nome, re] of CANVAS_PROIBIDO) {
+    if (re.test(codigo)) {
+      falhasCanvas++;
+      console.log(`FALHOU ${arquivo.replace(RAIZ + '/', '')}: ${nome} (textura do cenário deve ser imagem gerada)`);
+    }
+  }
+}
+console.log(falhasCanvas ? `\n${falhasCanvas} uso(s) de canvas no cenário.` : `\nCenário sem canvas: ${ARQUIVOS_SEM_CANVAS.length} arquivo(s) conferidos.`);
+if (falhasCanvas) throw new Error(`cenarioCheck: ${falhasCanvas} uso(s) de canvas no cenário`);
 
 // ---------- Acampamentos dos monstros (ActDressing.ts): sem primitiva, peças do dono existentes ----------
 const root = RAIZ;
