@@ -33,7 +33,8 @@ Stack: TypeScript + Vite + Three.js, desktop via Electron (Windows/Steam). Sem f
    `node scripts/otimizar_glb.mjs` (tira a animação embutida pesada e simplifica a malha; as dependências ficam numa
    pasta à parte). Agregar: ligar o conjunto de clipes do jogo (`clips` em `visualConfig.ts`, ex.: `warriorRig`, `mage`).
    Depois confira cor, tamanho e, acima de tudo, **fluidez** no navegador. Auditoria: `node scripts/auditar_glb.cjs arquivo.glb`.
-8. **Cenário e visual**: chão, água e texturas usam a arte do dono em WebP nítido; nada de canvas pintado por código
+8. **Cenário e visual**: chão, água e texturas usam a arte do dono em WebP nítido, ou WebP gerado por script (offline,
+   em `public/textures/`, ex.: `scripts/gerarTexturasCenario.py`). Nada de canvas criado em tempo de execução
    (borra de perto). Nada pode flutuar: confira no screenshot de perto. Visual não altera a grade (`zones.ts`).
    Mudou cenário? Meça a montagem da batalha antes e depois (`window.__vg.enterBattle`, só em DEV) e não piore sem motivo.
 
