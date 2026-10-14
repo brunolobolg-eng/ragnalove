@@ -233,8 +233,9 @@ export function mageClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationCli
     { t: 0, pose: {} },
     { t: 0.15, hips: [0, 0.012, -0.01], pose: { spine: [-6, 0, 0], chest: [-4, 0, 0], head: [-16, 0, 0], 'upperArm.R': [-120, 0, -8], 'foreArm.R': [-18, 0, 0], 'upperArm.L': [-110, 0, 20], 'foreArm.L': [-32, 0, 0] } },
     { t: 0.3, hips: [0, 0.025, 0], pose: { spine: [-13, 0, 0], chest: [-9, 0, 0], head: [-13, 0, 0], 'upperArm.R': [-167, 0, -8], 'foreArm.R': [-11, 0, 0], 'hand.R': [0, 0, 0], 'upperArm.L': [-152, 0, 22], 'foreArm.L': [-28, 0, 0] } },
-    { t: 0.5, hips: [0, -0.055, 0.055], pose: { spine: [19, 0, 0], chest: [9, 0, 0], head: [5, 0, 0], 'upperArm.R': [-76, 0, -8], 'foreArm.R': [-22, 0, 0], 'hand.R': [42, 0, 0], 'upperArm.L': [-68, 0, 18], 'foreArm.L': [-32, 0, 0], 'thigh.L': [-26, 0, 0], 'shin.L': [28, 0, 0] } },
-    { t: 0.62, hips: [0, -0.05, 0.05], pose: { spine: [17, 0, 0], chest: [8, 0, 0], 'upperArm.R': [-74, 0, -8], 'foreArm.R': [-20, 0, 0], 'hand.R': [40, 0, 0], 'upperArm.L': [-66, 0, 18], 'foreArm.L': [-30, 0, 0], 'thigh.L': [-22, 0, 0], 'shin.L': [24, 0, 0] } },
+    // o tronco cede para trás na cravada (antes curvava 19° para frente e o chapéu cobria o rosto)
+    { t: 0.5, hips: [0, -0.055, 0.055], pose: { spine: [9, 0, 0], chest: [4, 0, 0], head: [-10, 0, 0], 'upperArm.R': [-76, 0, -8], 'foreArm.R': [-22, 0, 0], 'hand.R': [42, 0, 0], 'upperArm.L': [-68, 0, 18], 'foreArm.L': [-32, 0, 0], 'thigh.L': [-26, 0, 0], 'shin.L': [28, 0, 0] } },
+    { t: 0.62, hips: [0, -0.05, 0.05], pose: { spine: [8, 0, 0], chest: [3, 0, 0], 'upperArm.R': [-74, 0, -8], 'foreArm.R': [-20, 0, 0], 'hand.R': [40, 0, 0], 'upperArm.L': [-66, 0, 18], 'foreArm.L': [-30, 0, 0], 'thigh.L': [-22, 0, 0], 'shin.L': [24, 0, 0] } },
     { t: 0.74, hips: [0, -0.02, 0.01], pose: { spine: [6, 0, 0], 'upperArm.R': [-40, 0, -10], 'foreArm.R': [-40, 0, 0], 'upperArm.L': [-30, 0, 14] } },
     { t: 0.85, pose: {} },
   ]);
