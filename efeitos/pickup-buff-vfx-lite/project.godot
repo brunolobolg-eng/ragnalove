@@ -1,0 +1,17 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="Pickup & Buff VFX — Lite"
+config/description="Free level-up burst effect for Godot 4."
+run/main_scene="res://demo/buff_pickup_vfx_lite/dragdrop_example.tscn"
+config/features=PackedStringArray("4.5", "Forward Plus")
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/buff_pickup_vfx_lite/plugin.cfg")
+
+[rendering]
+
+renderer/rendering_method="forward_plus"

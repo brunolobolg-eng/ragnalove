@@ -1,0 +1,138 @@
+INSTALLING
+==========
+
+Everything in this download sits inside one folder, named after the pack. Nothing
+gets loose, and nothing of yours gets overwritten.
+
+
+1. JUST WANT TO SEE IT WORK?
+----------------------------
+
+Unzip it. You get one folder - "combat", "inventory", and so on.
+
+Open THAT folder in Godot (Project Manager -> Import -> pick the project.godot
+inside it), then press Play.
+
+You get the demo scene, with the pack already switched on. Nothing to wire up.
+
+If Godot says there's no project in the folder you picked, you're one level too
+high - look for the folder that has "project.godot" in it and pick that one.
+
+
+2. PUTTING IT IN YOUR OWN GAME
+------------------------------
+
+Unzip it wherever you like. Your project root is fine too - the demo's
+project.godot is a level down and can't touch yours.
+
+1) Find the "addons" folder inside the pack folder.
+
+2) Copy the pack's folder out of it - for example "addons/combat" - into your own
+   project's "addons" folder. Make one if you don't have it.
+
+3) If there's also an "addons/rpg_core" folder, copy that too. It's the shared
+   piece several packs use to talk to each other.
+
+4) In Godot: Project -> Project Settings -> Plugins -> tick the pack.
+   That's it. Anything it needs to run in the background switches itself on. You
+   don't add autoloads by hand.
+
+5) Optional: the pack folder also has "demo" and "tools". Copy those in too if you
+   want the example scene and the self-test inside your project. They're kept in
+   per-pack subfolders, so they can't clash with anything.
+
+6) Delete the leftover pack folder when you're done taking what you want.
+
+
+2b. UPDATING A PACK YOU ALREADY HAVE
+------------------------------------
+
+Copy the new "addons/<pack>" folder over the old one and let it overwrite. That
+folder is the part that changes between versions.
+
+Leave "addons/rpg_core" alone when updating. The pack's CHANGELOG says so if a
+version needs a newer copy of it.
+
+Your own work isn't in the pack folder. The docks save what you make - items,
+quests, recipes, profiles and the rest - to folders of your own at the top of
+the project (items/, quests/ and so on), and your scenes point at the pack by
+path. They carry on working.
+
+Two exceptions, so check before you copy:
+
+- The Pro Save/Load pack keeps its settings inside its own folder. Move
+  "addons/save_load/default_settings.tres", and anything you saved next to it,
+  out of the way first, then put them back. The Lite pack has nothing to move.
+- Anything else you saved or edited inside "addons/<pack>" yourself. Same deal.
+
+Godot re-imports on its own when you switch back to the editor. If a node's
+Inspector looks stale afterwards, Project -> Reload Current Project.
+
+
+3. USING SEVERAL PACKS TOGETHER
+-------------------------------
+
+This works, and there's no cleanup on your side.
+
+- "addons/rpg_core" is the same in every pack that ships it, file for file. Some
+  packs only ship the parts of it they use, so copy the files INSIDE it into
+  your existing rpg_core folder - add and overwrite - rather than replacing the
+  folder. You end up with everything you installed, combined. Order doesn't
+  matter.
+
+- Demos and tools live in per-pack subfolders (demo/inventory, tools/quests, and
+  so on), so two packs can never fight over the same file.
+
+- The background helpers each pack switches on have their own names (SaveManager,
+  QuestManager, TimeManager, DialogueManager, Combat, SceneFlow, Audio, and so
+  on). The one shared name, Events, points at the same rpg_core file in every
+  pack, so it doesn't matter which pack turns it on.
+
+Switch them on one at a time and press Play in between if you want to be careful.
+There's no required order.
+
+
+4. IF YOU HAVE AN OLDER DOWNLOAD
+--------------------------------
+
+Packs downloaded before August 2026 unzipped loose, with a project.godot at the
+top. Extracting one of those straight into a project folder DID overwrite that
+project's settings. If that happened to you, nothing is lost that you can't put
+back by hand:
+
+1) Project Settings -> Plugins - switch back on anything that got switched off.
+2) Project Settings -> Application -> Run -> Main Scene - point it back at your
+   own scene.
+3) Project Settings -> Application -> Config -> Name - set your game's name again.
+
+Then follow section 2 for the copy that actually installs.
+
+
+5. A NOTE ON RENDERERS
+----------------------
+
+Every demo project states its renderer now, so none of them inherits whatever
+your editor happens to default to.
+
+Most of them are GL Compatibility, which is the widest-reach option and covers
+web and low-end machines. The exceptions:
+
+AAA VISUALS NEEDS FORWARD+, and its demo says so. Its effects (SSAO, SSR, SSIL,
+volumetric fog, SDFGI) don't exist on GL Compatibility. If you're mixing it into
+a project that started from one of the other demos, set Project Settings ->
+Rendering -> Renderer -> Rendering Method to "forward_plus".
+
+THE VFX DEMOS ARE FORWARD+ TOO: the four VFX packs, their free versions and the
+VFX bundle. Their glow is tuned on Forward+. The effects still play on GL
+Compatibility, where the glow looks different.
+
+That's about the bundled demos. The addon code itself doesn't care, so dropping
+any pack into your own project uses your project's renderer, not ours.
+
+
+6. STUCK?
+---------
+
+Every pack has its own docs in "addons/<pack>/docs", starting with a quick start,
+and most have a troubleshooting page too. If something's still wrong, reply on the
+pack's itch page - I read those.

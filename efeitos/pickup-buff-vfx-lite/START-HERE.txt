@@ -1,0 +1,28 @@
+Pickup & Buff VFX (Lite)  (version 1.2.2)
+=========================================
+
+WHAT'S IN HERE
+  addons/         the product. This is the part you copy into your game.
+  demo/           a working example scene you can press Play on.
+  project.godot   lets you open THIS folder in Godot on its own.
+
+SEE IT RUNNING (about a minute)
+  1) Open Godot. In the Project Manager, click Import.
+  2) Pick the project.godot in THIS folder.
+  3) Press Play.
+  The pack is already switched on. Nothing to wire up.
+
+PUT IT IN YOUR OWN GAME (about two minutes)
+  1) Copy the folder  addons/buff_pickup_vfx_lite  into your project's addons folder.
+     Make an addons folder first if you don't have one.
+  2) In Godot: Project -> Project Settings -> Plugins -> tick "Pickup & Buff VFX — Lite".
+  That's it. Anything the pack needs running in the background switches
+  itself on. You don't add autoloads by hand.
+
+DOCS
+  addons/buff_pickup_vfx_lite/docs/       quick start and the rest.
+  addons/buff_pickup_vfx_lite/README.md   what the pack does, at a glance.
+  addons/buff_pickup_vfx_lite/CHANGELOG.md what changed in this version.
+
+  INSTALLING.txt, next to this file, covers installing by hand, updating,
+  using several packs together, and what to do if something goes wrong.
