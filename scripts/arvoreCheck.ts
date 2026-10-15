@@ -96,7 +96,7 @@ check('pontos = (nível − 1) por herói, somados', pontosTotais(pNiv) === 4 + 
   const p = comNiveis({ warrior: 5 }, 0);
   const antes = pontosDisponiveis(p);
   motivoComprarNo(p, 'vigorDoReino');
-  check('pré-visualizar compra não gasta ponto', pontosDisponiveis(p) === antes && !p.arvore);
+  check('pré-visualizar compra não gasta ponto nem abre nó', pontosDisponiveis(p) === antes && (p.arvore?.comprados.length ?? 0) === 0);
 }
 
 // ---------------- (c) masteries: Zen, elegibilidade, nível, uma por herói ----------------

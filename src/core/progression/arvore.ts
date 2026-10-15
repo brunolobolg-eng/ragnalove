@@ -47,6 +47,57 @@ export function arvoreVazia(): ArvoreState {
   return { comprados: [], masteries: {}, reorganizacoes: 0 };
 }
 
+/**
+ * Conserta a árvore que veio do save (antigo, vazio ou editado à mão). Não perde nada válido:
+ * - id de nó desconhecido sai; nó repetido conta uma vez; a raiz não entra na lista;
+ * - nó só fica se está ligado à raiz por nós que também ficaram (requisito de ligação não é pulado);
+ * - Mastery só fica se o nó que a desbloqueia ficou aberto, o herói é elegível e não passa do limite por herói;
+ * - reorganizações: inteiro não negativo, senão zero.
+ * Pode rodar mais de uma vez (idempotente).
+ */
+export function normalizarArvore(raw: unknown): ArvoreState {
+  if (!raw || typeof raw !== 'object') return arvoreVazia();
+  const r = raw as { comprados?: unknown; masteries?: unknown; reorganizacoes?: unknown };
+  // 1) ids conhecidos, sem repetir e sem a raiz
+  const pendentes: string[] = [];
+  if (Array.isArray(r.comprados)) {
+    for (const id of r.comprados) {
+      if (typeof id !== 'string' || pendentes.includes(id)) continue;
+      const no = NO_BY_ID[id];
+      if (!no || no.tipo === 'raiz') continue;
+      pendentes.push(id);
+    }
+  }
+  // 2) só fica o que está ligado à raiz por nós que também ficaram (ponto fixo: a ordem do save não importa)
+  const abertos = new Set<string>([RAIZ_ID]);
+  for (let mudou = true; mudou; ) {
+    mudou = false;
+    for (const id of pendentes) {
+      if (abertos.has(id) || !vizinhos(id).some((v) => abertos.has(v))) continue;
+      abertos.add(id);
+      mudou = true;
+    }
+  }
+  const st: ArvoreState = {
+    comprados: pendentes.filter((id) => abertos.has(id)),
+    masteries: {},
+    reorganizacoes: typeof r.reorganizacoes === 'number' && Number.isInteger(r.reorganizacoes) && r.reorganizacoes >= 0 ? r.reorganizacoes : 0,
+  };
+  // 3) Masteries: ordem alfabética dos ids (determinística), com nó aberto, herói elegível e limite por herói
+  if (r.masteries && typeof r.masteries === 'object') {
+    const guardadas = r.masteries as Record<string, unknown>;
+    for (const id of Object.keys(guardadas).sort()) {
+      const m = MASTERY_BY_ID[id];
+      const k = guardadas[id];
+      if (!m || typeof k !== 'string' || !isHeroKind(k)) continue;
+      if (!m.elegiveis.includes(k) || !possui(st, m.noRequerido)) continue;
+      if (masteriesDoHeroi(st, k).length >= ARVORE_CONFIG.maxMasteriesPorHeroi) continue;
+      st.masteries[m.id] = k;
+    }
+  }
+  return st;
+}
+
 /** Só leitura: sem árvore guardada, vale a árvore vazia (saves antigos). */
 function estado(h: ArvoreHost): ArvoreState {
   return h.arvore ?? arvoreVazia();

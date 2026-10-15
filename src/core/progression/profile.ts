@@ -7,7 +7,7 @@ import { HERO_NAME, HERO_ORDER, familyOf, isHeroKind } from '../../config/heroes
 import { VOCATIONS, VOCATIONS_CONFIG, type VocationDef } from '../../config/vocations';
 import type { VocationPassiveBonus } from '../../config/vocationSkills';
 import type { CardRuntime } from './cards';
-import { bonusDoHeroi, type ArvoreState } from './arvore';
+import { arvoreVazia, bonusDoHeroi, normalizarArvore, type ArvoreState } from './arvore';
 
 /**
  * Progressão persistente entre ondas (o "save" do jogador). A simulação recebe um
@@ -38,8 +38,14 @@ export interface HeroProgress {
   vocation?: string;
 }
 
+/**
+ * Versão do Profile (formato salvo). 1 = antes da árvore global; 2 = com `arvore`.
+ * Saves v1 são migrados ao carregar (migrateProfile): nada do jogador se perde.
+ */
+export const PROFILE_VERSION = 2;
+
 export interface Profile {
-  version: 1;
+  version: 1 | 2;
   souls: number; // almas no banco (moeda de crescimento: EXP, despertar)
   /** Zen: moeda de gasto (atributos, respec, lojas, refino). */
   zeni: number;
@@ -71,7 +77,7 @@ export function createProfile(): Profile {
     equipment: { weapon: starterWeapon(k) },
     cards: [],
   });
-  return { version: 1, souls: 0, zeni: 0, heroes: Object.fromEntries(HERO_ORDER.map((k) => [k, hero(k)])), inventory: [] };
+  return { version: PROFILE_VERSION, souls: 0, zeni: 0, heroes: Object.fromEntries(HERO_ORDER.map((k) => [k, hero(k)])), inventory: [], arvore: arvoreVazia() };
 }
 
 /** Arma inicial de cada classe (Comum, sem atributos extras). */
@@ -412,6 +418,10 @@ export function clearInventory(p: Profile): void {
 
 /** Saves antigos: preenche campos novos (habilidades, Zen). */
 export function migrateProfile(p: Profile): Profile {
+  // v1 -> v2: a árvore global entra. Save antigo não tem o campo: abre com a árvore vazia (nenhum efeito novo).
+  // Save v2 é só conferido (nós e Masteries inconsistentes saem; o resto fica como está).
+  p.arvore = normalizarArvore(p.arvore);
+  p.version = PROFILE_VERSION;
   p.zeni ??= 0;
   p.souls ??= 0;
   p.inventory ??= [];
