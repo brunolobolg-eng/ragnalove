@@ -14,6 +14,7 @@ import { isSharedTexture, sharedTexture, softCircle, tileOutline } from './textu
 import { PathArrows } from './PathArrows';
 import { buildActDressing } from './scenery/ActDressing';
 import { buildTempestade, tempestadeAtiva, type TempestadeHandle } from './scenery/tempestade';
+import { buildCeuIlhas, ceuIlhasAtivo, type CeuIlhasHandle } from './scenery/ceuIlhas';
 import { loadTexture, precarregarImagens } from './scenery/naturKit';
 import { CENARIO_DIR, TEXTURAS_CENARIO } from './scenery/sceneryTextures';
 
@@ -37,6 +38,8 @@ export class BoardView {
   private readonly scenery: SceneryHandle;
   /** Ato III: chuva, raios e ruínas flutuantes (só com a flag ATO3_TEMPESTADE ligada para a zona). */
   private readonly tempestade?: TempestadeHandle;
+  /** Ato IV: arena como ilha sobre o mar de nuvens, com ilhas e peças em volta (só com a flag ATO4_CEU_ILHAS para a zona). */
+  private readonly ceuDeIlhas?: CeuIlhasHandle;
   private readonly arrows?: PathArrows;
   /** Luzes reais do cenário (braseiros); desligadas no preset Baixo. */
   static sceneryLights = true;
@@ -72,6 +75,7 @@ export class BoardView {
   update(dt: number, particles: ParticleLayer): void {
     this.scenery.update(dt, particles);
     this.tempestade?.update(dt);
+    this.ceuDeIlhas?.update(dt);
     this.arrows?.update(dt);
     this.t += dt;
     this.pAcc += dt;
@@ -99,19 +103,25 @@ export class BoardView {
 
     // Cenário da zona ativa — só visual (a grade vem do mapa da zona).
     const zone = ZONE_STATE.current;
+    // Ato IV: a arena vira ilha (chão e decoração externa trocados; os obstáculos da grade continuam). Só zonas de bioma.
+    const ilhas = !zone.painted && zone.theme !== 'bridge' && zone.theme !== 'town' && ceuIlhasAtivo(zone.id);
     this.scenery = zone.painted
       ? buildPaintedScenery(zone)
       : zone.theme === 'bridge'
         ? buildBridgeScenery(parseZone(zone))
         : zone.theme === 'town'
           ? { group: buildScenery(board), update: () => {}, setLights: () => {} }
-          : buildBiomeScenery(parseZone(zone), zone.theme);
+          : buildBiomeScenery(parseZone(zone), zone.theme, { ceuIlhas: ilhas });
     this.scenery.setLights(BoardView.sceneryLights);
     definirDetalheAgua(BoardView.sceneryLights);
     this.group.add(this.scenery.group);
     if (tempestadeAtiva(zone.id)) {
       this.tempestade = buildTempestade(board.width, board.height);
       this.group.add(this.tempestade.group);
+    }
+    if (ilhas) {
+      this.ceuDeIlhas = buildCeuIlhas(parseZone(zone));
+      this.group.add(this.ceuDeIlhas.group);
     }
     // Cenário temático dos monstros do ato + setas discretas do caminho da horda
     if (!zone.painted) this.group.add(buildActDressing(board)); // mapa pintado já traz o cenário

@@ -692,6 +692,119 @@ export const ATO3_TEMPESTADE = {
 } as const;
 
 /**
+ * Ato IV — Ilhas e nuvens (protótipo, só visual; a flag e os números estão aqui). A arena vira uma ilha flutuante
+ * sobre um mar de nuvens, com ilhas e peças em volta (ceuIlhas.ts). Texturas e peças são as do dono (public/textures/ato4).
+ * Com `ativo: false` o cenário volta exatamente ao de antes. O cenário da zona (obstáculos da grade e decoração dentro do
+ * tabuleiro) continua; sai só o chão de terra/neve e a decoração externa (buildBiomeScenery, opção `ceuIlhas`).
+ * Coordenadas das ilhas e peças: mundo, com o centro do tabuleiro em (0, 0) (o tabuleiro vai de -W/2 a W/2 em X e -H/2 a H/2 em Z).
+ */
+export const ATO4_CEU_ILHAS = {
+  ativo: true,
+  /** Zona de prévia (ato ainda não existe no jogo): uma zona do Ato III, sem a tempestade. */
+  zonas: ['frostPass'] as readonly string[],
+  /** Pasta das texturas do Ato IV (chão, mar, brilho) e das peças recortadas (`pecas/`, com alfa). */
+  dir: 'textures/ato4/',
+  /** Névoa e fundo na cor do horizonte (tem que bater com o degradê do céu). */
+  horizonte: 0xc7e0f5,
+  fundo: 0xa9cfef,
+  /** Névoa em tiles (escala com o zoom, como a comum): as ilhas do fundo somem no céu. */
+  nevoa: { near: 24, far: 70 },
+  /** Luz do dia claro: céu azul no ambiente, sol quente. A direção do sol continua a da zona. */
+  luz: { sky: 0xeaf4ff, ground: 0xcdbb8a, sun: 0xfff2cf, hemi: 1.0, lua: 1.15, exposicao: 1.12 },
+  /** Gradiente da pós-produção (topo, meio, base): azul claro no alto, dourado no horizonte. */
+  gradiente: ['#79A9E0', '#CFE5F8', '#F7EBC9'] as readonly string[],
+  /** Céu: esfera por dentro com degradê de três cores (topo, meio e base). `raio` além da borda do mapa. */
+  ceu: { raio: 150, topo: 0x5a8ccc, meio: 0xc3ddf4, base: 0xf6ebc8 },
+  /**
+   * Chão da arena: pedra clara (chão), azulejo dourado (portão e praça), grama (raízes) e a borda da ilha: uma faixa
+   * de grama de `borda` tiles além da grade e um flanco de rocha de `flanco` tiles de altura. `porTextura` = tiles por imagem.
+   */
+  chao: { pedra: 'pedra_clara.webp', azulejo: 'azulejo_dourado.webp', grama: 'grama_ilha.webp', rocha: 'rocha_ilha.webp', porTextura: 4, borda: 3, flanco: 4 },
+  /**
+   * Mar de nuvens sob a ilha: duas camadas (altura Y, tiles por imagem, deriva em tiles/s e opacidade). A extensão cobre
+   * o horizonte (a névoa apaga a borda). A sombra das ilhas cai nele; `sombra` = textura, cor, opacidade e a escala da mancha.
+   */
+  mar: {
+    textura: 'nuvem.webp',
+    extensao: 320,
+    camadas: [
+      { y: -6.5, tilesPorImagem: 14, velocidade: 0.12, opacidade: 0.96 },
+      { y: -10, tilesPorImagem: 9, velocidade: -0.07, opacidade: 0.6 },
+    ] as readonly { y: number; tilesPorImagem: number; velocidade: number; opacidade: number }[],
+    sombra: { textura: 'textures/cenario/sombra_contato.webp', cor: 0x2b4670, opacidade: 0.28, escala: 1.25 },
+  },
+  /** Sombra de contato sob as peças da borda (no chão da ilha): opacidade e cor. */
+  contato: { textura: 'textures/cenario/sombra_contato.webp', cor: 0x2a2014, opacidade: 0.5 },
+  /** Brilho azul (arte do dono) atrás dos cristais: cor multiplicada (aditiva), tamanho em tiles. */
+  brilho: { textura: 'brilho_azul.webp', cor: [0.5, 0.8, 1.3] as readonly number[], tamanho: 3.2 },
+  /**
+   * Ilhas flutuantes em volta. `x`, `z` = centro; `y` = base da arte (sobe e desce com `balanco`, em tiles, a `velocidade`
+   * em rad/s); `altura` = altura da arte em tiles (a largura sai da proporção da imagem). O topo da grama fica perto de
+   * 0,65 × `altura` acima da base: as ilhas ligadas por ponte têm esse topo no nível da arena (y = 0). A faixa do norte
+   * aparece acima da arena na visão aberta; as laterais só aparecem com a câmera mais afastada.
+   */
+  ilhas: {
+    balanco: 0.22,
+    velocidade: 0.35,
+    lista: [
+      { peca: 'ilha_arvore', x: 31, z: -14, y: -4.6, altura: 7.5 },
+      { peca: 'ilha_grama', x: -30.5, z: -12, y: -3.9, altura: 6 },
+      { peca: 'ilha_cachoeira', x: 2, z: -38, y: -1.5, altura: 9 },
+      { peca: 'ilha_rocha', x: -18, z: -30, y: -3, altura: 6.5 },
+      { peca: 'ilha_nuvem', x: 20, z: -32, y: -2.5, altura: 5.5 },
+      { peca: 'ilha_pequena', x: -29, z: 15, y: -1, altura: 3.8 },
+      { peca: 'ilha_ruina_1', x: 32, z: 18, y: -2, altura: 5.2 },
+      { peca: 'ilha_ruina_2', x: -6, z: -50, y: -1, altura: 5 },
+    ] as readonly { peca: string; x: number; z: number; y: number; altura: number }[],
+  },
+  /**
+   * Pontes que ligam a borda da arena às ilhas vizinhas. Billboard: a largura sai da proporção da arte, e a base (`y`)
+   * fica abaixo do nível da arena (cerca de 0,6 × `altura`), porque o tabuleiro da ponte é a parte de cima da arte: assim
+   * o tabuleiro cai no nível da grama da arena e da ilha ligada (y = 0 no topo).
+   */
+  pontes: [
+    { peca: 'ponte_reta', x: 26.8, z: -14, y: -2.2, altura: 3.6 },
+    { peca: 'ponte_arco', x: -27, z: -12, y: -2.3, altura: 3.8 },
+  ] as readonly { peca: string; x: number; z: number; y: number; altura: number }[],
+  /**
+   * Peças na borda de grama da arena (base no chão da ilha, sombra de contato). Ficam fora da grade, nas laterais
+   * e atrás (o norte, de onde a horda vem, tem o arco de entrada); a frente (sul) fica livre para a câmera.
+   * `brilho`: a peça tem o brilho azul atrás (cristais).
+   */
+  borda: [
+    { peca: 'arco_dourado', x: 0, z: -21.2, y: 0, altura: 5.2 },
+    { peca: 'pilar_dourado', x: -11, z: -21, y: 0, altura: 3.6 },
+    { peca: 'pilar_dourado', x: 11, z: -21, y: 0, altura: 3.6 },
+    { peca: 'altar_cristal', x: -16.5, z: -21.4, y: 0, altura: 2.6, brilho: true },
+    { peca: 'tocheiro', x: -23.6, z: -12.5, y: 0, altura: 3 },
+    { peca: 'tocheiro', x: 23.6, z: -12.5, y: 0, altura: 3 },
+    { peca: 'tocheiro_baixo', x: -23.8, z: -19, y: 0, altura: 1.8 },
+    { peca: 'estatua_anjo', x: -23.4, z: 5, y: 0, altura: 4.2 },
+    { peca: 'cristal_azul', x: 23.6, z: 6, y: 0, altura: 3.6, brilho: true },
+    { peca: 'pilar_ruina', x: -23.5, z: -2.5, y: 0, altura: 3.6 },
+    { peca: 'arco_ruina_2', x: 23.2, z: -1.5, y: 0, altura: 3.8 },
+    { peca: 'escada_pedra_4', x: -24, z: 10.5, y: 0, altura: 2.4 },
+    { peca: 'cristal_pequeno', x: -21, z: 17.5, y: 0, altura: 2.2, brilho: true },
+    { peca: 'fonte_cristal', x: 22, z: 19, y: 0, altura: 2.4 },
+    { peca: 'cerca_dourada_1', x: -8, z: 21.6, y: 0, altura: 1.4 },
+    { peca: 'cerca_dourada_2', x: 8, z: 21.6, y: 0, altura: 1.4 },
+  ] as readonly { peca: string; x: number; z: number; y: number; altura: number; brilho?: boolean }[],
+  /** Nuvens soltas no alto, à deriva (a `balanco` em tiles e a `velocidade` em rad/s). */
+  nuvens: {
+    balanco: 1.5,
+    velocidade: 0.05,
+    opacidade: 0.92,
+    lista: [
+      { peca: 'nuvem_pecas_1', x: -44, z: -14, y: 7, altura: 6 },
+      { peca: 'nuvem_pecas_2', x: 46, z: -18, y: 9, altura: 7 },
+      { peca: 'nuvem_espiral_1', x: -18, z: -62, y: 12, altura: 7 },
+      { peca: 'nuvem_espiral_3', x: 26, z: -58, y: 10, altura: 6 },
+      { peca: 'nuvem_pecas_3', x: -6, z: -64, y: 15, altura: 6 },
+    ] as readonly { peca: string; x: number; z: number; y: number; altura: number }[],
+  },
+} as const;
+
+/**
  * Menu principal (tela de título): a arte da temporada vigente (`temporadas.ts`) enche a tela; por cima, os botões,
  * o painel de Ranking e o slogan recortados da mesma arte, com as áreas clicáveis e os valores vivos. Coordenadas em
  * pixels da arte de referência (x, y, largura, altura): toda arte de temporada usa esta composição.

@@ -112,8 +112,14 @@ const LAVA_KIT: BiomeKit = {
   stump: 'nat:lavaArvore',
 };
 
-export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHandle {
+/** Opções do cenário de bioma. `ceuIlhas` (Ato IV, ceuIlhas.ts): sem chão nem decoração externa; os obstáculos da grade ficam. */
+export interface BiomeOpts {
+  ceuIlhas?: boolean;
+}
+
+export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme, opts: BiomeOpts = {}): SceneryHandle {
   const biome: Biome = theme === 'bridge' || theme === 'town' ? 'plains' : theme;
+  const ceuIlhas = opts.ceuIlhas === true;
   const P = PAL[biome];
   const root = new THREE.Group();
   const W = zone.width;
@@ -141,12 +147,13 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
 
   // ---------------- Chão ----------------
   // floresta, deserto, gelo e lava: chão em camadas com as texturas do dono (forestGround, desertGround, iceGround, lavaGround)
-  const forest = floresta ? forestGround(zone, 22) : undefined;
-  const desert = theme === 'desert' ? desertGround(zone, 22) : undefined;
-  const ice = iceMap ? iceGround(zone, 22) : undefined;
-  const lavaChao = lavaMap ? lavaGround(zone, 22) : undefined;
+  // (Ato IV: o chão é o do ceuIlhas.ts, então este bloco não entra)
+  const forest = floresta && !ceuIlhas ? forestGround(zone, 22) : undefined;
+  const desert = theme === 'desert' && !ceuIlhas ? desertGround(zone, 22) : undefined;
+  const ice = iceMap && !ceuIlhas ? iceGround(zone, 22) : undefined;
+  const lavaChao = lavaMap && !ceuIlhas ? lavaGround(zone, 22) : undefined;
   for (const h of [forest, desert, ice, lavaChao]) if (h) root.add(h.group);
-  if (!natural && !desert) root.add(chaoPlanicie(zone, W, H));
+  if (!natural && !desert && !ceuIlhas) root.add(chaoPlanicie(zone, W, H));
 
   // ---------------- Água / lava nos tiles de vazio ----------------
   // na floresta e no deserto o lago é desenhado pelo chão; nos outros biomas, a água de sempre
@@ -260,7 +267,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     }
   }
   // Cordilheira do fundo, picos, torres/ruínas, encostas laterais e acampamentos: tudo do kit do bioma
-  if (kit.ridge.length) {
+  if (kit.ridge.length && !ceuIlhas) {
     for (let x = -W / 2 - 10; x <= W / 2 + 10; x += 4.2) cluster(x + (rnd() - 0.5) * 2, -H / 2 - 8 - rnd() * 3, 3 + Math.floor(rnd() * 2), 1.4, 2.2, 3.4, kit.ridge);
     for (let x = -W / 2 - 6; x <= W / 2 + 6; x += 7) cluster(x + rnd() * 2, -H / 2 - 15 - rnd() * 2, 3, 2, 3.6, 5.2, kit.peak);
     kit.towers.forEach((t, i) => glbPut(t, (i === 0 ? -1 : 1) * (W / 4), -H / 2 - 16, 1.6));
@@ -273,7 +280,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     camp(W / 2 + 2.4, -6);
   }
   // Decoração solta em volta do tabuleiro (fora da frente, que fica livre para a câmera)
-  const decoN = Math.round(({ forest: 200, plains: 200, desert: 60, ash: 50, mountain: 26 } as Record<string, number>)[biome] * edgeK);
+  const decoN = ceuIlhas ? 0 : Math.round(({ forest: 200, plains: 200, desert: 60, ash: 50, mountain: 26 } as Record<string, number>)[biome] * edgeK);
   for (let i = 0; i < decoN; i++) {
     const side = rnd();
     let x: number;
@@ -303,7 +310,7 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme): SceneryHa
     }
   }
   // Moitas e flores coladas na borda do tabuleiro (moldura viva, como nos mapas de MMO)
-  if (biome === 'forest' || biome === 'plains') {
+  if ((biome === 'forest' || biome === 'plains') && !ceuIlhas) {
     for (let i = 0; i < 46 * edgeK; i++) {
       const left = rnd() < 0.5;
       const x = (left ? -1 : 1) * (W / 2 + 0.25 + rnd() * 1.4);

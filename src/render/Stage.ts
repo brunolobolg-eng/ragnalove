@@ -8,7 +8,7 @@ import { MAX_HEAT, createVfxPass } from './fx/kit/VfxPostPass';
 import { PostFX, createFinishPass } from './fx/kit/PostFX';
 import { VFX } from './fx/kit/vfxSettings';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { ATO3_TEMPESTADE, VISUAL_CONFIG, VISUAL_THEMES } from '../config/visualConfig';
+import { ATO3_TEMPESTADE, ATO4_CEU_ILHAS, VISUAL_CONFIG, VISUAL_THEMES } from '../config/visualConfig';
 import { ACTIVE_ZONE, type ZoneTheme } from '../config/zones';
 import { GAME_CONFIG } from '../config/gameConfig';
 
@@ -148,11 +148,13 @@ export class Stage {
   /**
    * Troca a atmosfera (luz, névoa, câmera, bloom) para o tema da zona.
    * `tempestade`: clima frio do Ato III (ATO3_TEMPESTADE, visualConfig.ts): névoa mais densa, luz fria e gradiente
-   * cinza-azulado. Sem ele, a atmosfera é a do tema, como antes.
+   * cinza-azulado. `ceuIlhas`: céu claro do Ato IV (ATO4_CEU_ILHAS): dia claro com o horizonte dourado. Sem eles, a
+   * atmosfera é a do tema, como antes.
    */
-  applyTheme(theme: ZoneTheme, tempestade = false): void {
+  applyTheme(theme: ZoneTheme, tempestade = false, ceuIlhas = false): void {
     const V = themeOf(theme);
-    const T = tempestade ? ATO3_TEMPESTADE : undefined;
+    const T: { horizonte: number; fundo: number; nevoa: { near: number; far: number }; luz: { sky: number; ground: number; sun: number; hemi: number; lua: number; exposicao: number }; gradiente: readonly string[] } | undefined =
+      ceuIlhas ? ATO4_CEU_ILHAS : tempestade ? ATO3_TEMPESTADE : undefined;
     this.renderer.toneMappingExposure = T?.luz.exposicao ?? V.exposure;
     (this.scene.background as THREE.Color).set(T?.fundo ?? V.background);
     const fog = this.scene.fog as THREE.Fog;
