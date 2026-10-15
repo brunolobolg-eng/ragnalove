@@ -854,6 +854,27 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
 - **Testes:** `tsc`, `build`, `bastion:check`, `bastion:path` (seções 7 e 8 novas) e `vocation:check` passam. `sim:check`: só a linha bastionKeep mudou (abatidos 25 → 28, invasões 35 → 32), as outras idênticas. Navegador: sem erro de console.
 - **Pendências:** confirmar com o dono se as rochas ficaram bem vistas de perto na faixa; peça de muralha de um tile da arte do dono; ver se o layout real dele tem um terceiro bloco (fechar o portão exige 3 muralhas, porque os tiles x=22 não são construíveis).
 
+## 2026-10-13 — pedra clara da ponte, praça e barreira com a arte do SUPERPACK (em andamento)
+- **Pedido do dono:** o chão de pedra da ponte está escuro e tem que ser claro; cidade não é feita de pedra daquele jeito; a barreira da cidade também precisa do rework. Aplicar o máximo do pacote substituindo o antigo, começando por campanha e Bastião.
+- **Análise do pacote (`SUPERPACK/`, untracked, não versionado):** o kit Medieval Village MegaKit tem os blocos de pedra certos (`T_Brick`, `T_UnevenBrick`, `T_RockTrim`). As texturas de pedra do `Textures/` (`Rocks_Diffuse`, `PathRocks`) são verde-escuras e não servem para cidade. `Rocks_Desert` é arenito claro, guardado para deserto.
+- **Feito:**
+  - Novas texturas em `public/textures/cidade/` (WebP 1024 px): `pedra_bloco_claro.webp` (tabuleiro, muralhas, cais, escada), `calcamento_praca.webp` (praça), `pedra_aparada.webp` (ainda sem uso).
+  - `bridgeTextures.ts`: a pedra pintada em canvas (`wallBlockTexture`) virou `pedraBlocos()`, com a textura do dono. A lateral da ponte continua com o arco pintado, e os blocos entram quando a imagem chega.
+  - `BridgeScenery.ts` e `CityGate.ts`: tabuleiro, praça, cais, escada e muralhas com as texturas novas. Cor da praça de `0xc4c8d0` para `0xffffff` (o tom azulado escurecia a textura).
+  - `muralhaGlb.ts`: a barreira (`muros.glb`) usa `pedra_bloco_claro` no lugar do mapa embutido no GLB, que era escuro. Vale para a campanha, o castelo e o Bastião.
+  - `naturKit.ts`: `imageOf` exportado para reutilizar o cache de imagem.
+  - Removido `public/textures/pedras/pedra_lousa.webp` (sem referências no código).
+- **Testes:** `tsc --noEmit` e `npm run build` passam; `npm run sim:check` com `determinístico: true` (sem mudança no core). Navegador (Chrome do Windows via playwright-core, SwiftShader): zona `bridge` e `openBastionMap` sem erro de página; screenshots da ponte, da praça de perto e do Bastião conferidos.
+- **Limitações:**
+  - A barreira não foi conferida de perto: a câmera segue o herói e não consegui enquadrá-la. Só vi no screenshot geral.
+  - A cena da ponte é noturna (`mood.bridge: 'night'`), então a praça ainda tem tom azul. Clara de verdade pede mudar a iluminação da zona, o que é decisão de direção de arte.
+  - A montagem da batalha não foi medida antes e depois (regra do `CLAUDE.md`).
+  - Os chãos de planície, floresta e as pedras de decoração (`naturKit.ts`) ainda usam as texturas antigas. Não entraram nesta etapa.
+  - `Rocks_Desert`, `PathRocks` e os troncos do pacote de natureza ficaram de fora.
+- **Pendências do dono:**
+  1. Confirmar se a ponte deve continuar noturna ou ir para um tom de dia/entardecer.
+  2. Dizer se a barreira com a pedra clara fica boa no PC (`BAIXAR_DO_GITHUB.bat`, depois `ATUALIZAR_JOGO.bat`).
+  3. Dizer se a próxima etapa deve trocar os chãos de planície e floresta pelas texturas do pacote.
 ## 2026-10-12 — cartas com tier por fusão (escada 5-2-2-2), bônus por nível e habilidade no nível 5 (v0.11, em andamento)
 - **Pedido do dono:** raridade passa a ser tier da carta. Cinco cópias viram a carta "+" (Fabre → Fabre+). No nível 5 a carta libera uma habilidade própria. Bônus refeitos com base na tabela dele (Carta / Onde vai / Efeito), adaptando o que não existe no jogo.
 - **Decisões do dono:** "Onde vai" é só categoria do bônus (as cartas continuam nos slots do herói). Escada de fusão 5-2-2-2: 5 cópias do nível 1 viram nível 2; depois 2 cópias por nível (nível 5 = 40 cópias base).

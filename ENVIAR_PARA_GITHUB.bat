@@ -81,7 +81,13 @@ if errorlevel 1 (
 
 echo.
 echo [3/3] Enviando para o GitHub...
-git push -u origin %BRANCH%
+rem A pasta pode estar numa branch do Claude: nesse caso envia essa branch como main, sem trocar de branch
+for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD') do set "ATUAL=%%b"
+if /i "%ATUAL%"=="%BRANCH%" (
+  git push -u origin %BRANCH%
+) else (
+  git push origin HEAD:%BRANCH%
+)
 if errorlevel 1 (
   echo [ERRO] O envio falhou. Se pedir login, entre com sua conta do GitHub e rode de novo.
   goto :fim_erro

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { loadTexture } from './naturKit';
 
 /**
  * Muralhas com a peça `muros.glb` do dono (public/models/muros.glb): um módulo de 1 m com torres e ameias nas
@@ -42,7 +43,8 @@ function carregarPeca(): Promise<Peca> {
       });
       const malha = malhas[0];
       if (!malha) throw new Error('muros.glb sem malha');
-      material.map = (malha.material as THREE.MeshStandardMaterial).map ?? null;
+      // a pedra da barreira é a arte do dono (pedra de blocos clara, WebP); o mapa embutido no GLB era escuro
+      material.map = loadTexture('textures/cidade/pedra_bloco_claro.webp');
       material.needsUpdate = true;
       // o módulo é comprido em Z: gira para X (os trechos correm em X) e assenta a base em y = 0
       const geometria = malha.geometry.clone().applyMatrix4(malha.matrixWorld).rotateY(Math.PI / 2);
