@@ -389,6 +389,9 @@ export class ModelUnitView {
       this.model.position.y = this.float.amp * k;
       this.contact.scale.set(0.6 * (1 - 0.14 * k), 1, 0.45 * (1 - 0.14 * k));
       this.contact.material.opacity = 0.38 - 0.1 * k;
+    } else if (this.float) {
+      // ao morrer, o balanço da flutuação volta a zero em poucos quadros (sem salto); o clipe de morte já traz a elevação
+      this.model.position.y += (0 - this.model.position.y) * Math.min(1, dt * 8);
     }
     // Virar suave para a direção da grade (caminho mais curto no círculo)
     let d = this.targetYaw - this.yaw;

@@ -509,6 +509,24 @@ export function hoverOneShot(clip: THREE.AnimationClip, bones: BoneDef[], lift: 
  * Flutuante é conjurador (Bongun): o golpe usa o gesto de magia, e não o soco do conjunto. A morte não fica travada no
  * ar: com o quadril preso na altura do voo, o corpo se dobrava suspenso; solto, ele cai até o chão.
  */
+/**
+ * Morte do flutuante: o quadril continua elevado pelo mesmo `lift` do balanço. Sem isso o clipe de morte
+ * (do chão) desce o corpo até a altura do cenário e ele afunda.
+ */
+export function hoverDeath(clip: THREE.AnimationClip, bones: BoneDef[], lift: number): THREE.AnimationClip {
+  const hips = bones.find((b) => /^hips$/i.test(b.name))!;
+  const c = clip.clone();
+  const t = c.tracks.find((x) => /^hips\.position$/i.test(x.name)) as THREE.VectorKeyframeTrack | undefined;
+  if (t) {
+    const v = t.values as unknown as number[];
+    for (let i = 0; i < v.length; i += 3) v[i + 1] += lift;
+  } else {
+    const p = [hips.pos[0], hips.pos[1] + lift, hips.pos[2]];
+    c.tracks.push(new THREE.VectorKeyframeTrack(`${hips.name}.position`, [0, c.duration], [...p, ...p]));
+  }
+  return c;
+}
+
 export function hoverClips(base: Record<ClipName, THREE.AnimationClip>, bones: BoneDef[], lift: number): Record<ClipName, THREE.AnimationClip> {
   const air = (c: THREE.AnimationClip) => hoverOneShot(c, bones, lift);
   return {
@@ -518,7 +536,7 @@ export function hoverClips(base: Record<ClipName, THREE.AnimationClip>, bones: B
     heavy: air(base.cast),
     cast: air(base.cast),
     hit: air(base.hit),
-    death: base.death,
+    death: hoverDeath(base.death, bones, lift),
   };
 }
 
