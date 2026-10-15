@@ -1083,3 +1083,59 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   6. Com `ativo: false` o cenário deve voltar ao de antes: a leitura do código confirma (mesmos caminhos quando `ceuIlhas` é falso), mas não foi renderizado nesta rodada.
   7. Ver no PC do dono: fluidez e visual no jogo real.
 - **Testes:** `npm run build` (typecheck + build), `sim:check` (determinístico: true), `aura:check` e `cenario:check` passaram. Capturas em `/tmp/claude-0/-home-user/4ff88cc6-6fa3-5e2c-bcc3-6df5759cbaa1/scratchpad/ato4-composicao/` (antes_* e final_*).
+
+## Balanceamento do Zen — árvore em Zen e banco no meta (branch zen-arvore-wf)
+
+- **Data:** 2026-10-15. **Pedido:** aplicar a proposta de balanceamento (`PROPOSTA_ZEN.md`, decisões 1 a 18 aprovadas pelo dono).
+- **Árvore:** segue no save de meta (já estava). Custo dos nós em Zen, por tipo, na tabela `CUSTO_ZEN_POR_TIPO`
+  (comum 100, notável 250, caminho 100, Mastery 150). A soma dos 111 nós é 19.250 Zen; atribuir as 18 Masteries (60 cada)
+  leva a 20.330. Pontos de nível deixam de pagar a árvore.
+- **Banco de Zen (meta, `m.banco`):** crédito extra, não tira Zen da jornada nem do Bastião. Campanha: vitória 50%,
+  derrota 25%, abandono 0% do Zen ganho na jornada. Bastião: 30% do Zen de cada bloco completo de 20 noites (derrota no
+  meio do bloco não paga). Percentuais em `ARVORE_BANCO` (config).
+- **Chaves de crédito:** `jornada:<semente>` e `bastiao:<semente>:<tentativa>:<bloco>`. A tentativa entra na chave do
+  bloco porque as noites recomeçam em cada tentativa (a decisão 5 falava só em semente e bloco). Uma chave paga uma vez.
+- **Ordem de escrita:** o crédito vai ao meta numa escrita só (saldo e chave juntos) e só depois o save principal
+  (jornada encerrada ou noite do Bastião aplicada), em `gravarComCredito`. Queda entre as duas escritas não paga em dobro
+  nem perde o crédito (`npm run banco:check` simula a queda em cada escrita).
+- **Compra:** botão "Árvore" no menu principal (canto inferior esquerdo, ao lado da engrenagem), entre jornadas, sem
+  campanha ativa. A cidade da campanha e o hub do Bastião seguem com acesso. Tudo é pago pelo banco.
+- **Zen ganho na jornada (`zenGanho`):** conta combate, bônus de vitória, eventos e carroça. Venda de equipamento e
+  reembolso de construção não contam (decisão 9). Zen dos eventos: vale o valor de `world.ts` × ato (×1, ×1,6, ×2,4),
+  que é o que o código faz hoje (decisão 8 resolvida pelo código).
+- **14 nós sem efeito (decisão 7):** ligados: Estrada Segura e Sorte de Evento (Zen dos eventos, +5% cada).
+  Trocados (mesmo tipo, categoria, região e posição): Eventos Atentos → Veio de Prata; Pergaminhos → Pergaminho de Rota;
+  Recompensa da Cidade → Mãos de Pedreiro; Festa da Vila → Fogueira Amiga; Zen de Vila → Feira de Vila (o Caminho da Vila
+  passa a ligar a Feira); Clérigo de Vila → Poço do Viajante; Portão Reforçado → Vigas de Carvalho; Ferrolhos → Corrente
+  de Ferro; Projetista → Ronda da Madrugada; Blocos de Reserva → Mestre de Obras; Pátio Extra → Pedreira Próxima;
+  Estaleiro → Carpinteiro Veterano.
+- **Bônus de vitória:** 42 / 67 / 92 saem do `main.ts`: base e multiplicador por ato em `GAME_CONFIG.zeni`
+  (`waveClearActMult` 0,6), e a conta em `bonusVitoriaCampanha`. O Bastião segue com 42 fixo (já era config).
+- **Save:** Profile e BastionState ganham campos novos com migração (`zenGanho`, `zenNoBloco`); o meta ganha `banco`.
+  Save antigo abre com zero. O bloco em andamento de um Bastião antigo começa a contar daqui.
+- **Bastião corrompido (decisão 10):** antes de criar a cidade nova, o arquivo ilegível vai para `bastionBackup`. O
+  banco fica no meta e não é tocado. A chave `bastionBackup` entrou na lista de saves do Electron.
+- **Números (medidos, com faixa):**
+  - Campanha, horda por nó e uma party por ato (1, 2 e 3 heróis), 11 batalhas e sem eventos, carroça, sobrevivência
+    nem lojas: 10.873 Zen. Vitória dá 5.436 de crédito; derrota no fim, 2.718. Faixa com a proposta: 10.900 a 13.600 Zen
+    (5.400 a 6.800 de crédito na vitória).
+  - Bastião, teto (20 noites, todos abatidos, 20 vitórias): 6.717 Zen, crédito de 2.015. Medição com 3 heróis, sem
+    muralhas nem torres e layout padrão: 1 de 3 sementes fecha o bloco (3.504 Zen, crédito 1.051); as outras caem nas
+    noites 19 e 20. Faixa do bloco: de 0 (sem defesa) a 2.015 (teto), dependendo da defesa que o jogador monta.
+  - Jornadas para zerar a árvore (20.330 com Masteries): só vitórias, 4 (3 a 4 pela faixa); ciclos de vitória mais
+    bloco, 3 (3 a 4); só blocos de Bastião, 11 no teto.
+  - Sobrevivência: medida, mas não confiável. Com as construções padrão a party cai em 0,4 a 1,2 minuto. Ficou só
+    medido, sem edição (decisão 13).
+- **Testes:** `build`, `sim:check` (saída igual à da linha de base), `bastion:check` (seção 15 nova), `arvore:check`
+  (112), `arvore:save:check` (44), `arvore:combate:check` (45), `aura:check` e `banco:check` (novo, 37). Visual: tela da
+  árvore aberta pelo menu com banco de teste (screenshot), sem erros de console.
+- **Pendências:**
+  - 12 caminhos alternativos são só ligação (sem bônus próprio). Conta como efeito porque abrem rota, mas, se o dono
+    contar só bônus ou Mastery, são 98 nós com efeito (abaixo de 100). Decidir se os caminhos ganham bônus.
+  - Bastião: a medição é aproximada (layout padrão, sem as estruturas do jogador). O crédito do bloco depende da defesa.
+  - Sobrevivência: medir de novo com barreiras de jogador antes de fechar a conta (decisão 13).
+  - Fim de jornada e bloco do Bastião foram testados só com checagens headless e leitura do código, não no navegador.
+  - Pré-existente, fora do escopo do Zen: o pacote de cartas da vitória é gravado depois de a jornada ficar encerrada.
+    Queda entre as duas escritas perde o pacote.
+  - Pré-existente: `survivalRewards` (core/run/run.ts) usa `Math.random()`, contra a regra 3 do núcleo. Não foi tocado.
+  - Chave da jornada usa a semente. Semente corrompida (não finita) vira 1 na migração e pode colidir com outra jornada.
