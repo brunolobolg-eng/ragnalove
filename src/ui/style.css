@@ -2366,51 +2366,95 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-bar.ask p { margin: 0; flex: 1 1 320px; }
 .gt-bar b { color: var(--au-gold-hi); }
 
-/* corpo: rede à esquerda, painéis à direita */
+/* corpo: a roda à esquerda, os painéis à direita */
 .gt-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 10px; padding: 8px 6px 6px; box-sizing: border-box; }
-.gt-canvas { position: relative; min-height: 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(199, 157, 72, 0.4);
-  background: radial-gradient(ellipse at 50% 45%, #14204a 0%, #070b1c 75%); }
-.gt-svg { position: absolute; left: 0; top: 52px; width: 100%; height: calc(100% - 52px); display: block; cursor: grab; touch-action: none; user-select: none; }
+.gt-canvas { position: relative; min-height: 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(199, 157, 72, 0.55);
+  background: radial-gradient(circle at 50% 50%, #101a3c 0%, #070b1c 62%, #04060f 100%); }
+.gt-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; user-select: none; }
 .gt-svg:active { cursor: grabbing; }
-.gt-zoom { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; }
+.gt-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; z-index: 2; }
 .gt-zoom .au-btn { padding: 5px 10px; font-size: 13px; min-width: 36px; }
 
-/* legenda: tipos de nó e estados */
-.gt-legend { position: absolute; left: 10px; bottom: 10px; right: 10px; margin: 0; padding: 7px 10px; list-style: none; display: flex; flex-wrap: wrap; gap: 5px 14px; border-radius: 10px;
-  background: rgba(6, 10, 28, 0.84); border: 1px solid rgba(199, 157, 72, 0.45); font-size: 11px; color: var(--au-text); }
-.gt-legend li { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.gt-legend svg { width: 18px; height: 18px; flex: none; }
-.gt-leg-shape { fill: #1a2748; stroke: #ffd36a; stroke-width: 2; }
-.gt-leg-core { fill: #ffd36a; }
-.gt-st { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 2px solid; flex: none; }
-.gt-st.on { background: #d9b45a; border-color: #ffd36a; }
-.gt-st.dispo { background: #17264d; border-color: #ffd36a; box-shadow: 0 0 6px #ffd36a; }
-.gt-st.sem { background: #111b36; border-color: #8a8fa8; opacity: 0.75; }
-.gt-st.bloq { background: #0a1020; border-color: #34457e; opacity: 0.5; }
+/* roda: miolo, aro, setores, anéis e medalhões (arte em public/ui/arvore, de scripts/recortarArvore.py) */
+.gt-miolo, .gt-aro, .gt-nucleo-arte, .gt-emblema, .gt-setor { pointer-events: none; }
+.gt-nucleo-arte { filter: drop-shadow(0 0 12px rgba(255, 211, 106, 0.35)); }
+.gt-emblema { opacity: 0.96; }
+.gt-anel { fill: none; stroke: rgba(199, 157, 72, 0.14); stroke-width: 1; }
 
-/* rede */
-.gt-halo { pointer-events: none; }
-.gt-edge { stroke: #34457e; stroke-width: 3; opacity: 0.55; stroke-linecap: round; }
-.gt-edge.half { stroke: #8f7a46; stroke-dasharray: 8 7; opacity: 0.8; }
-.gt-edge.on { stroke: #ffd36a; opacity: 0.95; filter: drop-shadow(0 0 4px rgba(255, 211, 106, 0.55)); }
-.gt-no { cursor: pointer; --c: #c79d48; }
-.gt-no .gt-shape { fill: #0f1834; stroke: #34457e; stroke-width: 3; transition: fill 0.2s, stroke 0.2s; }
+/* arestas: fechadas apagadas (visíveis), abertas na cor do setor, caminho aceso em dourado */
+.gt-aresta { stroke: #34457e; stroke-width: 2; opacity: 0.3; stroke-linecap: round; transition: opacity 0.15s; }
+.gt-aresta.meio { opacity: 0.6; }
+.gt-aresta.aberta { stroke: var(--c, #d9b45a); stroke-width: 3; opacity: 0.95; }
+.gt-aresta.caminho { stroke: #ffe08a; stroke-width: 4.5; opacity: 1; filter: drop-shadow(0 0 6px rgba(255, 211, 106, 0.9)); }
+.gt-aresta.dim { opacity: 0.08; }
+
+/* nós: forma e símbolo pelo tipo; cor do setor; estados aberto, disponível, sem Zen e bloqueado */
+.gt-no { cursor: pointer; --c: #d9b45a; }
+.gt-no .gt-shape { fill: #0d1530; stroke: #3c4d7d; stroke-width: 2; transition: fill 0.15s, stroke 0.15s; }
+.gt-no .gt-simb { fill: #3c4d7d; stroke: none; }
 .gt-no:hover .gt-shape { stroke: #fff3d6; }
-.gt-no.aberto .gt-shape { fill: var(--c); stroke: #ffd36a; stroke-width: 3.5; filter: drop-shadow(0 0 8px var(--c)); }
-.gt-no.aberto .gt-core { fill: #fff3d6; }
-.gt-no.disponivel .gt-shape { fill: #17264d; stroke: #ffd36a; stroke-width: 3; animation: gtPulse 1.8s ease-in-out infinite; }
-.gt-no.sem-pontos .gt-shape { fill: #111b36; stroke: var(--c); stroke-width: 2.5; opacity: 0.75; }
-.gt-no.bloqueado { opacity: 0.42; }
-.gt-no.bloqueado .gt-shape { stroke: #2a3a60; }
-.gt-no .gt-core { fill: #ffd36a; }
-.gt-ring { fill: none; stroke: #fff3d6; stroke-width: 2.5; stroke-dasharray: 6 5; transform-box: fill-box; transform-origin: center; animation: gtSpin 14s linear infinite; }
-.gt-cost circle { fill: #2a1c05; stroke: #ffd36a; stroke-width: 2; }
-.gt-cost text { fill: #ffe6a8; font: 700 13px Cinzel, serif; text-anchor: middle; }
-.gt-lbl { fill: #f4f0e0; font: 600 14px Cinzel, serif; text-anchor: middle; paint-order: stroke; stroke: #05080f; stroke-width: 4px; stroke-linejoin: round; pointer-events: none; }
-.gt-no.bloqueado .gt-lbl { fill: #7d8aae; }
-@keyframes gtPulse { 0%, 100% { filter: drop-shadow(0 0 2px rgba(255, 211, 106, 0.4)); } 50% { filter: drop-shadow(0 0 9px rgba(255, 211, 106, 0.9)); } }
+.gt-no.aberto .gt-shape { fill: var(--c); stroke: #fff3d6; stroke-width: 2.5; filter: drop-shadow(0 0 6px var(--c)); }
+.gt-no.aberto .gt-simb { fill: #fff3d6; }
+.gt-no.disponivel .gt-shape { fill: #17264d; stroke: var(--c); stroke-width: 2.5; }
+.gt-no.disponivel .gt-simb { fill: var(--c); }
+.gt-no.sem-zen .gt-shape { fill: #101a36; stroke: #6b7394; stroke-width: 2; stroke-dasharray: 4 3; }
+.gt-no.bloqueado { opacity: 0.6; }
+.gt-no.bloqueado .gt-shape { fill: #1a2030; stroke: #3a4156; }
+.gt-no.bloqueado .gt-simb { fill: #3a4156; }
+.gt-no.raiz { cursor: pointer; }
+.gt-no.raiz .gt-shape { fill: transparent; stroke: none; }
+.gt-no.caminho .gt-shape { stroke: #ffd36a; stroke-width: 3; }
+.gt-no.dim { opacity: 0.16; }
+.gt-caminho-anel { display: none; }
+.gt-no.caminho .gt-caminho-anel { display: inline; }
+.gt-no.caminho .gt-caminho-anel circle { fill: none; stroke: #ffd36a; stroke-width: 1.5; stroke-opacity: 0.55; }
+.gt-sel { fill: none; stroke: #fff1c4; stroke-width: 2.5; stroke-dasharray: 6 5; transform-box: fill-box; transform-origin: center; animation: gtSpin 14s linear infinite; }
+.gt-pulso { fill: none; stroke: var(--c); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: gtPulso 2.2s ease-in-out infinite; }
+@keyframes gtPulso { 0%, 100% { opacity: 0.25; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.12); } }
 @keyframes gtSpin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .gt-no.disponivel .gt-shape, .gt-ring { animation: none; } .gt-win { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .gt-pulso, .gt-sel { animation: none; } .gt-win { animation: none; } }
+
+/* nomes: só aparecem onde cabem (rótulo livre); o cursor ou a seleção mostra o nome de qualquer nó */
+.gt-lbl { display: none; fill: #f3e6c4; font: 600 13px Tahoma, Verdana, sans-serif; paint-order: stroke; stroke: #05070d; stroke-width: 3.2px; stroke-linejoin: round; pointer-events: none; }
+.gt-world.gt-lbl-dest .gt-no.destaque.livre .gt-lbl,
+.gt-world.gt-lbl-todos .gt-no.livre .gt-lbl,
+.gt-no.foco:not(.dim) .gt-lbl { display: block; }
+.gt-no.bloqueado .gt-lbl { fill: #9aa4c6; }
+
+/* filtro por categoria (canto superior esquerdo, fora da roda), caminho aceso (canto superior direito) */
+.gt-filtros { position: absolute; left: 10px; top: 10px; z-index: 2; }
+.gt-filtro { height: 30px; max-width: 250px; padding: 0 8px; border-radius: 8px; font: 12px Tahoma, Verdana, sans-serif; color: var(--au-text);
+  background: rgba(6, 10, 28, 0.92); border: 1px solid rgba(199, 157, 72, 0.6); }
+.gt-filtro option { background: #0b1230; color: var(--au-text); }
+.gt-caminho { position: absolute; right: 10px; top: 10px; width: min(270px, 42%); z-index: 2; padding: 8px 10px; border-radius: 10px; font-size: 12px; color: var(--au-text);
+  background: rgba(6, 10, 28, 0.9); border: 1px solid rgba(255, 211, 106, 0.6); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); pointer-events: none; }
+.gt-caminho[hidden] { display: none; }
+.gt-caminho p { margin: 0 0 4px; line-height: 1.4; }
+.gt-caminho b { color: var(--au-title); }
+.gt-caminho em { color: #ffb3a8; font-style: normal; }
+.gt-caminho ol { margin: 4px 0 0; padding: 0; list-style: none; }
+.gt-caminho li { display: flex; gap: 6px; align-items: baseline; color: #e8d6a0; }
+.gt-caminho li i { font-style: normal; color: var(--au-gold-hi); min-width: 14px; }
+.gt-caminho li.mais { color: var(--au-dim); }
+
+/* legenda recolhível (canto inferior esquerdo): tipos de nó, estados e cor de cada setor */
+.gt-legend { position: absolute; left: 10px; bottom: 10px; z-index: 2; max-width: min(300px, 60%); font-size: 11px; color: var(--au-text); }
+.gt-legend > summary { cursor: pointer; display: inline-block; padding: 5px 12px; border-radius: 10px; list-style: none; background: rgba(6, 10, 28, 0.9); border: 1px solid rgba(199, 157, 72, 0.6); color: var(--au-title); }
+.gt-legend > summary::-webkit-details-marker { display: none; }
+.gt-legend[open] > summary { margin-bottom: 6px; }
+.gt-legend ul { margin: 0; padding: 8px 10px; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; border-radius: 10px; background: rgba(6, 10, 28, 0.92); border: 1px solid rgba(199, 157, 72, 0.45); }
+.gt-legend li { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.gt-legend li.gt-leg-sep { grid-column: 1 / -1; color: var(--au-gold-hi); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.gt-legend svg { width: 16px; height: 16px; flex: none; overflow: visible; }
+.gt-legend .gt-leg-shape { fill: #0d1530; stroke: #ffd36a; stroke-width: 2; }
+.gt-legend .gt-simb { fill: #ffd36a; stroke: none; }
+.gt-st { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 2px solid; flex: none; }
+.gt-st.aberto { background: #d9b45a; border-color: #fff3d6; box-shadow: 0 0 6px #d9b45a; }
+.gt-st.disponivel { background: #17264d; border-color: #ffd36a; }
+.gt-st.sem-zen { background: #101a36; border: 2px dashed #6b7394; }
+.gt-st.bloqueado { background: #1a2030; border-color: #3a4156; }
+.gt-st.caminho { background: #ffd36a; border-color: #ffd36a; width: 18px; height: 3px; border-radius: 2px; }
+.gt-sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; background: var(--c); flex: none; }
 
 /* painel lateral: detalhes do nó e Masteries */
 .gt-side { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 2px; }
@@ -2456,7 +2500,8 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-mcard:hover { border-color: #c79d48; }
 .gt-mcard:focus-visible { outline: 2px solid #ffd36a; }
 .gt-mcard.on { border-color: #ffd36a; box-shadow: 0 0 0 1px #ffd36a, 0 0 12px rgba(255, 211, 106, 0.4); }
-.gt-mcard.com { border-left: 4px solid #6aa8ff; }
+.gt-mcard { border-left: 4px solid var(--c, #34457e); }
+.gt-mcard.com .gt-holder { color: #aee0ff; }
 .gt-mhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .gt-mhead b { font: 700 13px Cinzel, serif; color: #ffe6a8; }
 .gt-mhead small { color: var(--au-dim); font-size: 10px; text-align: right; }
@@ -2482,11 +2527,7 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .worldmap .wm-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .worldmap .wm-btns button { flex: none; min-width: 0; }
 
-/* Árvore Global (100+ nós): filtro por categoria, nomes com zoom, pendências */
-.gt-filtros { position: absolute; left: 10px; top: 8px; right: 170px; display: flex; flex-wrap: wrap; gap: 5px; z-index: 2; }
-.gt-filtros .au-btn { padding: 4px 9px; font-size: 11px; }
-.gt-no.dim { opacity: 0.16; }
-.gt-lbl { opacity: 0; }
-.gt-world.gt-lbl-on .gt-lbl, .gt-no.sel .gt-lbl, .gt-no:hover .gt-lbl { opacity: 1; }
+/* pendências de bônus de economia (painel de detalhes) */
 .gt-pend { margin: 8px 0 0; padding: 6px 10px 6px 24px; border-radius: 8px; background: rgba(40, 30, 10, 0.5); border: 1px dashed rgba(199, 157, 72, 0.6); color: #e8d6a0; font-size: 11px; }
 .gt-pend li { margin: 2px 0; }
+.gt-caminho-txt { margin: 8px 0 0; color: #e8d6a0; font-size: 12px; }

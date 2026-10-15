@@ -1,11 +1,13 @@
 import type { HeroKind } from '../core/progression/skills';
-import { ARVORE_CONFIG, ARVORE_VISUAL, type Categoria, type MasteryId, type NoTipo } from '../config/arvoreGlobal';
+import { ARVORE_CONFIG, type Categoria, type MasteryId, type NoTipo } from '../config/arvoreGlobal';
+import { ARVORE_VISUAL, FAMILIA_VISUAL, TAMANHO_NO } from '../config/arvoreVisual';
 import { registerOverlay } from './overlays';
-import type { ArvoreVM, CandidatoVM, HeroiVM, MasteryVM, NoVM } from './arvoreVM';
+import { caminhoAte, type ArvoreVM, type CandidatoVM, type HeroiVM, type MasteryVM, type NoVM } from './arvoreVM';
 
 /**
- * Árvore Global de Aurenthal: rede de nós com zoom e pan suaves, painel de detalhes do nó,
- * painel de Masteries (uma por personagem, com custo em Zen antes de confirmar) e reorganização. Tudo é pago pelo banco de Zen.
+ * Árvore Global de Aurenthal: a roda (anéis, setores por família, núcleo ROGUARD), com zoom e pan suaves,
+ * caminho aceso até o nó sob o cursor ou selecionado, painel de detalhes do nó e painel de Masteries
+ * (uma por personagem, com custo em Zen antes de confirmar) e reorganização. Tudo é pago pelo banco de Zen.
  * Só apresentação: quem decide regra é o núcleo (core/progression/arvore.ts). Cada ação devolve o
  * motivo do erro (pt-BR) ou undefined; a tela sempre redesenha a partir do view model atual.
  */
@@ -17,39 +19,13 @@ export interface ArvoreCallbacks {
   onUi(): void;
 }
 
-/** Área da rede (unidades da viewBox). A grade do núcleo é multiplicada por ESPACO. A parte de baixo é maior: a legenda cobre o rodapé. */
-const VB = { x: -980, y: -980, w: 1960, h: 1960 };
-const ESPACO = ARVORE_VISUAL.espaco;
-/** Zoom a partir do qual os nomes dos nós aparecem (abaixo disso, só a forma, a cor e o nome ao passar o cursor). */
-const ZOOM_ROTULOS = 1.9;
-const NODE_R = 30;
-const RAIZ_R = 40;
-const ZOOM_MIN = 0.6;
-const ZOOM_MAX = 3;
-const ARRASTE_MIN = 4;
-
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+const ESC_MAP: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ESC_MAP[c]!);
 const inicial = (nome: string) => esc(nome.trim().charAt(0).toUpperCase());
+const ARRASTE_MIN = 4;
+const PASSO_ZOOM = 1.25;
 
-/**
- * Nome do nó em até duas linhas (quebra na palavra), para os rótulos não se sobreporem aos vizinhos.
- * Nomes curtos ficam numa linha só.
- */
-function linhasNome(nome: string, max = 13): string[] {
-  const palavras = nome.split(' ');
-  const linhas: string[] = [];
-  let atual = '';
-  for (const p of palavras) {
-    if (atual && (atual + ' ' + p).length > max) {
-      linhas.push(atual);
-      atual = p;
-    } else atual = atual ? `${atual} ${p}` : p;
-  }
-  if (atual) linhas.push(atual);
-  return linhas;
-}
-
-/** Polígono regular com `n` lados (rot 0 = vértice no alto). */
+/** Polígono regular com `n` lados (rot 0 = vértice no alto), em px. */
 function poligono(n: number, r: number, rot = 0): string {
   const pts: string[] = [];
   for (let i = 0; i < n; i++) {
@@ -70,19 +46,20 @@ function estrela(R: number, r: number): string {
   return pts.join(' ');
 }
 
-/** Forma de cada tipo de nó: a forma é o que diz o tipo (a cor diz a região; o estado diz se está aberto). */
-function forma(tipo: NoTipo, r: number): string {
+/** Forma de cada tipo de nó (o tamanho vem de TAMANHO_NO; o símbolo interno diz o tipo de relance). */
+function forma(tipo: NoTipo, classe: string): string {
+  const d = TAMANHO_NO[tipo] / 2;
   switch (tipo) {
     case 'raiz':
-      return `<circle class="gt-shape" r="${r}"/><circle class="gt-core" r="${(r * 0.45).toFixed(1)}"/>`;
+      return `<circle class="${classe}" r="${d}"/>`;
     case 'comum':
-      return `<circle class="gt-shape" r="${(r * 0.8).toFixed(1)}"/>`;
+      return `<circle class="${classe}" r="${d}"/><circle class="gt-simb" r="3.5"/>`;
     case 'notavel':
-      return `<polygon class="gt-shape" points="${estrela(r * 1.05, r * 0.5)}"/>`;
+      return `<polygon class="${classe}" points="${estrela(d, d * 0.52)}"/><circle class="gt-simb" r="4"/>`;
     case 'caminho':
-      return `<polygon class="gt-shape" points="${poligono(4, r * 0.9)}"/>`;
+      return `<polygon class="${classe}" points="${poligono(4, d)}"/><line class="gt-simb" x1="-5" y1="0" x2="5" y2="0"/>`;
     case 'mastery':
-      return `<polygon class="gt-shape" points="${poligono(6, r * 0.95)}"/>`;
+      return `<polygon class="${classe}" points="${poligono(6, d)}"/><polygon class="gt-simb" points="${poligono(4, 6, 45)}"/>`;
   }
 }
 
@@ -103,21 +80,38 @@ const LEGENDA_TIPOS: { tipo: NoTipo; nome: string }[] = [
   { tipo: 'mastery', nome: 'Ponto de Mastery' },
 ];
 
+/** Arestas do caminho aceso: da rede aberta até o primeiro nó fechado, e entre os nós seguintes. */
+function arestasDoCaminho(vm: ArvoreVM, ids: string[]): [string, string][] {
+  const out: [string, string][] = [];
+  if (!ids.length) return out;
+  const porId = new Map(vm.nos.map((n) => [n.id, n]));
+  const aberto = (vm.adjacencia[ids[0]] ?? []).find((v) => porId.get(v)?.estado === 'aberto');
+  if (aberto) out.push([aberto, ids[0]]);
+  for (let i = 1; i < ids.length; i++) out.push([ids[i - 1], ids[i]]);
+  return out;
+}
+
 export class ArvoreGlobal {
   readonly el: HTMLElement;
   private readonly svg: SVGSVGElement;
   private readonly world: SVGGElement;
+  private readonly canvas: HTMLElement;
   private readonly head: HTMLElement;
   private readonly bar: HTMLElement;
   private readonly side: HTMLElement;
+  private readonly caminhoCard: HTMLElement;
   private vm!: ArvoreVM;
   private sel?: string;
+  private hover?: string;
   private selM?: MasteryId;
   private pick?: HeroKind;
   private confirmandoReset = false;
   private msg = '';
   private msgOk = true;
-  // zoom e pan: o valor atual se aproxima do alvo (suave); o arraste mexe direto
+  /** Elementos da roda por id (para acender e apagar sem redesenhar tudo). */
+  private elNo = new Map<string, SVGGElement>();
+  private elAresta: { a: string; b: string; el: SVGLineElement }[] = [];
+  // zoom e pan (em px da tela, com a roda centrada): o valor atual se aproxima do alvo; o arraste mexe direto
   private zoom = 1;
   private panX = 0;
   private panY = 0;
@@ -142,19 +136,19 @@ export class ArvoreGlobal {
         <header class="gt-head"></header>
         <div class="gt-bar" hidden></div>
         <div class="gt-body">
-          <section class="gt-canvas" aria-label="Rede de progressão">
-            <svg class="gt-svg" viewBox="${VB.x} ${VB.y} ${VB.w} ${VB.h}" preserveAspectRatio="xMidYMid meet">
+          <section class="gt-canvas" aria-label="Roda da progressão">
+            <svg class="gt-svg" aria-hidden="false">
               <defs class="gt-defs"></defs>
               <g class="gt-world"></g>
             </svg>
+            <div class="gt-caminho" hidden></div>
             <nav class="gt-filtros" aria-label="Filtrar por categoria"></nav>
             <div class="gt-zoom">
               <button class="au-btn" data-c="zin" title="Aproximar">+</button>
               <button class="au-btn" data-c="zout" title="Afastar">−</button>
               <button class="au-btn" data-c="fit" title="Centralizar">Centro</button>
             </div>
-            <ul class="gt-legend">${LEGENDA_TIPOS.map((t) => `<li><svg viewBox="-14 -14 28 28" aria-hidden="true">${forma(t.tipo, 10).replace(/class="gt-(shape|core)"/g, 'class="gt-leg-$1"')}</svg>${t.nome}</li>`).join('')}
-              <li class="gt-leg-sep"><i class="gt-st on"></i>Aberto</li><li><i class="gt-st dispo"></i>Pode abrir</li><li><i class="gt-st sem"></i>Falta Zen</li><li><i class="gt-st bloq"></i>Bloqueado</li></ul>
+            <details class="gt-legend"></details>
           </section>
           <aside class="gt-side"></aside>
         </div>
@@ -162,17 +156,23 @@ export class ArvoreGlobal {
     document.body.appendChild(this.el);
     this.svg = this.el.querySelector<SVGSVGElement>('.gt-svg')!;
     this.world = this.el.querySelector<SVGGElement>('.gt-world')!;
+    this.canvas = this.el.querySelector<HTMLElement>('.gt-canvas')!;
     this.head = this.el.querySelector<HTMLElement>('.gt-head')!;
     this.bar = this.el.querySelector<HTMLElement>('.gt-bar')!;
     this.side = this.el.querySelector<HTMLElement>('.gt-side')!;
+    this.caminhoCard = this.el.querySelector<HTMLElement>('.gt-caminho')!;
 
     this.el.addEventListener('click', (e) => this.onClick(e));
     this.el.addEventListener('keydown', (e) => this.onKey(e));
+    this.el.addEventListener('change', (e) => this.onChange(e));
     this.svg.addEventListener('pointerdown', (e) => this.onDown(e));
     this.svg.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     this.svg.addEventListener('click', (e) => this.onNodeClick(e));
+    this.svg.addEventListener('pointerover', (e) => this.onOver(e));
+    this.svg.addEventListener('pointerleave', () => this.setHover(undefined));
     window.addEventListener('pointermove', (e) => this.onMove(e));
     window.addEventListener('pointerup', () => (this.drag = undefined));
+    window.addEventListener('resize', () => this.medirCanvas());
     registerOverlay({ isOpen: () => this.visible, close: () => this.close() });
   }
 
@@ -182,11 +182,13 @@ export class ArvoreGlobal {
 
   open(): void {
     this.sel = undefined;
+    this.hover = undefined;
     this.selM = undefined;
     this.pick = undefined;
     this.confirmandoReset = false;
     this.msg = '';
     this.el.hidden = false;
+    this.medirCanvas();
     this.fit(true);
     this.renderAll();
     this.side.scrollTop = 0;
@@ -221,9 +223,9 @@ export class ArvoreGlobal {
         break;
       }
       case 'zin':
-        return this.zoomBy(1.25);
+        return this.zoomBy(PASSO_ZOOM);
       case 'zout':
-        return this.zoomBy(0.8);
+        return this.zoomBy(1 / PASSO_ZOOM);
       case 'fit':
         return this.fit();
       case 'reset-ask':
@@ -289,6 +291,14 @@ export class ArvoreGlobal {
     this.renderAll();
   }
 
+  /** Filtro de categoria (seletor no canto da roda). */
+  private onChange(e: Event): void {
+    const t = e.target as HTMLSelectElement;
+    if (!t.classList.contains('gt-filtro')) return;
+    this.filtro = t.value === 'todas' ? undefined : (t.value as Categoria);
+    this.atualizarDestaque();
+  }
+
   private onKey(e: KeyboardEvent): void {
     if ((e.key === 'Enter' || e.key === ' ') && (e.target as HTMLElement).dataset.c === 'mast') {
       e.preventDefault();
@@ -296,7 +306,7 @@ export class ArvoreGlobal {
     }
   }
 
-  /** Clique no nó (só conta se não foi arraste). */
+  /** Clique no nó (só conta se não foi arraste). Seleção mantém o caminho aceso até trocar. */
   private onNodeClick(e: MouseEvent): void {
     if (this.arrastou) {
       this.arrastou = false;
@@ -309,20 +319,43 @@ export class ArvoreGlobal {
     this.renderAll();
   }
 
-  // ---------------- zoom e pan ----------------
-
-  /** Converte a posição do ponteiro para as unidades da viewBox (considera o letterbox). */
-  private vbPoint(clientX: number, clientY: number): { x: number; y: number } {
-    const s = this.escala();
-    const r = this.svg.getBoundingClientRect();
-    const ox = (r.width - VB.w * s) / 2;
-    const oy = (r.height - VB.h * s) / 2;
-    return { x: VB.x + (clientX - r.left - ox) / s, y: VB.y + (clientY - r.top - oy) / s };
+  /** Cursor sobre um nó: acende o caminho até ele (enquanto o cursor estiver ali). */
+  private onOver(e: PointerEvent): void {
+    const g = (e.target as Element).closest<SVGGElement>('.gt-no');
+    this.setHover(g?.dataset.id);
   }
 
-  private escala(): number {
+  private setHover(id: string | undefined): void {
+    if (this.hover === id) return;
+    this.hover = id;
+    this.atualizarDestaque();
+  }
+
+  // ---------------- zoom e pan ----------------
+
+  /** Mede o canvas e ajusta a janela de desenho: 1 unidade = 1 px na tela, roda centrada. Não mexe no zoom do usuário. */
+  private medirCanvas(): void {
+    if (this.el.hidden) return;
+    const w = Math.max(200, this.canvas.clientWidth);
+    const h = Math.max(200, this.canvas.clientHeight);
+    this.svg.setAttribute('viewBox', `${-w / 2} ${-h / 2} ${w} ${h}`);
+    this.svg.dataset.w = String(w);
+    this.svg.dataset.h = String(h);
+    this.apply();
+  }
+
+  /** Zoom que mostra a roda inteira no canvas (no máximo o zoom 1: os nós mantêm o tamanho de referência). */
+  private zoomPadrao(): number {
+    const w = Number(this.svg.dataset.w ?? 800);
+    const h = Number(this.svg.dataset.h ?? 700);
+    const cabe = Math.min(w, h) / (2 * ARVORE_VISUAL.aroRaio + 16);
+    return Math.max(ARVORE_VISUAL.zoom.minimo, Math.min(ARVORE_VISUAL.zoom.padrao, cabe));
+  }
+
+  /** Ponteiro em px da tela, com a roda centrada na origem. */
+  private pontoSvg(clientX: number, clientY: number): { x: number; y: number } {
     const r = this.svg.getBoundingClientRect();
-    return Math.min(r.width / VB.w, r.height / VB.h) || 1;
+    return { x: clientX - r.left - r.width / 2, y: clientY - r.top - r.height / 2 };
   }
 
   private onDown(e: PointerEvent): void {
@@ -337,27 +370,24 @@ export class ArvoreGlobal {
     const dy = e.clientY - this.drag.y0;
     if (!this.arrastou && Math.hypot(dx, dy) < ARRASTE_MIN) return;
     this.arrastou = true;
-    const s = this.escala();
-    this.tPanX = this.panX = this.drag.px + dx / s;
-    this.tPanY = this.panY = this.drag.py + dy / s;
+    this.tPanX = this.panX = this.drag.px + dx;
+    this.tPanY = this.panY = this.drag.py + dy;
     this.apply();
   }
 
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
-    const p = this.vbPoint(e.clientX, e.clientY);
-    this.zoomAt(p, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+    this.zoomAt(this.pontoSvg(e.clientX, e.clientY), e.deltaY < 0 ? 1.12 : 1 / 1.12);
   }
 
   private zoomBy(f: number): void {
-    const c = { x: 0, y: 0 };
-    this.zoomAt(c, f);
+    this.zoomAt({ x: 0, y: 0 }, f);
   }
 
-  /** Zoom em torno de um ponto da viewBox (o que está sob o ponteiro fica no lugar). */
+  /** Zoom em torno de um ponto da tela (o que está sob o ponteiro fica no lugar). */
   private zoomAt(p: { x: number; y: number }, f: number): void {
-    const novo = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, this.tZoom * f));
-    // mundo sob o ponto: (p − pan) / zoom; depois do zoom, pan' = p − mundo × zoom'
+    const { minimo, maximo } = ARVORE_VISUAL.zoom;
+    const novo = Math.min(maximo, Math.max(minimo, this.tZoom * f));
     const mx = (p.x - this.tPanX) / this.tZoom;
     const my = (p.y - this.tPanY) / this.tZoom;
     this.tPanX = p.x - mx * novo;
@@ -366,13 +396,13 @@ export class ArvoreGlobal {
     this.animar();
   }
 
-  /** Volta à vista inicial (zoom 1, centro). `imediato`: sem animação (ao abrir a tela). */
+  /** Volta à vista inicial (zoom padrão, roda centrada). `imediato`: sem animação (ao abrir a tela). */
   private fit(imediato = false): void {
-    this.tZoom = 1;
+    this.tZoom = this.zoomPadrao();
     this.tPanX = 0;
     this.tPanY = 0;
     if (imediato) {
-      this.zoom = 1;
+      this.zoom = this.tZoom;
       this.panX = 0;
       this.panY = 0;
       this.apply();
@@ -404,8 +434,10 @@ export class ArvoreGlobal {
 
   private apply(): void {
     this.world.setAttribute('transform', `translate(${this.panX.toFixed(2)} ${this.panY.toFixed(2)}) scale(${this.zoom.toFixed(4)})`);
-    // nomes só com zoom suficiente: a rede inteira continua legível pela forma e pela cor
-    this.world.classList.toggle('gt-lbl-on', this.zoom >= ZOOM_ROTULOS);
+    // nomes: os notáveis e as Masteries a partir do zoom de destaque; os demais a partir do zoom de todos os nomes
+    const { rotulosDestaque, rotulosTodos } = ARVORE_VISUAL.zoom;
+    this.world.classList.toggle('gt-lbl-dest', this.zoom >= rotulosDestaque);
+    this.world.classList.toggle('gt-lbl-todos', this.zoom >= rotulosTodos);
   }
 
   // ---------------- desenho ----------------
@@ -450,43 +482,119 @@ export class ArvoreGlobal {
     this.bar.textContent = '';
   }
 
+  /** Desenha a roda inteira (uma vez por abertura e por mudança de progresso). */
   private renderCanvas(): void {
     const v = this.vm;
-    const porId = new Map(v.nos.map((n) => [n.id, n]));
+    const { aneis, emblemas, aroRaio, mioloRaio, nucleoArte } = v.roda;
     const defs = this.el.querySelector<SVGDefsElement>('.gt-defs')!;
-    defs.innerHTML = v.regioes
-      .map((r) => `<radialGradient id="gt-r-${r.id}"><stop offset="0" stop-color="${r.cor}" stop-opacity="0.32"/><stop offset="1" stop-color="${r.cor}" stop-opacity="0"/></radialGradient>`)
+    defs.innerHTML = emblemas
+      .map((e) => `<radialGradient id="gt-setor-${e.id}"><stop offset="0" stop-color="${e.cor}" stop-opacity="0.12"/><stop offset="1" stop-color="${e.cor}" stop-opacity="0"/></radialGradient>`)
       .join('');
-    const halos = v.regioes
-      .map((r) => `<circle class="gt-halo" cx="${r.cx * ESPACO}" cy="${r.cy * ESPACO}" r="${r.id === 'nucleo' ? 200 : 230}" fill="url(#gt-r-${r.id})"/>`)
+    const setores = emblemas
+      .map((e) => `<circle class="gt-setor" cx="${(e.x * 1.1).toFixed(1)}" cy="${(e.y * 1.1).toFixed(1)}" r="230" fill="url(#gt-setor-${e.id})"/>`)
       .join('');
+    const anelSvg = aneis.map((r) => `<circle class="gt-anel" r="${r.toFixed(1)}"/>`).join('');
+    const emblemaSvg = emblemas
+      .map((e) => `<image class="gt-emblema" href="${FAMILIA_VISUAL[e.id].emblema}" x="${(e.x - ARVORE_VISUAL.emblema.diametro / 2).toFixed(1)}" y="${(e.y - ARVORE_VISUAL.emblema.diametro / 2).toFixed(1)}" width="${ARVORE_VISUAL.emblema.diametro}" height="${ARVORE_VISUAL.emblema.diametro}" data-f="${e.id}"><title>${esc(e.nome)}</title></image>`)
+      .join('');
+    const porId = new Map(v.nos.map((n) => [n.id, n]));
+    this.elAresta = [];
     const arestas = v.conexoes
       .map(([a, b]) => {
         const na = porId.get(a);
         const nb = porId.get(b);
         if (!na || !nb) return '';
-        const abertos = (na.estado === 'aberto' ? 1 : 0) + (nb.estado === 'aberto' ? 1 : 0);
-        const cls = abertos === 2 ? 'on' : abertos === 1 ? 'half' : '';
-        return `<line class="gt-edge ${cls}" x1="${na.x * ESPACO}" y1="${na.y * ESPACO}" x2="${nb.x * ESPACO}" y2="${nb.y * ESPACO}"/>`;
+        const id = `${a}|${b}`;
+        return `<line class="gt-aresta" data-k="${esc(id)}" style="--c:${na.cor}" x1="${na.x.toFixed(1)}" y1="${na.y.toFixed(1)}" x2="${nb.x.toFixed(1)}" y2="${nb.y.toFixed(1)}"/>`;
       })
       .join('');
     const nos = v.nos.map((n) => this.noSvg(n)).join('');
-    this.el.querySelector<HTMLElement>('.gt-filtros')!.innerHTML = [`<button class="au-btn${this.filtro ? '' : ' gold'}" data-c="filtro" data-k="todas">Todas · ${v.totalNos}</button>`, ...v.categorias.map((c) => `<button class="au-btn${this.filtro === c.id ? ' gold' : ''}" data-c="filtro" data-k="${c.id}" title="${esc(CATEGORIA_DESC[c.id])}">${esc(c.nome)} · ${c.total}</button>`)].join('');
-    this.world.innerHTML = `${halos}<g class="gt-edges">${arestas}</g><g class="gt-nodes">${nos}</g>`;
+    this.el.querySelector<HTMLElement>('.gt-filtros')!.innerHTML = `<select class="gt-filtro" aria-label="Filtrar por categoria" title="Esmaece os nós fora da categoria escolhida"><option value="todas"${this.filtro ? '' : ' selected'}>Todas as categorias · ${v.totalNos}</option>${v.categorias.map((c) => `<option value="${c.id}"${this.filtro === c.id ? ' selected' : ''} title="${esc(CATEGORIA_DESC[c.id])}">${esc(c.nome)} · ${c.total}</option>`).join('')}</select>`;
+    this.el.querySelector<HTMLElement>('.gt-legend')!.innerHTML = this.legendaHtml(v);
+    this.world.innerHTML = `
+      <image class="gt-miolo" href="ui/arvore/fundo-roda.webp" x="${-mioloRaio}" y="${-mioloRaio}" width="${2 * mioloRaio}" height="${2 * mioloRaio}"/>
+      <g class="gt-setores">${setores}</g>
+      <g class="gt-aneis">${anelSvg}</g>
+      <image class="gt-aro" href="ui/arvore/anel-roda.webp" x="${-aroRaio}" y="${-aroRaio}" width="${2 * aroRaio}" height="${2 * aroRaio}"/>
+      <g class="gt-emblemas">${emblemaSvg}</g>
+      <g class="gt-arestas">${arestas}</g>
+      <g class="gt-nos">${nos}</g>
+      <image class="gt-nucleo-arte" href="ui/arvore/nucleo.webp" x="${-nucleoArte / 2}" y="${-nucleoArte / 2}" width="${nucleoArte}" height="${nucleoArte}"/>`;
+    // índices para acender e apagar sem redesenhar
+    this.elNo = new Map();
+    this.world.querySelectorAll<SVGGElement>('.gt-no').forEach((g) => this.elNo.set(g.dataset.id!, g));
+    this.world.querySelectorAll<SVGLineElement>('.gt-aresta').forEach((l) => {
+      const [a, b] = l.dataset.k!.split('|');
+      this.elAresta.push({ a, b, el: l });
+    });
+    this.atualizarDestaque();
   }
 
   private noSvg(n: NoVM): string {
-    const r = n.raiz ? RAIZ_R : NODE_R;
     const sel = this.sel === n.id;
-    const esmaecido = this.filtro !== undefined && n.categoria !== this.filtro;
-    const custo = n.custo > 0 && n.estado !== 'aberto';
-    const badge = custo ? `<g class="gt-cost" transform="translate(${(r * 0.78).toFixed(1)} ${(-r * 0.78).toFixed(1)})"><circle r="12"/><text y="4">${n.custo}</text></g>` : '';
-    const anel = sel ? `<circle class="gt-ring" r="${r + 10}"/>` : '';
-    const linhas = linhasNome(n.nome);
-    const rotulo = linhas.map((l, i) => `<tspan x="0" dy="${i === 0 ? 0 : 16}">${esc(l)}</tspan>`).join('');
-    return `<g class="gt-no ${n.estado} ${n.tipo}${sel ? ' sel' : ''}${esmaecido ? ' dim' : ''}" data-id="${n.id}" transform="translate(${n.x * ESPACO} ${n.y * ESPACO})" style="--c:${n.cor}">
-      <title>${esc(n.nome)} · ${esc(n.estadoTexto)}</title>${anel}${forma(n.tipo, r)}${badge}
-      <text class="gt-lbl" y="${r + 22}">${rotulo}</text></g>`;
+    const classes = [n.estado, n.tipo, n.destaque ? 'destaque' : '', n.rotulo?.livre ? 'livre' : ''].filter(Boolean).join(' ');
+    const linhas = n.rotulo?.linhas ?? [];
+    const rx = n.rotulo ? n.rotulo.x - n.x : 0;
+    const ry = n.rotulo ? n.rotulo.y - n.y : 0;
+    const rw = n.rotulo?.w ?? 0;
+    const rotulo = n.rotulo
+      ? `<text class="gt-lbl" x="${(rx + rw / 2).toFixed(1)}" y="${(ry + 12).toFixed(1)}" text-anchor="middle">${linhas.map((l, i) => `<tspan x="${(rx + rw / 2).toFixed(1)}" dy="${i === 0 ? 0 : ARVORE_VISUAL.rotulo.linha}">${esc(l)}</tspan>`).join('')}</text>`
+      : '';
+    const selAnel = sel ? `<circle class="gt-sel" r="${n.r + 6}"/>` : '';
+    const pulso = n.estado === 'disponivel' ? `<circle class="gt-pulso" r="${n.r + 4}"/>` : '';
+    return `<g class="gt-no ${classes} ${n.tipo}" data-id="${n.id}" transform="translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})" style="--c:${n.cor}" tabindex="-1">
+      <title>${esc(n.nome)} · ${esc(n.estadoTexto)}</title>${pulso}${selAnel}<g class="gt-caminho-anel"><circle r="${n.r + 5}"/></g>${forma(n.tipo, 'gt-shape')}${rotulo}</g>`;
+  }
+
+  /** Acende o caminho até o nó sob o cursor (ou o selecionado) e aplica o filtro de categoria. */
+  private atualizarDestaque(): void {
+    const v = this.vm;
+    if (!v) return;
+    const alvo = this.hover ?? this.sel;
+    const cam = alvo ? caminhoAte(v, alvo) : undefined;
+    const noCaminho = new Set<string>(cam?.ids ?? []);
+    if (cam && !cam.aberto && cam.ids.length) noCaminho.add(cam.alvo);
+    const arestasCam = new Set<string>();
+    if (cam && cam.ids.length) for (const [a, b] of arestasDoCaminho(v, cam.ids)) arestasCam.add(`${a}|${b}`).add(`${b}|${a}`);
+    const porId = new Map(v.nos.map((n) => [n.id, n]));
+    const esmaecidoDe = (id: string) => this.filtro !== undefined && porId.get(id)?.categoria !== this.filtro;
+    for (const [id, g] of this.elNo) {
+      g.classList.toggle('caminho', noCaminho.has(id));
+      g.classList.toggle('dim', esmaecidoDe(id));
+      g.classList.toggle('foco', id === this.hover || id === this.sel);
+      g.classList.toggle('sel', id === this.sel);
+    }
+    for (const { a, b, el } of this.elAresta) {
+      const na = porId.get(a), nb = porId.get(b);
+      const abertos = (na?.estado === 'aberto' ? 1 : 0) + (nb?.estado === 'aberto' ? 1 : 0);
+      el.setAttribute('class', `gt-aresta ${abertos === 2 ? 'aberta' : abertos === 1 ? 'meio' : 'fechada'}${arestasCam.has(`${a}|${b}`) ? ' caminho' : ''}${esmaecidoDe(a) || esmaecidoDe(b) ? ' dim' : ''}`);
+    }
+    this.renderCaminhoCard(cam);
+  }
+
+  private renderCaminhoCard(cam: ReturnType<typeof caminhoAte> | undefined): void {
+    const alvo = cam ? this.vm.nos.find((n) => n.id === cam.alvo) : undefined;
+    if (!cam || !alvo) {
+      this.caminhoCard.hidden = true;
+      return;
+    }
+    const banco = this.vm.banco;
+    const nomes = cam.ids.map((id) => this.vm.nos.find((n) => n.id === id)?.nome ?? id);
+    const lista = nomes.slice(0, 5).map((n, i) => `<li><i>${i + 1}</i>${esc(n)}</li>`).join('') + (nomes.length > 5 ? `<li class="mais">e mais ${nomes.length - 5}…</li>` : '');
+    let cabeca: string;
+    if (cam.aberto) cabeca = `<b>${esc(alvo.nome)}</b> já está aberto.`;
+    else if (cam.umPasso) cabeca = `<b>${esc(alvo.nome)}</b> abre com 1 passo · <span class="au-price">${cam.zen} Zen</span>${cam.zen > banco ? ` <em>faltam ${cam.zen - banco}</em>` : ''}`;
+    else cabeca = `Caminho até <b>${esc(alvo.nome)}</b>: ${cam.nos} nós · <span class="au-price">${cam.zen} Zen</span>${cam.zen > banco ? ` <em>faltam ${cam.zen - banco}</em>` : ''}`;
+    this.caminhoCard.hidden = false;
+    this.caminhoCard.innerHTML = `<p>${cabeca}</p>${cam.aberto || !cam.ids.length ? '' : `<ol>${lista}</ol>`}`;
+  }
+
+  /** Legenda recolhível: tipos de nó, estados e a cor de cada setor (família). */
+  private legendaHtml(v: ArvoreVM): string {
+    const tipos = LEGENDA_TIPOS.map((t) => `<li><svg viewBox="-24 -24 48 48" aria-hidden="true">${forma(t.tipo, 'gt-leg-shape')}</svg>${t.nome}</li>`).join('');
+    const estados = `<li class="gt-leg-sep">Estados</li><li><i class="gt-st aberto"></i>Aberto</li><li><i class="gt-st disponivel"></i>Pode abrir</li><li><i class="gt-st sem-zen"></i>Falta Zen</li><li><i class="gt-st bloqueado"></i>Bloqueado</li><li><i class="gt-st caminho"></i>Caminho aceso</li>`;
+    const setores = v.familias.map((f) => `<li><i class="gt-sw" style="--c:${f.cor}"></i>${esc(f.nome)}</li>`).join('');
+    return `<summary>Legenda</summary><ul>${tipos}${estados}<li class="gt-leg-sep">Setores</li>${setores}</ul>`;
   }
 
   private selNo(): NoVM | undefined {
@@ -502,19 +610,22 @@ export class ArvoreGlobal {
     const n = this.selNo();
     let detalhe: string;
     if (!n) {
-      detalhe = `<h4 class="au-h">Detalhes</h4><p class="gt-hint">Clique num nó para ver o que ele dá, o que falta para abrir e o custo.</p>`;
+      detalhe = `<h4 class="au-h">Detalhes</h4><p class="gt-hint">Passe o cursor num nó para ver o caminho aceso; clique para fixar e ver o que ele dá, o que falta e o custo.</p>`;
     } else {
       const podeAbrir = n.estado === 'disponivel' && !v.emCombate;
       const acao = n.raiz
         ? ''
         : `<button class="au-btn gold" data-c="buy" data-id="${n.id}" ${podeAbrir ? '' : 'disabled'} title="${v.emCombate ? 'Fora da luta.' : n.estado === 'disponivel' ? '' : esc(n.estadoTexto)}">Abrir · ${n.custo} Zen</button>`;
+      const cam = caminhoAte(v, n.id);
+      const caminhoTxt = n.raiz || cam.aberto ? '' : `<p class="gt-caminho-txt">${cam.umPasso ? 'Abre com 1 passo' : `Caminho: ${cam.nos} nós`} · <b>${cam.zen} Zen</b> no total.</p>`;
       detalhe = `<h4 class="au-h">${esc(n.nome)}</h4>
-        <div class="gt-tags"><span class="au-price">${esc(n.tipoNome)}</span><span class="gt-reg" style="--c:${n.cor}">${esc(n.regiaoNome)}</span></div>
+        <div class="gt-tags"><span class="au-price">${esc(n.tipoNome)}</span><span class="gt-reg" style="--c:${n.cor}">${esc(n.familiaNome ?? n.regiaoNome)}</span></div>
         <p class="gt-desc">${esc(n.descricao)}</p>
         <ul class="gt-bonus">${n.bonus.length ? n.bonus.map((b) => `<li>${esc(b)}</li>`).join('') : '<li class="none">Sem bônus direto: abre uma Mastery</li>'}</ul>
         ${n.mastery ? `<p class="gt-note">Desbloqueia a Mastery <b>${esc(n.mastery)}</b>.</p>` : ''}
         <p class="gt-para">Vale para: <b>${esc(n.para)}</b></p>
         <p class="gt-state st-${n.estado}">${esc(n.estadoTexto)}</p>
+        ${caminhoTxt}
         ${n.pendencias.length ? `<ul class="gt-pend" title="Bônus que aparecem na árvore mas ainda não atuam no jogo">${n.pendencias.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
         <div class="gt-acts">${acao}</div>`;
     }
@@ -542,7 +653,7 @@ export class ArvoreGlobal {
 
   private cardMastery(m: MasteryVM): string {
     const on = this.selM === m.id;
-    return `<div class="gt-mcard${on ? ' on' : ''}${m.portador ? ' com' : ''}" role="button" tabindex="0" data-c="mast" data-id="${m.id}">
+    return `<div class="gt-mcard${on ? ' on' : ''}${m.portador ? ' com' : ''}" role="button" tabindex="0" data-c="mast" data-id="${m.id}" style="--c:${m.cor}">
       <div class="gt-mhead"><b>${esc(m.nome)}</b><small>${esc(m.familia)}</small></div>
       <i>${esc(m.identidade)}</i>
       <p>${esc(m.efeito)}</p>
@@ -570,3 +681,4 @@ export class ArvoreGlobal {
     return `<div class="gt-assign"><h5>Quem recebe ${esc(m.nome)}?</h5>${previa}${tirar ? `<div class="gt-acts">${tirar}</div>` : ''}</div>`;
   }
 }
+
