@@ -99,6 +99,7 @@ import {
   type Profile,
 } from './core/progression/profile';
 import { masteryDoHeroi } from './core/progression/arvore';
+import { bancoDoMeta, type BancoZen } from './core/progression/banco';
 import { rollItem, type Rarity, type Slot } from './core/progression/equipment';
 import { Rng } from './core/sim/rng';
 import { tileToWorld } from './render/coords';
@@ -208,10 +209,12 @@ function loadMetaStats(): MetaStats {
     return emptyMeta();
   }
 }
-function saveMetaStats(st: MetaStats): void {
+/** Grava as conquistas (e o banco de Zen, se vier) numa escrita só do meta. Sem `banco`, o banco guardado fica como está. */
+function saveMetaStats(st: MetaStats, banco?: BancoZen): void {
   try {
     const m = JSON.parse(SaveStore.get(META_KEY) ?? '{}') as Record<string, unknown>;
     m.stats = { kills: st.kills, perfectNights: st.perfectNights, bossesKilled: st.bossesKilled, collection: st.collection ?? emptyCollection(), arvore: st.arvore ?? (m.stats as { arvore?: ArvoreState } | undefined)?.arvore };
+    if (banco) m.banco = banco;
     SaveStore.set(META_KEY, JSON.stringify(m));
   } catch {
     /* ignora */
@@ -222,6 +225,10 @@ function gravarArvoreMeta(): void {
   const st = loadMetaStats();
   st.arvore = arvoreMeta;
   saveMetaStats(st);
+}
+/** Banco de Zen do meta (saldo e créditos já pagos). Ausente = banco vazio. */
+function loadBanco(): BancoZen {
+  return bancoDoMeta(SaveStore.get(META_KEY));
 }
 /** Heróis que a conta já desbloqueou. */
 function availableHeroes(): HeroKind[] {
@@ -459,6 +466,7 @@ function menuState(): MenuState {
 }
 const menu = new MainMenu({
   onBastion: () => bastionSession.open(),
+  onTree: () => openArvore(),
   onStart: () => {
     audio.stopMenuMusic(); // a música do menu é só da tela inicial
     audio.unlock(); // o navegador só libera som após um gesto do jogador
@@ -598,12 +606,23 @@ const cardPack = new CardPack((n) => audio.sfx(n));
 // ---------------- Árvore Global (Masteries táticas) ----------------
 const ctxArvore = () => ({ emCombate: mode === 'battle' });
 /** Ação da árvore: grava a jornada e atualiza o mapa e a ficha, sem fechar a árvore. Devolve o motivo do erro, se houver. */
-function arvoreAcao(acao: () => string | undefined): string | undefined {
-  const err = acao();
+/**
+ * Carteira da árvore = banco de Zen do meta (não a carteira da jornada). O núcleo lê e gasta o saldo pelo campo
+ * `zeni` do host: passamos uma cópia do perfil com o saldo do banco, e o saldo volta ao banco se a ação deu certo.
+ */
+function hostDaArvore(banco: BancoZen): Profile {
+  return { ...profile, zeni: banco.saldo, arvore: arvoreMeta };
+}
+/** Ação da árvore: cobra no banco e grava árvore + banco numa escrita só. Devolve o motivo do erro, se houver. */
+function arvoreAcao(acao: (host: Profile) => string | undefined): string | undefined {
+  const banco = loadBanco();
+  const host = hostDaArvore(banco);
+  const err = acao(host);
   if (!err) {
-    arvoreMeta = profile.arvore ?? arvoreMeta;
+    banco.saldo = host.zeni;
+    arvoreMeta = host.arvore ?? arvoreMeta;
     anexarArvore(run.profile, arvoreMeta);
-    gravarArvoreMeta();
+    saveMetaStats({ ...loadMetaStats(), arvore: arvoreMeta }, banco);
     saveProfile();
     hud.setCharacter(characterVM());
     if (mode === 'map') worldMap.show(mapState());
@@ -613,13 +632,13 @@ function arvoreAcao(acao: () => string | undefined): string | undefined {
 }
 const arvoreTree = new ArvoreGlobal(
   {
-    onBuy: (id) => arvoreAcao(() => comprarNo(profile, id, ctxArvore())),
-    onAssign: (m, k) => arvoreAcao(() => atribuirMastery(profile, m, k, ctxArvore())),
-    onRemove: (m) => arvoreAcao(() => removerMastery(profile, m, ctxArvore())),
-    onReset: () => arvoreAcao(() => reorganizarArvore(profile, ctxArvore())),
+    onBuy: (id) => arvoreAcao((h) => comprarNo(h, id, ctxArvore())),
+    onAssign: (m, k) => arvoreAcao((h) => atribuirMastery(h, m, k, ctxArvore())),
+    onRemove: (m) => arvoreAcao((h) => removerMastery(h, m, ctxArvore())),
+    onReset: () => arvoreAcao((h) => reorganizarArvore(h, ctxArvore())),
     onUi: ui,
   },
-  () => montarArvoreVM(profile, PORTRAITS, ctxArvore()),
+  () => montarArvoreVM(hostDaArvore(loadBanco()), PORTRAITS, ctxArvore()),
 );
 function openArvore(): void {
   if (arvoreTree.visible) return arvoreTree.close();

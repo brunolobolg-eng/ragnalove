@@ -168,6 +168,7 @@ check('Pressão Tática: a mesma semente dá o mesmo resultado', empurroes(EMPUR
   // sem Zen para a atribuição, o efeito não chega à luta
   const pobre = createProfile();
   pobre.heroes.warrior.level = 5;
+  pobre.zeni = 250; // só o necessário para abrir os dois nós (100 + 150): sobra zero para a Mastery
   comprarNo(pobre, 'sortePeregrina');
   comprarNo(pobre, 'pontoPressao');
   const sem = atribuirMastery(pobre, 'pressaoTatica', 'warrior');

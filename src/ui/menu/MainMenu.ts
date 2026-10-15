@@ -25,6 +25,8 @@ export interface MainMenuHooks {
   onOptions(panel: 'audio' | 'video'): void;
   onCloseOptions(): void;
   onUi(): void;
+  /** Árvore de Aurenthal (banco de Zen): fica no menu, entre jornadas. */
+  onTree(): void;
   state(): MenuState;
 }
 
@@ -83,6 +85,15 @@ export class MainMenu {
       this.openCard('options');
     });
     this.el.appendChild(gear);
+    // Árvore de Aurenthal: canto superior direito, fora da navegação por teclado (como a engrenagem)
+    const tree = document.createElement('button');
+    tree.className = 'mm-tree';
+    tree.type = 'button';
+    tree.textContent = 'Árvore';
+    tree.title = 'Árvore de Aurenthal: os nós são pagos com o Zen do banco';
+    tree.setAttribute('aria-label', 'Árvore de Aurenthal');
+    tree.addEventListener('click', () => this.hooks.onTree());
+    this.el.appendChild(tree);
     this.nav = new MainMenuNavigation(buttons.filter((b) => !b.classList.contains('mm-hot-off')), (id) => this.activate(id), () => this.hooks.onUi());
     this.el.querySelector('.mm-card')!.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-card]');

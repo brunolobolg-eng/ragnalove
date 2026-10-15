@@ -5,7 +5,7 @@ import type { ArvoreVM, CandidatoVM, HeroiVM, MasteryVM, NoVM } from './arvoreVM
 
 /**
  * Árvore Global de Aurenthal: rede de nós com zoom e pan suaves, painel de detalhes do nó,
- * painel de Masteries (uma por personagem, com custo em Zen antes de confirmar) e reorganização.
+ * painel de Masteries (uma por personagem, com custo em Zen antes de confirmar) e reorganização. Tudo é pago pelo banco de Zen.
  * Só apresentação: quem decide regra é o núcleo (core/progression/arvore.ts). Cada ação devolve o
  * motivo do erro (pt-BR) ou undefined; a tela sempre redesenha a partir do view model atual.
  */
@@ -154,7 +154,7 @@ export class ArvoreGlobal {
               <button class="au-btn" data-c="fit" title="Centralizar">Centro</button>
             </div>
             <ul class="gt-legend">${LEGENDA_TIPOS.map((t) => `<li><svg viewBox="-14 -14 28 28" aria-hidden="true">${forma(t.tipo, 10).replace(/class="gt-(shape|core)"/g, 'class="gt-leg-$1"')}</svg>${t.nome}</li>`).join('')}
-              <li class="gt-leg-sep"><i class="gt-st on"></i>Aberto</li><li><i class="gt-st dispo"></i>Pode abrir</li><li><i class="gt-st sem"></i>Falta ponto</li><li><i class="gt-st bloq"></i>Bloqueado</li></ul>
+              <li class="gt-leg-sep"><i class="gt-st on"></i>Aberto</li><li><i class="gt-st dispo"></i>Pode abrir</li><li><i class="gt-st sem"></i>Falta Zen</li><li><i class="gt-st bloq"></i>Bloqueado</li></ul>
           </section>
           <aside class="gt-side"></aside>
         </div>
@@ -237,7 +237,7 @@ export class ArvoreGlobal {
         this.confirmandoReset = false;
         this.selM = undefined;
         this.pick = undefined;
-        this.flash(err ?? 'Árvore reorganizada: os pontos voltaram e as Masteries foram guardadas.', !err);
+        this.flash(err ?? 'Árvore reorganizada: os nós e as Masteries voltaram para a guarda.', !err);
         break;
       }
       case 'buy': {
@@ -427,9 +427,8 @@ export class ArvoreGlobal {
     this.head.innerHTML = `
       <i class="au-ico" aria-hidden="true">✦</i>
       <span class="gt-title">Árvore de Aurenthal</span>
-      <span class="gt-pts"><b>${v.pontos.disponiveis}</b> pontos livres <small>de ${v.pontos.total}</small></span>
-      <span class="gt-zeni"><i class="zeni-ico"></i>${v.zeni.toLocaleString('pt-BR')} Zen</span>
-      <button class="au-btn danger gt-reset-btn" data-c="reset-ask" ${this.confirmandoReset ? 'hidden' : ''} ${travado ? 'disabled' : ''} title="${esc(r.erro ?? 'Fecha todos os nós e guarda as Masteries. Os pontos voltam; o Zen gasto não.')}">Reorganizar · ${r.custo} Zen</button>
+      <span class="gt-zeni" title="Banco de Zen: o que os nós e as Masteries custam. Vem das jornadas e dos blocos do Bastião."><i class="zeni-ico"></i>Banco: <b>${v.banco.toLocaleString('pt-BR')}</b> Zen</span>
+      <button class="au-btn danger gt-reset-btn" data-c="reset-ask" ${this.confirmandoReset ? 'hidden' : ''} ${travado ? 'disabled' : ''} title="${esc(r.erro ?? 'Fecha todos os nós e guarda as Masteries. O Zen gasto não volta.')}">Reorganizar · ${r.custo} Zen</button>
       <button class="au-x" data-c="close" title="Fechar (Esc)" aria-label="Fechar">×</button>`;
   }
 
@@ -437,7 +436,7 @@ export class ArvoreGlobal {
     if (this.confirmandoReset) {
       this.bar.hidden = false;
       this.bar.className = 'gt-bar ask';
-      this.bar.innerHTML = `<p>Reorganizar custa <b>${this.vm.reorganizar.custo} Zen</b>. Todos os nós abertos e as Masteries voltam para a guarda. Os pontos voltam todos; o Zen não volta.</p>
+      this.bar.innerHTML = `<p>Reorganizar custa <b>${this.vm.reorganizar.custo} Zen</b> do banco. Todos os nós abertos e as Masteries voltam para a guarda. O Zen não volta.</p>
         <div class="gt-acts"><button class="au-btn" data-c="reset-no">Cancelar</button><button class="au-btn danger" data-c="reset-yes">Confirmar · ${this.vm.reorganizar.custo} Zen</button></div>`;
       return;
     }
@@ -508,7 +507,7 @@ export class ArvoreGlobal {
       const podeAbrir = n.estado === 'disponivel' && !v.emCombate;
       const acao = n.raiz
         ? ''
-        : `<button class="au-btn gold" data-c="buy" data-id="${n.id}" ${podeAbrir ? '' : 'disabled'} title="${v.emCombate ? 'Fora da luta.' : n.estado === 'disponivel' ? '' : esc(n.estadoTexto)}">Abrir · ${n.custo} ponto${n.custo > 1 ? 's' : ''}</button>`;
+        : `<button class="au-btn gold" data-c="buy" data-id="${n.id}" ${podeAbrir ? '' : 'disabled'} title="${v.emCombate ? 'Fora da luta.' : n.estado === 'disponivel' ? '' : esc(n.estadoTexto)}">Abrir · ${n.custo} Zen</button>`;
       detalhe = `<h4 class="au-h">${esc(n.nome)}</h4>
         <div class="gt-tags"><span class="au-price">${esc(n.tipoNome)}</span><span class="gt-reg" style="--c:${n.cor}">${esc(n.regiaoNome)}</span></div>
         <p class="gt-desc">${esc(n.descricao)}</p>
@@ -563,7 +562,7 @@ export class ArvoreGlobal {
       ? `<button class="au-btn" data-c="remove" data-m="${m.id}" title="Tira a Mastery e a guarda. Não custa Zen.">Tirar de ${esc(m.portadorNome ?? '')} (grátis)</button>`
       : '';
     const previa = escolhido
-      ? `<div class="gt-prev"><span class="au-price">${m.custo} Zen</span><span>Seu Zen: <b>${this.vm.zeni.toLocaleString('pt-BR')}</b></span></div>
+      ? `<div class="gt-prev"><span class="au-price">${m.custo} Zen</span><span>Banco: <b>${this.vm.banco.toLocaleString('pt-BR')}</b> Zen</span></div>
          <p class="gt-note ${erro ? 'bad' : 'ok'}">${erro ? esc(erro) : `Pronto para ${esc(escolhido.nome)}. Nada é gasto até você confirmar.`}</p>
          <div class="gt-acts"><button class="au-btn" data-c="cancel">Cancelar</button><button class="au-btn gold" data-c="assign" data-m="${m.id}" data-k="${escolhido.kind}" ${erro ? 'disabled' : ''}>Confirmar · ${m.custo} Zen</button></div>`
       : `<p class="gt-hint">Escolha quem recebe <b>${esc(m.nome)}</b> (retratos acima). ${this.vm.emCombate ? 'Fora da luta.' : ''}</p>

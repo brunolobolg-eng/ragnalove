@@ -1,6 +1,6 @@
 import { ARVORE_CONFIG, ARVORE_ECONOMIA, CATEGORIAS, CATEGORIA_IDS, CONEXOES, FAMILIAS, MASTERIES, NOS, REGIOES, TIPO_NO_LABEL, custoDoNo, nosPorCategoria, type Categoria, type MasteryDef, type MasteryId, type NoDef, type NoTipo } from '../config/arvoreGlobal';
 import { HERO_NAME, HERO_ORDER } from '../config/heroes';
-import { RAIZ_ID, estadoNo, masteryDoHeroi, masteryDesbloqueada, pontosDisponiveis, pontosGastos, pontosTotais, previsaoAtribuir, previsaoReorganizar, textoBonus, type EstadoNo } from '../core/progression/arvore';
+import { RAIZ_ID, estadoNo, masteryDoHeroi, masteryDesbloqueada, previsaoAtribuir, previsaoReorganizar, textoBonus, type EstadoNo } from '../core/progression/arvore';
 import { heroDisplayName, type Profile } from '../core/progression/profile';
 import type { HeroKind } from '../core/progression/skills';
 
@@ -83,8 +83,8 @@ export interface HeroiVM {
 export interface ArvoreVM {
   categorias: { id: Categoria; nome: string; total: number }[];
   totalNos: number;
-  pontos: { disponiveis: number; total: number; gastos: number };
-  zeni: number;
+  /** Saldo do banco de Zen (carteira da árvore: o que os nós e as Masteries custam). */
+  banco: number;
   reorganizar: { custo: number; erro?: string };
   emCombate: boolean;
   nos: NoVM[];
@@ -96,8 +96,8 @@ export interface ArvoreVM {
 
 const ESTADO_TEXTO = (estado: EstadoNo, custo: number, falta: number): string => {
   if (estado === 'aberto') return 'Aberto';
-  if (estado === 'disponivel') return `Disponível: abre com os pontos que você tem (${custo} ponto${custo > 1 ? 's' : ''}).`;
-  if (estado === 'sem-pontos') return `Falta${falta > 1 ? 'm' : ''} ${falta} ponto${falta > 1 ? 's' : ''} de árvore.`;
+  if (estado === 'disponivel') return `Disponível: abre com o Zen do banco (${custo} Zen).`;
+  if (estado === 'sem-zen') return `Faltam ${falta} Zen no banco.`;
   return 'Bloqueado: abra antes um nó ligado a este.';
 };
 
@@ -105,7 +105,8 @@ const paraTexto = (no: NoDef): string => (no.para === 'todos' ? 'Todos os herói
 
 /** Monta a tela com o estado atual do perfil. `retratos`: imagem de cada herói (vazio = inicial no lugar). */
 export function montarArvoreVM(p: Profile, retratos: Record<string, string>, ctx: { emCombate?: boolean } = {}): ArvoreVM {
-  const disponiveis = pontosDisponiveis(p);
+  // p.zeni aqui é o saldo do banco (quem chama passa o perfil com o saldo no lugar)
+  const disponiveis = p.zeni;
   const nos: NoVM[] = NOS.map((no) => {
     const estado = estadoNo(p, no.id);
     const falta = Math.max(0, custoDoNo(no) - disponiveis);
@@ -175,8 +176,7 @@ export function montarArvoreVM(p: Profile, retratos: Record<string, string>, ctx
   return {
     categorias: CATEGORIA_IDS.map((id) => ({ id, nome: CATEGORIAS[id].nome, total: porCat[id] })),
     totalNos: NOS.length,
-    pontos: { disponiveis, total: pontosTotais(p), gastos: pontosGastos(p) },
-    zeni: p.zeni,
+    banco: p.zeni,
     reorganizar: { custo: reorg.custo, erro: reorg.erro },
     emCombate: !!ctx.emCombate,
     nos,

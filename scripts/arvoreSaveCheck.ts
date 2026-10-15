@@ -7,7 +7,7 @@
  * (e) Árvore corrompida ou editada: o que é inválido sai, o que é válido fica (requisito de ligação, Mastery, limite).
  * (f) Bastião com Profile v1 abre e vira v2.
  */
-import { anexarArvore, arvoreDoMeta, arvoreVazia, bonusDoHeroi, normalizarArvore, pontosTotais, semArvoreNoSave, atribuirMastery, comprarNo, reorganizarArvore } from '../src/core/progression/arvore';
+import { anexarArvore, arvoreDoMeta, arvoreVazia, bonusDoHeroi, normalizarArvore, semArvoreNoSave, atribuirMastery, comprarNo, reorganizarArvore } from '../src/core/progression/arvore';
 import { NO_BY_ID, custoDoNo } from '../src/config/arvoreGlobal';
 import { PROFILE_VERSION, createProfile, heroStats, migrateProfile, type Profile } from '../src/core/progression/profile';
 import { migrateRun, newRun, type RunState } from '../src/core/run/run';
@@ -89,8 +89,8 @@ check('os seis heróis existem depois de abrir', HERO_ORDER.every((k) => !!r.pro
   check('status dos heróis iguais antes e depois da migração', statsAntes === statsDepois);
 }
 
-// ---------------- (c) pontos pelos níveis já conquistados ----------------
-check('pontos de árvore dos níveis antigos entram sozinhos', pontosTotais(r.profile) === (6 - 1) + (4 - 1), `${pontosTotais(r.profile)} pontos`);
+// ---------------- (c) custo em Zen: níveis antigos não viram pontos de árvore ----------------
+check('save antigo abre sem nenhum nó e com a árvore vazia (custo é Zen, não pontos)', (r.profile.arvore?.comprados.length ?? 0) === 0 && r.profile.zeni === 340);
 
 // ---------------- (d) idempotência e ida e volta ----------------
 {
@@ -240,7 +240,7 @@ const ida = (m: unknown) => JSON.parse(JSON.stringify(m)) as { arvore?: unknown 
   antigo.profile.arvore = legado;
   const m = migrateRun(JSON.parse(JSON.stringify(antigo)) as RunState);
   check('jornada antiga com árvore abre e a árvore chega ao perfil', (m.profile.arvore as { comprados: string[] }).comprados.length === 2 && m.profile.zeni === 340);
-  check('o nó de custo fica num só lugar (custoDoNo)', custoDoNo(NO_BY_ID['vigorDoReino']) === NO_BY_ID['vigorDoReino'].custo);
+  check('o nó de custo fica num só lugar (custoDoNo, pelo tipo)', custoDoNo(NO_BY_ID['vigorDoReino']) === 100 && custoDoNo(NO_BY_ID['muralhaViva']) === 250);
   check('árvore corrompida no meta vira árvore válida (normalizar)', arvoreDoMeta({ arvore: { comprados: ['naoExiste', 'nucleo'], masteries: {}, reorganizacoes: -1 } }).comprados.length === 0);
 }
 

@@ -13,17 +13,29 @@ import type { HeroKind } from '../core/progression/skills';
  * Bônus de combate usam só os atributos e as passivas que o jogo já tem (ARVORE_CAPS_COMBATE).
  */
 
-/** Pontos de árvore ganhos por nível alcançado (somando todos os personagens). */
+/** Custo de abrir um nó, em Zen do banco, por tipo de nó. Ponto único de decisão: custoDoNo lê daqui. */
+export const CUSTO_ZEN_POR_TIPO: Record<NoTipo, number> = { raiz: 0, comum: 100, notavel: 250, caminho: 100, mastery: 150 };
+
+/** Pontos da árvore: só o que não é Zen (a moeda da árvore é o Zen do banco, no meta). */
 export const ARVORE_CONFIG = {
-  pontosPorNivel: 1,
-  /** Atribuir ou trocar uma Mastery de personagem (preço fixo, em Zen). */
+  /** Atribuir ou trocar uma Mastery de personagem (preço fixo, em Zen do banco). */
   atribuirZen: 60,
-  /** Reorganizar a árvore inteira: base × (1 + reorganizações anteriores). */
+  /** Reorganizar a árvore inteira (Zen do banco): base × (1 + reorganizações anteriores). */
   reorganizarZen: 80,
   /** Quantas Masteries um mesmo personagem pode carregar. */
   maxMasteriesPorHeroi: 1,
   /** Quantidade mínima de nós da árvore (pedido do dono: pelo menos 100). */
   minNos: 100,
+};
+
+/**
+ * Banco de Zen (no meta): crédito EXTRA, que não tira Zen da jornada nem da carteira do Bastião. Paga a árvore.
+ * Campanha: % do Zen ganho na jornada, pelo desfecho (vitória, derrota ou abandono).
+ * Bastião: % do Zen ganho em cada bloco COMPLETO de `noitesPorBloco` noites numa tentativa (derrota no meio não paga).
+ */
+export const ARVORE_BANCO = {
+  campanha: { vitoria: 0.5, derrota: 0.25, abandono: 0 },
+  bastiao: { noitesPorBloco: 20, pct: 0.3 },
 };
 
 // ---------------- categorias (filtro da tela) ----------------
@@ -118,8 +130,6 @@ export interface NoDef {
   /** Posição na rede (unidades de grade; a tela escala por ARVORE_VISUAL.espaco). */
   x: number;
   y: number;
-  /** Pontos de árvore para abrir o nó (a raiz é de graça). */
-  custo: number;
   descricao: string;
   bonus: Bonus;
   para: Compat;
@@ -246,37 +256,36 @@ export const MASTERIES: MasteryDef[] = [
 // ---------------- nós ----------------
 
 /** Ponto de partida da árvore (única raiz). */
-const RAIZ: NoDef = { id: 'nucleo', nome: 'Núcleo de Aurenthal', tipo: 'raiz', categoria: 'progressao', regiao: 'nucleo', x: 0, y: 0, custo: 0, descricao: 'Ponto de partida. Todos os caminhos saem daqui.', bonus: {}, para: 'todos' };
+const RAIZ: NoDef = { id: 'nucleo', nome: 'Núcleo de Aurenthal', tipo: 'raiz', categoria: 'progressao', regiao: 'nucleo', x: 0, y: 0, descricao: 'Ponto de partida. Todos os caminhos saem daqui.', bonus: {}, para: 'todos' };
 
 /** Nós desenhados à mão (região central): mantêm os ids de saves do protótipo anterior. */
 const EXPLICITOS: NoDef[] = [
-  { id: 'vigorDoReino', nome: 'Vigor do Reino', tipo: 'comum', categoria: 'combate', regiao: 'muralha', x: -1, y: -1, custo: 1, descricao: '+1 de Vitalidade para todos.', bonus: { vit: 1 }, para: 'todos' },
-  { id: 'escudoAntigo', nome: 'Escudo Antigo', tipo: 'comum', categoria: 'combate', regiao: 'muralha', x: -2, y: -2, custo: 1, descricao: '+2% de chance de bloqueio para o Guerreiro.', bonus: { block: 0.02 }, para: ['warrior'] },
-  { id: 'pontoBarreira', nome: 'Ponto de Barreira', tipo: 'mastery', categoria: 'masteries', regiao: 'muralha', x: -3, y: -2, custo: 2, descricao: 'Desbloqueia a Mastery Barreira de Contenção.', bonus: {}, para: 'todos', mastery: 'barreiraDeContencao' },
-  { id: 'muralhaViva', nome: 'Muralha Viva', tipo: 'notavel', categoria: 'combate', regiao: 'muralha', x: -3, y: -1, custo: 2, descricao: '+2 de Vitalidade e +6% de vida máxima para Guerreiro e Bruxa.', bonus: { vit: 2, hp: 0.06 }, para: ['warrior', 'warlock'] },
-  { id: 'caminhoDaMuralha', nome: 'Caminho da Muralha', tipo: 'caminho', categoria: 'ligacao', regiao: 'muralha', x: -2, y: -1, custo: 1, descricao: '−2% de dano recebido. Liga o Vigor ao notável Muralha Viva por outra rota.', bonus: { reduce: 0.02 }, para: 'todos' },
-  { id: 'chamaAntiga', nome: 'Chama Antiga', tipo: 'comum', categoria: 'combate', regiao: 'chamas', x: 1, y: -1, custo: 1, descricao: '+1 de Inteligência para Mago, Feiticeira e Bruxa.', bonus: { int: 1 }, para: ['mage', 'sorcerer', 'warlock'] },
-  { id: 'fogoInterior', nome: 'Fogo Interior', tipo: 'comum', categoria: 'combate', regiao: 'chamas', x: 2, y: -2, custo: 1, descricao: '+3% de dano causado para magos.', bonus: { dmg: 0.03 }, para: ['mage', 'sorcerer', 'warlock'] },
-  { id: 'brasaEterna', nome: 'Brasa Eterna', tipo: 'notavel', categoria: 'combate', regiao: 'chamas', x: 3, y: -2, custo: 2, descricao: '+2 de Inteligência e +6% de dano para Feiticeira e Bruxa.', bonus: { int: 2, dmg: 0.06 }, para: ['sorcerer', 'warlock'] },
-  { id: 'caminhoDaBrasa', nome: 'Caminho da Brasa', tipo: 'caminho', categoria: 'ligacao', regiao: 'chamas', x: 2, y: -1, custo: 1, descricao: '+2% de Skill Haste para magos. Liga a Chama Antiga à Brasa Eterna por outra rota.', bonus: { haste: 0.02 }, para: ['mage', 'sorcerer', 'warlock'] },
-  { id: 'passoDoVento', nome: 'Passo do Vento', tipo: 'comum', categoria: 'combate', regiao: 'ermos', x: 1, y: 1, custo: 1, descricao: '+1 de Destreza para Arqueira e Assassino.', bonus: { dex: 1 }, para: ['archer', 'assassin'] },
-  { id: 'pontoMisericordia', nome: 'Ponto de Misericórdia', tipo: 'mastery', categoria: 'masteries', regiao: 'ermos', x: 2, y: 1, custo: 2, descricao: 'Desbloqueia a Mastery Golpe de Misericórdia.', bonus: {}, para: 'todos', mastery: 'golpeDeMisericordia' },
-  { id: 'flechaFirme', nome: 'Flecha Firme', tipo: 'comum', categoria: 'combate', regiao: 'ermos', x: 2, y: 2, custo: 1, descricao: '+3% de dano causado para a Arqueira.', bonus: { dmg: 0.03 }, para: ['archer'] },
-  { id: 'olhoDeFalcao', nome: 'Olho de Falcão', tipo: 'notavel', categoria: 'combate', regiao: 'ermos', x: 3, y: 2, custo: 2, descricao: '+2 de Destreza e +3% de crítico para Arqueira e Assassino.', bonus: { dex: 2, crit: 0.03 }, para: ['archer', 'assassin'] },
-  { id: 'caminhoDoArco', nome: 'Caminho do Arco', tipo: 'caminho', categoria: 'ligacao', regiao: 'ermos', x: 2, y: 0, custo: 1, descricao: '+1 de Sorte para Arqueira e Assassino. Liga o Passo do Vento ao Olho de Falcão por outra rota.', bonus: { luk: 1 }, para: ['archer', 'assassin'] },
-  { id: 'sortePeregrina', nome: 'Sorte Peregrina', tipo: 'comum', categoria: 'combate', regiao: 'sombra', x: -1, y: 1, custo: 1, descricao: '+1 de Sorte para todos.', bonus: { luk: 1 }, para: 'todos' },
-  { id: 'pontoPressao', nome: 'Ponto de Pressão', tipo: 'mastery', categoria: 'masteries', regiao: 'sombra', x: -2, y: 1, custo: 2, descricao: 'Desbloqueia a Mastery Pressão Tática.', bonus: {}, para: 'todos', mastery: 'pressaoTatica' },
-  { id: 'golpeFurtivo', nome: 'Golpe Furtivo', tipo: 'comum', categoria: 'combate', regiao: 'sombra', x: -2, y: 2, custo: 1, descricao: '+2% de crítico para Assassino, Arqueira e Bruxa.', bonus: { crit: 0.02 }, para: ['assassin', 'archer', 'warlock'] },
-  { id: 'sombraProfunda', nome: 'Sombra Profunda', tipo: 'notavel', categoria: 'combate', regiao: 'sombra', x: -3, y: 2, custo: 2, descricao: '+2 de Sorte e +3% de esquiva para Assassino e Bruxa.', bonus: { luk: 2, dodge: 0.03 }, para: ['assassin', 'warlock'] },
+  { id: 'vigorDoReino', nome: 'Vigor do Reino', tipo: 'comum', categoria: 'combate', regiao: 'muralha', x: -1, y: -1, descricao: '+1 de Vitalidade para todos.', bonus: { vit: 1 }, para: 'todos' },
+  { id: 'escudoAntigo', nome: 'Escudo Antigo', tipo: 'comum', categoria: 'combate', regiao: 'muralha', x: -2, y: -2, descricao: '+2% de chance de bloqueio para o Guerreiro.', bonus: { block: 0.02 }, para: ['warrior'] },
+  { id: 'pontoBarreira', nome: 'Ponto de Barreira', tipo: 'mastery', categoria: 'masteries', regiao: 'muralha', x: -3, y: -2, descricao: 'Desbloqueia a Mastery Barreira de Contenção.', bonus: {}, para: 'todos', mastery: 'barreiraDeContencao' },
+  { id: 'muralhaViva', nome: 'Muralha Viva', tipo: 'notavel', categoria: 'combate', regiao: 'muralha', x: -3, y: -1, descricao: '+2 de Vitalidade e +6% de vida máxima para Guerreiro e Bruxa.', bonus: { vit: 2, hp: 0.06 }, para: ['warrior', 'warlock'] },
+  { id: 'caminhoDaMuralha', nome: 'Caminho da Muralha', tipo: 'caminho', categoria: 'ligacao', regiao: 'muralha', x: -2, y: -1, descricao: '−2% de dano recebido. Liga o Vigor ao notável Muralha Viva por outra rota.', bonus: { reduce: 0.02 }, para: 'todos' },
+  { id: 'chamaAntiga', nome: 'Chama Antiga', tipo: 'comum', categoria: 'combate', regiao: 'chamas', x: 1, y: -1, descricao: '+1 de Inteligência para Mago, Feiticeira e Bruxa.', bonus: { int: 1 }, para: ['mage', 'sorcerer', 'warlock'] },
+  { id: 'fogoInterior', nome: 'Fogo Interior', tipo: 'comum', categoria: 'combate', regiao: 'chamas', x: 2, y: -2, descricao: '+3% de dano causado para magos.', bonus: { dmg: 0.03 }, para: ['mage', 'sorcerer', 'warlock'] },
+  { id: 'brasaEterna', nome: 'Brasa Eterna', tipo: 'notavel', categoria: 'combate', regiao: 'chamas', x: 3, y: -2, descricao: '+2 de Inteligência e +6% de dano para Feiticeira e Bruxa.', bonus: { int: 2, dmg: 0.06 }, para: ['sorcerer', 'warlock'] },
+  { id: 'caminhoDaBrasa', nome: 'Caminho da Brasa', tipo: 'caminho', categoria: 'ligacao', regiao: 'chamas', x: 2, y: -1, descricao: '+2% de Skill Haste para magos. Liga a Chama Antiga à Brasa Eterna por outra rota.', bonus: { haste: 0.02 }, para: ['mage', 'sorcerer', 'warlock'] },
+  { id: 'passoDoVento', nome: 'Passo do Vento', tipo: 'comum', categoria: 'combate', regiao: 'ermos', x: 1, y: 1, descricao: '+1 de Destreza para Arqueira e Assassino.', bonus: { dex: 1 }, para: ['archer', 'assassin'] },
+  { id: 'pontoMisericordia', nome: 'Ponto de Misericórdia', tipo: 'mastery', categoria: 'masteries', regiao: 'ermos', x: 2, y: 1, descricao: 'Desbloqueia a Mastery Golpe de Misericórdia.', bonus: {}, para: 'todos', mastery: 'golpeDeMisericordia' },
+  { id: 'flechaFirme', nome: 'Flecha Firme', tipo: 'comum', categoria: 'combate', regiao: 'ermos', x: 2, y: 2, descricao: '+3% de dano causado para a Arqueira.', bonus: { dmg: 0.03 }, para: ['archer'] },
+  { id: 'olhoDeFalcao', nome: 'Olho de Falcão', tipo: 'notavel', categoria: 'combate', regiao: 'ermos', x: 3, y: 2, descricao: '+2 de Destreza e +3% de crítico para Arqueira e Assassino.', bonus: { dex: 2, crit: 0.03 }, para: ['archer', 'assassin'] },
+  { id: 'caminhoDoArco', nome: 'Caminho do Arco', tipo: 'caminho', categoria: 'ligacao', regiao: 'ermos', x: 2, y: 0, descricao: '+1 de Sorte para Arqueira e Assassino. Liga o Passo do Vento ao Olho de Falcão por outra rota.', bonus: { luk: 1 }, para: ['archer', 'assassin'] },
+  { id: 'sortePeregrina', nome: 'Sorte Peregrina', tipo: 'comum', categoria: 'combate', regiao: 'sombra', x: -1, y: 1, descricao: '+1 de Sorte para todos.', bonus: { luk: 1 }, para: 'todos' },
+  { id: 'pontoPressao', nome: 'Ponto de Pressão', tipo: 'mastery', categoria: 'masteries', regiao: 'sombra', x: -2, y: 1, descricao: 'Desbloqueia a Mastery Pressão Tática.', bonus: {}, para: 'todos', mastery: 'pressaoTatica' },
+  { id: 'golpeFurtivo', nome: 'Golpe Furtivo', tipo: 'comum', categoria: 'combate', regiao: 'sombra', x: -2, y: 2, descricao: '+2% de crítico para Assassino, Arqueira e Bruxa.', bonus: { crit: 0.02 }, para: ['assassin', 'archer', 'warlock'] },
+  { id: 'sombraProfunda', nome: 'Sombra Profunda', tipo: 'notavel', categoria: 'combate', regiao: 'sombra', x: -3, y: 2, descricao: '+2 de Sorte e +3% de esquiva para Assassino e Bruxa.', bonus: { luk: 2, dodge: 0.03 }, para: ['assassin', 'warlock'] },
 ];
 
-/** Nós gerados (a tabela abaixo). O campo `c` é a categoria; `k` o custo; `b` o bônus; `m` a Mastery; `l` a ligação entre dois nós. */
+/** Nós gerados (a tabela abaixo). `c` categoria; `t` tipo (padrão: comum; `notavel`, `caminho` ou `mastery` quando marcado); `b` bônus; `m` Mastery; `l` ligação entre dois nós. O custo em Zen vem do tipo (CUSTO_ZEN_POR_TIPO). */
 interface Entrada {
   id: string;
   n: string;
   c: Categoria;
   r: string;
-  k: number;
   d: string;
   b: Bonus;
   t?: NoTipo;
@@ -289,103 +298,103 @@ const E = (e: Entrada): Entrada => e;
 
 const GERADOS: Entrada[] = [
   // ---- Progressão geral (20) ----
-  E({ id: 'estudoDeCampo', n: 'Estudo de Campo', c: 'progressao', r: 'nucleo', k: 1, d: '+3% de EXP em combate.', b: { expCombate: 0.03 } }),
-  E({ id: 'aprendizadoRapido', n: 'Aprendizado Rápido', c: 'progressao', r: 'nucleo', k: 1, d: '+3% de EXP em combate.', b: { expCombate: 0.03 } }),
-  E({ id: 'mestreDaEstrada', n: 'Mestre da Estrada', c: 'progressao', r: 'nucleo', k: 2, d: '+5% de EXP em combate.', b: { expCombate: 0.05 } }),
-  E({ id: 'hordaLucrativa', n: 'Horda Lucrativa', c: 'progressao', r: 'nucleo', k: 1, d: '+4% de Zen nas hordas.', b: { zeniHorda: 0.04 } }),
-  E({ id: 'cacadorDeElites', n: 'Caçador de Elites', c: 'progressao', r: 'nucleo', k: 2, d: '+5% de Zen nos elites.', b: { zeniElite: 0.05 } }),
-  E({ id: 'cacadorDeChefes', n: 'Caçador de Chefes', c: 'progressao', r: 'nucleo', k: 2, d: '+5% de Zen nos chefes.', b: { zeniChefe: 0.05 } }),
-  E({ id: 'sobrevivente', n: 'Sobrevivente', c: 'progressao', r: 'nucleo', k: 2, d: '+5% de Zen na sobrevivência.', b: { zeniSobrevivencia: 0.05 } }),
-  E({ id: 'bolsaCheia', n: 'Bolsa Cheia', c: 'progressao', r: 'nucleo', k: 1, d: '+3% de Zen nas hordas.', b: { zeniHorda: 0.03 } }),
-  E({ id: 'olhoDeMercador', n: 'Olho de Mercador', c: 'progressao', r: 'cidades', k: 1, d: '−3% nos preços das cidades.', b: { descontoCidade: 0.03 } }),
-  E({ id: 'barganha', n: 'Barganha', c: 'progressao', r: 'cidades', k: 1, d: '−3% nos preços das cidades.', b: { descontoCidade: 0.03 } }),
-  E({ id: 'negociadorVeterano', n: 'Negociador Veterano', c: 'progressao', r: 'cidades', k: 2, d: '−4% nos preços das cidades.', b: { descontoCidade: 0.04 } }),
-  E({ id: 'treinoAcelerado', n: 'Treino Acelerado', c: 'progressao', r: 'nucleo', k: 4, d: '+1 ponto de habilidade a cada nível (uma vez só).', b: { pontosHabilidade: 1 } }),
-  E({ id: 'recrutaPromissor', n: 'Recruta Promissor', c: 'progressao', r: 'nucleo', k: 2, d: 'Heróis recrutados entram com +1 nível.', b: { recrutas: 1 } }),
-  E({ id: 'recrutamentoDeElite', n: 'Recrutamento de Elite', c: 'progressao', r: 'nucleo', k: 3, d: 'Heróis recrutados entram com +1 nível.', b: { recrutas: 1 } }),
-  E({ id: 'veteranoDeGuerra', n: 'Veterano de Guerra', c: 'progressao', r: 'nucleo', k: 2, d: '+4% de EXP em combate.', b: { expCombate: 0.04 } }),
-  E({ id: 'caravana', n: 'Caravana', c: 'progressao', r: 'cidades', k: 2, d: '+4% de Zen nas hordas.', b: { zeniHorda: 0.04 } }),
-  E({ id: 'famaLocal', n: 'Fama Local', c: 'progressao', r: 'cidades', k: 2, d: '+4% de Zen nos chefes.', b: { zeniChefe: 0.04 } }),
-  E({ id: 'escutaAtenta', n: 'Escuta Atenta', c: 'progressao', r: 'nucleo', k: 1, d: '+2% de EXP em combate.', b: { expCombate: 0.02 } }),
-  E({ id: 'comercioJusto', n: 'Comércio Justo', c: 'progressao', r: 'cidades', k: 1, d: '−2% nos preços das cidades.', b: { descontoCidade: 0.02 } }),
-  E({ id: 'almaAntiga', n: 'Alma Antiga', c: 'progressao', r: 'nucleo', k: 2, d: '+4% de almas em combate.', b: { almasCombate: 0.04 } }),
+  E({ id: 'estudoDeCampo', n: 'Estudo de Campo', c: 'progressao', r: 'nucleo', d: '+3% de EXP em combate.', b: { expCombate: 0.03 } }),
+  E({ id: 'aprendizadoRapido', n: 'Aprendizado Rápido', c: 'progressao', r: 'nucleo', d: '+3% de EXP em combate.', b: { expCombate: 0.03 } }),
+  E({ id: 'mestreDaEstrada', n: 'Mestre da Estrada', c: 'progressao', r: 'nucleo', t: 'notavel', d: '+5% de EXP em combate.', b: { expCombate: 0.05 } }),
+  E({ id: 'hordaLucrativa', n: 'Horda Lucrativa', c: 'progressao', r: 'nucleo', d: '+4% de Zen nas hordas.', b: { zeniHorda: 0.04 } }),
+  E({ id: 'cacadorDeElites', n: 'Caçador de Elites', c: 'progressao', r: 'nucleo', t: 'notavel', d: '+5% de Zen nos elites.', b: { zeniElite: 0.05 } }),
+  E({ id: 'cacadorDeChefes', n: 'Caçador de Chefes', c: 'progressao', r: 'nucleo', t: 'notavel', d: '+5% de Zen nos chefes.', b: { zeniChefe: 0.05 } }),
+  E({ id: 'sobrevivente', n: 'Sobrevivente', c: 'progressao', r: 'nucleo', t: 'notavel', d: '+5% de Zen na sobrevivência.', b: { zeniSobrevivencia: 0.05 } }),
+  E({ id: 'bolsaCheia', n: 'Bolsa Cheia', c: 'progressao', r: 'nucleo', d: '+3% de Zen nas hordas.', b: { zeniHorda: 0.03 } }),
+  E({ id: 'olhoDeMercador', n: 'Olho de Mercador', c: 'progressao', r: 'cidades', d: '−3% nos preços das cidades.', b: { descontoCidade: 0.03 } }),
+  E({ id: 'barganha', n: 'Barganha', c: 'progressao', r: 'cidades', d: '−3% nos preços das cidades.', b: { descontoCidade: 0.03 } }),
+  E({ id: 'negociadorVeterano', n: 'Negociador Veterano', c: 'progressao', r: 'cidades', t: 'notavel', d: '−4% nos preços das cidades.', b: { descontoCidade: 0.04 } }),
+  E({ id: 'treinoAcelerado', n: 'Treino Acelerado', c: 'progressao', r: 'nucleo', t: 'notavel', d: '+1 ponto de habilidade a cada nível (uma vez só).', b: { pontosHabilidade: 1 } }),
+  E({ id: 'recrutaPromissor', n: 'Recruta Promissor', c: 'progressao', r: 'nucleo', t: 'notavel', d: 'Heróis recrutados entram com +1 nível.', b: { recrutas: 1 } }),
+  E({ id: 'recrutamentoDeElite', n: 'Recrutamento de Elite', c: 'progressao', r: 'nucleo', t: 'notavel', d: 'Heróis recrutados entram com +1 nível.', b: { recrutas: 1 } }),
+  E({ id: 'veteranoDeGuerra', n: 'Veterano de Guerra', c: 'progressao', r: 'nucleo', t: 'notavel', d: '+4% de EXP em combate.', b: { expCombate: 0.04 } }),
+  E({ id: 'caravana', n: 'Caravana', c: 'progressao', r: 'cidades', t: 'notavel', d: '+4% de Zen nas hordas.', b: { zeniHorda: 0.04 } }),
+  E({ id: 'famaLocal', n: 'Fama Local', c: 'progressao', r: 'cidades', t: 'notavel', d: '+4% de Zen nos chefes.', b: { zeniChefe: 0.04 } }),
+  E({ id: 'escutaAtenta', n: 'Escuta Atenta', c: 'progressao', r: 'nucleo', d: '+2% de EXP em combate.', b: { expCombate: 0.02 } }),
+  E({ id: 'comercioJusto', n: 'Comércio Justo', c: 'progressao', r: 'cidades', d: '−2% nos preços das cidades.', b: { descontoCidade: 0.02 } }),
+  E({ id: 'almaAntiga', n: 'Alma Antiga', c: 'progressao', r: 'nucleo', t: 'notavel', d: '+4% de almas em combate.', b: { almasCombate: 0.04 } }),
   // ---- Campanha (16) ----
-  E({ id: 'eventosAtentos', n: 'Eventos Atentos', c: 'campanha', r: 'cidades', k: 2, d: '+1 escolha em eventos (ainda sem gancho).', b: { eventoEscolha: 1 } }),
-  E({ id: 'pergaminhos', n: 'Pergaminhos', c: 'campanha', r: 'cidades', k: 3, d: '+1 escolha em eventos (ainda sem gancho).', b: { eventoEscolha: 1 } }),
-  E({ id: 'reparoAgil', n: 'Reparo Ágil', c: 'campanha', r: 'cidades', k: 1, d: '−5% no reparo da muralha.', b: { reparoCidade: 0.05 } }),
-  E({ id: 'maosHabeis', n: 'Mãos Hábeis', c: 'campanha', r: 'cidades', k: 2, d: '−5% no reparo da muralha.', b: { reparoCidade: 0.05 } }),
-  E({ id: 'engenheiroDaMuralha', n: 'Engenheiro da Muralha', c: 'campanha', r: 'cidades', k: 2, d: '−5% no reparo da muralha.', b: { reparoCidade: 0.05 } }),
-  E({ id: 'recompensaDaCidade', n: 'Recompensa da Cidade', c: 'campanha', r: 'cidades', k: 2, d: '+5% na recompensa da cidade (ainda sem gancho).', b: { recompensaCidade: 0.05 } }),
-  E({ id: 'festaDaVila', n: 'Festa da Vila', c: 'campanha', r: 'cidades', k: 2, d: '+5% na recompensa da cidade (ainda sem gancho).', b: { recompensaCidade: 0.05 } }),
-  E({ id: 'vitrineCheia', n: 'Vitrine Cheia', c: 'campanha', r: 'cidades', k: 2, d: '+1 item na loja.', b: { sorteLoja: 1 } }),
-  E({ id: 'mercadorViajante', n: 'Mercador Viajante', c: 'campanha', r: 'cidades', k: 3, d: '+1 item na loja.', b: { sorteLoja: 1 } }),
-  E({ id: 'zenDeVila', n: 'Zen de Vila', c: 'campanha', r: 'cidades', k: 2, d: '+4% de Zen da cidade (ainda sem gancho).', b: { zeniCidade: 0.04 } }),
-  E({ id: 'estradaSegura', n: 'Estrada Segura', c: 'campanha', r: 'cidades', k: 2, d: '+5% de Zen dos eventos (ainda sem gancho).', b: { zeniEvento: 0.05 } }),
-  E({ id: 'sorteDeEvento', n: 'Sorte de Evento', c: 'campanha', r: 'cidades', k: 2, d: '+5% de Zen dos eventos (ainda sem gancho).', b: { zeniEvento: 0.05 } }),
-  E({ id: 'noDeMinerio', n: 'Nó de Minério', c: 'campanha', r: 'cidades', k: 1, d: '+3% de almas em combate: recurso do mapa.', b: { almasCombate: 0.03 } }),
-  E({ id: 'noDeOracao', n: 'Nó de Oração', c: 'campanha', r: 'cidades', k: 1, d: '+3% de almas em combate: recurso do mapa.', b: { almasCombate: 0.03 } }),
-  E({ id: 'atalhoDeTropas', n: 'Atalho de Tropas', c: 'campanha', r: 'cidades', k: 1, d: '+4% de Zen na sobrevivência.', b: { zeniSobrevivencia: 0.04 } }),
-  E({ id: 'clerigoDeVila', n: 'Clérigo de Vila', c: 'campanha', r: 'cidades', k: 2, d: '+3% na recompensa da cidade (ainda sem gancho).', b: { recompensaCidade: 0.03 } }),
+  E({ id: 'eventosAtentos', n: 'Eventos Atentos', c: 'campanha', r: 'cidades', t: 'notavel', d: '+1 escolha em eventos (ainda sem gancho).', b: { eventoEscolha: 1 } }),
+  E({ id: 'pergaminhos', n: 'Pergaminhos', c: 'campanha', r: 'cidades', t: 'notavel', d: '+1 escolha em eventos (ainda sem gancho).', b: { eventoEscolha: 1 } }),
+  E({ id: 'reparoAgil', n: 'Reparo Ágil', c: 'campanha', r: 'cidades', d: '−5% no reparo da muralha.', b: { reparoCidade: 0.05 } }),
+  E({ id: 'maosHabeis', n: 'Mãos Hábeis', c: 'campanha', r: 'cidades', t: 'notavel', d: '−5% no reparo da muralha.', b: { reparoCidade: 0.05 } }),
+  E({ id: 'engenheiroDaMuralha', n: 'Engenheiro da Muralha', c: 'campanha', r: 'cidades', t: 'notavel', d: '−5% no reparo da muralha.', b: { reparoCidade: 0.05 } }),
+  E({ id: 'recompensaDaCidade', n: 'Recompensa da Cidade', c: 'campanha', r: 'cidades', t: 'notavel', d: '+5% na recompensa da cidade (ainda sem gancho).', b: { recompensaCidade: 0.05 } }),
+  E({ id: 'festaDaVila', n: 'Festa da Vila', c: 'campanha', r: 'cidades', t: 'notavel', d: '+5% na recompensa da cidade (ainda sem gancho).', b: { recompensaCidade: 0.05 } }),
+  E({ id: 'vitrineCheia', n: 'Vitrine Cheia', c: 'campanha', r: 'cidades', t: 'notavel', d: '+1 item na loja.', b: { sorteLoja: 1 } }),
+  E({ id: 'mercadorViajante', n: 'Mercador Viajante', c: 'campanha', r: 'cidades', t: 'notavel', d: '+1 item na loja.', b: { sorteLoja: 1 } }),
+  E({ id: 'zenDeVila', n: 'Zen de Vila', c: 'campanha', r: 'cidades', t: 'notavel', d: '+4% de Zen da cidade (ainda sem gancho).', b: { zeniCidade: 0.04 } }),
+  E({ id: 'estradaSegura', n: 'Estrada Segura', c: 'campanha', r: 'cidades', t: 'notavel', d: '+5% de Zen dos eventos (ainda sem gancho).', b: { zeniEvento: 0.05 } }),
+  E({ id: 'sorteDeEvento', n: 'Sorte de Evento', c: 'campanha', r: 'cidades', t: 'notavel', d: '+5% de Zen dos eventos (ainda sem gancho).', b: { zeniEvento: 0.05 } }),
+  E({ id: 'noDeMinerio', n: 'Nó de Minério', c: 'campanha', r: 'cidades', d: '+3% de almas em combate: recurso do mapa.', b: { almasCombate: 0.03 } }),
+  E({ id: 'noDeOracao', n: 'Nó de Oração', c: 'campanha', r: 'cidades', d: '+3% de almas em combate: recurso do mapa.', b: { almasCombate: 0.03 } }),
+  E({ id: 'atalhoDeTropas', n: 'Atalho de Tropas', c: 'campanha', r: 'cidades', d: '+4% de Zen na sobrevivência.', b: { zeniSobrevivencia: 0.04 } }),
+  E({ id: 'clerigoDeVila', n: 'Clérigo de Vila', c: 'campanha', r: 'cidades', t: 'notavel', d: '+3% na recompensa da cidade (ainda sem gancho).', b: { recompensaCidade: 0.03 } }),
   // ---- Bastião (16) ----
-  E({ id: 'pedreiroDeOficio', n: 'Pedreiro de Ofício', c: 'bastiao', r: 'bastiao', k: 1, d: '−4% no custo de construção.', b: { custoConstrucao: 0.04 } }),
-  E({ id: 'canteiroDeObras', n: 'Canteiro de Obras', c: 'bastiao', r: 'bastiao', k: 2, d: '−4% no custo de construção.', b: { custoConstrucao: 0.04 } }),
-  E({ id: 'arquitetoDeMuralhas', n: 'Arquiteto de Muralhas', c: 'bastiao', r: 'bastiao', k: 2, d: '−4% no custo de construção.', b: { custoConstrucao: 0.04 } }),
-  E({ id: 'reparoDeCampo', n: 'Reparo de Campo', c: 'bastiao', r: 'bastiao', k: 1, d: '−5% no reparo do bastião.', b: { reparoBastiao: 0.05 } }),
-  E({ id: 'oficinaDeReparos', n: 'Oficina de Reparos', c: 'bastiao', r: 'bastiao', k: 2, d: '−5% no reparo do bastião.', b: { reparoBastiao: 0.05 } }),
-  E({ id: 'argamassaForte', n: 'Argamassa Forte', c: 'bastiao', r: 'bastiao', k: 2, d: '+6% de vida da muralha.', b: { muralhaVida: 0.06 } }),
-  E({ id: 'pedraMaciça', n: 'Pedra Maciça', c: 'bastiao', r: 'bastiao', k: 2, d: '+6% de vida da muralha.', b: { muralhaVida: 0.06 } }),
-  E({ id: 'alicerceProfundo', n: 'Alicerce Profundo', c: 'bastiao', r: 'bastiao', k: 3, d: '+5% de vida da muralha.', b: { muralhaVida: 0.05 } }),
-  E({ id: 'portaoReforcado', n: 'Portão Reforçado', c: 'bastiao', r: 'bastiao', k: 2, d: '+6% de vida do portão (ainda sem portão).', b: { portaoVida: 0.06 } }),
-  E({ id: 'ferrolhos', n: 'Ferrolhos', c: 'bastiao', r: 'bastiao', k: 2, d: '+6% de vida do portão (ainda sem portão).', b: { portaoVida: 0.06 } }),
-  E({ id: 'soldoDaNoite', n: 'Soldo da Noite', c: 'bastiao', r: 'bastiao', k: 2, d: '+5 de Zen por noite vencida.', b: { zenNoite: 5 } }),
-  E({ id: 'vigiaNoturna', n: 'Vigia Noturna', c: 'bastiao', r: 'bastiao', k: 2, d: '+5 de Zen por noite vencida.', b: { zenNoite: 5 } }),
-  E({ id: 'projetista', n: 'Projetista', c: 'bastiao', r: 'bastiao', k: 3, d: '+1 bloco de construção (ainda sem blocos novos).', b: { blocosConstrucao: 1 } }),
-  E({ id: 'blocosDeReserva', n: 'Blocos de Reserva', c: 'bastiao', r: 'bastiao', k: 3, d: '+1 bloco de construção (ainda sem blocos novos).', b: { blocosConstrucao: 1 } }),
-  E({ id: 'patioExtra', n: 'Pátio Extra', c: 'bastiao', r: 'bastiao', k: 2, d: '+1 peça por tipo (ainda sem limite).', b: { limitePecas: 1 } }),
-  E({ id: 'estaleiro', n: 'Estaleiro', c: 'bastiao', r: 'bastiao', k: 2, d: '+1 peça por tipo (ainda sem limite).', b: { limitePecas: 1 } }),
+  E({ id: 'pedreiroDeOficio', n: 'Pedreiro de Ofício', c: 'bastiao', r: 'bastiao', d: '−4% no custo de construção.', b: { custoConstrucao: 0.04 } }),
+  E({ id: 'canteiroDeObras', n: 'Canteiro de Obras', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '−4% no custo de construção.', b: { custoConstrucao: 0.04 } }),
+  E({ id: 'arquitetoDeMuralhas', n: 'Arquiteto de Muralhas', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '−4% no custo de construção.', b: { custoConstrucao: 0.04 } }),
+  E({ id: 'reparoDeCampo', n: 'Reparo de Campo', c: 'bastiao', r: 'bastiao', d: '−5% no reparo do bastião.', b: { reparoBastiao: 0.05 } }),
+  E({ id: 'oficinaDeReparos', n: 'Oficina de Reparos', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '−5% no reparo do bastião.', b: { reparoBastiao: 0.05 } }),
+  E({ id: 'argamassaForte', n: 'Argamassa Forte', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '+6% de vida da muralha.', b: { muralhaVida: 0.06 } }),
+  E({ id: 'pedraMaciça', n: 'Pedra Maciça', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '+6% de vida da muralha.', b: { muralhaVida: 0.06 } }),
+  E({ id: 'alicerceProfundo', n: 'Alicerce Profundo', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '+5% de vida da muralha.', b: { muralhaVida: 0.05 } }),
+  E({ id: 'portaoReforcado', n: 'Portão Reforçado', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '+6% de vida do portão (ainda sem portão).', b: { portaoVida: 0.06 } }),
+  E({ id: 'ferrolhos', n: 'Ferrolhos', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '+6% de vida do portão (ainda sem portão).', b: { portaoVida: 0.06 } }),
+  E({ id: 'soldoDaNoite', n: 'Soldo da Noite', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '+5 de Zen por noite vencida.', b: { zenNoite: 5 } }),
+  E({ id: 'vigiaNoturna', n: 'Vigia Noturna', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '+5 de Zen por noite vencida.', b: { zenNoite: 5 } }),
+  E({ id: 'projetista', n: 'Projetista', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '+1 bloco de construção (ainda sem blocos novos).', b: { blocosConstrucao: 1 } }),
+  E({ id: 'blocosDeReserva', n: 'Blocos de Reserva', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '+1 bloco de construção (ainda sem blocos novos).', b: { blocosConstrucao: 1 } }),
+  E({ id: 'patioExtra', n: 'Pátio Extra', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '+1 peça por tipo (ainda sem limite).', b: { limitePecas: 1 } }),
+  E({ id: 'estaleiro', n: 'Estaleiro', c: 'bastiao', r: 'bastiao', t: 'notavel', d: '+1 peça por tipo (ainda sem limite).', b: { limitePecas: 1 } }),
   // ---- Combate geral (13) ----
-  E({ id: 'vigorAntigo', n: 'Vigor Antigo', c: 'combate', r: 'muralha', k: 1, d: '+1 de Vitalidade para todos.', b: { vit: 1 } }),
-  E({ id: 'bracoFirme', n: 'Braço Firme', c: 'combate', r: 'muralha', k: 1, d: '+1 de Força para Guerreiro e Assassino.', b: { str: 1 }, p: ['warrior', 'assassin'] }),
-  E({ id: 'menteClara', n: 'Mente Clara', c: 'combate', r: 'chamas', k: 1, d: '+1 de Inteligência para Mago, Feiticeira e Bruxa.', b: { int: 1 }, p: ['mage', 'sorcerer', 'warlock'] }),
-  E({ id: 'pesLeves', n: 'Pés Leves', c: 'combate', r: 'ermos', k: 1, d: '+1 de Destreza para Arqueira e Assassino.', b: { dex: 1 }, p: ['archer', 'assassin'] }),
-  E({ id: 'sorteDoViajante', n: 'Sorte do Viajante', c: 'combate', r: 'sombra', k: 1, d: '+1 de Sorte para todos.', b: { luk: 1 } }),
-  E({ id: 'couroCurtido', n: 'Couro Curtido', c: 'combate', r: 'muralha', k: 2, d: '+4% de vida máxima para todos.', b: { hp: 0.04 } }),
-  E({ id: 'golpeCerteiro', n: 'Golpe Certeiro', c: 'combate', r: 'chamas', k: 2, d: '+3% de dano para todos.', b: { dmg: 0.03 } }),
-  E({ id: 'ritmoDeBatalha', n: 'Ritmo de Batalha', c: 'combate', r: 'ermos', k: 2, d: '+2% de Skill Haste (velocidade de ataque) para todos.', b: { haste: 0.02 } }),
-  E({ id: 'laminaPrecisa', n: 'Lâmina Precisa', c: 'combate', r: 'sombra', k: 2, d: '+8% de dano crítico para todos (separado da chance).', b: { critDano: 0.08 } }),
-  E({ id: 'olharAtento', n: 'Olhar Atento', c: 'combate', r: 'sombra', k: 1, d: '+2% de chance de crítico para todos.', b: { crit: 0.02 } }),
-  E({ id: 'esquivaVeloz', n: 'Esquiva Veloz', c: 'combate', r: 'sombra', k: 2, d: '+2% de chance de esquiva para todos.', b: { dodge: 0.02 } }),
-  E({ id: 'escudoFirme', n: 'Escudo Firme', c: 'combate', r: 'muralha', k: 2, d: '+2% de bloqueio para o Guerreiro.', b: { block: 0.02 }, p: ['warrior'] }),
-  E({ id: 'peleDura', n: 'Pele Dura', c: 'combate', r: 'muralha', k: 2, d: '−2% de dano recebido para todos.', b: { reduce: 0.02 } }),
+  E({ id: 'vigorAntigo', n: 'Vigor Antigo', c: 'combate', r: 'muralha', d: '+1 de Vitalidade para todos.', b: { vit: 1 } }),
+  E({ id: 'bracoFirme', n: 'Braço Firme', c: 'combate', r: 'muralha', d: '+1 de Força para Guerreiro e Assassino.', b: { str: 1 }, p: ['warrior', 'assassin'] }),
+  E({ id: 'menteClara', n: 'Mente Clara', c: 'combate', r: 'chamas', d: '+1 de Inteligência para Mago, Feiticeira e Bruxa.', b: { int: 1 }, p: ['mage', 'sorcerer', 'warlock'] }),
+  E({ id: 'pesLeves', n: 'Pés Leves', c: 'combate', r: 'ermos', d: '+1 de Destreza para Arqueira e Assassino.', b: { dex: 1 }, p: ['archer', 'assassin'] }),
+  E({ id: 'sorteDoViajante', n: 'Sorte do Viajante', c: 'combate', r: 'sombra', d: '+1 de Sorte para todos.', b: { luk: 1 } }),
+  E({ id: 'couroCurtido', n: 'Couro Curtido', c: 'combate', r: 'muralha', t: 'notavel', d: '+4% de vida máxima para todos.', b: { hp: 0.04 } }),
+  E({ id: 'golpeCerteiro', n: 'Golpe Certeiro', c: 'combate', r: 'chamas', t: 'notavel', d: '+3% de dano para todos.', b: { dmg: 0.03 } }),
+  E({ id: 'ritmoDeBatalha', n: 'Ritmo de Batalha', c: 'combate', r: 'ermos', t: 'notavel', d: '+2% de Skill Haste (velocidade de ataque) para todos.', b: { haste: 0.02 } }),
+  E({ id: 'laminaPrecisa', n: 'Lâmina Precisa', c: 'combate', r: 'sombra', t: 'notavel', d: '+8% de dano crítico para todos (separado da chance).', b: { critDano: 0.08 } }),
+  E({ id: 'olharAtento', n: 'Olhar Atento', c: 'combate', r: 'sombra', d: '+2% de chance de crítico para todos.', b: { crit: 0.02 } }),
+  E({ id: 'esquivaVeloz', n: 'Esquiva Veloz', c: 'combate', r: 'sombra', t: 'notavel', d: '+2% de chance de esquiva para todos.', b: { dodge: 0.02 } }),
+  E({ id: 'escudoFirme', n: 'Escudo Firme', c: 'combate', r: 'muralha', t: 'notavel', d: '+2% de bloqueio para o Guerreiro.', b: { block: 0.02 }, p: ['warrior'] }),
+  E({ id: 'peleDura', n: 'Pele Dura', c: 'combate', r: 'muralha', t: 'notavel', d: '−2% de dano recebido para todos.', b: { reduce: 0.02 } }),
   // ---- Masteries: pontos de desbloqueio (15) ----
-  E({ id: 'pt_golpeRompedor', n: 'Ponto de Rompedor', c: 'masteries', r: 'chamas', k: 2, d: 'Desbloqueia a Mastery Golpe Rompedor.', b: {}, t: 'mastery', m: 'golpeRompedor' }),
-  E({ id: 'pt_estilhaco', n: 'Ponto de Estilhaço', c: 'masteries', r: 'chamas', k: 2, d: 'Desbloqueia a Mastery Estilhaço.', b: {}, t: 'mastery', m: 'estilhaco' }),
-  E({ id: 'pt_golpeCiclico', n: 'Ponto Cíclico', c: 'masteries', r: 'chamas', k: 2, d: 'Desbloqueia a Mastery Golpe Cíclico.', b: {}, t: 'mastery', m: 'golpeCiclico' }),
-  E({ id: 'pt_marcaMortal', n: 'Ponto de Marca', c: 'masteries', r: 'sombra', k: 2, d: 'Desbloqueia a Mastery Marca Mortal.', b: {}, t: 'mastery', m: 'marcaMortal' }),
-  E({ id: 'pt_frioCortante', n: 'Ponto de Gelo', c: 'masteries', r: 'sombra', k: 2, d: 'Desbloqueia a Mastery Frio Cortante.', b: {}, t: 'mastery', m: 'frioCortante' }),
-  E({ id: 'pt_lentidaoGolpe', n: 'Ponto de Lentidão', c: 'masteries', r: 'ermos', k: 2, d: 'Desbloqueia a Mastery Lentidão de Golpe.', b: {}, t: 'mastery', m: 'lentidaoGolpe' }),
-  E({ id: 'pt_atordoamento', n: 'Ponto de Atordoar', c: 'masteries', r: 'ermos', k: 2, d: 'Desbloqueia a Mastery Atordoamento.', b: {}, t: 'mastery', m: 'atordoamento' }),
-  E({ id: 'pt_curaEmergencia', n: 'Ponto de Cura', c: 'masteries', r: 'muralha', k: 2, d: 'Desbloqueia a Mastery Cura de Emergência.', b: {}, t: 'mastery', m: 'curaEmergencia' }),
-  E({ id: 'pt_espinhos', n: 'Ponto de Espinho', c: 'masteries', r: 'muralha', k: 2, d: 'Desbloqueia a Mastery Espinhos.', b: {}, t: 'mastery', m: 'espinhos' }),
-  E({ id: 'pt_recuoTatico', n: 'Ponto de Recuo', c: 'masteries', r: 'cidades', k: 2, d: 'Desbloqueia a Mastery Recuo Tático.', b: {}, t: 'mastery', m: 'recuoTatico' }),
-  E({ id: 'pt_avancoAbate', n: 'Ponto de Avanço', c: 'masteries', r: 'cidades', k: 2, d: 'Desbloqueia a Mastery Avanço ao Abate.', b: {}, t: 'mastery', m: 'avancoAbate' }),
-  E({ id: 'pt_recuoAbate', n: 'Ponto de Afastar', c: 'masteries', r: 'cidades', k: 2, d: 'Desbloqueia a Mastery Recuo ao Abate.', b: {}, t: 'mastery', m: 'recuoAbate' }),
-  E({ id: 'pt_bencaoEquipe', n: 'Ponto de Bênção', c: 'masteries', r: 'nucleo', k: 2, d: 'Desbloqueia a Mastery Bênção da Equipe.', b: {}, t: 'mastery', m: 'bencaoEquipe' }),
-  E({ id: 'pt_escudoAliado', n: 'Ponto de Escudo', c: 'masteries', r: 'nucleo', k: 2, d: 'Desbloqueia a Mastery Escudo Aliado.', b: {}, t: 'mastery', m: 'escudoAliado' }),
-  E({ id: 'pt_curaColetiva', n: 'Ponto de Cura Coletiva', c: 'masteries', r: 'nucleo', k: 2, d: 'Desbloqueia a Mastery Cura Coletiva.', b: {}, t: 'mastery', m: 'curaColetiva' }),
+  E({ id: 'pt_golpeRompedor', n: 'Ponto de Rompedor', c: 'masteries', r: 'chamas', d: 'Desbloqueia a Mastery Golpe Rompedor.', b: {}, t: 'mastery', m: 'golpeRompedor' }),
+  E({ id: 'pt_estilhaco', n: 'Ponto de Estilhaço', c: 'masteries', r: 'chamas', d: 'Desbloqueia a Mastery Estilhaço.', b: {}, t: 'mastery', m: 'estilhaco' }),
+  E({ id: 'pt_golpeCiclico', n: 'Ponto Cíclico', c: 'masteries', r: 'chamas', d: 'Desbloqueia a Mastery Golpe Cíclico.', b: {}, t: 'mastery', m: 'golpeCiclico' }),
+  E({ id: 'pt_marcaMortal', n: 'Ponto de Marca', c: 'masteries', r: 'sombra', d: 'Desbloqueia a Mastery Marca Mortal.', b: {}, t: 'mastery', m: 'marcaMortal' }),
+  E({ id: 'pt_frioCortante', n: 'Ponto de Gelo', c: 'masteries', r: 'sombra', d: 'Desbloqueia a Mastery Frio Cortante.', b: {}, t: 'mastery', m: 'frioCortante' }),
+  E({ id: 'pt_lentidaoGolpe', n: 'Ponto de Lentidão', c: 'masteries', r: 'ermos', d: 'Desbloqueia a Mastery Lentidão de Golpe.', b: {}, t: 'mastery', m: 'lentidaoGolpe' }),
+  E({ id: 'pt_atordoamento', n: 'Ponto de Atordoar', c: 'masteries', r: 'ermos', d: 'Desbloqueia a Mastery Atordoamento.', b: {}, t: 'mastery', m: 'atordoamento' }),
+  E({ id: 'pt_curaEmergencia', n: 'Ponto de Cura', c: 'masteries', r: 'muralha', d: 'Desbloqueia a Mastery Cura de Emergência.', b: {}, t: 'mastery', m: 'curaEmergencia' }),
+  E({ id: 'pt_espinhos', n: 'Ponto de Espinho', c: 'masteries', r: 'muralha', d: 'Desbloqueia a Mastery Espinhos.', b: {}, t: 'mastery', m: 'espinhos' }),
+  E({ id: 'pt_recuoTatico', n: 'Ponto de Recuo', c: 'masteries', r: 'cidades', d: 'Desbloqueia a Mastery Recuo Tático.', b: {}, t: 'mastery', m: 'recuoTatico' }),
+  E({ id: 'pt_avancoAbate', n: 'Ponto de Avanço', c: 'masteries', r: 'cidades', d: 'Desbloqueia a Mastery Avanço ao Abate.', b: {}, t: 'mastery', m: 'avancoAbate' }),
+  E({ id: 'pt_recuoAbate', n: 'Ponto de Afastar', c: 'masteries', r: 'cidades', d: 'Desbloqueia a Mastery Recuo ao Abate.', b: {}, t: 'mastery', m: 'recuoAbate' }),
+  E({ id: 'pt_bencaoEquipe', n: 'Ponto de Bênção', c: 'masteries', r: 'nucleo', d: 'Desbloqueia a Mastery Bênção da Equipe.', b: {}, t: 'mastery', m: 'bencaoEquipe' }),
+  E({ id: 'pt_escudoAliado', n: 'Ponto de Escudo', c: 'masteries', r: 'nucleo', d: 'Desbloqueia a Mastery Escudo Aliado.', b: {}, t: 'mastery', m: 'escudoAliado' }),
+  E({ id: 'pt_curaColetiva', n: 'Ponto de Cura Coletiva', c: 'masteries', r: 'nucleo', d: 'Desbloqueia a Mastery Cura Coletiva.', b: {}, t: 'mastery', m: 'curaColetiva' }),
   // ---- Notáveis e caminhos alternativos (12) ----
-  E({ id: 'caminhoDoMercador', n: 'Caminho do Mercador', c: 'ligacao', r: 'fronteira', k: 1, d: 'Liga o Olho de Mercador ao Reparo Ágil da cidade.', b: {}, t: 'caminho', l: ['olhoDeMercador', 'reparoAgil'] }),
-  E({ id: 'caminhoDaEstrada', n: 'Caminho da Estrada', c: 'ligacao', r: 'fronteira', k: 1, d: 'Liga o Estudo de Campo ao Vigor Antigo.', b: {}, t: 'caminho', l: ['estudoDeCampo', 'vigorAntigo'] }),
-  E({ id: 'caminhoDaOficina', n: 'Caminho da Oficina', c: 'ligacao', r: 'fronteira', k: 1, d: 'Liga o Reparo de Campo do Bastião às Mãos Hábeis da cidade.', b: {}, t: 'caminho', l: ['reparoDeCampo', 'maosHabeis'] }),
-  E({ id: 'caminhoDoAlicerce', n: 'Caminho do Alicerce', c: 'ligacao', r: 'fronteira', k: 1, d: 'Liga o Couro Curtido à Argamassa Forte.', b: {}, t: 'caminho', l: ['couroCurtido', 'argamassaForte'] }),
-  E({ id: 'caminhoDaMente', n: 'Caminho da Mente', c: 'ligacao', r: 'fronteira', k: 1, d: 'Liga o Treino Acelerado à Mente Clara.', b: {}, t: 'caminho', l: ['treinoAcelerado', 'menteClara'] }),
-  E({ id: 'caminhoDoGolpe', n: 'Caminho do Golpe', c: 'ligacao', r: 'fronteira', k: 1, d: 'Liga o Ponto de Rompedor ao Golpe Certeiro.', b: {}, t: 'caminho', l: ['pt_golpeRompedor', 'golpeCerteiro'] }),
-  E({ id: 'caminhoDoOuro', n: 'Caminho do Ouro', c: 'ligacao', r: 'fronteira', k: 1, d: 'Liga a Vitrine Cheia à Alma Antiga.', b: {}, t: 'caminho', l: ['vitrineCheia', 'almaAntiga'] }),
-  E({ id: 'caminhoDaVila', n: 'Caminho da Vila', c: 'ligacao', r: 'fronteira', k: 1, d: 'Liga o Zen de Vila à Horda Lucrativa.', b: {}, t: 'caminho', l: ['zenDeVila', 'hordaLucrativa'] }),
-  E({ id: 'caminhoDoSangue', n: 'Caminho do Sangue', c: 'ligacao', r: 'fronteira', k: 1, d: 'Liga o Olhar Atento ao Ponto de Marca.', b: {}, t: 'caminho', l: ['olharAtento', 'pt_marcaMortal'] }),
-  E({ id: 'caminhoDaNoite', n: 'Caminho da Noite', c: 'ligacao', r: 'fronteira', k: 1, d: 'Liga o Soldo da Noite ao Sobrevivente.', b: {}, t: 'caminho', l: ['soldoDaNoite', 'sobrevivente'] }),
-  E({ id: 'caminhoDoEscudo', n: 'Caminho do Escudo', c: 'ligacao', r: 'fronteira', k: 1, d: 'Liga o Ponto de Escudo ao Recrutas Promissor.', b: {}, t: 'caminho', l: ['pt_escudoAliado', 'recrutaPromissor'] }),
-  E({ id: 'caminhoDaEstrela', n: 'Caminho da Estrela', c: 'ligacao', r: 'fronteira', k: 1, d: 'Liga o Ponto de Bênção ao Recrutamento de Elite.', b: {}, t: 'caminho', l: ['pt_bencaoEquipe', 'recrutamentoDeElite'] }),
+  E({ id: 'caminhoDoMercador', n: 'Caminho do Mercador', c: 'ligacao', r: 'fronteira', d: 'Liga o Olho de Mercador ao Reparo Ágil da cidade.', b: {}, t: 'caminho', l: ['olhoDeMercador', 'reparoAgil'] }),
+  E({ id: 'caminhoDaEstrada', n: 'Caminho da Estrada', c: 'ligacao', r: 'fronteira', d: 'Liga o Estudo de Campo ao Vigor Antigo.', b: {}, t: 'caminho', l: ['estudoDeCampo', 'vigorAntigo'] }),
+  E({ id: 'caminhoDaOficina', n: 'Caminho da Oficina', c: 'ligacao', r: 'fronteira', d: 'Liga o Reparo de Campo do Bastião às Mãos Hábeis da cidade.', b: {}, t: 'caminho', l: ['reparoDeCampo', 'maosHabeis'] }),
+  E({ id: 'caminhoDoAlicerce', n: 'Caminho do Alicerce', c: 'ligacao', r: 'fronteira', d: 'Liga o Couro Curtido à Argamassa Forte.', b: {}, t: 'caminho', l: ['couroCurtido', 'argamassaForte'] }),
+  E({ id: 'caminhoDaMente', n: 'Caminho da Mente', c: 'ligacao', r: 'fronteira', d: 'Liga o Treino Acelerado à Mente Clara.', b: {}, t: 'caminho', l: ['treinoAcelerado', 'menteClara'] }),
+  E({ id: 'caminhoDoGolpe', n: 'Caminho do Golpe', c: 'ligacao', r: 'fronteira', d: 'Liga o Ponto de Rompedor ao Golpe Certeiro.', b: {}, t: 'caminho', l: ['pt_golpeRompedor', 'golpeCerteiro'] }),
+  E({ id: 'caminhoDoOuro', n: 'Caminho do Ouro', c: 'ligacao', r: 'fronteira', d: 'Liga a Vitrine Cheia à Alma Antiga.', b: {}, t: 'caminho', l: ['vitrineCheia', 'almaAntiga'] }),
+  E({ id: 'caminhoDaVila', n: 'Caminho da Vila', c: 'ligacao', r: 'fronteira', d: 'Liga o Zen de Vila à Horda Lucrativa.', b: {}, t: 'caminho', l: ['zenDeVila', 'hordaLucrativa'] }),
+  E({ id: 'caminhoDoSangue', n: 'Caminho do Sangue', c: 'ligacao', r: 'fronteira', d: 'Liga o Olhar Atento ao Ponto de Marca.', b: {}, t: 'caminho', l: ['olharAtento', 'pt_marcaMortal'] }),
+  E({ id: 'caminhoDaNoite', n: 'Caminho da Noite', c: 'ligacao', r: 'fronteira', d: 'Liga o Soldo da Noite ao Sobrevivente.', b: {}, t: 'caminho', l: ['soldoDaNoite', 'sobrevivente'] }),
+  E({ id: 'caminhoDoEscudo', n: 'Caminho do Escudo', c: 'ligacao', r: 'fronteira', d: 'Liga o Ponto de Escudo ao Recrutas Promissor.', b: {}, t: 'caminho', l: ['pt_escudoAliado', 'recrutaPromissor'] }),
+  E({ id: 'caminhoDaEstrela', n: 'Caminho da Estrela', c: 'ligacao', r: 'fronteira', d: 'Liga o Ponto de Bênção ao Recrutamento de Elite.', b: {}, t: 'caminho', l: ['pt_bencaoEquipe', 'recrutamentoDeElite'] }),
 ];
 
 const CONEXOES_BASE: [string, string][] = [
@@ -410,7 +419,7 @@ const GERADOS_NOS: NoDef[] = GERADOS.map((e) => {
   const j = k % POR_ANEL;
   const rad = ((SETOR[e.c] + (j - 2) * 15) * Math.PI) / 180;
   const raio = 5 + anel * 1.5;
-  const tipo: NoTipo = e.t ?? (e.k >= 2 ? 'notavel' : 'comum');
+  const tipo: NoTipo = e.t ?? 'comum';
   return {
     id: e.id,
     nome: e.n,
@@ -419,7 +428,6 @@ const GERADOS_NOS: NoDef[] = GERADOS.map((e) => {
     regiao: e.r,
     x: Math.round(raio * Math.cos(rad) * 1000) / 1000,
     y: Math.round(raio * Math.sin(rad) * 1000) / 1000,
-    custo: e.k,
     descricao: e.d,
     bonus: e.b,
     para: e.p ?? 'todos',
@@ -505,12 +513,9 @@ export const BONUS_LABEL: Record<BonusKey, { nome: string; formato: 'pontos' | '
   limitePecas: { nome: 'peça(s) por tipo', formato: 'pontos' },
 };
 
-/**
- * CUSTO DE ABRIR UM NÓ — ponto único de decisão. Hoje é em pontos de árvore (`custo` de cada nó).
- * Quando o dono decidir o custo em Zen (junto com o balanceamento da economia), mude só esta função.
- */
-export function custoDoNo(no: Pick<NoDef, 'custo'>): number {
-  return no.custo;
+/** CUSTO EM ZEN DE ABRIR UM NÓ (do banco). Lê a tabela CUSTO_ZEN_POR_TIPO: é o único lugar que decide o preço. */
+export function custoDoNo(no: Pick<NoDef, 'tipo'>): number {
+  return CUSTO_ZEN_POR_TIPO[no.tipo];
 }
 
 /** Para a tela: quantos nós há em cada categoria. */

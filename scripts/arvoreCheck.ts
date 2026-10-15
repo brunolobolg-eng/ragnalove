@@ -1,7 +1,7 @@
 /**
  * Checagem headless da Árvore Global de progressão e das Masteries táticas. Rode: npm run arvore:check
- * (a) Desenho: dados válidos, ciclo de caminho alternativo, pontos vindos do progresso.
- * (b) Nós: caminho inválido, requisito de ligação, pontos insuficientes, nó já aberto, compatibilidade.
+ * (a) Desenho: dados válidos, ciclo de caminho alternativo, custo em Zen por tipo de nó (soma de 110+ nós).
+ * (b) Nós: caminho inválido, requisito de ligação, Zen insuficiente, nó já aberto, compatibilidade. Nível não paga nó.
  * (c) Masteries: Zen insuficiente, cancelamento sem gasto, elegibilidade, nível, uma por herói, troca cobra de novo.
  * (d) Mastery segue o personagem: a party muda e ela continua com o herói.
  * (e) Reorganizar: cobra Zen com custo crescente, zera nós e Masteries, e o efeito some (sem residual).
@@ -9,7 +9,7 @@
  * (g) Sem duplicar nem residual: nó repetido em save conta uma vez; Mastery sem o nó aberto não vale.
  * (h) Efeito real: nó aberto muda heroStats; reorganizar devolve exatamente os status de antes.
  */
-import { ARVORE_CAPS_COMBATE, ARVORE_CAP_ATRIBUTO, ARVORE_CONFIG, ARVORE_ECONOMIA, CATEGORIA_IDS, ECO_KEYS, MASTERY_BY_ID, NOS, nosPorCategoria, type MasteryId } from '../src/config/arvoreGlobal';
+import { ARVORE_CAPS_COMBATE, ARVORE_CAP_ATRIBUTO, ARVORE_CONFIG, ARVORE_ECONOMIA, CATEGORIA_IDS, CUSTO_ZEN_POR_TIPO, ECO_KEYS, MASTERY_BY_ID, NOS, custoDoNo, nosPorCategoria, type MasteryId } from '../src/config/arvoreGlobal';
 import {
   BLOQUEIO_COMBATE,
   alcancavel,
@@ -20,9 +20,7 @@ import {
   custoReorganizar,
   masteryDoHeroi,
   motivoComprarNo,
-  pontosDisponiveis,
-  pontosGastos,
-  pontosTotais,
+  normalizarArvore,
   previsaoAtribuir,
   previsaoReorganizar,
   removerMastery,
@@ -69,47 +67,52 @@ check('tem comuns, notáveis, caminhos alternativos e pontos de Mastery', tipos(
 check('três Masteries táticas, cada uma com ponto próprio', ['barreiraDeContencao', 'golpeDeMisericordia', 'pressaoTatica'].every((id) => MASTERY_BY_ID[id] && NOS.some((n) => n.mastery === id)));
 check('notável Muralha Viva tem duas rotas (caminho alternativo)', vizinhos('muralhaViva').length >= 2, vizinhos('muralhaViva').join(', '));
 check('custo de reorganizar começa em 80 e sobe a cada uso', custoReorganizar(comNiveis({})) === ARVORE_CONFIG.reorganizarZen);
-check('perfil novo tem 0 pontos de árvore', pontosTotais(createProfile()) === 0);
-
-const pNiv = comNiveis({ warrior: 5, mage: 4 });
-check('pontos = (nível − 1) por herói, somados', pontosTotais(pNiv) === 4 + 3, `${pontosTotais(pNiv)} pontos`);
+const tabela = (t: keyof typeof CUSTO_ZEN_POR_TIPO) => CUSTO_ZEN_POR_TIPO[t];
+check('custo em Zen por tipo: comum 100, notável 250, caminho 100, Mastery 150', tabela('comum') === 100 && tabela('notavel') === 250 && tabela('caminho') === 100 && tabela('mastery') === 150 && tabela('raiz') === 0);
+check('nó de cada tipo custa o valor da tabela (custoDoNo)', NOS.every((n) => custoDoNo(n) === CUSTO_ZEN_POR_TIPO[n.tipo]));
+const custoTotal = NOS.reduce((s, n) => s + custoDoNo(n), 0);
+check('custo somado dos 111 nós bate com a proposta (19.250 Zen)', custoTotal === 19250, `${custoTotal} Zen`);
+check('nenhum nó tem custo em pontos (o campo custo saiu)', NOS.every((n) => !('custo' in n)));
 
 // ---------------- (b) nós: requisitos e caminho ----------------
 {
-  const p = comNiveis({ warrior: 10 }); // 9 pontos
+  const p = comNiveis({ warrior: 10 }, 1000);
   check('nó sem ligação com o aberto não abre', (comprarNo(p, 'brasaEterna') ?? '').includes('Abra primeiro'));
-  check('caminho inválido não gasta ponto', pontosDisponiveis(p) === 9, `${pontosDisponiveis(p)} pontos`);
-  check('abrir um nó ligado ao núcleo funciona', comprarNo(p, 'vigorDoReino') === undefined && pontosDisponiveis(p) === 8);
-  check('nó já aberto não abre de novo', (comprarNo(p, 'vigorDoReino') ?? '').includes('já está aberto') && pontosDisponiveis(p) === 8);
-  check('nó ligado a um aberto abre (escudoAntigo)', comprarNo(p, 'escudoAntigo') === undefined && pontosDisponiveis(p) === 7);
-  check('ponto de Mastery custa 2', comprarNo(p, 'pontoBarreira') === undefined && pontosDisponiveis(p) === 5);
-  check('caminho alternativo abre e liga ao notável', semErro([comprarNo(p, 'caminhoDaMuralha'), comprarNo(p, 'muralhaViva')]) && pontosDisponiveis(p) === 2);
-  check('pontos gastos batem com os nós abertos', pontosGastos(p) === 7, `${pontosGastos(p)} gastos`);
+  check('caminho inválido não gasta Zen', p.zeni === 1000, `${p.zeni} Zen`);
+  check('abrir um nó ligado ao núcleo cobra 100 Zen (comum)', comprarNo(p, 'vigorDoReino') === undefined && p.zeni === 900);
+  check('nó já aberto não abre de novo e não cobra', (comprarNo(p, 'vigorDoReino') ?? '').includes('já está aberto') && p.zeni === 900);
+  check('nó ligado a um aberto abre (escudoAntigo) e cobra 100', comprarNo(p, 'escudoAntigo') === undefined && p.zeni === 800);
+  check('ponto de Mastery cobra 150 Zen', comprarNo(p, 'pontoBarreira') === undefined && p.zeni === 650);
+  check('caminho alternativo (100) e notável (250) abrem e cobram', semErro([comprarNo(p, 'caminhoDaMuralha'), comprarNo(p, 'muralhaViva')]) && p.zeni === 300);
 }
 {
   // rota alternativa sozinha: o notável abre pelo caminho, sem passar pelo escudo nem pelo ponto de barreira
-  const p = comNiveis({ warrior: 10 });
+  const p = comNiveis({ warrior: 10 }, 1000);
   check('rota alternativa abre o notável sem o escudo', semErro(abrir(p, ['vigorDoReino', 'caminhoDaMuralha', 'muralhaViva'])) && p.arvore?.comprados.includes('muralhaViva') === true && !p.arvore?.comprados.includes('escudoAntigo'));
   check('nó sem ligação com nada aberto não é alcançável', alcancavel(p, 'pontoMisericordia') === false && alcancavel(p, 'muralhaViva') === true);
 }
 {
-  const p = comNiveis({ warrior: 2 }); // 1 ponto
-  check('pontos insuficientes são avisados', semErro([comprarNo(p, 'vigorDoReino')]) && (comprarNo(p, 'escudoAntigo') ?? '').includes('Faltam 1 ponto'));
-  check('pontos insuficientes não mudam nada', pontosDisponiveis(p) === 0 && p.arvore?.comprados.length === 1);
+  const p = comNiveis({ warrior: 2 }, 150); // 150 Zen: o primeiro nó cabe, o segundo não
+  check('Zen insuficiente é avisado com o que falta', semErro([comprarNo(p, 'vigorDoReino')]) && (comprarNo(p, 'escudoAntigo') ?? '').includes('Zen insuficiente') && (comprarNo(p, 'escudoAntigo') ?? '').includes('faltam 50'));
+  check('Zen insuficiente não muda nada', p.zeni === 50 && p.arvore?.comprados.length === 1);
+}
+{
+  // nível não paga nó: 99 níveis não compram nada sem Zen
+  const p = comNiveis({ warrior: 99, mage: 99 }, 0);
+  check('nível alto não abre nó sem Zen (a árvore é paga em Zen)', (comprarNo(p, 'vigorDoReino') ?? '').includes('Zen insuficiente') && (p.arvore?.comprados.length ?? 0) === 0);
 }
 {
   // cancelar sem gastar: a pré-visualização não mexe em nada
-  const p = comNiveis({ warrior: 5 }, 0);
-  const antes = pontosDisponiveis(p);
+  const p = comNiveis({ warrior: 5 }, 500);
   motivoComprarNo(p, 'vigorDoReino');
-  check('pré-visualizar compra não gasta ponto nem abre nó', pontosDisponiveis(p) === antes && (p.arvore?.comprados.length ?? 0) === 0);
+  check('pré-visualizar compra não cobra Zen nem abre nó', p.zeni === 500 && (p.arvore?.comprados.length ?? 0) === 0);
 }
 
 // ---------------- (c) masteries: Zen, elegibilidade, nível, uma por herói ----------------
 {
-  const p = comNiveis({ warrior: 5 }, 0); // 4 pontos
+  const p = comNiveis({ warrior: 5 }, 350); // vigor 100 + escudo 100 + ponto 150 = 350
   abrir(p, ['vigorDoReino', 'escudoAntigo', 'pontoBarreira']);
-  check('ponto de Mastery aberto com 4 pontos', pontosDisponiveis(p) === 0);
+  check('ponto de Mastery aberto e o saldo chegou a zero', p.zeni === 0);
   const prev = previsaoAtribuir(p, 'barreiraDeContencao', 'warrior');
   check('pré-visualização mostra o custo antes de confirmar', prev.custo === ARVORE_CONFIG.atribuirZen && (prev.erro ?? '').includes('Zen insuficiente'), `custo ${prev.custo} · ${prev.erro}`);
   check('Zen insuficiente não atribui', (atribuirMastery(p, 'barreiraDeContencao', 'warrior') ?? '').includes('Zen insuficiente') && !p.arvore?.masteries.barreiraDeContencao && p.zeni === 0);
@@ -121,28 +124,29 @@ check('pontos = (nível − 1) por herói, somados', pontosTotais(pNiv) === 4 + 
 }
 {
   // cancelar: a confirmação nunca roda; o Zen fica intacto
-  const p = comNiveis({ warrior: 5 }, 200);
+  const p = comNiveis({ warrior: 5 }, 600);
   abrir(p, ['vigorDoReino', 'escudoAntigo', 'pontoBarreira']);
+  const saldo = p.zeni;
   previsaoAtribuir(p, 'barreiraDeContencao', 'warrior');
   previsaoAtribuir(p, 'barreiraDeContencao', 'warrior');
-  check('cancelar a atribuição não gasta Zen nem atribui', p.zeni === 200 && !p.arvore?.masteries.barreiraDeContencao);
+  check('cancelar a atribuição não gasta Zen nem atribui', p.zeni === saldo && !p.arvore?.masteries.barreiraDeContencao);
 }
 {
   const p = comNiveis({ warrior: 5, mage: 4, warlock: 3 }, 1000);
-  abrir(p, ['vigorDoReino', 'escudoAntigo', 'pontoBarreira', 'sortePeregrina', 'pontoPressao']); // 4 + 3 = 7 pontos
+  abrir(p, ['vigorDoReino', 'escudoAntigo', 'pontoBarreira', 'sortePeregrina', 'pontoPressao']); // 100 + 100 + 150 + 100 + 150 = 600 Zen
   check('mage não é elegível para Pressão Tática', (atribuirMastery(p, 'pressaoTatica', 'mage') ?? '').includes('não serve'));
   check('archer não é elegível para Barreira de Contenção', (atribuirMastery(p, 'barreiraDeContencao', 'archer') ?? '').includes('não serve'));
   check('Barreira só vale depois de atribuída', masteryDoHeroi(p, 'warrior') === undefined);
-  check('atribui Barreira ao Guerreiro', atribuirMastery(p, 'barreiraDeContencao', 'warrior') === undefined && p.zeni === 1000 - ARVORE_CONFIG.atribuirZen);
+  check('atribui Barreira ao Guerreiro', atribuirMastery(p, 'barreiraDeContencao', 'warrior') === undefined && p.zeni === 400 - ARVORE_CONFIG.atribuirZen);
   check('um herói só carrega uma Mastery', (atribuirMastery(p, 'pressaoTatica', 'warrior') ?? '').includes('já carrega outra'));
   // troca: a Barreira vai ao Bruxo e cobra de novo; o Guerreiro fica sem ela
-  check('trocar de personagem cobra de novo', atribuirMastery(p, 'barreiraDeContencao', 'warlock') === undefined && p.zeni === 1000 - 2 * ARVORE_CONFIG.atribuirZen);
+  check('trocar de personagem cobra de novo', atribuirMastery(p, 'barreiraDeContencao', 'warlock') === undefined && p.zeni === 400 - 2 * ARVORE_CONFIG.atribuirZen);
   check('Mastery trocada sai do antigo herói (sem duplicar)', masteryDoHeroi(p, 'warrior') === undefined && masteryDoHeroi(p, 'warlock')?.id === 'barreiraDeContencao');
 }
 {
   // nível mínimo: Pressão Tática pede nível 2
   const p = comNiveis({ warrior: 5, assassin: 1 }, 500);
-  abrir(p, ['sortePeregrina', 'pontoPressao']);
+  abrir(p, ['sortePeregrina', 'pontoPressao']); // 100 + 150
   check('nível mínimo é checado na atribuição', (atribuirMastery(p, 'pressaoTatica', 'assassin') ?? '').includes('nível 2'));
   p.heroes.assassin.level = 2;
   check('com o nível mínimo, atribui', atribuirMastery(p, 'pressaoTatica', 'assassin') === undefined);
@@ -168,17 +172,17 @@ check('pontos = (nível − 1) por herói, somados', pontosTotais(pNiv) === 4 + 
 
 // ---------------- (e) reorganizar: custo crescente, efeito some ----------------
 {
-  const p = comNiveis({ warrior: 5, mage: 4 }, 300);
+  const p = comNiveis({ warrior: 5, mage: 4 }, 600);
   abrir(p, ['vigorDoReino', 'escudoAntigo', 'pontoBarreira']);
   atribuirMastery(p, 'barreiraDeContencao', 'warrior');
-  check('antes de reorganizar: zen 240, Mastery ativa', p.zeni === 240 && masteryDoHeroi(p, 'warrior') !== undefined);
+  check('antes de reorganizar: saldo 190 (600 − 350 − 60), Mastery ativa', p.zeni === 190 && masteryDoHeroi(p, 'warrior') !== undefined);
   const prev = previsaoReorganizar(p);
   check('pré-visualização da reorganização mostra custo 80', prev.custo === 80 && prev.erro === undefined, `custo ${prev.custo}`);
-  check('reorganizar cobra Zen e zera nós e Masteries', reorganizarArvore(p) === undefined && p.zeni === 160 && (p.arvore?.comprados.length ?? 0) === 0 && Object.keys(p.arvore?.masteries ?? {}).length === 0);
-  check('depois de reorganizar, pontos voltam todos', pontosDisponiveis(p) === pontosTotais(p) && pontosTotais(p) === 7);
+  check('reorganizar cobra 80 Zen e zera nós e Masteries', reorganizarArvore(p) === undefined && p.zeni === 110 && (p.arvore?.comprados.length ?? 0) === 0 && Object.keys(p.arvore?.masteries ?? {}).length === 0);
+  check('Zen gasto na reorganização não volta: o nó segue disponível pelo mesmo custo', estadoNo(p, 'vigorDoReino') === 'disponivel' && p.zeni === 110);
   check('Mastery saiu do herói (sem residual)', masteryDoHeroi(p, 'warrior') === undefined);
   check('efeito de nó saiu (bônus zerado)', bonusDoHeroi(p, 'warrior').attrs.vit === undefined && Object.keys(bonusDoHeroi(p, 'warrior').passiva).length === 0);
-  abrir(p, ['vigorDoReino']);
+  abrir(p, ['vigorDoReino']); // 100 Zen: saldo 10, um nó aberto para a reorganização seguinte
   check('segunda reorganização custa o dobro', previsaoReorganizar(p).custo === 160);
   p.zeni = 100; // menos que o custo (160): a reorganização não pode acontecer
   check('Zen insuficiente bloqueia a reorganização', (reorganizarArvore(p) ?? '').includes('Zen insuficiente') && p.zeni === 100 && p.arvore?.comprados.length === 1);
@@ -186,7 +190,7 @@ check('pontos = (nível − 1) por herói, somados', pontosTotais(pNiv) === 4 + 
 }
 {
   // remover Mastery é de graça: a Mastery volta para a guarda
-  const p = comNiveis({ warrior: 5 }, 200);
+  const p = comNiveis({ warrior: 5 }, 600);
   abrir(p, ['vigorDoReino', 'escudoAntigo', 'pontoBarreira']);
   atribuirMastery(p, 'barreiraDeContencao', 'warrior');
   const zen = p.zeni;
@@ -214,7 +218,7 @@ check('pontos = (nível − 1) por herói, somados', pontosTotais(pNiv) === 4 + 
   const p = comNiveis({ warrior: 5 });
   p.arvore = { comprados: ['vigorDoReino', 'vigorDoReino'], masteries: {}, reorganizacoes: 0 };
   check('nó repetido no save dá o bônus uma vez', bonusDoHeroi(p, 'warrior').attrs.vit === 1);
-  check('nó repetido no save custa uma vez', pontosGastos(p) === 1);
+  check('nó repetido no save é normalizado para um só', normalizarArvore(p.arvore).comprados.length === 1);
 }
 {
   // Mastery guardada sem o nó aberto (save inconsistente) não tem efeito
@@ -232,7 +236,7 @@ check('pontos = (nível − 1) por herói, somados', pontosTotais(pNiv) === 4 + 
 }
 {
   // compatibilidade: nó só para magos não dá nada ao guerreiro
-  const p = comNiveis({ warrior: 5, mage: 5 });
+  const p = comNiveis({ warrior: 5, mage: 5 }, 100);
   abrir(p, ['chamaAntiga']);
   check('nó de magia dá Inteligência ao mago', bonusDoHeroi(p, 'mage').attrs.int === 1);
   check('nó de magia não dá nada ao guerreiro', bonusDoHeroi(p, 'warrior').attrs.int === undefined);
@@ -241,7 +245,7 @@ check('pontos = (nível − 1) por herói, somados', pontosTotais(pNiv) === 4 + 
 
 // ---------------- (h) efeito real em heroStats ----------------
 {
-  const p = comNiveis({ warrior: 5 }, 0);
+  const p = comNiveis({ warrior: 5 }, 500);
   const base = JSON.stringify(heroStats(p, 'warrior'));
   abrir(p, ['vigorDoReino', 'escudoAntigo']);
   const com = heroStats(p, 'warrior');
@@ -264,11 +268,11 @@ check('pontos = (nível − 1) por herói, somados', pontosTotais(pNiv) === 4 + 
 
 // ---------------- (i) estado de cada nó para a tela ----------------
 {
-  const p = comNiveis({ warrior: 2 }); // 1 ponto
+  const p = comNiveis({}, 100); // 100 Zen: um nó comum
   check('estado: raiz e nó aberto são "aberto"', estadoNo(p, 'nucleo') === 'aberto');
-  check('estado: nó ligado e com ponto é "disponivel"', estadoNo(p, 'vigorDoReino') === 'disponivel');
+  check('estado: nó ligado e com Zen é "disponivel"', estadoNo(p, 'vigorDoReino') === 'disponivel');
   check('estado: nó sem ligação é "bloqueado"', estadoNo(p, 'brasaEterna') === 'bloqueado');
-  check('estado: nó ligado sem ponto é "sem-pontos"', (comprarNo(p, 'vigorDoReino'), estadoNo(p, 'escudoAntigo')) === 'sem-pontos');
+  check('estado: nó ligado sem Zen é "sem-zen"', (comprarNo(p, 'vigorDoReino'), estadoNo(p, 'escudoAntigo')) === 'sem-zen');
   check('estado: depois de abrir vira "aberto"', estadoNo(p, 'vigorDoReino') === 'aberto');
   check('estado: nó desconhecido é "bloqueado"', estadoNo(p, 'naoExiste') === 'bloqueado');
 }

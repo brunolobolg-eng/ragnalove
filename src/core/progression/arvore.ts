@@ -31,11 +31,12 @@ import type { HeroKind } from './skills';
 /**
  * Árvore global de progressão: regras puras (sem DOM, sem Three.js, sem sorteio).
  *
- * - Pontos de árvore vêm do progresso que já existe: `pontosPorNivel` por nível de cada personagem.
+ * - Custo de cada nó: Zen do banco (CUSTO_ZEN_POR_TIPO, por tipo). Os níveis dos heróis não pagam a árvore.
  * - `comprados`: nós abertos. Um nó só abre se estiver ligado a um nó aberto (a raiz é sempre aberta).
  * - Bônus de nó são calculados na hora a partir de `comprados`: nada de efeito guardado, nada residual.
  * - Economia (EXP, Zen, descontos...): somada entre os nós abertos e limitada pelo teto de cada bônus.
  *   Só valem os bônus com `ligado: true` na config; os outros ficam em 0 até o gancho existir.
+ * - A carteira da árvore é o banco de Zen do meta (core/progression/banco.ts): quem chama passa o saldo em `zeni`.
  * - Combate: passivas e atributos são somados e limitados pelos caps de ARVORE_CAPS_COMBATE / ARVORE_CAP_ATRIBUTO.
  * - Mastery: guardada por id -> personagem. Só vale com o ponto aberto, personagem elegível e nível mínimo.
  *
@@ -53,7 +54,7 @@ export interface ArvoreState {
   reorganizacoes: number;
 }
 
-/** O que as regras leem do Profile (estrutural: evita dependência circular com profile.ts). */
+/** O que as regras leem (estrutural: evita dependência circular com profile.ts). `zeni` = saldo do banco de Zen. */
 export interface ArvoreHost {
   zeni: number;
   heroes: Record<string, { level: number }>;
@@ -187,35 +188,15 @@ export function nosAbertos(h: ArvoreHost): Set<string> {
   return new Set([RAIZ_ID, ...st.comprados]);
 }
 
-/** Estado de um nó para a tela: aberto, disponível para comprar, falta ponto ou bloqueado (sem ligação). */
-export type EstadoNo = 'aberto' | 'disponivel' | 'sem-pontos' | 'bloqueado';
+/** Estado de um nó para a tela: aberto, disponível para comprar, falta Zen no banco ou bloqueado (sem ligação). */
+export type EstadoNo = 'aberto' | 'disponivel' | 'sem-zen' | 'bloqueado';
 
 export function estadoNo(h: ArvoreHost, id: string): EstadoNo {
   const no = NO_BY_ID[id];
   if (!no) return 'bloqueado';
   if (possui(estado(h), id)) return 'aberto';
   if (!alcancavel(h, id)) return 'bloqueado';
-  return pontosDisponiveis(h) >= custoDoNo(no) ? 'disponivel' : 'sem-pontos';
-}
-
-// ---------------- pontos ----------------
-
-/** Total de pontos que o progresso já deu (soma de níveis de todos os personagens). */
-export function pontosTotais(h: ArvoreHost): number {
-  let niveis = 0;
-  for (const hp of Object.values(h.heroes)) niveis += Math.max(0, (hp.level ?? 1) - 1);
-  return niveis * ARVORE_CONFIG.pontosPorNivel;
-}
-
-/** Pontos gastos nos nós abertos. */
-export function pontosGastos(h: ArvoreHost): number {
-  const st = estado(h);
-  return [...new Set(st.comprados)].reduce((s, id) => s + (NO_BY_ID[id] ? custoDoNo(NO_BY_ID[id]) : 0), 0);
-}
-
-/** Pontos livres agora (nunca negativo). */
-export function pontosDisponiveis(h: ArvoreHost): number {
-  return Math.max(0, pontosTotais(h) - pontosGastos(h));
+  return h.zeni >= custoDoNo(no) ? 'disponivel' : 'sem-zen';
 }
 
 // ---------------- nós ----------------
@@ -230,15 +211,17 @@ export function motivoComprarNo(h: ArvoreHost, id: string, ctx: ContextoArvore =
   const st = estado(h);
   if (possui(st, id)) return 'Este nó já está aberto.';
   if (!alcancavel(h, id)) return 'Abra primeiro um nó ligado a este.';
-  const falta = custoDoNo(no) - pontosDisponiveis(h);
-  if (falta > 0) return `Faltam ${falta} ponto(s) de árvore.`;
+  const custo = custoDoNo(no);
+  if (h.zeni < custo) return `Zen insuficiente: o nó custa ${custo} Zen e faltam ${custo - h.zeni}.`;
   return undefined;
 }
 
-/** Abre um nó (gasta pontos de árvore). Devolve o erro em texto, ou undefined se deu certo. */
+/** Abre um nó (cobra o custo em Zen do banco). Devolve o erro em texto, ou undefined se deu certo. */
 export function comprarNo(h: ArvoreHost, id: string, ctx: ContextoArvore = {}): string | undefined {
   const erro = motivoComprarNo(h, id, ctx);
   if (erro) return erro;
+  const no = NO_BY_ID[id];
+  h.zeni -= custoDoNo(no);
   const st = estadoParaEscrever(h);
   st.comprados = [...st.comprados, id];
   return undefined;
@@ -343,7 +326,7 @@ export function previsaoReorganizar(h: ArvoreHost, ctx: ContextoArvore = {}): { 
   return { custo: custoReorganizar(h), erro: motivoReorganizar(h, ctx) };
 }
 
-/** Fecha todos os nós e devolve as Masteries à guarda. Cobra Zen e sobe o custo da próxima vez. */
+/** Fecha todos os nós e devolve as Masteries à guarda. Cobra Zen do banco e sobe o custo da próxima vez. */
 export function reorganizarArvore(h: ArvoreHost, ctx: ContextoArvore = {}): string | undefined {
   const erro = motivoReorganizar(h, ctx);
   if (erro) return erro;
@@ -439,8 +422,9 @@ export function validarArvore(): string[] {
     ids.add(n.id);
     if (!REGIOES[n.regiao]) erros.push(`${n.id}: região desconhecida (${n.regiao})`);
     if (!CATEGORIAS[n.categoria]) erros.push(`${n.id}: categoria desconhecida (${n.categoria})`);
-    if (!Number.isInteger(n.custo) || n.custo < 0) erros.push(`${n.id}: custo inválido (${n.custo})`);
-    if (n.tipo === 'raiz' && n.custo !== 0) erros.push(`${n.id}: a raiz não tem custo`);
+    const custo = custoDoNo(n);
+    if (!Number.isInteger(custo) || custo < 0) erros.push(`${n.id}: custo em Zen inválido (${custo})`);
+    if (n.tipo === 'raiz' && custo !== 0) erros.push(`${n.id}: a raiz não tem custo`);
     if (n.tipo === 'mastery' && !n.mastery) erros.push(`${n.id}: ponto de Mastery sem Mastery`);
     if (n.tipo !== 'mastery' && n.mastery) erros.push(`${n.id}: só ponto de Mastery desbloqueia Mastery`);
     if (n.para !== 'todos' && (!Array.isArray(n.para) || n.para.length === 0 || n.para.some((k) => !isHeroKind(k)))) erros.push(`${n.id}: compatibilidade inválida`);
