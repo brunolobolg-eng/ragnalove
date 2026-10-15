@@ -1,0 +1,408 @@
+[
+  {
+    "nome": "pedra_clara.webp",
+    "tipo": "textura",
+    "arquivo": "pedra_clara.webp",
+    "tamanho": "256x256",
+    "uso": "chão de pedra clara com juntas: salões, caminhos e áreas de passagem do Ato 4"
+  },
+  {
+    "nome": "azulejo_dourado.webp",
+    "tipo": "textura",
+    "arquivo": "azulejo_dourado.webp",
+    "tamanho": "256x256",
+    "uso": "chão de azulejo dourado com azul: centros cerimoniais e praças"
+  },
+  {
+    "nome": "azulejo_piso.webp",
+    "tipo": "textura",
+    "arquivo": "azulejo_piso.webp",
+    "tamanho": "256x256",
+    "uso": "chão de azulejo dourado tirado do bloco isométrico (face de cima desenrolada)"
+  },
+  {
+    "nome": "grama_ilha.webp",
+    "tipo": "textura",
+    "arquivo": "grama_ilha.webp",
+    "tamanho": "256x256",
+    "uso": "grama para o topo das ilhas flutuantes e áreas verdes"
+  },
+  {
+    "nome": "rocha_ilha.webp",
+    "tipo": "textura",
+    "arquivo": "rocha_ilha.webp",
+    "tamanho": "256x256",
+    "uso": "rocha escura para as laterais e as bordas das ilhas flutuantes"
+  },
+  {
+    "nome": "nuvem.webp",
+    "tipo": "textura",
+    "arquivo": "nuvem.webp",
+    "tamanho": "256x256",
+    "uso": "nuvem para o fundo e o mar de nuvens"
+  },
+  {
+    "nome": "brilho_azul.webp",
+    "tipo": "textura",
+    "arquivo": "brilho_azul.webp",
+    "tamanho": "256x256",
+    "uso": "brilho azul para runas, portais e fundo de magia"
+  },
+  {
+    "nome": "arco_ruina.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/arco_ruina.webp",
+    "tamanho": "94x140",
+    "uso": "arco de ruína com pilar, para borda ou entrada quebrada"
+  },
+  {
+    "nome": "pilar_ruina.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/pilar_ruina.webp",
+    "tamanho": "40x145",
+    "uso": "pilar alto com topo quebrado, decoração de ruína"
+  },
+  {
+    "nome": "arco_ruina_2.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/arco_ruina_2.webp",
+    "tamanho": "101x142",
+    "uso": "arco quebrado entre dois pilares, passagem em ruína"
+  },
+  {
+    "nome": "pilar_baixo.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/pilar_baixo.webp",
+    "tamanho": "38x54",
+    "uso": "pedestal pequeno de ruína, decoração de chão"
+  },
+  {
+    "nome": "arco_dourado.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/arco_dourado.webp",
+    "tamanho": "138x169",
+    "uso": "arco dourado com bandeira azul, portal de cidade"
+  },
+  {
+    "nome": "pavilhao_dourado.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/pavilhao_dourado.webp",
+    "tamanho": "99x158",
+    "uso": "pavilhão dourado com telhado, santuário ou portal"
+  },
+  {
+    "nome": "pilar_dourado.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/pilar_dourado.webp",
+    "tamanho": "44x114",
+    "uso": "pilar dourado e branco, colunas de templo"
+  },
+  {
+    "nome": "pilar_ruina_baixo.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/pilar_ruina_baixo.webp",
+    "tamanho": "43x106",
+    "uso": "pilar curto de ruína"
+  },
+  {
+    "nome": "estatua_anjo.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/estatua_anjo.webp",
+    "tamanho": "118x186",
+    "uso": "estátua de anjo em pedestal, marco de praça"
+  },
+  {
+    "nome": "ponte_corrimao.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/ponte_corrimao.webp",
+    "tamanho": "129x121",
+    "uso": "ponte de pedra com corrimão e pilares dourados"
+  },
+  {
+    "nome": "ponte_arco.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/ponte_arco.webp",
+    "tamanho": "87x122",
+    "uso": "ponte em arco, travessia sobre o vazio"
+  },
+  {
+    "nome": "ponte_reta.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/ponte_reta.webp",
+    "tamanho": "116x120",
+    "uso": "ponte reta de pedra entre duas ilhas"
+  },
+  {
+    "nome": "plataforma_circular.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/plataforma_circular.webp",
+    "tamanho": "98x79",
+    "uso": "plataforma circular com mandala, ponto de encontro"
+  },
+  {
+    "nome": "escada_pedra_1.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/escada_pedra_1.webp",
+    "tamanho": "78x80",
+    "uso": "escada curta de pedra, ligação entre níveis"
+  },
+  {
+    "nome": "escada_pedra_2.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/escada_pedra_2.webp",
+    "tamanho": "66x69",
+    "uso": "escada curta de pedra, ligação entre níveis"
+  },
+  {
+    "nome": "escada_pedra_3.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/escada_pedra_3.webp",
+    "tamanho": "59x54",
+    "uso": "escada curta de pedra, ligação entre níveis"
+  },
+  {
+    "nome": "escada_pedra_4.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/escada_pedra_4.webp",
+    "tamanho": "114x108",
+    "uso": "escada longa de pedra, subida principal"
+  },
+  {
+    "nome": "tocheiro.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/tocheiro.webp",
+    "tamanho": "46x141",
+    "uso": "tocheiro de pedra com fogo, iluminação de rua"
+  },
+  {
+    "nome": "tocheiro_baixo.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/tocheiro_baixo.webp",
+    "tamanho": "34x56",
+    "uso": "tocheiro pequeno de pedra"
+  },
+  {
+    "nome": "cerca_dourada_1.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/cerca_dourada_1.webp",
+    "tamanho": "51x72",
+    "uso": "cerca de pedra dourada, divisória de caminho"
+  },
+  {
+    "nome": "cerca_dourada_2.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/cerca_dourada_2.webp",
+    "tamanho": "51x54",
+    "uso": "cerca de pedra dourada, divisória de caminho"
+  },
+  {
+    "nome": "bandeira_azul_1.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/bandeira_azul_1.webp",
+    "tamanho": "32x64",
+    "uso": "bandeira azul com brasão dourado, presa em mastro"
+  },
+  {
+    "nome": "bandeira_azul_2.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/bandeira_azul_2.webp",
+    "tamanho": "35x101",
+    "uso": "bandeira azul pendurada, decoração de muro"
+  },
+  {
+    "nome": "altar_cristal.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/altar_cristal.webp",
+    "tamanho": "76x119",
+    "uso": "altar com cristal azul, marco de magia"
+  },
+  {
+    "nome": "altar_pequeno.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/altar_pequeno.webp",
+    "tamanho": "48x54",
+    "uso": "altar pequeno com ponta de cristal"
+  },
+  {
+    "nome": "fonte_cristal.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/fonte_cristal.webp",
+    "tamanho": "84x87",
+    "uso": "fonte circular com cristal, praça"
+  },
+  {
+    "nome": "obelisco_azul.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/obelisco_azul.webp",
+    "tamanho": "36x66",
+    "uso": "obelisco azul com topo branco"
+  },
+  {
+    "nome": "corrente_poste.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/corrente_poste.webp",
+    "tamanho": "47x44",
+    "uso": "poste com corrente, delimitador de passagem"
+  },
+  {
+    "nome": "cristal_azul.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/cristal_azul.webp",
+    "tamanho": "74x146",
+    "uso": "cristal azul com anéis de luz, marco de magia"
+  },
+  {
+    "nome": "portal_azul.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/portal_azul.webp",
+    "tamanho": "86x138",
+    "uso": "portal de pedra com luz azul, entrada de outro mundo"
+  },
+  {
+    "nome": "cristal_pequeno.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/cristal_pequeno.webp",
+    "tamanho": "43x82",
+    "uso": "cristal azul pequeno, decoração flutuante"
+  },
+  {
+    "nome": "ilha_cachoeira.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/ilha_cachoeira.webp",
+    "tamanho": "99x228",
+    "uso": "ilha com cachoeira e nuvem na base, borda de mapa"
+  },
+  {
+    "nome": "nuvem_espiral_1.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/nuvem_espiral_1.webp",
+    "tamanho": "76x58",
+    "uso": "nuvem em espiral, detalhe de borda"
+  },
+  {
+    "nome": "nuvem_espiral_2.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/nuvem_espiral_2.webp",
+    "tamanho": "82x64",
+    "uso": "nuvem em espiral, detalhe de borda"
+  },
+  {
+    "nome": "nuvem_espiral_3.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/nuvem_espiral_3.webp",
+    "tamanho": "76x60",
+    "uso": "nuvem fofa, base de ilha ou borda do mapa"
+  },
+  {
+    "nome": "circulo_magico.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/circulo_magico.webp",
+    "tamanho": "76x51",
+    "uso": "círculo de luz para o chão, marca de runa"
+  },
+  {
+    "nome": "nuvem_pecas_1.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/nuvem_pecas_1.webp",
+    "tamanho": "94x79",
+    "uso": "nuvem branca, decoração de céu e borda"
+  },
+  {
+    "nome": "nuvem_pecas_2.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/nuvem_pecas_2.webp",
+    "tamanho": "113x85",
+    "uso": "nuvem branca grande, decoração de céu e borda"
+  },
+  {
+    "nome": "nuvem_pecas_3.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/nuvem_pecas_3.webp",
+    "tamanho": "99x86",
+    "uso": "nuvem branca, decoração de céu e borda"
+  },
+  {
+    "nome": "ilha_nuvem.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/ilha_nuvem.webp",
+    "tamanho": "96x96",
+    "uso": "ilha flutuante com nuvem e cachoeira, borda do mapa"
+  },
+  {
+    "nome": "ilha_rocha.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/ilha_rocha.webp",
+    "tamanho": "90x129",
+    "uso": "ilha flutuante de rocha com ruína no topo"
+  },
+  {
+    "nome": "ilha_grama.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/ilha_grama.webp",
+    "tamanho": "86x140",
+    "uso": "ilha flutuante de grama com árvores e base de rocha"
+  },
+  {
+    "nome": "ilha_pequena.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/ilha_pequena.webp",
+    "tamanho": "51x58",
+    "uso": "ilha pequena com árvore, ilha satélite"
+  },
+  {
+    "nome": "ilha_arvore.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/ilha_arvore.webp",
+    "tamanho": "102x152",
+    "uso": "ilha grande com árvore, ilha de destaque"
+  },
+  {
+    "nome": "piso_pedra.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/piso_pedra.webp",
+    "tamanho": "80x66",
+    "uso": "bloco isométrico de pedra clara, peça de piso"
+  },
+  {
+    "nome": "piso_azulejo_dourado.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/piso_azulejo_dourado.webp",
+    "tamanho": "84x69",
+    "uso": "bloco isométrico de azulejo dourado, peça de piso cerimonial"
+  },
+  {
+    "nome": "piso_pedra_2.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/piso_pedra_2.webp",
+    "tamanho": "81x72",
+    "uso": "bloco isométrico de pedra com juntas, peça de piso"
+  },
+  {
+    "nome": "piso_grama.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/piso_grama.webp",
+    "tamanho": "84x72",
+    "uso": "bloco isométrico de grama, peça de piso verde"
+  },
+  {
+    "nome": "piso_grama_2.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/piso_grama_2.webp",
+    "tamanho": "92x82",
+    "uso": "bloco isométrico de grama com flores, peça de piso verde"
+  },
+  {
+    "nome": "ilha_ruina_1.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/ilha_ruina_1.webp",
+    "tamanho": "94x99",
+    "uso": "ilha de grama com ruína, peça de borda"
+  },
+  {
+    "nome": "ilha_ruina_2.webp",
+    "tipo": "peca",
+    "arquivo": "pecas/ilha_ruina_2.webp",
+    "tamanho": "80x80",
+    "uso": "ilha de grama com pilar de ruína, peça de borda"
+  }
+]
