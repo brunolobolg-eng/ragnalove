@@ -142,6 +142,18 @@ export function nosAbertos(h: ArvoreHost): Set<string> {
   return new Set([RAIZ_ID, ...st.comprados]);
 }
 
+/** Estado de um nó para a tela: aberto, disponível para comprar, falta ponto ou bloqueado (sem ligação). */
+export type EstadoNo = 'aberto' | 'disponivel' | 'sem-pontos' | 'bloqueado';
+
+/** Estado de um nó agora (a raiz e os nós abertos são "aberto"). Só leitura: a tela não decide regra. */
+export function estadoNo(h: ArvoreHost, id: string): EstadoNo {
+  const no = NO_BY_ID[id];
+  if (!no) return 'bloqueado';
+  if (possui(estado(h), id)) return 'aberto';
+  if (!alcancavel(h, id)) return 'bloqueado';
+  return pontosDisponiveis(h) >= no.custo ? 'disponivel' : 'sem-pontos';
+}
+
 // ---------------- pontos ----------------
 
 /** Total de pontos que a conta já ganhou com o progresso (soma de níveis de todos os heróis). */

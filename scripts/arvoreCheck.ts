@@ -13,6 +13,7 @@ import { ARVORE_CONFIG, MASTERY_BY_ID, NOS, type MasteryId } from '../src/config
 import {
   BLOQUEIO_COMBATE,
   alcancavel,
+  estadoNo,
   atribuirMastery,
   bonusDoHeroi,
   comprarNo,
@@ -254,6 +255,17 @@ check('pontos = (nível − 1) por herói, somados', pontosTotais(pNiv) === 4 + 
   // ids de Mastery são estáveis (vão para o save)
   const ids: MasteryId[] = ['barreiraDeContencao', 'golpeDeMisericordia', 'pressaoTatica'];
   check('ids de Mastery existem na configuração', ids.every((id) => MASTERY_BY_ID[id]?.id === id));
+}
+
+// ---------------- (i) estado de cada nó para a tela ----------------
+{
+  const p = comNiveis({ warrior: 2 }); // 1 ponto
+  check('estado: raiz e nó aberto são "aberto"', estadoNo(p, 'nucleo') === 'aberto');
+  check('estado: nó ligado e com ponto é "disponivel"', estadoNo(p, 'vigorDoReino') === 'disponivel');
+  check('estado: nó sem ligação é "bloqueado"', estadoNo(p, 'brasaEterna') === 'bloqueado');
+  check('estado: nó ligado sem ponto é "sem-pontos"', (comprarNo(p, 'vigorDoReino'), estadoNo(p, 'escudoAntigo')) === 'sem-pontos');
+  check('estado: depois de abrir vira "aberto"', estadoNo(p, 'vigorDoReino') === 'aberto');
+  check('estado: nó desconhecido é "bloqueado"', estadoNo(p, 'naoExiste') === 'bloqueado');
 }
 
 console.log(`\n${total - falhas}/${total} ok${falhas ? ` · ${falhas} FALHA(S)` : ''}`);

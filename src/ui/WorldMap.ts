@@ -45,6 +45,8 @@ export interface MapCallbacks {
   onChoose(t: NodeType): void;
   onCharacter(kind?: HeroKind): void;
   onSkills(kind?: HeroKind): void;
+  /** Árvore Global de Aurenthal (Masteries táticas): só fora da luta. */
+  onTree(): void;
   /** Dados da janelinha do herói (clique na party). */
   heroCard(kind: HeroKind): HeroCardVM;
   onAbandon(): void;
@@ -137,6 +139,7 @@ export class WorldMap {
       if (a === 'go') this.cb.onChoose(b.dataset.t as NodeType);
       else if (a === 'char') this.cb.onCharacter();
       else if (a === 'skills') this.cb.onSkills();
+      else if (a === 'tree') this.cb.onTree();
       else if (a === 'abandon') this.cb.onAbandon();
       else if (a === 'cards') this.cb.onCards();
       else if (a === 'revive') this.cb.onRevive(b.dataset.k as HeroKind);
@@ -281,7 +284,7 @@ export class WorldMap {
         <div class="win-body">
           <div class="wm-heroes">${heroes}</div>
           <div class="wm-bank"><span><i class="zeni-ico"></i>${s.zeni.toLocaleString('pt-BR')} Zen</span><span><i class="soul-ico"></i>${s.souls} almas</span>${s.cityMaxHp ? `<span class="wm-city ${s.cityHp! / s.cityMaxHp < 0.4 ? 'low' : ''}" title="Vida da cidade — repare no Templo das cidades">🏰 ${s.cityHp}/${s.cityMaxHp}</span>` : ''}</div>
-          <div class="wm-btns"><button data-a="char">Personagem (C)</button><button data-a="skills">Habilidades (K)</button><button data-a="cards">Coleção 🃏</button></div>
+          <div class="wm-btns"><button data-a="char">Personagem (C)</button><button data-a="skills">Habilidades (K)</button><button data-a="tree" title="Árvore de Aurenthal e Masteries táticas">Árvore</button><button data-a="cards">Coleção 🃏</button></div>
           <button class="wm-abandon" data-a="abandon">Abandonar jornada</button>
         </div>
       </div>`;

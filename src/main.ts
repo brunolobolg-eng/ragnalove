@@ -50,6 +50,9 @@ import { WorldMap, PORTRAITS } from './ui/WorldMap';
 import { CharSelect } from './ui/CharSelect';
 import { CityScreen } from './ui/CityScreen';
 import { SkillTree } from './ui/SkillTree';
+import { ArvoreGlobal } from './ui/ArvoreGlobal';
+import { montarArvoreVM } from './ui/arvoreVM';
+import { atribuirMastery, comprarNo, removerMastery, reorganizarArvore } from './core/progression/arvore';
 import { Modal, paintEventArt } from './ui/RunScreens';
 import { SKILL_ICONS } from './ui/icons';
 import { maxRefine, itemName, type Item } from './core/progression/equipment';
@@ -532,6 +535,7 @@ const worldMap = new WorldMap({
       startNewRun();
     }),
   onCards: () => openCollection(),
+  onTree: () => openArvore(),
   onRevive: (k) => {
     if (revive(run, k)) {
       audio.sfx('levelup');
@@ -576,6 +580,34 @@ const collection = new Collection({
 });
 const cardPack = new CardPack((n) => audio.sfx(n));
 /** `onClose` (só do Bastião) roda quando o jogador fecha a coleção com × ou Esc: o menu do modo reabre. */
+// ---------------- Árvore Global (Masteries táticas) ----------------
+const ctxArvore = () => ({ emCombate: mode === 'battle' });
+/** Ação da árvore: grava a jornada e atualiza o mapa e a ficha, sem fechar a árvore. Devolve o motivo do erro, se houver. */
+function arvoreAcao(acao: () => string | undefined): string | undefined {
+  const err = acao();
+  if (!err) {
+    saveProfile();
+    hud.setCharacter(characterVM());
+    if (mode === 'map') worldMap.show(mapState());
+    ui();
+  }
+  return err;
+}
+const arvoreTree = new ArvoreGlobal(
+  {
+    onBuy: (id) => arvoreAcao(() => comprarNo(run.profile, id, ctxArvore())),
+    onAssign: (m, k) => arvoreAcao(() => atribuirMastery(run.profile, m, k, ctxArvore())),
+    onRemove: (m) => arvoreAcao(() => removerMastery(run.profile, m, ctxArvore())),
+    onReset: () => arvoreAcao(() => reorganizarArvore(run.profile, ctxArvore())),
+    onUi: ui,
+  },
+  () => montarArvoreVM(run.profile, PORTRAITS, ctxArvore()),
+);
+function openArvore(): void {
+  if (arvoreTree.visible) return arvoreTree.close();
+  arvoreTree.open();
+}
+
 function openCollection(bastionNights = 0, onClose?: () => void): void {
   const meta = loadMetaStats();
   openCardsRef = meta.collection ?? emptyCollection();
@@ -639,6 +671,7 @@ function closeOverlays(): void {
   charSelect.close();
   city.close();
   skillTree.close();
+  arvoreTree.close();
   collection.hide();
   cardPack.hide();
   resultModal.hide();
@@ -2429,7 +2462,7 @@ if (desktopBalance)
 // No build de produção o Vite troca `import.meta.env.DEV` por `false`, este bloco
 // é eliminado e o módulo de debug não entra no pacote da Steam.
 if (import.meta.env.DEV) {
-  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, bastion: bastionSession, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview, fimDaJornada: (vitoria = true) => showRunEnd(vitoria),
+  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, bastion: bastionSession, enterBattle, openCity, openMap, completeNode, openSkills, openArvore, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview, fimDaJornada: (vitoria = true) => showRunEnd(vitoria),
     // mapa do Último Bastião (só dev): grade nova em planejamento, sem horda, para conferir o cenário
     openBastionMap: () => { loadZone(ZONES[BASTION_ZONE_ID], { count: 0, boss: null, seed: 1 }); setMode('battle'); focusParty(true); },
     // qualquer zona (só dev), em planejamento e sem horda; `count` > 0 monta a horda de verdade (sim.start() para começar)
