@@ -254,6 +254,11 @@ export interface MonsterModelVisual {
    */
   deathLift?: number;
   /**
+   * Morte com elevação por tempo (em vez de `deathLift`): [[segundos, elevação], ...] em unidades do modelo, somada ao `hover`.
+   * Usada pelo cultista (bongun), onde a elevação constante deixava o corpo afundado no impacto e alto no repouso. Ver liftCurve.
+   */
+  deathLiftCurve?: ReadonlyArray<readonly [number, number]>;
+  /**
    * Cauda do dino (quadril): vértices atrás do quadril (z de `from` a `to`, unidades do modelo) sobem `amount` em degrau suave
    * no bind. Corrige a ponta que a inclinação do quadril (idle) puxava 0,2 a 0,4 abaixo do chão. Ver raiseTail.
    */
@@ -476,6 +481,17 @@ const ORC_AXE = { type: 'axe' as const, bone: 'hand.R', accent: 0xff7040, tilt: 
 const KREXX_AXE = { type: 'axe' as const, bone: 'RightHand', accent: 0xff7040, tilt: 35, scale: 1.2 };
 /** Cauda do dino (bind, unidades do modelo): z de -0,2 (começa a subir) a -0,8 (ponta), 0,35 de altura. Medido em fluidez (idle). */
 const DINO_TAIL = { from: -0.2, to: -0.8, amount: 0.35 };
+/**
+ * Morte do Bongun (cultista, rig Mixamo): elevação extra do quadril por tempo (segundos; unidades do modelo), somada ao
+ * `hover`. Medida na pose do clipe com o próprio modelo (varredura do clipe congelado, medição em browser): sem elevação,
+ * o ponto mais baixo da malha chega a -0,69 unidade de mundo no impacto (~1,05 s). A curva sobe só o que falta para ele
+ * ficar na folga de 0,08 unidade de mundo, e fica em 0,16 no repouso. Antes do impacto vale 0 (a queda começa de pé).
+ */
+const BONGUN_DEATH_LIFT: ReadonlyArray<readonly [number, number]> = [
+  [0, 0], [0.8, 0], [0.85, 0.002], [0.875, 0.057], [0.9, 0.111], [0.925, 0.152], [0.95, 0.193], [0.975, 0.231], [1, 0.27],
+  [1.025, 0.3], [1.05, 0.331], [1.075, 0.324], [1.1, 0.317], [1.125, 0.287], [1.15, 0.258], [1.175, 0.232], [1.2, 0.206],
+  [1.3, 0.167], [1.4, 0.16], [2.4, 0.159],
+];
 export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   // Ato I — ratos
   rat: { file: 'models/rato.glb', height: 1.45, walkRate: 1.3, },
@@ -498,7 +514,7 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   zombieBrute: { file: 'models/zombie.glb', height: 2.0, walkRate: 0.85, clips: 'zombieBrute', skins: ZOMBIE_SKINS },
   // Bongun (necromante): não anda, flutua. `hover` = altura-base do corpo (unidades do modelo); `float` = sobe e desce
   // 9 cm em torno dela a cada 2,6 s (os pés ficam ~32 cm do chão, então há folga), com a sombra de contato respirando junto.
-  zombieNecro: { file: 'models/bongun.glb', height: 1.7, walkRate: 1.2, clips: 'cultist', hover: 0.08, float: { amp: 0.09, period: 2.6 }, aura: [0.7, 0.2, 1.6] },
+  zombieNecro: { file: 'models/bongun.glb', height: 1.7, walkRate: 1.2, clips: 'cultist', hover: 0.08, float: { amp: 0.09, period: 2.6 }, aura: [0.7, 0.2, 1.6], deathLiftCurve: BONGUN_DEATH_LIFT },
   // Ato III — orc guerreiro chibi (V2Fun): golpe de machado por cima vem do próprio GLB, o resto é do brutamonte
   orcWarrior: { file: 'models/orc.glb', height: 2.3, walkRate: 0.85, clips: 'brute', aura: [0.9, 0.3, 1.8], weapons: [ORC_AXE] },
   orcLord: { file: 'models/orc.glb', height: 3.3, walkRate: 0.9, clips: 'brute', aura: [1.6, 0.15, 0.4], weapons: [ORC_AXE] },

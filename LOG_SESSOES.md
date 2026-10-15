@@ -963,3 +963,16 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   3. Conferir no jogo com a vocação Crusado (não feito: a verificação foi standalone).
   4. No parado, o escudo do Guerreiro aparece de perfil (de frente ele é uma tábua). Agora o do Crusado também. Se o dono quer a face para a frente, é decisão de design para os dois.
 - **Testes:** `npm run build`, `sim:check` (determinístico: true), `bastion:check`, `aura:check`.
+
+## Morte do Bongun (cultista) — branch bongun-fix-wf
+- **Pedido:** o Bongun (necromante, `zombieNecro`) afundava no cenário ao morrer.
+- **Diagnóstico (medido na pose, com o clipe de morte congelado no Chromium, não no palpite):** a morte era o retarget puro do UAL, com pernas dobradas e o quadril abaixo do chão no impacto. Sem elevação, o ponto mais baixo da malha chegava a -0,69 unidade de mundo em 1,05 s, e o repouso ficava -1,3. A escala do modelo é 1,87: o `deathLift` 0,7 em unidades do modelo vira ~1,31 de mundo, por isso o corpo subia demais e ficava alto no repouso.
+- **Feito:**
+  1. A morte do cultista usa a morte de rig Mixamo (`monsterRigDeath`, a mesma dos goblins): pernas esticadas e pés no chão.
+  2. `deathLiftCurve` (novo, em `visualConfig.ts`): elevação do quadril por tempo, medida na pose. Vale 0 até o impacto, sobe até ~0,33 em 1,05 s e fica em 0,16 no repouso (unidades do modelo, somadas ao `hover`). Substitui o `deathLift` do Bongun.
+  3. Goblins sem mudança de comportamento: `monsterRigClips` só passou a chamar `monsterRigDeath` (mesmo cálculo); `liftLying` e o `deathLift` dos goblins não mudaram.
+- **Medido (unidades de mundo, varredura do clipe):** o ponto mais baixo fica entre 0,00 e 0,05 depois do impacto (pior instante 0,002 em 1,05 s) e 0,05 no repouso; antes da queda, 0,18 a 0,21 (altura da flutuação).
+- **Pendências:**
+  1. No repouso, os pés do esqueleto ficam ~0,76 acima do chão, e só a malha mais baixa encosta. Pode parecer suspenso e não totalmente deitado: conferir no PC do dono.
+  2. No impacto (~1,0 s a 1,1 s), o quadril sobe ~0,6 de mundo em ~0,2 s para não atravessar o chão. É o preço de manter o ponto mais baixo no nível do chão.
+- **Testes:** `npm run build` (typecheck + build), `sim:check` (determinístico: true), medição de morte no Chromium (overlays da recompensa e da fase ocultados por CSS; o jogo segue).

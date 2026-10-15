@@ -5,7 +5,7 @@ import { archerClips, barbarianClipsUAL, fitHips, gruntClips, hoverClips, mageCl
 import { prepareRiggedModel, type HumanoidJoints } from './autoRig';
 import { ualMixamoClips } from './ualMixamo';
 import { warriorRigClips } from './warriorAnims';
-import { monsterRigClips, liftLying, raiseTail } from './monsterRigAnims';
+import { monsterRigClips, monsterRigDeath, liftCurve, liftLying, raiseTail } from './monsterRigAnims';
 import { goblinBossRigClips } from './krexxAnims';
 import { MIXAMO_CULTIST_REST } from './mixamoRest';
 
@@ -96,7 +96,11 @@ function sampleIndex(ts: number[], time: number): number {
   return lo;
 }
 
-/** Clipes UAL retargetados no rig Mixamo do cultista (bongun). Para o Guerreiro, ver warriorAnims.ts. */
+/**
+ * Clipes UAL retargetados no rig Mixamo do cultista (bongun). Para o Guerreiro, ver warriorAnims.ts.
+ * A morte não é o retarget puro: a captura deixa as pernas dobradas no ar e o corpo afunda/inclina no chão. Usa a morte
+ * dos monstros de rig Mixamo (pernas esticadas, pés no chão; monsterRigDeath), a mesma dos goblins.
+ */
 function cultistClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
   const raw = ualMixamoClips();
   const fit = (c: THREE.AnimationClip): THREE.AnimationClip => retargetWorld(fitHips(c, bones, 'Hips', CULTIST_HIPS_SCALE), bones);
@@ -107,7 +111,7 @@ function cultistClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
     heavy: fit(raw.attack),
     cast: fit(raw.cast),
     hit: fit(raw.hit),
-    death: fit(raw.death),
+    death: monsterRigDeath(bones),
   };
 }
 
@@ -413,8 +417,11 @@ export async function loadMonsterModels(onLoaded?: (kind: string) => void): Prom
         const { model, clips: baseClips } = await files.get(key)!;
         // flutuação: o andar vira o balanço elevado (cópia: o arquivo pode ser compartilhado por outros tipos)
         const hovered = v.hover ? hoverClips(baseClips, model.bones, v.hover) : baseClips;
-        // morte do monstro de rig Mixamo: quadril sobe com o corpo deitado (a malha desce abaixo das juntas)
-        const clips = v.deathLift ? { ...hovered, death: liftLying(hovered.death, v.deathLift) } : hovered;
+        // morte do monstro de rig Mixamo: quadril sobe com o corpo deitado (a malha desce abaixo das juntas).
+        // Curva por tempo (cultista, medida na pose) ou elevação constante (goblins); sem nenhum, a morte fica como está.
+        const clips = v.deathLiftCurve
+          ? { ...hovered, death: liftCurve(hovered.death, v.deathLiftCurve) }
+          : v.deathLift ? { ...hovered, death: liftLying(hovered.death, v.deathLift) } : hovered;
         const def = {
           build: () => model,
           clips: () => clips,

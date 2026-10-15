@@ -104,6 +104,30 @@ export function liftLying(clip: THREE.AnimationClip, lift: number): THREE.Animat
 }
 
 /**
+ * Elevação do quadril por tempo (curva medida na pose, `deathLiftCurve` em visualConfig.ts): `curve` = [[segundos, elevação],
+ * ...] em unidades do modelo, interpolada linear entre os pontos. Só sobe onde a malha afundaria no chão; o resto do clipe
+ * segue a pose. Para o monstro de rig Mixamo com morte de elevação constante, usar `liftLying`.
+ */
+export function liftCurve(clip: THREE.AnimationClip, curve: ReadonlyArray<readonly [number, number]>): THREE.AnimationClip {
+  const at = (s: number): number => {
+    if (s <= curve[0][0]) return curve[0][1];
+    for (let k = 1; k < curve.length; k++) {
+      const [t0, v0] = curve[k - 1];
+      const [t1, v1] = curve[k];
+      if (s <= t1) return v0 + ((s - t0) / (t1 - t0)) * (v1 - v0);
+    }
+    return curve[curve.length - 1][1];
+  };
+  const tracks = clip.tracks.map((t) => {
+    if (t.name !== 'Hips.position') return t;
+    const v = Array.from(t.values);
+    for (let i = 0; i < t.times.length; i++) v[i * 3 + 1] += at(t.times[i]);
+    return new THREE.VectorKeyframeTrack(t.name, Array.from(t.times), v);
+  });
+  return new THREE.AnimationClip(clip.name, clip.duration, tracks);
+}
+
+/**
  * Cauda (dino, raydric): a cauda é skinada no quadril e fica atrás dele (z de `from` a `to`, em unidades do modelo).
  * Na pose de repouso, a inclinação do quadril (idle, andar) puxa a ponta para baixo do chão. Sobe os vértices do
  * quadril nessa faixa `amount` (degrau suave): o corpo (z > `from`) não muda. Mexe nas posições da malha (bind).
@@ -131,12 +155,22 @@ export function raiseTail(pos: Float32Array, joint: Uint16Array | Uint8Array | F
   return n;
 }
 
+/**
+ * Morte do monstro de rig Mixamo (goblin, cultista): pernas esticadas na queda e pés assentados no chão (`ground: 'body'`).
+ * Quem usa: `monsterRigClips` (goblins) e o cultista do bongun (`cultistClips` em glbMonsters.ts).
+ */
+export function monsterRigDeath(bones: BoneDef[]): THREE.AnimationClip {
+  const raw = ualMixamoClips();
+  const rig = buildRig(bones);
+  const fall = poseClip('death', raw.death.duration, smoothAims(straightenLegs(mocapKeys(raw.death), raw.death.duration), SMOOTH_SIGMA_BODY), rig, {}, { ground: 'body' });
+  return lowerStanding(fall, raw.death.duration);
+}
+
 /** Conjunto de clipes dos monstros de rig Mixamo: o do guerreiro (golpe próprio, sem o estalo) e a morte com as pernas esticadas. */
 export function monsterRigClips(bones: BoneDef[]): Record<ClipName, THREE.AnimationClip> {
   const raw = ualMixamoClips();
   const rig = buildRig(bones);
-  const fall = poseClip('death', raw.death.duration, smoothAims(straightenLegs(mocapKeys(raw.death), raw.death.duration), SMOOTH_SIGMA_BODY), rig, {}, { ground: 'body' });
   // andar: a captura do passo com o mesmo filtro (sem pico de 1 ou 2 quadros no joelho)
   const walk = poseClip('walk', raw.walk.duration, smoothAims(mocapKeys(raw.walk), SMOOTH_SIGMA_BODY, raw.walk.duration), rig);
-  return { ...warriorRigClips(bones), ...monsterRigAttackClips(bones), walk, death: lowerStanding(fall, raw.death.duration) };
+  return { ...warriorRigClips(bones), ...monsterRigAttackClips(bones), walk, death: monsterRigDeath(bones) };
 }
