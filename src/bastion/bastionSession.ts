@@ -41,7 +41,8 @@ import type { HeroKind } from '../core/progression/skills';
 import type { Vec2 } from '../core/grid/types';
 import { newRun, type RunState } from '../core/run/run';
 import type { Fortification, Simulation } from '../core/sim/Simulation';
-import { SaveStore } from '../save/SaveStore';
+import { SaveStore, discoDoJogo } from '../save/SaveStore';
+import { chaveBloco, creditoBastiao, gravarComCredito } from '../core/progression/banco';
 import { BastionBuildPanel } from '../ui/bastion/BastionBuildPanel';
 import { BastionHub } from '../ui/bastion/BastionHub';
 import { BastionReport } from '../ui/bastion/BastionReport';
@@ -275,7 +276,8 @@ export class BastionSession {
     const paga = applyNight(b, out, `night:${b.attempt}:${b.nights}:${b.nightsInAttempt}`, cards);
     const pacotes = paga?.packs.length ?? 0;
     if (pacotes > 0) this.d.saveCards(cards);
-    this.save();
+    if (paga?.bloco) this.gravarBloco(paga.bloco);
+    else this.save();
     let perdidas = 0;
     let danificadas = 0;
     for (const s of b.structures) {
@@ -340,10 +342,30 @@ export class BastionSession {
   /** Carrega o Bastião salvo (ou cria uma cidade nova, com a coleção de cartas atual). */
   private ensure(): BastionState {
     if (!this.b) {
-      this.b = loadBastionState() ?? newBastion((Date.now() ^ 0x9e3779b9) >>> 0, this.d.cards());
+      const salvo = loadBastionState();
+      if (!salvo) this.guardarIlegivel();
+      this.b = salvo ?? newBastion((Date.now() ^ 0x9e3779b9) >>> 0, this.d.cards());
       this.save();
     }
     return this.b;
+  }
+
+  /**
+   * Bastião salvo que não abre (corrompido): guarda uma cópia em 'bastionBackup' antes de a cidade nova sobrescrever o
+   * arquivo. O banco de Zen fica no meta e não é tocado. Save ausente não tem o que guardar.
+   */
+  private guardarIlegivel(): void {
+    const raw = SaveStore.get(SAVE_KEY);
+    if (raw === null) return;
+    SaveStore.set('bastionBackup', JSON.stringify({ guardadoEm: new Date().toISOString(), conteudo: raw }));
+  }
+
+  /** Fechou um bloco de 20 noites: o crédito vai ao banco e depois o Bastião é gravado (ver gravarComCredito). */
+  private gravarBloco(bloco: { numero: number; zen: number }): void {
+    const b = this.state();
+    const r = gravarComCredito(discoDoJogo, chaveBloco(b.seed, b.attempt, bloco.numero), creditoBastiao(bloco.zen), { chave: 'bastion', texto: JSON.stringify(semArvoreNoSave(b)) });
+    if (r === 'falhou') this.d.log('Não foi possível salvar o Bastião (disco cheio ou sem permissão?).', 'warn');
+    else if (r === 'sem-banco') this.d.log('O Zen do bloco não entrou no banco: o save de conquistas está ilegível.', 'warn');
   }
 
   /** Grava em segundo plano (SaveStore.setLazy): construir não espera o disco. Falha no disco chega pelo aviso de main.ts. */

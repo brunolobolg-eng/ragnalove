@@ -10,10 +10,13 @@
  * - setLazy: o cache muda na hora e o disco é gravado em segundo plano, uma escrita por vez, sempre com a versão
  *   mais nova. É a do Último Bastião, para construir não travar a tela. Ao fechar a janela, flush() grava o pendente.
  */
-export type SaveKey = 'run' | 'meta' | 'bastion';
+import type { DiscoSave } from '../core/progression/banco';
 
-const LEGACY: Record<SaveKey, string> = { run: 'vanguarda.run.v1', meta: 'vanguarda.meta.v1', bastion: 'vanguarda.bastion.v1' };
-const KEYS: SaveKey[] = ['run', 'meta', 'bastion'];
+export type SaveKey = 'run' | 'meta' | 'bastion' | 'bastionBackup';
+
+/** 'bastionBackup': cópia do Bastião que não abriu (ilegível). Só gravada, nunca lida de volta pelo jogo. */
+const LEGACY: Record<SaveKey, string> = { run: 'vanguarda.run.v1', meta: 'vanguarda.meta.v1', bastion: 'vanguarda.bastion.v1', bastionBackup: 'vanguarda.bastionBackup.v1' };
+const KEYS: SaveKey[] = ['run', 'meta', 'bastion', 'bastionBackup'];
 let cache: Record<SaveKey, string | null> | undefined;
 
 function legacyGet(key: SaveKey): string | null {
@@ -27,9 +30,9 @@ function legacyGet(key: SaveKey): string | null {
 function load(): Record<SaveKey, string | null> {
   if (cache) return cache;
   const disk = window.vanguardaDesktop?.save;
-  if (!disk) return (cache = { run: legacyGet('run'), meta: legacyGet('meta'), bastion: legacyGet('bastion') });
+  if (!disk) return (cache = { run: legacyGet('run'), meta: legacyGet('meta'), bastion: legacyGet('bastion'), bastionBackup: legacyGet('bastionBackup') });
   const files = disk.read();
-  cache = { run: files.run, meta: files.meta, bastion: files.bastion ?? null };
+  cache = { run: files.run, meta: files.meta, bastion: files.bastion ?? null, bastionBackup: null };
   for (const key of KEYS) {
     if (cache[key] !== null) continue;
     const old = legacyGet(key);
@@ -67,6 +70,12 @@ async function enviar(key: SaveKey): Promise<void> {
   // se a chave mudou enquanto o envio andava, manda a versão mais nova
   if (fila.has(key)) void enviar(key);
 }
+
+/** O disco do jogo para o banco de Zen (core/progression/banco.ts): as chaves do meta, da jornada e do Bastião. */
+export const discoDoJogo: DiscoSave = {
+  get: (chave) => SaveStore.get(chave),
+  set: (chave, texto) => (chave === 'bastion' ? SaveStore.setLazy(chave, texto) : SaveStore.set(chave, texto)),
+};
 
 export const SaveStore = {
   get(key: SaveKey): string | null {

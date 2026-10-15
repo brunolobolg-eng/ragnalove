@@ -73,15 +73,41 @@ export function bancoDoMeta(texto: string | null): BancoZen {
   return normalizarBanco(lerMeta(texto)?.banco);
 }
 
+/** Resultado de tentar creditar no meta: creditado (com o texto novo), já pago, sem valor ou meta ilegível. */
+export type ResultadoCredito = { status: 'creditado'; texto: string } | { status: 'ja-pago' | 'sem-valor' | 'ilegivel' };
+
 /**
- * Texto novo do meta com o crédito aplicado, numa escrita só (saldo e chave juntos). Devolve undefined quando nada
- * muda (chave já paga, valor zero) ou quando o meta não pode ser lido (nunca sobrescreve um meta ilegível).
+ * Texto novo do meta com o crédito aplicado (uma escrita só: saldo e chave juntos). Nunca sobrescreve um meta ilegível.
  */
-export function metaComCredito(texto: string | null, chave: string, valor: number): string | undefined {
+export function creditoNoMeta(texto: string | null, chave: string, valor: number): ResultadoCredito {
   const m = lerMeta(texto);
-  if (!m) return undefined;
+  if (!m) return { status: 'ilegivel' };
+  if (valor <= 0) return { status: 'sem-valor' };
   const b = normalizarBanco(m.banco);
-  if (!creditarBanco(b, chave, valor)) return undefined;
+  if (!creditarBanco(b, chave, valor)) return { status: 'ja-pago' };
   m.banco = b;
-  return JSON.stringify(m);
+  return { status: 'creditado', texto: JSON.stringify(m) };
+}
+
+/** Chaves do disco de save (o SaveStore no jogo; um disco de faz de conta nos testes). */
+export type ChaveDisco = 'meta' | 'run' | 'bastion';
+export interface DiscoSave {
+  get(chave: ChaveDisco): string | null;
+  set(chave: ChaveDisco, texto: string): boolean;
+}
+/** ok: principal gravado (com ou sem crédito novo). sem-banco: meta ilegível, crédito não entrou, progresso gravado. falhou: o disco recusou. */
+export type ResultadoGravacao = 'ok' | 'sem-banco' | 'falhou';
+
+/**
+ * Grava o save principal (a jornada que acabou, ou a noite do Bastião) junto com um crédito no banco, na ORDEM SEGURA:
+ *  1) o crédito vai para o meta numa escrita só (saldo e chave juntos);
+ *  2) só depois o save principal, que marca a jornada como encerrada ou a noite como aplicada.
+ * Queda entre (1) e (2): o principal volta como antes e a chave já paga impede pagar de novo na repetição.
+ * Queda antes de (1): nada mudou e o crédito entra na repetição. Nunca se perde o crédito de um fim gravado.
+ */
+export function gravarComCredito(disco: DiscoSave, chave: string, valor: number, principal: { chave: 'run' | 'bastion'; texto: string }): ResultadoGravacao {
+  const r = creditoNoMeta(disco.get('meta'), chave, valor);
+  if (r.status === 'creditado' && !disco.set('meta', r.texto)) return 'falhou';
+  if (!disco.set(principal.chave, principal.texto)) return 'falhou';
+  return r.status === 'ilegivel' ? 'sem-banco' : 'ok';
 }

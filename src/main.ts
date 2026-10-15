@@ -100,7 +100,8 @@ import {
   type Profile,
 } from './core/progression/profile';
 import { masteryDoHeroi } from './core/progression/arvore';
-import { bancoDoMeta, type BancoZen } from './core/progression/banco';
+import { bancoDoMeta, chaveJornada, creditoCampanha, gravarComCredito, type BancoZen, type DesfechoCampanha } from './core/progression/banco';
+import { discoDoJogo } from './save/SaveStore';
 import { rollItem, type Rarity, type Slot } from './core/progression/equipment';
 import { Rng } from './core/sim/rng';
 import { tileToWorld } from './render/coords';
@@ -230,6 +231,16 @@ function gravarArvoreMeta(): void {
 /** Banco de Zen do meta (saldo e créditos já pagos). Ausente = banco vazio. */
 function loadBanco(): BancoZen {
   return bancoDoMeta(SaveStore.get(META_KEY));
+}
+/**
+ * Encerra a jornada no banco de Zen, na ordem segura (core/progression/banco.ts): primeiro o crédito no meta, com a
+ * chave da jornada; depois o save da jornada já marcada como encerrada. Chamar de novo não paga de novo.
+ */
+function encerrarJornada(desfecho: DesfechoCampanha): void {
+  const valor = creditoCampanha(run.profile.zenGanho ?? 0, desfecho);
+  const r = gravarComCredito(discoDoJogo, chaveJornada(run.seed), valor, { chave: 'run', texto: JSON.stringify(semArvoreNoSave(run)) });
+  if (r === 'falhou') hud.log('Não foi possível salvar o progresso (disco cheio ou sem permissão?).', 'warn');
+  else if (r === 'sem-banco') hud.log('O Zen da jornada não entrou no banco: o save de conquistas está ilegível.', 'warn');
 }
 /** Heróis que a conta já desbloqueou. */
 function availableHeroes(): HeroKind[] {
@@ -555,6 +566,7 @@ const worldMap = new WorldMap({
   onAbandon: () =>
     confirmBox.ask('Abandonar jornada', 'A jornada atual será encerrada e todo o progresso dos heróis nela será perdido.', 'Abandonar', () => {
       run.ended = 'defeat';
+      encerrarJornada('abandono');
       saveMeta('defeat');
       startNewRun();
     }),
@@ -1087,7 +1099,9 @@ function completeNode(outcome: string): void {
   const from = currentNode(run).region;
   const newAct = advance(run, outcome);
   noteRecords();
-  saveProfile();
+  // vitória: o banco recebe o crédito antes de a jornada ficar marcada como encerrada (ver encerrarJornada)
+  if (run.ended === 'victory') encerrarJornada('vitoria');
+  else saveProfile();
   if (run.ended === 'victory') {
     saveMeta('victory');
     // pacote de 5 cartas (só vitória): entra na coleção permanente na hora; a revelação vem antes do placar
@@ -1461,8 +1475,8 @@ function finishWave(): void {
   const node = run.choice ?? 'horde';
   if (!won || run.dead.length >= run.party.length || run.cityHp <= 0) {
     run.ended = 'defeat';
+    encerrarJornada('derrota');
     saveMeta('defeat');
-    saveProfile();
     const cityFell = run.cityHp <= 0;
     // mesmo na derrota o relatório da noite aparece antes do fim da jornada
     window.setTimeout(() => {

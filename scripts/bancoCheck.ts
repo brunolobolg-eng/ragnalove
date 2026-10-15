@@ -11,6 +11,7 @@ import { applyNight, startAttempt, type NightOutcome } from '../src/core/bastion
 import { emptyCollection } from '../src/core/progression/cards';
 import { ARVORE_BANCO } from '../src/config/arvoreGlobal';
 import { GAME_CONFIG } from '../src/config/gameConfig';
+import { bancoDoMeta, chaveBloco, chaveJornada, creditoBastiao, creditoCampanha, gravarComCredito, type ChaveDisco } from '../src/core/progression/banco';
 
 let falhas = 0;
 let total = 0;
@@ -129,6 +130,96 @@ const derrota = (zeni: number): NightOutcome => ({ ...onda(zeni), victory: false
   const fecha = applyNight(b, onda(10), `night:1:${N}:${N}`, cards);
   const de_novo = applyNight(b, onda(10), `night:1:${N}:${N}`, cards);
   check('bloco fechado uma vez: a mesma noite de novo não fecha outro', fecha?.bloco !== undefined && de_novo === undefined);
+}
+
+// ---------------- (d) queda entre as escritas: nunca paga em dobro, nunca perde o crédito ----------------
+/** Disco de faz de conta. `queda` = número da escrita que "cai" (o app fecha antes de gravar). */
+function discoDeFaz(inicial: { meta?: string | null; run?: string | null; bastion?: string | null }, queda?: number) {
+  const dados: Record<ChaveDisco, string | null> = { meta: inicial.meta ?? null, run: inicial.run ?? null, bastion: inicial.bastion ?? null };
+  let escritas = 0;
+  return {
+    dados,
+    get: (k: ChaveDisco) => dados[k],
+    set: (k: ChaveDisco, texto: string) => {
+      escritas++;
+      if (escritas === queda) throw new Error('queda do app');
+      dados[k] = texto;
+      return true;
+    },
+  };
+}
+/** Tenta a gravação e, se o app "cair", devolve true (a queda aconteceu). */
+const comQueda = (fn: () => unknown): boolean => {
+  try {
+    fn();
+    return false;
+  } catch {
+    return true;
+  }
+};
+
+// jornada da campanha: vitória com 1000 Zen ganhos → 50% = 500 no banco
+{
+  const seed = 777;
+  const ativa = JSON.stringify({ seed, ended: undefined });
+  const encerrada = JSON.stringify({ seed, ended: 'victory' });
+  const valor = creditoCampanha(1000, 'vitoria');
+  check('vitória paga 50% do Zen ganho na jornada (1000 → 500)', valor === 500);
+  for (const queda of [1, 2]) {
+    const d = discoDeFaz({ meta: '{}', run: ativa }, queda);
+    const caiu = comQueda(() => gravarComCredito(d, chaveJornada(seed), valor, { chave: 'run', texto: encerrada }));
+    // invariante: jornada encerrada ⇒ crédito já no banco (o contrário pode acontecer: crédito sem a jornada encerrada, e a repetição fecha)
+    const invariante = d.dados.run !== encerrada || bancoDoMeta(d.dados.meta).saldo === valor;
+    check(`queda na escrita ${queda}: a jornada só fica encerrada se o crédito já está no banco`, caiu && invariante, `saldo ${bancoDoMeta(d.dados.meta).saldo} · run ${d.dados.run === encerrada ? 'encerrada' : 'ativa'}`);
+    // repetição (o jogo reabre e refaz o fim): paga o que falta e nada além
+    gravarComCredito(d, chaveJornada(seed), valor, { chave: 'run', texto: encerrada });
+    check(`queda na escrita ${queda}: depois da repetição o crédito vale uma vez só e a jornada fica encerrada`, bancoDoMeta(d.dados.meta).saldo === valor && d.dados.run === encerrada, `saldo ${bancoDoMeta(d.dados.meta).saldo}`);
+  }
+  {
+    const d = discoDeFaz({ meta: '{}', run: encerrada });
+    gravarComCredito(d, chaveJornada(seed), valor, { chave: 'run', texto: encerrada });
+    gravarComCredito(d, chaveJornada(seed), valor, { chave: 'run', texto: encerrada });
+    check('encerrar a mesma jornada duas vezes não paga duas vezes', bancoDoMeta(d.dados.meta).saldo === valor && bancoDoMeta(d.dados.meta).creditos.length === 1);
+  }
+  {
+    const d = discoDeFaz({ meta: '{}', run: ativa });
+    const r = gravarComCredito(d, chaveJornada(seed), creditoCampanha(1000, 'abandono'), { chave: 'run', texto: JSON.stringify({ seed, ended: 'defeat' }) });
+    check('abandono não cria crédito nem chave (o meta não é tocado)', r === 'ok' && d.dados.meta === '{}' && bancoDoMeta(d.dados.meta).saldo === 0);
+  }
+  {
+    const d = discoDeFaz({ meta: '{ quebrado', run: ativa });
+    const r = gravarComCredito(d, chaveJornada(seed), valor, { chave: 'run', texto: encerrada });
+    check('meta ilegível: o progresso é gravado mesmo assim, e o aviso sai (sem-banco)', r === 'sem-banco' && d.dados.run === encerrada && d.dados.meta === '{ quebrado');
+  }
+}
+
+// bloco de 20 noites do Bastião: a 20ª noite vence, paga 30% do Zen do bloco, e o Bastião é gravado depois
+{
+  const cards = emptyCollection();
+  const semente = 4242;
+  const b0 = newBastion(semente, cards);
+  for (let i = 1; i < N; i++) applyNight(b0, onda(10), `night:1:${i}:${i}`, cards);
+  const antes = JSON.stringify(b0);
+  const zenBloco = (10 + GAME_CONFIG.zeni.waveClearBonus) * N;
+  const valor = creditoBastiao(zenBloco);
+  check('bloco de 20 noites paga 30% do Zen do bloco', valor === Math.floor(zenBloco * 0.3), `${zenBloco} → ${valor}`);
+  const chave = chaveBloco(semente, 1, 1);
+  for (const queda of [1, 2]) {
+    const d = discoDeFaz({ meta: '{}', bastion: antes }, queda);
+    const b1 = JSON.parse(antes) as BastionState;
+    const res = applyNight(b1, onda(10), `night:1:${N}:${N}`, cards);
+    const depois = JSON.stringify(b1);
+    const caiu = comQueda(() => gravarComCredito(d, chave, valor, { chave: 'bastion', texto: depois }));
+    // invariante: Bastião avançado (noite aplicada) ⇒ crédito do bloco já no banco
+    const invariante = d.dados.bastion !== depois || bancoDoMeta(d.dados.meta).saldo === valor;
+    check(`bloco, queda na escrita ${queda}: o Bastião só avança se o crédito já está no banco`, caiu && invariante && res?.bloco !== undefined, `saldo ${bancoDoMeta(d.dados.meta).saldo}`);
+    // repetição: o jogo recarrega a noite do selo (determinística) e aplica de novo
+    const bRec = JSON.parse(d.dados.bastion ?? antes) as BastionState;
+    const res2 = applyNight(bRec, onda(10), `night:1:${N}:${N}`, cards);
+    if (res2?.bloco) gravarComCredito(d, chave, creditoBastiao(res2.bloco.zen), { chave: 'bastion', texto: JSON.stringify(bRec) });
+    check(`bloco, queda na escrita ${queda}: depois da repetição o bloco paga uma vez só`, bancoDoMeta(d.dados.meta).saldo === valor && bancoDoMeta(d.dados.meta).creditos.length === 1, `saldo ${bancoDoMeta(d.dados.meta).saldo}`);
+    check(`bloco, queda na escrita ${queda}: o Bastião termina com as ${N} noites`, bRec.nightsInAttempt === N);
+  }
 }
 
 console.log(`\n${total - falhas}/${total} ok${falhas ? ` · ${falhas} FALHA(S)` : ''}`);
