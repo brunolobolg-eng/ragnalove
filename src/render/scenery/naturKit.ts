@@ -392,6 +392,9 @@ const BUILD: Record<string, () => KitPiece> = {
   ruina_a: () => ruin(113, 'pedras/pedra_colunas'),
   ruina_b: () => ruin(127, 'pedras/pedra_blocos'),
   marco: () => waystone(),
+  // Ato IV (ceuIlhas.ts): rocha escura da ilha flutuante, com a textura rocha_ilha do dono e 80 faces por peça
+  ilha_rocha_a: () => rock(401, 'ato4/rocha_ilha', 1, 0.66, 1),
+  ilha_rocha_b: () => rock(409, 'ato4/rocha_ilha', 1, 0.66, 1),
   // gelo: pinheiros com neve, pedras de neve e de gelo, colunas e cristais
   neve_pinheiro_a: () => snowPine(211),
   neve_pinheiro_b: () => snowPine(223),

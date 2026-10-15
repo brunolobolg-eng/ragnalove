@@ -1,16 +1,17 @@
 import * as THREE from 'three';
-import { ATO4_CEU_ILHAS as C } from '../../config/visualConfig';
+import { ATO4_COMPOSICAO as COMP, ATO4_CEU_ILHAS as C, VISUAL_CONFIG } from '../../config/visualConfig';
 import type { ParsedZone } from '../../config/zones';
-import { loadTexture, precarregarImagens } from './naturKit';
+import { instanceKit, kitMatrix, loadTexture, precarregarImagens } from './naturKit';
 
 /**
- * Ato IV — Ilhas e nuvens (protótipo, só visual; a flag e os números estão em `ATO4_CEU_ILHAS`, visualConfig.ts).
- * Acrescenta ao grupo do tabuleiro (BoardView.ts) e troca o chão da zona por um chão de ilha:
+ * Ato IV — Ilhas e nuvens (protótipo, só visual; a flag, os números e as regras de composição estão em visualConfig.ts:
+ * `ATO4_CEU_ILHAS` e `ATO4_COMPOSICAO`). Acrescenta ao grupo do tabuleiro (BoardView.ts) e troca o chão e a decoração:
  *   - céu em degradê (esfera por dentro, cores por vértice, sem textura);
- *   - chão da arena com as texturas do dono: pedra clara, azulejo dourado no portão, grama na borda e rocha no flanco;
- *   - mar de nuvens em duas camadas à deriva, com a sombra de cada ilha sobre ele;
- *   - ilhas, pontes, peças da borda e nuvens em billboard (arte recortada, base na altura certa), com balanço lento.
- * Não mexe na grade, no Board nem na simulação: só põe objetos a mais na cena. Sem canvas: tudo é WebP do dono.
+ *   - chão da arena com as texturas do dono: pedra clara, azulejo dourado no portão, grama só na borda e rocha no flanco;
+ *   - obstáculos da grade com peças das ilhas (rocha escura da ilha e pilares de ruína), no lugar das árvores e pedras de gelo;
+ *   - decoração de borda em pares (tocheiros, bandeiras, cercas, pilares), mar de nuvens, ilhas, pontes e nuvens soltas.
+ * Não mexe na grade, no Board nem na simulação: só põe objetos a mais na cena. Sem canvas: tudo é WebP do dono ou a rocha
+ * do naturKit com a textura do dono. Cada camada só usa as peças da sua lista em ATO4_COMPOSICAO.
  */
 
 export interface CeuIlhasHandle {
@@ -36,6 +37,14 @@ interface Bill {
   anima?: (t: number) => void;
 }
 
+/** Número fixo entre 0 e 1 para cada tile: escolhe a peça e a variação. Visual apenas (não é sorteio da lógica). */
+function sorte(x: number, y: number, semente = 0): number {
+  let h = Math.imul(x + 101 * semente + 0x9e37, 0x85ebca6b) ^ Math.imul(y + 0x7f4a, 0xc2b2ae35);
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
+  h ^= h >>> 12;
+  return (h >>> 0) / 4294967296;
+}
+
 /** UV escalado: a textura repete a cada `por` tiles, sem repeat global (a mesma textura serve a vários planos). */
 function escalaUv(g: THREE.BufferGeometry, sx: number, sy: number): THREE.BufferGeometry {
   const uv = g.attributes.uv as THREE.BufferAttribute;
@@ -47,6 +56,32 @@ function escalaUv(g: THREE.BufferGeometry, sx: number, sy: number): THREE.Buffer
 /** Plano horizontal de w × h tiles (y = 0, normal para cima), com a textura repetida a cada `por` tiles. */
 function piso(w: number, h: number, por: number): THREE.BufferGeometry {
   return escalaUv(new THREE.PlaneGeometry(w, h).rotateX(-Math.PI / 2), w / por, h / por);
+}
+
+/**
+ * Peças de obstáculo em billboard instanciado: uma chamada de desenho por peça. Cada cópia encara a câmera (como um sprite)
+ * e tem a base no chão do tile (y = 0). A largura sai da proporção da arte, que pode chegar depois da montagem.
+ */
+function billboardsInstanciados(tex: THREE.Texture, pontos: { x: number; z: number; altura: number }[]): THREE.InstancedMesh {
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.02, depthWrite: false });
+  const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0), mat, pontos.length);
+  im.frustumCulled = false;
+  const q = new THREE.Quaternion();
+  const s = new THREE.Vector3();
+  const p = new THREE.Vector3();
+  const m = new THREE.Matrix4();
+  im.onBeforeRender = (_renderer, _scene, camera) => {
+    const img = tex.image as { width: number; height: number } | undefined;
+    const proporcao = img ? img.width / img.height : 0;
+    q.copy(camera.quaternion);
+    pontos.forEach((pt, i) => {
+      p.set(pt.x, 0, pt.z);
+      s.set(pt.altura * proporcao, pt.altura, 1);
+      im.setMatrixAt(i, m.compose(p, q, s));
+    });
+    im.instanceMatrix.needsUpdate = true;
+  };
+  return im;
 }
 
 /** Monta o céu de ilhas do tabuleiro de W × H casas (centro no zero do mundo, como o cenário). */
@@ -64,6 +99,8 @@ export function buildCeuIlhas(zone: ParsedZone): CeuIlhasHandle {
     return t;
   };
   const pasta = C.dir;
+  /** Só as peças da lista da camada (ATO4_COMPOSICAO); o que não estiver na lista é ignorado. */
+  const permitido = (lista: readonly string[], peca: string) => lista.includes(peca);
 
   // ---------------- Céu: esfera por dentro, degradê de três cores por vértice (sem textura) ----------------
   const R = C.ceu.raio;
@@ -88,7 +125,7 @@ export function buildCeuIlhas(zone: ParsedZone): CeuIlhasHandle {
   ceu.frustumCulled = false;
   group.add(ceu);
 
-  // ---------------- Chão da ilha: pedra clara na arena, grama na borda (plano maior, por baixo) ----------------
+  // ---------------- Chão da ilha: pedra clara na arena, grama só na borda de grama (plano maior, por baixo) ----------------
   const B = C.chao.borda;
   const por = C.chao.porTextura;
   const grama = new THREE.Mesh(piso(W + 2 * B, H + 2 * B, por), new THREE.MeshLambertMaterial({ map: textura(`${pasta}${C.chao.grama}`) }));
@@ -99,10 +136,10 @@ export function buildCeuIlhas(zone: ParsedZone): CeuIlhasHandle {
   pedra.receiveShadow = true;
   group.add(pedra);
 
-  // azulejo dourado no portão e na praça (um losango por casa, sobre a pedra), e grama nas raízes (chão lento)
-  const casas = (lista: { x: number; y: number }[], url: string) => {
+  // azulejo dourado no portão e na praça (um losango por casa, sobre a pedra)
+  const casas = (lista: { x: number; y: number }[], url: string, cor = 0xffffff) => {
     if (!lista.length) return;
-    const m = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: textura(url), polygonOffset: true, polygonOffsetFactor: -1 }), lista.length);
+    const m = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: textura(url), color: cor, polygonOffset: true, polygonOffsetFactor: -1 }), lista.length);
     const mx = new THREE.Matrix4();
     lista.forEach((p, i) => {
       mx.makeTranslation(X(p.x), 0.008, Z(p.y));
@@ -115,7 +152,8 @@ export function buildCeuIlhas(zone: ParsedZone): CeuIlhasHandle {
     zone.floor.filter((f) => f.ground === 'gate' || f.plaza),
     `${pasta}${C.chao.azulejo}`,
   );
-  casas(zone.slow, `${pasta}${C.chao.grama}`);
+  // tile de raiz (chão lento): a pedra clara com tom verde; a grama fica só na borda da ilha
+  casas(zone.slow, `${pasta}${C.chao.pedra}`, 0x9fbf7a);
 
   // ---------------- Flanco da ilha: rocha que desce da borda de grama até as nuvens ----------------
   const FL = C.chao.flanco;
@@ -175,7 +213,7 @@ export function buildCeuIlhas(zone: ParsedZone): CeuIlhasHandle {
   });
   const yMar = C.mar.camadas[0].y + 0.04;
 
-  C.ilhas.lista.forEach((p, i) => {
+  C.ilhas.lista.filter((p) => permitido(COMP.ilhas.permitido, p.peca)).forEach((p, i) => {
     const b = billboard(p.peca, p.x, p.y, p.z, p.altura);
     const ph = i * 1.7; // fase própria: cada ilha balança no seu tempo
     b.anima = (t) => {
@@ -188,9 +226,16 @@ export function buildCeuIlhas(zone: ParsedZone): CeuIlhasHandle {
     group.add(sombra);
   });
 
-  for (const p of C.pontes) billboard(p.peca, p.x, p.y, p.z, p.altura);
+  // Pontes: o billboard encara a câmera, então a linha do tabuleiro fica para trás e acima da base da arte. A base vai
+  // para a frente e abaixo do tabuleiro (inclinação da câmera), e o tabuleiro cai no nível do chão (y = 0).
+  const inclinacao = Math.atan2(VISUAL_CONFIG.camera.height, VISUAL_CONFIG.camera.distance - VISUAL_CONFIG.camera.lookZ);
+  for (const p of C.pontes) {
+    if (!permitido(COMP.pontes.permitido, p.peca)) continue;
+    const v = (1 - p.tabuleiro) * p.altura; // do pé da arte até a linha do tabuleiro, em tiles de imagem
+    billboard(p.peca, p.x, -Math.cos(inclinacao) * v, p.z + Math.sin(inclinacao) * v, p.altura);
+  }
 
-  // peças da borda: sombra de contato no chão da ilha (uma chamada de desenho para todas) e brilho dos cristais
+  // ---------------- Contato: sombra sob cada peça do chão (obstáculos e borda) numa chamada de desenho ----------------
   const contatoMat = new THREE.MeshBasicMaterial({
     map: textura(C.contato.textura),
     color: C.contato.cor,
@@ -200,37 +245,77 @@ export function buildCeuIlhas(zone: ParsedZone): CeuIlhasHandle {
     polygonOffset: true,
     polygonOffsetFactor: -2,
   });
-  const contatos = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), contatoMat, C.borda.length);
-  const brilhoMat = new THREE.SpriteMaterial({
-    map: textura(`${pasta}${C.brilho.textura}`),
-    color: new THREE.Color(C.brilho.cor[0], C.brilho.cor[1], C.brilho.cor[2]),
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  const mx = new THREE.Matrix4();
-  C.borda.forEach((p, i) => {
-    billboard(p.peca, p.x, p.y, p.z, p.altura);
-    if (p.brilho) {
-      const g = new THREE.Sprite(brilhoMat);
-      g.position.set(p.x, p.y + p.altura * 0.45, p.z);
-      g.scale.setScalar(C.brilho.tamanho);
-      group.add(g);
-    }
-    mx.compose(new THREE.Vector3(p.x, 0.02, p.z), new THREE.Quaternion(), new THREE.Vector3(p.altura * 0.6, 1, p.altura * 0.35));
-    contatos.setMatrixAt(i, mx);
-  });
-  contatos.renderOrder = 1;
-  group.add(contatos);
+  const contatos: THREE.Matrix4[] = [];
+  const sombraDe = (x: number, z: number, w: number, d: number) => {
+    contatos.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 0.02, z), new THREE.Quaternion(), new THREE.Vector3(w, 1, d)));
+  };
 
-  // nuvens soltas no alto: deriva lenta em X
-  C.nuvens.lista.forEach((p, i) => {
-    const b = billboard(p.peca, p.x, p.y, p.z, p.altura, C.nuvens.opacidade);
-    const ph = i * 2.3;
-    b.anima = (t) => {
-      b.s.position.x = p.x + Math.sin(t * C.nuvens.velocidade + ph) * C.nuvens.balanco;
-    };
-  });
+  // ---------------- Obstáculos da grade: peças das ilhas no lugar das árvores e pedras de gelo ----------------
+  // Só visual: a grade, os tiles bloqueados e a simulação não mudam. O tipo de tile escolhe a peça (ATO4_COMPOSICAO.obstaculos).
+  const obst = COMP.obstaculos;
+  const porPeca = new Map<string, { x: number; z: number; altura: number }[]>();
+  const rochas: THREE.Matrix4[][] = [[], []];
+  for (const pr of zone.props) {
+    const opcoes = (obst.troca[pr.kind] ?? []).filter((peca) => permitido(obst.permitido, peca));
+    if (!opcoes.length) continue; // muro da cidade (cityWall) e tipos sem peça: ficam como estão (CityGate)
+    const peca = opcoes[Math.floor(sorte(pr.x, pr.y) * opcoes.length)];
+    const x = X(pr.x);
+    const z = Z(pr.y);
+    if (peca === 'rocha') {
+      // rocha achatada (bloco de rocha, não bola): a altura é ~0,55 da largura
+      const s = 1 + sorte(pr.x, pr.y, 1) * 0.2;
+      rochas[sorte(pr.x, pr.y, 2) < 0.5 ? 0 : 1].push(kitMatrix(x, z, s, sorte(pr.x, pr.y, 3) * Math.PI * 2, s * 0.55));
+      sombraDe(x, z, 1.3 * s, 1.2 * s);
+    } else {
+      const altura = obst.altura[peca] ?? 2;
+      const lista = porPeca.get(peca) ?? [];
+      lista.push({ x, z, altura });
+      porPeca.set(peca, lista);
+      sombraDe(x, z, Math.max(0.7, altura * 0.4), Math.max(0.5, altura * 0.22));
+    }
+  }
+  for (const [peca, pontos] of porPeca) group.add(billboardsInstanciados(textura(`${pasta}pecas/${peca}.webp`), pontos));
+  // rocha escura da ilha (naturKit, textura rocha_ilha do dono): duas variações, uma chamada de desenho cada
+  instanceKit(group, 'ilha_rocha_a', rochas[0]);
+  instanceKit(group, 'ilha_rocha_b', rochas[1]);
+
+  // ---------------- Peças da borda: só as da lista (ATO4_COMPOSICAO.borda), fora da grade ----------------
+  C.borda
+    .filter((p) => permitido(COMP.borda.permitido, p.peca))
+    .forEach((p) => {
+      billboard(p.peca, p.x, p.y, p.z, p.altura);
+      if (p.brilho) {
+        const brilhoMat = new THREE.SpriteMaterial({
+          map: textura(`${pasta}${C.brilho.textura}`),
+          color: new THREE.Color(C.brilho.cor[0], C.brilho.cor[1], C.brilho.cor[2]),
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const g = new THREE.Sprite(brilhoMat);
+        g.position.set(p.x, p.y + p.altura * 0.45, p.z);
+        g.scale.setScalar(C.brilho.tamanho);
+        group.add(g);
+      }
+      sombraDe(p.x, p.z, p.altura * 0.6, p.altura * 0.35);
+    });
+  if (contatos.length) {
+    const sombras = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), contatoMat, contatos.length);
+    contatos.forEach((mx, i) => sombras.setMatrixAt(i, mx));
+    sombras.renderOrder = 1;
+    group.add(sombras);
+  }
+
+  // nuvens soltas no alto: deriva lenta em X (só as da lista)
+  C.nuvens.lista
+    .filter((p) => permitido(COMP.nuvens.permitido, p.peca))
+    .forEach((p, i) => {
+      const b = billboard(p.peca, p.x, p.y, p.z, p.altura, C.nuvens.opacidade);
+      const ph = i * 2.3;
+      b.anima = (t) => {
+        b.s.position.x = p.x + Math.sin(t * C.nuvens.velocidade + ph) * C.nuvens.balanco;
+      };
+    });
 
   // ---------------- Atualização: deriva do mar, balanço das ilhas e a escala de cada peça quando a imagem chega ----------------
   let t = 0;

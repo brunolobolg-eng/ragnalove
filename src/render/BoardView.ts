@@ -123,8 +123,9 @@ export class BoardView {
       this.ceuDeIlhas = buildCeuIlhas(parseZone(zone));
       this.group.add(this.ceuDeIlhas.group);
     }
-    // Cenário temático dos monstros do ato + setas discretas do caminho da horda
-    if (!zone.painted) this.group.add(buildActDressing(board)); // mapa pintado já traz o cenário
+    // Cenário temático dos monstros do ato + setas discretas do caminho da horda.
+    // Ato IV (ilhas): sai — o acampamento do ato era peça solta no meio da arena; a composição de ilhas não usa.
+    if (!zone.painted && !ilhas) this.group.add(buildActDressing(board)); // mapa pintado já traz o cenário
     this.arrows = new PathArrows(board);
     if (this.arrows.mesh) this.group.add(this.arrows.mesh);
 

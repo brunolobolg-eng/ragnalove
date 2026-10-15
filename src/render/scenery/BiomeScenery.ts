@@ -201,11 +201,13 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme, opts: Biom
     glbPut(c.flag, cx + 0.9, cz - 1.7, 1.0);
     glbPut(c.sign, cx - 0.3, cz + 1.8, 1.0);
   };
-  for (const pr of zone.props) {
-    const x = X(pr.x) + (rnd() - 0.5) * 0.12;
-    const z = Z(pr.y) + (rnd() - 0.5) * 0.12;
-    putProp(pr.kind, x, z);
-  }
+  // Ato IV (ilhas): os obstáculos da grade são peças das ilhas (ceuIlhas.ts, ATO4_COMPOSICAO); nada do bioma sai aqui
+  if (!ceuIlhas)
+    for (const pr of zone.props) {
+      const x = X(pr.x) + (rnd() - 0.5) * 0.12;
+      const z = Z(pr.y) + (rnd() - 0.5) * 0.12;
+      putProp(pr.kind, x, z);
+    }
   function putProp(kind: PropKind, x: number, z: number): void {
     switch (kind) {
       case 'tree':
@@ -422,7 +424,8 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme, opts: Biom
   // Névoa baixa do bioma (geada, poeira, neblina de campo, fumaça): manchas largas na altura da cintura,
   // deslizando devagar. Transparente e sem escrever profundidade: velam o fundo sem esconder heróis nem inimigos.
   const mist: { m: THREE.Mesh; x: number; ph: number }[] = [];
-  if (kit.mist) {
+  // Ato IV: sem a geada/poeira do bioma flutuando sobre a arena e as nuvens
+  if (kit.mist && !ceuIlhas) {
     for (let i = 0; i < 9; i++) {
       const m = new THREE.Mesh(
         new THREE.PlaneGeometry(9 + rnd() * 6, 4 + rnd() * 3).rotateX(-Math.PI / 2),
@@ -454,7 +457,10 @@ export function buildBiomeScenery(zone: ParsedZone, theme: ZoneTheme, opts: Biom
     while (acc > step) {
       acc -= step;
       amb.set((rnd() - 0.5) * (W + 6), 0, (rnd() - 0.5) * (H + 6));
-      if (biome === 'forest') {
+      // Ato IV (ilhas): nada de vagalumes, esporos, neve ou fumaça do bioma; o céu fica limpo
+      if (ceuIlhas) {
+        /* sem partículas do bioma */
+      } else if (biome === 'forest') {
         // vagalumes
         if (rnd() < 0.5)
           particles.glow.emit({ pos: amb.clone().setY(0.4 + rnd() * 1.4), velJitter: 0.25, life: 2.6, size: 0.06, sizeEnd: 0.02, color: new THREE.Color(1.6, 2.2, 0.6), colorEnd: new THREE.Color(0.2, 0.4, 0.05), drag: 0.4, count: 1 });

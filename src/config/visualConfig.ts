@@ -758,36 +758,42 @@ export const ATO4_CEU_ILHAS = {
     ] as readonly { peca: string; x: number; z: number; y: number; altura: number }[],
   },
   /**
-   * Pontes que ligam a borda da arena às ilhas vizinhas. Billboard: a largura sai da proporção da arte, e a base (`y`)
-   * fica abaixo do nível da arena (cerca de 0,6 × `altura`), porque o tabuleiro da ponte é a parte de cima da arte: assim
-   * o tabuleiro cai no nível da grama da arena e da ilha ligada (y = 0 no topo).
+   * Pontes que ligam a borda da arena às ilhas vizinhas. `x`, `z` = centro do tabuleiro, no nível do chão (y = 0). A arte
+   * é um billboard (encara a câmera): o ceuIlhas.ts põe a base dela para a frente e abaixo do tabuleiro, conta com a
+   * inclinação da câmera. `tabuleiro` = altura da linha do tabuleiro na imagem (0 = topo, 1 = base); a largura sai da
+   * proporção da arte. Antes a base ficava no lugar errado e a ponte parecia flutuar ao lado da arena.
    */
   pontes: [
-    { peca: 'ponte_reta', x: 26.8, z: -14, y: -2.2, altura: 3.6 },
-    { peca: 'ponte_arco', x: -27, z: -12, y: -2.3, altura: 3.8 },
-  ] as readonly { peca: string; x: number; z: number; y: number; altura: number }[],
+    { peca: 'ponte_reta', x: 26.9, z: -14, altura: 3.9, tabuleiro: 0.36 },
+    { peca: 'ponte_arco', x: -26.9, z: -12, altura: 4.4, tabuleiro: 0.36 },
+  ] as readonly { peca: string; x: number; z: number; altura: number; tabuleiro: number }[],
   /**
-   * Peças na borda de grama da arena (base no chão da ilha, sombra de contato). Ficam fora da grade, nas laterais
-   * e atrás (o norte, de onde a horda vem, tem o arco de entrada); a frente (sul) fica livre para a câmera.
-   * `brilho`: a peça tem o brilho azul atrás (cristais).
+   * Peças na borda de grama da arena (base no chão da ilha, sombra de contato). Ficam fora da grade, em volta. Só as
+   * peças de `ATO4_COMPOSICAO.borda`, em pares espelhados: norte (de onde a horda vem) com pilares, tocheiros e bandeiras;
+   * laterais em linha (tocheiro, bandeira, pilar, bandeira, tocheiro); sul (frente, livre para a câmera) só cercas baixas.
+   * `brilho`: a peça tem o brilho azul atrás (cristais). Nenhum item solto no meio da arena.
    */
   borda: [
-    { peca: 'arco_dourado', x: 0, z: -21.2, y: 0, altura: 5.2 },
-    { peca: 'pilar_dourado', x: -11, z: -21, y: 0, altura: 3.6 },
-    { peca: 'pilar_dourado', x: 11, z: -21, y: 0, altura: 3.6 },
-    { peca: 'altar_cristal', x: -16.5, z: -21.4, y: 0, altura: 2.6, brilho: true },
-    { peca: 'tocheiro', x: -23.6, z: -12.5, y: 0, altura: 3 },
-    { peca: 'tocheiro', x: 23.6, z: -12.5, y: 0, altura: 3 },
-    { peca: 'tocheiro_baixo', x: -23.8, z: -19, y: 0, altura: 1.8 },
-    { peca: 'estatua_anjo', x: -23.4, z: 5, y: 0, altura: 4.2 },
-    { peca: 'cristal_azul', x: 23.6, z: 6, y: 0, altura: 3.6, brilho: true },
-    { peca: 'pilar_ruina', x: -23.5, z: -2.5, y: 0, altura: 3.6 },
-    { peca: 'arco_ruina_2', x: 23.2, z: -1.5, y: 0, altura: 3.8 },
-    { peca: 'escada_pedra_4', x: -24, z: 10.5, y: 0, altura: 2.4 },
-    { peca: 'cristal_pequeno', x: -21, z: 17.5, y: 0, altura: 2.2, brilho: true },
-    { peca: 'fonte_cristal', x: 22, z: 19, y: 0, altura: 2.4 },
+    { peca: 'tocheiro', x: -4, z: -21.4, y: 0, altura: 3 },
+    { peca: 'tocheiro', x: 4, z: -21.4, y: 0, altura: 3 },
+    { peca: 'pilar_dourado', x: -12, z: -21.3, y: 0, altura: 3.6 },
+    { peca: 'pilar_dourado', x: 12, z: -21.3, y: 0, altura: 3.6 },
+    { peca: 'bandeira_azul_1', x: -20, z: -21.4, y: 0, altura: 3.2 },
+    { peca: 'bandeira_azul_1', x: 20, z: -21.4, y: 0, altura: 3.2 },
+    { peca: 'tocheiro', x: -23.6, z: -14, y: 0, altura: 3 },
+    { peca: 'tocheiro', x: 23.6, z: -14, y: 0, altura: 3 },
+    { peca: 'bandeira_azul_2', x: -23.6, z: -7, y: 0, altura: 3 },
+    { peca: 'bandeira_azul_2', x: 23.6, z: -7, y: 0, altura: 3 },
+    { peca: 'pilar_dourado', x: -23.6, z: 0, y: 0, altura: 3.6 },
+    { peca: 'pilar_dourado', x: 23.6, z: 0, y: 0, altura: 3.6 },
+    { peca: 'bandeira_azul_2', x: -23.6, z: 7, y: 0, altura: 3 },
+    { peca: 'bandeira_azul_2', x: 23.6, z: 7, y: 0, altura: 3 },
+    { peca: 'tocheiro', x: -23.6, z: 14, y: 0, altura: 3 },
+    { peca: 'tocheiro', x: 23.6, z: 14, y: 0, altura: 3 },
     { peca: 'cerca_dourada_1', x: -8, z: 21.6, y: 0, altura: 1.4 },
     { peca: 'cerca_dourada_2', x: 8, z: 21.6, y: 0, altura: 1.4 },
+    { peca: 'tocheiro_baixo', x: -18, z: 21.6, y: 0, altura: 1.8 },
+    { peca: 'tocheiro_baixo', x: 18, z: 21.6, y: 0, altura: 1.8 },
   ] as readonly { peca: string; x: number; z: number; y: number; altura: number; brilho?: boolean }[],
   /** Nuvens soltas no alto, à deriva (a `balanco` em tiles e a `velocidade` em rad/s). */
   nuvens: {
@@ -802,6 +808,51 @@ export const ATO4_CEU_ILHAS = {
       { peca: 'nuvem_pecas_3', x: -6, z: -64, y: 15, altura: 6 },
     ] as readonly { peca: string; x: number; z: number; y: number; altura: number }[],
   },
+} as const;
+
+/**
+ * Ato IV — regras de composição do protótipo (só visual, com ATO4_CEU_ILHAS ligada). Para cada camada da arena, a lista
+ * do que pode aparecer nela. O ceuIlhas.ts só usa peças destas listas: o que não estiver aqui é ignorado. Os nomes são
+ * os arquivos de public/textures/ato4/pecas (sem .webp), exceto `rocha`: a rocha escura da ilha (naturKit.ts, com a
+ * textura rocha_ilha.webp). Nada do bioma (neve, gelo, árvore, planta, pedra de gelo) entra em nenhuma camada.
+ */
+export const ATO4_COMPOSICAO = {
+  /** 1. Chão: só as texturas das ilhas (ATO4_CEU_ILHAS.chao). Centro em pedra clara; portão e praça em azulejo dourado;
+   *  grama só na borda de grama; rocha no flanco. Tile de raiz (lento) usa a pedra com tom verde, não grama. */
+  chao: ['pedra_clara', 'azulejo_dourado', 'grama_ilha', 'rocha_ilha'] as readonly string[],
+  /** 2. Vegetação: nenhuma peça de planta ou árvore no chão da arena. A vegetação fica só em cima das ilhas (`ilhas`). */
+  vegetacao: { chao: [] as readonly string[] },
+  /**
+   * 3. Obstáculos da grade (os tiles bloqueados): aparência trocada por peça das ilhas, pelo tipo de tile (`PropKind` do
+   * mapa: rock = R, tree = T, wall = #, tent = A...). Só visual: a grade, os tiles bloqueados e a simulação não mudam.
+   * `troca[tipo]` = opções (a escolha é fixa por tile). `altura` em tiles. O muro da cidade (W) é do CityGate.
+   */
+  obstaculos: {
+    permitido: ['rocha', 'pilar_ruina', 'pilar_ruina_baixo', 'pilar_baixo', 'arco_ruina', 'altar_pequeno', 'tocheiro'] as readonly string[],
+    troca: {
+      rock: ['rocha'],
+      tree: ['pilar_ruina', 'pilar_ruina_baixo'],
+      wall: ['pilar_ruina_baixo', 'pilar_baixo'],
+      tent: ['altar_pequeno'],
+      ruin: ['arco_ruina', 'pilar_ruina'],
+      palm: ['pilar_ruina'],
+      parapet: ['pilar_baixo'],
+      brazier: ['tocheiro'],
+      lantern: ['tocheiro'],
+      barrels: ['pilar_baixo'],
+      rubble: ['pilar_baixo'],
+      cart: ['pilar_baixo'],
+      stump: ['pilar_baixo'],
+      cactus: ['pilar_baixo'],
+    } as Record<string, readonly string[]>,
+    altura: { pilar_ruina: 2.6, pilar_ruina_baixo: 1.8, pilar_baixo: 1.2, arco_ruina: 3.2, altar_pequeno: 1.5, tocheiro: 2.4 } as Record<string, number>,
+  },
+  /** 4. Decoração de borda: só estas peças, em pares espelhados e em linha. Nada solto no meio da arena. */
+  borda: { permitido: ['tocheiro', 'tocheiro_baixo', 'bandeira_azul_1', 'bandeira_azul_2', 'cerca_dourada_1', 'cerca_dourada_2', 'pilar_dourado'] as readonly string[] },
+  /** 5. Ilhas, pontes e nuvens: a arte do dono de cada uma. A ponte liga a borda da arena a uma ilha, no nível do chão. */
+  ilhas: { permitido: ['ilha_arvore', 'ilha_grama', 'ilha_cachoeira', 'ilha_rocha', 'ilha_nuvem', 'ilha_pequena', 'ilha_ruina_1', 'ilha_ruina_2'] as readonly string[] },
+  pontes: { permitido: ['ponte_reta', 'ponte_arco', 'ponte_corrimao'] as readonly string[] },
+  nuvens: { permitido: ['nuvem_pecas_1', 'nuvem_pecas_2', 'nuvem_pecas_3', 'nuvem_espiral_1', 'nuvem_espiral_2', 'nuvem_espiral_3'] as readonly string[] },
 } as const;
 
 /**

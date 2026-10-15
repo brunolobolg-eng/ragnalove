@@ -1063,3 +1063,23 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   para um personagem.
 - **Testes:** `arvore:check` (99), `arvore:combate:check` (45), `arvore:save:check` (44). Simulação, aura, Bastião,
   vocações, cenário e build passam; a saída de `sim:check` continua igual à de antes da árvore.
+## Ato IV: composição do protótipo de ilhas (chão, obstáculos, borda e pontes) — branch ato4-composicao-proto
+- **Pedido:** o dono achou a composição do protótipo (zona `frostPass`, flag `ATO4_CEU_ILHAS`) sem sentido: árvore de terra no meio do chão de pedra, pedras de gelo azul ao lado, peças soltas. Pediu algo com mais sentido.
+- **Diagnóstico (no código e medido nas capturas):** o cenário do bioma montado (`BiomeScenery`, opção `ceuIlhas`) ainda desenhava os obstáculos da grade com as peças de gelo e neve do bioma (`ICE_KIT`: `neveRocha`, `geloRocha`, `neveArvore`), e o acampamento do Ato III (`ActDressing`, fogueiras queimadas, ossos, estandartes) saía solto no meio da arena. As pontes ficavam com a base no lugar errado: o billboard encara a câmera (inclinação de ~55°), então o tabuleiro não caía no nível da grama.
+- **Feito:**
+  1. Obstáculos da grade (R, T, #, A...) trocados por peças das ilhas, por tipo de tile: rocha escura da ilha (`rocha_ilha.webp`, peça do naturKit com a textura do dono), pilares de ruína, pilar baixo e altar. Só visual: grade, tiles bloqueados e simulação não mudam. O muro da cidade (W) e as torres do portão continuam do `CityGate`.
+  2. Sem árvore, planta nem pedra de gelo no chão. Chão só com as texturas das ilhas: pedra clara, azulejo no portão, grama só na borda; tile de raiz vira pedra com tom verde.
+  3. `ActDressing` sai no céu de ilhas (`BoardView.ts`). Névoa de geada e partículas de neve do bioma saem no `BiomeScenery`.
+  4. Decoração de borda reduzida a tocheiros, bandeiras, cercas e pilares dourados, em pares espelhados e em linha. Sai o arco, a estátua, os cristais e a fonte.
+  5. Pontes: a base é calculada pela inclinação da câmera (`VISUAL_CONFIG.camera`) e pela linha do tabuleiro na imagem (`tabuleiro`). Ponte reta e ponte arco entram na grama da arena e na ilha ligada.
+  6. Config: `ATO4_COMPOSICAO` em `visualConfig.ts`, com a lista do que pode aparecer em cada camada. O `ceuIlhas.ts` só usa peças dessas listas; a escolha da peça por tile é fixa (hash, sem `Math.random`).
+- **Medido (mesmo enquadramento, Chromium por software, flag ligada):** chamadas de desenho 134 → 109; triângulos 302 mil → 257 mil; geometrias 113 → 89; texturas 71 → 56. Montagem da zona (3 repetições): 27,6 / 12,1 / 14,0 ms antes; 35,8 / 15,5 / 13,9 ms depois. A primeira montagem ficou ~8 ms mais lenta, por causa das rochas do naturKit. Medido em SwiftShader, não em GPU real.
+- **Pendências:**
+  1. A rocha da ilha é escura e puxa para o roxo (cor média da textura). Se ficar pesada no PC do dono, trocar a textura do anel ou o tom em `naturKit.ts` (`ilha_rocha_a/b`).
+  2. Muralha da cidade e torres do portão (`CityGate`) ficaram como arquitetura da cidade, não do bioma. Decidir se entram na composição de ilhas.
+  3. A luz quente de braseiros e lanternas (`B`, `L`) não foi portada para o céu de ilhas. A zona `frostPass` não tem nenhum, mas mapas futuros com esses tiles ficam sem luz.
+  4. A neve que caía e a névoa de geada saíram do céu de ilhas. Confirmar com o dono se quer alguma atmosfera no lugar.
+  5. Se a inclinação da câmera mudar, as pontes saem do lugar: o cálculo usa `VISUAL_CONFIG.camera` (height, distance, lookZ).
+  6. Com `ativo: false` o cenário deve voltar ao de antes: a leitura do código confirma (mesmos caminhos quando `ceuIlhas` é falso), mas não foi renderizado nesta rodada.
+  7. Ver no PC do dono: fluidez e visual no jogo real.
+- **Testes:** `npm run build` (typecheck + build), `sim:check` (determinístico: true), `aura:check` e `cenario:check` passaram. Capturas em `/tmp/claude-0/-home-user/4ff88cc6-6fa3-5e2c-bcc3-6df5759cbaa1/scratchpad/ato4-composicao/` (antes_* e final_*).
