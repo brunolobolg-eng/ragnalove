@@ -240,7 +240,7 @@ export interface MonsterModelVisual {
    * `barbarianUAL` = a mesma captura, com socos (UAL) no lugar da espada.
    * `monsterRig` = `warriorRig` com a morte própria dos monstros de rig Mixamo (goblin, dino, raydric; monsterRigAnims.ts).
    */
-  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig' | 'monsterRig' | 'goblinBossRig' | 'warriorUAL' | 'barbarianUAL';
+  clips?: 'warrior' | 'mage' | 'archer' | 'zombie' | 'zombieRunner' | 'zombieBrute' | 'brute' | 'cultist' | 'warriorRig' | 'monsterRig' | 'goblinBossRig' | 'krexxWarlord' | 'warriorUAL' | 'barbarianUAL';
   /** `auto` = GLB sem esqueleto (malha estática): o jogo põe o esqueleto humanoide (auto-rig) e usa os `clips`. */
   rig?: 'auto';
   /** Juntas medidas para o auto-rig (com `rig: 'auto'`); sem elas, a detecção automática decide. */
@@ -533,7 +533,8 @@ export const MONSTER_MODELS: Record<string, MonsterModelVisual> = {
   // Clipes do guerreiro: o do cultista achata a figura (testado na vitrine). Pose de descanso = bind do arquivo; aura âmbar como o dino-chefe.
   goblinLeader: { file: 'models/goblin_leader.glb', height: 2.8, walkRate: 0.9, clips: 'goblinBossRig', bind: 'ibm', aura: [1.2, 0.8, 0.2] },
   // Krexx retorcido (mini-chefe do Passo Gélido): mesmo arquivo do Krexx pequeno, pelo caminho do líder goblin (esqueleto do arquivo)
-  goblinWarlord: { file: 'models/goblin_warlord.glb', height: 2.9, walkRate: 0.8, clips: 'goblinBossRig', bind: 'ibm', aura: [1.6, 0.15, 0.4], weapons: [KREXX_AXE] },
+  // walkRate 1,75 com a passada de krexxAnims.ts (PASSADA 2,5): deriva média do pé apoiado +0,27 m/s (era +1,18); ver krexxWarlordClips.
+  goblinWarlord: { file: 'models/goblin_warlord.glb', height: 2.9, walkRate: 1.75, clips: 'krexxWarlord', bind: 'ibm', aura: [1.6, 0.15, 0.4], weapons: [KREXX_AXE] },
   // Chefe lendário do Bastião (a cada 100 noites): modelo do dono (satanmorroc.glb), esqueleto Mixamo de 61 ossos.
   satanMorroc: { file: 'models/satanmorroc.glb', height: 3.2, walkRate: 0.9, clips: 'warriorRig', bind: 'ibm', aura: [1.6, 0.15, 0.4] },
   // Boneco de treino (Arena do Dev Lab, tipo 'trainingDummy'): só dev, não anda nem ataca. Malha sem esqueleto e de manto
