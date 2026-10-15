@@ -1165,3 +1165,43 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
     de `public/icons/skills` ainda não têm uso definido. Decidir com o dono.
   - Bastião foi para Sinergia (e não Proteção) para equilibrar as cunhas (Proteção ficaria com 28 nós).
   - Fundo com ilhas e cidade: fora deste escopo. A arte é do dono; se for usada, precisa de uma versão sem os painéis.
+
+## Árvore visual: refino (poluição, direção artística, composição, núcleo) — branch arvore-refino-wf
+
+- **Data:** 2026-10-15. **Pedido:** refino visual da roda da Árvore de Aurenthal, sem trocar o sistema funcional pela imagem
+  estática (compra, Masteries, reorganizar, filtro, zoom e pan e bloqueio em combate continuam como estavam).
+- **Poluição:** a roda não escreve mais nenhum nome (0 textos na roda, medido no Chromium). Cada nó é uma forma com ícone:
+  comum (círculo com ícone pequeno), notável (rosácea de 8 pontas com moldura), caminho (losango com linha) e Mastery
+  (hexágono de moldura dupla com o emblema do setor). Nome, efeito, requisitos e custo vão para o painel de detalhes.
+  Passar o cursor mostra um tooltip compacto que segue o mouse (nome, tipo, estado, caminho e Zen que faltam). No toque não
+  há passagem: tocar num nó seleciona e o painel mostra tudo.
+- **Ícones:** pelo primeiro bônus do nó, com a arte do kit do dono (`public/ui/kit`): vida = coração, defesa = escudo,
+  dano = espadas, crítico = estrela, haste = calendário, Zen = moeda, EXP = pergaminho etc. A tabela está em
+  `ICONE_POR_BONUS` (src/config/arvoreVisual.ts). Ponto de Mastery usa o emblema do setor. Para o dono revisar.
+- **Composição:** três colunas. Esquerda: legenda curta (tipos de nó, regiões temáticas, estados). Centro: a roda.
+  Direita: painel de detalhes com moldura (nome, estado, efeito, requisitos, custo, ação) e, em Masteries, a atribuição
+  do herói dentro do painel do ponto dela. A janela passa de 1240 para 1400 px de largura máxima.
+- **Núcleo:** o emblema oficial `public/emblem.png` (é o mesmo da entrada e da HUD), com brilho frio e opacidade de 90%.
+  `public/ui/arvore/nucleo.webp` ficou sem uso (pode sair num próximo passo).
+- **Direção artística:** fundo de pedra antiga (`public/textures/pedras/pedra_escura.webp`, discreto), vinheta nas bordas,
+  anel tracejado arcano, brilho por setor (aceso nos abertos, no caminho e no cursor; discreto nos notáveis e Masteries).
+  Setores um pouco menos saturados (config).
+- **Transições:** hover e seleção com escala e opacidade (só `transform` e `opacity`), tempo e escala na config. Reduzir
+  movimento desliga as animações.
+- **Correções encontradas no caminho:** (1) a janela de desenho só era medida ao abrir ou ao redimensionar a janela; a faixa
+  de mensagem muda a altura do canvas e deslocava o centro da roda, então cliques caíam fora do nó: agora um
+  ResizeObserver acompanha o canvas. (2) Depois de refazer a roda, o tooltip podia ficar preso no nó antigo: agora o
+  navegador é consultado pelo ponto do cursor. (3) O zoom padrão era medido antes do painel de detalhes existir: agora a
+  roda é medida depois do primeiro desenho (em 1280x720 a roda cabe inteira).
+- **Checagem:** `npm run arvore:visual:check`. A regra mudou (nenhum nome fica na roda), então a checagem (c) passou a validar
+  que todo nó comum, notável e de Mastery tem ícone, que os ícones e a arte da roda existem em `public/`, e a (e) valida os
+  tamanhos e o tamanho mínimo do ícone comum (20 px). Os limiares de zoom para nomes saíram com a regra antiga.
+- **Pendências e decisões para o dono:**
+  - Custo em Zen: o mock fala em "pontos" (4 pontos no topo, "Reiniciar · custo 100"). Mantivemos o Zen do banco, que é a
+    decisão já tomada. O contador de pontos do mock não foi incluído.
+  - Filtro por categoria: continua como seletor no canto da roda. A legenda mostra as regiões temáticas (os seis setores).
+  - Tabela de ícones por bônus: conferir se cada ícone combina com o bônus (ex.: calendário para Haste, portão para muralha).
+  - Acessibilidade por teclado nos nós: não existe (já era assim); a seleção por teclado fica para depois.
+  - Não foi verificado no build do Electron/Steam: as capturas são do Chromium (servidor de desenvolvimento).
+  - Item 5 de "interação e animação" veio cortado no pedido: implementamos só hover (tooltip e caminho aceso), seleção e
+    transições suaves, como pedido.

@@ -2367,9 +2367,8 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-bar.ask p { margin: 0; flex: 1 1 320px; }
 .gt-bar b { color: var(--au-gold-hi); }
 
-/* corpo: a roda à esquerda, os painéis à direita */
-/* três colunas: legenda (esquerda), roda (centro) e painéis (direita); a roda é o centro da tela */
-.gt-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 210px minmax(0, 1fr) 360px; gap: 10px; padding: 8px 6px 6px; box-sizing: border-box; }
+/* corpo em três colunas: legenda (esquerda), roda (centro) e painéis (direita); a roda é o centro da tela */
+.gt-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 210px minmax(0, 1fr) 360px; grid-template-rows: minmax(0, 1fr); gap: 10px; padding: 8px 6px 6px; box-sizing: border-box; }
 .gt-canvas { position: relative; min-height: 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(199, 157, 72, 0.55); isolation: isolate;
   background: radial-gradient(circle at 50% 50%, #101a3c 0%, #070b1c 62%, #04060f 100%); }
 /* fundo: pedra antiga discreta (textura do projeto) e vinheta de cinema nas bordas */
@@ -2436,7 +2435,7 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-no line.gt-simb { stroke: #3c4d7d; stroke-width: 2; }
 .gt-no.bloqueado .gt-icone { filter: grayscale(1) brightness(0.6); opacity: 0.6; }
 
-/* filtro por categoria (canto superior esquerdo, fora da roda), caminho aceso (canto superior direito) */
+/* filtro por categoria (canto superior esquerdo do canvas, fora da roda) */
 .gt-filtros { position: absolute; left: 10px; top: 10px; z-index: 2; }
 .gt-filtro { height: 30px; max-width: 250px; padding: 0 8px; border-radius: 8px; font: 12px Tahoma, Verdana, sans-serif; color: var(--au-text);
   background: rgba(6, 10, 28, 0.92); border: 1px solid rgba(199, 157, 72, 0.6); }
@@ -2559,7 +2558,7 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 /* telas estreitas: a rede vai para cima e os painéis rolam embaixo */
 @media (max-width: 980px) {
   .gt-win { height: 94vh; overflow-y: auto; }
-  .gt-body { grid-template-columns: 1fr; }
+  .gt-body { grid-template-columns: 1fr; grid-template-rows: auto; }
   .gt-canvas { height: 56vh; }
   .gt-side { overflow: visible; }
   .gt-legenda { order: 3; display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }

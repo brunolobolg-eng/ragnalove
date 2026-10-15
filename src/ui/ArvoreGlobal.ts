@@ -216,9 +216,10 @@ export class ArvoreGlobal {
     this.msg = '';
     this.tip.hidden = true;
     this.el.hidden = false;
+    // desenha antes de medir: o painel de detalhes e a faixa de mensagem mudam a altura do canvas
+    this.renderAll();
     this.medirCanvas();
     this.fit(true);
-    this.renderAll();
     this.side.scrollTop = 0;
     this.cb.onUi();
   }
@@ -469,6 +470,7 @@ export class ArvoreGlobal {
 
   /** Volta à vista inicial (zoom padrão, roda centrada). `imediato`: sem animação (ao abrir a tela). */
   private fit(imediato = false): void {
+    this.medirCanvas(); // a medida vale para o zoom padrão: o canvas pode ter mudado de altura desde a última medição
     this.tZoom = this.zoomPadrao();
     this.tPanX = 0;
     this.tPanY = 0;
@@ -517,7 +519,23 @@ export class ArvoreGlobal {
     this.renderCanvas();
     this.renderSide();
     this.apply();
+    this.confereHover();
     if (this.hover && !this.tip.hidden) this.mostrarTip(this.hover, this.ptr.x, this.ptr.y);
+  }
+
+  /**
+   * Depois de refazer a roda, o nó sob o cursor pode ter sido trocado pelo novo desenho, e o navegador não avisa a
+   * saída do nó antigo. Confere o que está sob o ponto do cursor e corrige o caminho aceso e o tooltip.
+   */
+  private confereHover(): void {
+    if (!this.hover) return;
+    const el = document.elementFromPoint(this.ptr.x, this.ptr.y);
+    const g = el?.closest<SVGGElement>('.gt-no');
+    const id = g && this.svg.contains(g) ? g.dataset.id : undefined;
+    if (id === this.hover) return;
+    this.hover = id;
+    if (!id) this.tip.hidden = true;
+    this.atualizarDestaque();
   }
 
   private renderHead(): void {

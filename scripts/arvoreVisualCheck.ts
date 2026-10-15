@@ -4,7 +4,7 @@
  * (a) Roda: todos os nós têm posição; nenhum nó cobre outro nó nem um medalhão; cada nó cabe dentro do aro.
  * (b) Setores: cada família fica na sua cunha (cor e ângulo da 15.webp); nós sem setor são o núcleo e as ligações.
  * (c) Nomes e ícones: a roda não escreve nomes (o nome vai para o painel e o tooltip). Cada nó comum, notável e de Mastery
- *     tem ícone, e todo ícone usado existe em public/.
+ *     tem ícone, e todo ícone usado (e a arte da roda: emblema, textura, aro e miolo) existe em public/.
  * (d) Caminho aceso: o caminho até um nó fechado é ligado, sem nó aberto no meio, e o custo é a soma dos nós.
  * (e) Tamanhos do desenho (34, 44, 46, 30 e 64 px) e dos ícones (comum com pelo menos 20 px).
  */
@@ -84,6 +84,9 @@ const arquivos = [...new Set(vm.nos.map((n) => n.icone).filter((a): a is string 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const faltando = arquivos.filter((a) => !existsSync(join(RAIZ, 'public', a)));
 ok(faltando.length === 0, `os ${arquivos.length} ícones usados existem em public/ (${faltando.length} faltando)`);
+const arteDaRoda = ['emblem.png', ARVORE_VISUAL.textura.pedra, 'ui/arvore/anel-roda.webp', 'ui/arvore/fundo-roda.webp'];
+const arteFaltando = arteDaRoda.filter((a) => !existsSync(join(RAIZ, 'public', a)));
+ok(arteFaltando.length === 0, `arte da roda existe em public/: emblema de Aurenthal, textura de pedra, aro e miolo (${arteFaltando.length} faltando)`);
 const contaComIcone = (t: string) => vm.nos.filter((n) => n.tipo === t && n.icone).length;
 console.log(`    nós com ícone: comum ${contaComIcone('comum')}, notável ${contaComIcone('notavel')}, Mastery ${contaComIcone('mastery')} (o caminho alternativo é só a forma)`);
 
