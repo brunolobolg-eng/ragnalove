@@ -993,3 +993,16 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   5. O Covil do Detarderus (também do Ato III) ficou de fora. Entra na lista `zonas` se for o caso.
   6. Ver no PC do dono: fluidez e visual no jogo real.
 - **Testes:** `npm run build`, `sim:check` (determinístico: true), `aura:check` e `cenario:check` passaram.
+## Krexx retorcido (goblinWarlord, mini-chefe do Passo da Geada) — branch krexx-retorcido-wf
+- **Pedido:** "o goblin warlord está todo bugado nas animações também" (o dono chama o Krexx retorcido de goblin warlord).
+- **Diagnóstico (medido no Chromium, com os estados disparados pela view e o quadro congelado, não no palpite):**
+  - **Causa:** o `goblin_warlord.glb` perdeu os dados das matrizes inversas de bind (IBM) na otimização (commit dd5cab8, mantido em a436443). O arquivo original (f66a5df) tem as 61 IBM. Sem elas, o loader recalcula o bind a partir da pose de repouso dos nós, que fica 0,84 unidade acima do bind real da malha. Resultado: a malha afundava (ponto mais baixo em -1,48 unidade, com os pés dos ossos em y=0) e cada junta girava em torno de um pivô 0,84 deslocado.
+  - **Parado, andar, ataque, magia e dano (antes):** malha enterrada, com ponto mais baixo entre -1,43 e -1,48 unidade (metade do corpo sob a neve). Braços e machado giravam em pivôs errados.
+  - **Morte (antes):** ponto mais baixo -1,23 em 0,3 s, -1,10 em 0,7 s e -0,33 em 1,2 s.
+- **Feito:** restauradas as 61 IBM do original no GLB atual (`bufferView` novo no buffer) e removidos os 190 accessors órfãos (195 para 6). A malha simplificada (45.562 vértices, 35.842 triângulos), a textura e os ossos ficam iguais. Antes, `scripts/auditar_glb.cjs` quebrava neste arquivo; agora roda. Sem mudança de código: o registro já usava `bind: 'ibm'`.
+- **Medido depois (unidades de modelo, ponto mais baixo da malha):** parado -0,18; andar -0,20 a -0,30; ataque -0,14 a -0,17; magia -0,15; dano -0,17 a -0,18; morte -0,02 a +0,09 nos primeiros 0,7 s. Cabeça e topo da malha a ~2,6 de mundo: o Krexx volta a ficar de pé no anel.
+- **Pendências:**
+  1. **Morte, 1,2 s:** no harness de captura (com o mesmo código) o ponto mais baixo chega a -1,05 e o quadril local cai para 0,12. Não reproduzido nas varreduras de dados (quatro sequências, com a morte começando de parado, andar, ataque, magia e dano): o ponto mais baixo fica entre -0,08 e -0,16. Não mexi no registro da morte sem medida confirmada. Conferir a morte no PC do dono e, se afundar, medir de novo no jogo.
+  2. Textura do Krexx continua JPG 2048; o auditor pede WebP de até 1024 px. Não mexida, por ser arte aprovada.
+  3. Os pés dos ossos ficam em y=0 (tornozelo), e a sola fica ~0,18 abaixo. É a convenção do loader para todo modelo com `bind: 'ibm'`; não mudada aqui.
+- **Testes:** `npm run build` (typecheck + build), `sim:check` (determinístico: true), `aura:check`. Capturas dos estados em `/tmp/claude-0/-home-user/4ff88cc6-6fa3-5e2c-bcc3-6df5759cbaa1/scratchpad/krexx/capturas`.
