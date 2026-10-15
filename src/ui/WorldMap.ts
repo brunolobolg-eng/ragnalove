@@ -279,7 +279,7 @@ export class WorldMap {
       <div class="win wm-card wm-party">
         <div class="win-title"><i class="au-ico"><img src="${kitIcon('ico_group')}" alt=""></i><span>Party</span><i class="dots"></i></div>
         <div class="win-body">
-          ${heroes}
+          <div class="wm-heroes">${heroes}</div>
           <div class="wm-bank"><span><i class="zeni-ico"></i>${s.zeni.toLocaleString('pt-BR')} Zen</span><span><i class="soul-ico"></i>${s.souls} almas</span>${s.cityMaxHp ? `<span class="wm-city ${s.cityHp! / s.cityMaxHp < 0.4 ? 'low' : ''}" title="Vida da cidade — repare no Templo das cidades">🏰 ${s.cityHp}/${s.cityMaxHp}</span>` : ''}</div>
           <div class="wm-btns"><button data-a="char">Personagem (C)</button><button data-a="skills">Habilidades (K)</button><button data-a="cards">Coleção 🃏</button></div>
           <button class="wm-abandon" data-a="abandon">Abandonar jornada</button>

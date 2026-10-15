@@ -1278,9 +1278,11 @@ function nightVM(report: WaveReport, title: string, items: Item[], before: Recor
   };
 }
 
-/** Relatório de exemplo para conferir a tela no desenvolvimento (só entra no __vg; fora do build de produção). */
-function reportPreview(): void {
+/** Relatório de exemplo para conferir a tela no desenvolvimento (só entra no __vg; fora do build de produção).
+ * `mortos` = quantos heróis do fim da lista caem: os botões seguem a mesma regra do fim de horda (Reviver + Seguir). */
+function reportPreview(mortos = 1): void {
   const ks = (Object.keys(PORTRAITS) as HeroKind[]).slice(0, 4);
+  const cai = (i: number) => i >= ks.length - mortos;
   const dmg = [5871, 2100, 900, 300];
   const r: WaveReport = {
     night: 6, victory: true, cityFallen: false,
@@ -1295,13 +1297,17 @@ function reportPreview(): void {
   const items = forms.map(([rarity, slot], i) => rollItem(debugRng, 0, `rep-${i}-${debugRng.int(1e9)}`, { rarity, slot }));
   const vm: NightReportVM = {
     title: 'Relatório da Noite 6', report: r, zeniBonus: 67, portraits: PORTRAITS,
-    heroes: ks.map((k, i) => ({ kind: k, level: 6 - (i % 2), leveled: i === 0, dead: i === 3, hp: i === 3 ? 0 : 60 - i * 12, maxHp: 70, exp: 0.3 + i * 0.15 })),
+    heroes: ks.map((k, i) => ({ kind: k, level: 6 - (i % 2), leveled: i === 0, dead: cai(i), hp: cai(i) ? 0 : 60 - i * 12, maxHp: 70, exp: 0.3 + i * 0.15 })),
     items,
     phase: { phase: 3, total: 5, region: 'Dunas Vermelhas', act: 'Ato I', node: 'horde' },
     bank: { zeni: 12345, souls: 678 },
     extraHtml: `<div class="unlock"><img src="${PORTRAITS[ks[1]] ?? ''}" alt=""><div><b>Nova classe desbloqueada: ${NAME_PT[ks[1]]}!</b><small>Disponível ao iniciar uma nova jornada.</small></div></div>`,
   };
-  resultModal.show(vm, [{ label: 'Continuar ➜', primary: true, onClick: () => resultModal.hide() }]);
+  const fecha = () => resultModal.hide();
+  const caidos = ks.filter((_, i) => cai(i));
+  const botoes: { label: string; primary?: boolean; onClick: () => void }[] = caidos.map((k) => ({ label: `Reviver ${NAME_PT[k]} (918 Zen)`, onClick: fecha }));
+  botoes.push(caidos.length ? { label: 'Seguir sem reviver', onClick: fecha } : { label: 'Continuar ➜', primary: true, onClick: fecha });
+  resultModal.show(vm, botoes);
 }
 
 /** Fim de onda: aplica EXP/níveis/almas/drops no perfil, coleta os itens do chão. Recompensa paga 1× por nó (paidKey); rejogar após crash mostra o relatório sem pagar de novo. */
@@ -2418,7 +2424,7 @@ if (desktopBalance)
 // No build de produção o Vite troca `import.meta.env.DEV` por `false`, este bloco
 // é eliminado e o módulo de debug não entra no pacote da Steam.
 if (import.meta.env.DEV) {
-  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, bastion: bastionSession, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview,
+  (window as unknown as { __vg: unknown }).__vg = { view, stage, audio, hud, get sim() { return sim; }, get run() { return run; }, bastion: bastionSession, enterBattle, openCity, openMap, completeNode, openSkills, openEvent, chooseNode, charSelect, bossCinematic, closeMenu: () => menu.close(), reportPreview, fimDaJornada: (vitoria = true) => showRunEnd(vitoria),
     // mapa do Último Bastião (só dev): grade nova em planejamento, sem horda, para conferir o cenário
     openBastionMap: () => { loadZone(ZONES[BASTION_ZONE_ID], { count: 0, boss: null, seed: 1 }); setMode('battle'); focusParty(true); },
     // qualquer zona (só dev), em planejamento e sem horda; `count` > 0 monta a horda de verdade (sim.start() para começar)

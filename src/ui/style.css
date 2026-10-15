@@ -789,7 +789,8 @@ body.cine #cine { pointer-events: auto; cursor: pointer; }
 .cw-voc-now b, .cw-voc-slot b { font: 700 13px Cinzel, Georgia, serif; color: var(--au-gold-hi); }
 .cw-voc-now span, .cw-voc-slot span { font: 11px Tahoma, sans-serif; color: var(--au-text); }
 .cw-voc-now small, .cw-voc-slot small { font: 10.5px Tahoma, sans-serif; color: var(--au-gold); }
-.cw-voc-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cw-voc-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cw-voc-slot { min-width: 0; }
 .cw-voc-slot .au-btn { align-self: flex-start; margin-top: 4px; }
 .cw-voc-slot.empty { opacity: 0.45; }
 /* bolsa: grade de quadros do kit, filtros em abas */
@@ -1291,13 +1292,13 @@ body.sand-warn #app::after { opacity: 0.12; }
   .hc, .nr-veil, .nr-card { animation: none; }
 }
 
-/* ---------- Relatório da Noite (depois de cada horda): visual primeiro, sem rolagem ---------- */
-.nr-veil { position: fixed; inset: 0; z-index: 65; display: flex; align-items: center; justify-content: center; padding: 16px; font-family: Tahoma, Verdana, sans-serif; color: #e9eefc;
+/* ---------- Relatório da Noite (depois de cada horda): visual primeiro; a janela só rola se o cartão não couber ---------- */
+.nr-veil { position: fixed; inset: 0; z-index: 65; display: flex; overflow: auto; padding: 16px; font-family: Tahoma, Verdana, sans-serif; color: #e9eefc;
   background: radial-gradient(ellipse at 50% 40%, rgba(10, 14, 34, 0.35), rgba(4, 6, 16, 0.82) 75%); backdrop-filter: blur(2px) saturate(1.1); animation: nrIn .22s ease-out; }
 .nr-veil[hidden] { display: none; }
 @keyframes nrIn { from { opacity: 0; } }
 .nr-veil button { font: inherit; cursor: pointer; }
-.nr-card { position: relative; width: min(680px, 100%); max-height: 100%; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 14px 24px 14px; animation: nrUp .28s ease-out; }
+.nr-card { position: relative; width: min(680px, 100%); margin: auto; flex: none; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 14px 24px 14px; animation: nrUp .28s ease-out; }
 @keyframes nrUp { from { transform: translateY(14px) scale(.985); opacity: 0; } }
 .nr-head { display: flex; align-items: center; justify-content: center; gap: 12px; }
 .nr-head h2 { margin: 0; font-family: 'Cinzel Decorative', Cinzel, serif; font-size: 24px; letter-spacing: 1px; color: #fff3d6; text-shadow: 0 2px 6px #000, 0 0 16px rgba(255, 211, 106, 0.25); }
@@ -1358,19 +1359,21 @@ body.sand-warn #app::after { opacity: 0.12; }
 .nr-extra .unlock small { display: block; font-size: 11px; color: #a9b4d8; }
 .nr-extra .run-sum { margin: 0; padding-left: 18px; color: #e9eefc; font-size: 12px; }
 .nr-extra .warn { margin: 0; font-size: 12px; color: #ffb08a; }
-/* rodapé: fase e banco à esquerda, botões à direita */
-.nr-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 2px; }
-.nr-phase { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+/* rodapé: fase e banco numa linha; os botões descem para a linha de baixo, centralizados */
+.nr-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 12px; padding-top: 2px; }
+.nr-phase { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; font-size: 13px; }
 .nr-phase img { width: 34px; height: 34px; border-radius: 8px; box-shadow: 0 0 0 2px var(--nc), 0 0 10px color-mix(in srgb, var(--nc) 50%, transparent); }
 .nr-phase > b { font-family: Cinzel, serif; color: #fff3d6; }
-.nr-dots { display: flex; gap: 4px; }
+.nr-dots { display: flex; flex-wrap: wrap; gap: 4px; }
 .nr-dots i { width: 9px; height: 9px; border-radius: 50%; background: #1b2550; box-shadow: inset 0 0 0 1px #6f7fb8; }
 .nr-dots i.done { background: radial-gradient(circle at 35% 35%, #7fb0ff, #2a56c8); }
 .nr-dots i.now { background: radial-gradient(circle at 35% 35%, #fff2b0, #e2a52a); box-shadow: 0 0 8px #ffb02e; }
 .nr-bank { display: flex; align-items: center; gap: 6px; margin-left: 4px; font-family: Cinzel, serif; font-size: 13px; color: #fff3d6; }
 .nr-bank .zeni-ico, .nr-bank .soul-ico { width: 18px; height: 18px; }
-.nr-btns { display: flex; gap: 10px; }
-.nr-go { min-width: 200px; padding: 10px 26px !important; font-size: 15px !important; }
+/* botões: dividem a linha; quando não cabem, quebram para a linha de baixo e o texto desce de linha (nunca corta) */
+.nr-btns { display: flex; flex: 1 1 100%; flex-wrap: wrap; justify-content: center; gap: 8px 10px; min-width: 0; }
+.nr-btns .au-btn { flex: 1 1 150px; max-width: 280px; min-width: 0; white-space: normal; line-height: 1.25; text-align: center; padding: 8px 12px; }
+.nr-go { padding: 9px 16px !important; font-size: 14px !important; }
 .nr-go i { font-style: normal; margin-left: 6px; }
 @media (max-height: 760px) {
   .nr-card { gap: 9px; padding: 12px 18px; }
@@ -1380,7 +1383,21 @@ body.sand-warn #app::after { opacity: 0.12; }
   .nr-stat b { font-size: 17px; }
   .nr-loot .au-slot, .nr-more { width: 52px; height: 52px; }
 }
-@media (max-width: 720px) { .nr-stats { grid-template-columns: repeat(2, 1fr); } .nr-foot { flex-wrap: wrap; } }
+@media (max-width: 720px) { .nr-stats { grid-template-columns: repeat(2, 1fr); } }
+/* celular: cartão e espaços menores; a composição da cidade vira colunas mais estreitas (a barra não estoura) */
+@media (max-width: 520px) {
+  .nr-veil { padding: 8px; }
+  .nr-card { padding: 12px 12px; gap: 10px; }
+  .nr-head h2 { font-size: 19px; }
+  .nr-stat b { font-size: 17px; }
+  .nr-party { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .nr-pic { width: 54px; height: 54px; }
+  .nr-hero > b { font-size: 12px; }
+  .nr-city { grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: 6px 8px; padding: 14px 10px 8px; }
+  .nr-num { min-width: 44px; }
+  .nr-num b { font-size: 17px; }
+  .nr-loot .au-slot, .nr-more { width: 50px; height: 50px; }
+}
 @media (prefers-reduced-motion: reduce) { .nr-veil, .nr-card { animation: none; } }
 
 /* =====================================================================
@@ -1972,7 +1989,7 @@ body.sand-warn #app::after { opacity: 0.12; }
 
 /* ---------- Seleção de personagem no Aurenthal Kit: painel com moldura da arte e botões do kit ---------- */
 .charselect .cs-detail { border: 16px solid transparent; border-radius: 0; border-image: var(--kit-panel_wide) var(--kit-panel_wide-s, 40) / 16px stretch;
-  background: linear-gradient(180deg, var(--au-bg1), var(--au-bg2)); padding: 8px 14px; height: clamp(250px, 34vh, 320px);
+  background: linear-gradient(180deg, var(--au-bg1), var(--au-bg2)); padding: 8px 14px; height: clamp(250px, 38vh, 340px);
   box-shadow: 0 0 36px color-mix(in srgb, var(--c) 30%, transparent), 0 18px 40px rgba(0, 0, 0, 0.6); }
 .charselect .cs-actions .au-btn { font-size: 14px; }
 
@@ -2140,7 +2157,8 @@ body.sand-warn #app::after { opacity: 0.12; }
 /* ---------- Party no mapa: o reviver fica na linha do próprio cartão (nada sobre os outros botões); com 3 membros a lista rola dentro do painel ---------- */
 .worldmap .wm-hero { flex-wrap: wrap; row-gap: 4px; }
 .worldmap .wm-hero button { position: static; flex: 0 0 100%; margin: 0; padding: 4px 8px; font-size: 11px; }
-.worldmap .wm-party .win-body { max-height: min(58vh, 520px); overflow-y: auto; padding-right: 6px; }
+/* só a lista de heróis rola (com 6 membros); o rodapé do painel (Zen, Personagem, Habilidades, Coleção, Abandonar) fica sempre visível */
+.worldmap .wm-party .wm-heroes { display: flex; flex-direction: column; gap: 8px; max-height: min(46vh, 430px); overflow-y: auto; padding-right: 6px; }
 .worldmap .wm-party .wm-hero { padding: 5px 7px; }
 .worldmap .wm-party .wm-hero .wm-pic { width: 44px; height: 44px; }
 
@@ -2209,7 +2227,8 @@ body.sand-warn #app::after { opacity: 0.12; }
 /* ---------- Polimento de tela (pente fino): mapa no celular e cartões de caminho sob as janelas ---------- */
 /* celular (até 760 px): o mapa-múndi vira uma coluna que rola inteira — mapa, caminhos e painéis, nesta ordem. Nada fica sobre nada. */
 @media (max-width: 760px) {
-  .worldmap { display: flex; flex-direction: column; align-items: stretch; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px 28px; gap: 12px; }
+  /* a base do painel fica acima dos botões de som/tela (.sysbar, fixos no canto): o fim da rolagem não fica escondido atrás deles */
+  .worldmap { display: flex; flex-direction: column; align-items: stretch; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px 64px; gap: 12px; }
   .worldmap > * { flex: none; min-width: 0; }
   .worldmap .wm-frame { flex: none; }
   .worldmap .wm-title { margin: 0 0 6px 2px; font-size: 20px; flex-wrap: wrap; }
@@ -2225,7 +2244,7 @@ body.sand-warn #app::after { opacity: 0.12; }
   .worldmap .wm-node small { font-size: 11px; }
   .worldmap .wm-node:hover { transform: none; }
   .worldmap .wm-panel { overflow: visible; width: 100%; min-width: 0; }
-  .worldmap .wm-party .win-body { max-height: none; overflow: visible; }
+  .worldmap .wm-party .wm-heroes { max-height: none; overflow: visible; }
   .worldmap .wm-choices.folded .wm-ch-head b { font-size: 18px; }
 }
 
@@ -2293,4 +2312,22 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
   .hc-big { height: 80px; }
   .hc-big svg { width: 34px; height: 34px; }
   .hc-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+}
+
+/* escolha de herói no celular (até 760 px): a fileira de cartas rola na horizontal dentro da tela;
+   o detalhe vira duas colunas (retrato + texto) com as habilidades embaixo; o chibi some para caber */
+@media (max-width: 760px) {
+  .charselect .cs-motto { font-size: 12px; max-width: 46vw; margin-right: 12px; }
+  .charselect .cs-title h1 { font-size: 22px; }
+  .charselect .cs-title p { font-size: 11px; }
+  .charselect .cs-cards { top: 118px; left: 0; right: 0; transform: none; justify-content: flex-start; gap: 10px; padding: 14px 16px 12px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; scrollbar-width: none; }
+  .charselect .cs-cards::-webkit-scrollbar { display: none; }
+  .charselect .cs-cards > * { flex: none; scroll-snap-align: center; }
+  .charselect .cs-detail { grid-template-columns: 104px minmax(0, 1fr); width: calc(100vw - 24px); height: auto; bottom: 104px; padding: 10px; gap: 10px; }
+  .charselect .cs-detail .cs-big { width: 100%; height: auto; }
+  .charselect .cs-detail .cs-big b { font-size: 15px; }
+  .charselect .cs-detail > .cs-chibi { display: none; }
+  .charselect .cs-detail > .cs-skills { grid-column: 1 / -1; padding: 8px 0 0; border-left: 0; border-top: 1px solid rgba(232, 200, 110, 0.25); }
+  .charselect .cs-actions { right: 12px; bottom: 52px; }
+  .charselect .cs-actions .au-btn { white-space: nowrap; font-size: 12px; padding: 8px 12px; }
 }
