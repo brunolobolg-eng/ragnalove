@@ -14,6 +14,8 @@ export interface WeaponAttach {
   accent?: number;
   /** inclina a arma (graus, em volta do X da mão): + leva a ponta de +Z para baixo */
   tilt?: number;
+  /** rotação completa da arma no osso (graus, XYZ); vence `tilt`. Para um GLB cujo osso da mão tem outro descanso. */
+  rot?: [number, number, number];
   /** tamanho da arma (1 = padrão) */
   scale?: number;
   /** posição no osso da mão (x, y, z); padrão: um pouco para dentro da palma (y = -0.035) */
@@ -197,7 +199,8 @@ export function attachWeapon(bones: Map<string, THREE.Bone>, w: WeaponAttach): T
       : w.type === 'greatsword' ? greatsword(accent)
       : w.type === 'shield' ? shield(accent)
       : dagger(accent);
-  if (w.tilt) mesh.rotation.x = (w.tilt * Math.PI) / 180;
+  if (w.rot) mesh.rotation.set((w.rot[0] * Math.PI) / 180, (w.rot[1] * Math.PI) / 180, (w.rot[2] * Math.PI) / 180);
+  else if (w.tilt) mesh.rotation.x = (w.tilt * Math.PI) / 180;
   if (w.scale) mesh.scale.setScalar(w.scale);
   // padrão: um pouco para dentro da palma
   mesh.position.set(...(w.pos ?? [0, -0.035, 0]));

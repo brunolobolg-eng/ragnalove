@@ -951,3 +951,15 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - Investida e Teleportar movem a vocação de uma vez (sem animação de caminhada).
 - **Save:** só campos novos e aditivos (ids de habilidade e a vocação já existente). Saves antigos abrem igual; a migração põe o básico da vocação, se faltar.
 - **Pendências:** conferir no PC do dono a árvore (tecla K) e as lutas com Crusado e Hypnomancer; a escolha do tile da Instalar Armadilha (caminho da horda) só se verifica no jogo, porque a arena de teste não tem cidade; os números são a primeira versão (rodar balanceamento); a Dev Lab (aba SKILLS) e "Desbloquear árvore" ainda não mostram as habilidades das vocações.
+
+## Escudo e espada do Crusado — branch crusado-escudo
+- **Pedido:** "o ataque e a maneira como o Crusado segura o escudo ficaram estranhos".
+- **Diagnóstico (medido no bind dos dois GLB, não no palpite):** o `crusado.glb` tem outro descanso do osso da mão. Com o mesmo offset do Guerreiro, a face do escudo ficava 63° fora da dele (apontava para cima) e a lâmina 25° a 35° fora. Os clipes são os mesmos do Guerreiro; a diferença é o descanso da mão.
+- **Feito:** `weapons.ts` ganhou `rot` opcional (rotação completa da arma no osso, vence `tilt`). Em `visualConfig.ts`, a entrada `crusado` usa `rot` no escudo ([-40, -50, -30]) e na espada ([-130, -30, 40]), alinhados à pegada do Guerreiro em andar, golpe e investida. Guerreiro sem mudança (não usa `rot`).
+- **Verificado:** `npm run build`, `sim:check` (determinístico: true), `bastion:check`, `aura:check`. Screenshots de perto (de frente e de lado) numa página de teste standalone, sem a tela do jogo.
+- **Pendências:**
+  1. No golpe, a mão do Crusado fica na altura do capacete (o Guerreiro, na do peito): o modelo tem ombros e braços um pouco mais altos e longos. Corrigir pede clipe próprio do Crusado (não feito).
+  2. A luva do Crusado segura a borda inferior do escudo, não o centro (não ajustado).
+  3. Conferir no jogo com a vocação Crusado (não feito: a verificação foi standalone).
+  4. No parado, o escudo do Guerreiro aparece de perfil (de frente ele é uma tábua). Agora o do Crusado também. Se o dono quer a face para a frente, é decisão de design para os dois.
+- **Testes:** `npm run build`, `sim:check` (determinístico: true), `bastion:check`, `aura:check`.

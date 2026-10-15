@@ -272,7 +272,7 @@ export interface MonsterModelVisual {
    */
   themeColors?: Record<string, string[]>;
   /** Armas presas nos ossos da mão (para modelos que vêm de mãos vazias); accent = cor do brilho. */
-  weapons?: { type: 'bow' | 'dagger' | 'axe' | 'sword' | 'greatsword' | 'shield'; bone: string; accent?: number; tilt?: number; scale?: number; pos?: [number, number, number] }[];
+  weapons?: { type: 'bow' | 'dagger' | 'axe' | 'sword' | 'greatsword' | 'shield'; bone: string; accent?: number; tilt?: number; rot?: [number, number, number]; scale?: number; pos?: [number, number, number] }[];
 }
 
 /**
@@ -338,9 +338,12 @@ export const HERO_MODELS: Record<string, MonsterModelVisual> = {
     // espada na mão direita: punho no centro da palma, lâmina inclinada para a frente (-120°); escudo na esquerda
     weapons: [{ type: 'sword', bone: 'RightHand', accent: 0xffd67a, tilt: -120, pos: [0, 0.07, 0] }, { type: 'shield', bone: 'LeftHand', accent: 0xffd67a }],
   },
-  // Crusado (2ª vocação do Guerreiro): mesmo esqueleto e a mesma espada e escudo do guerreiro; modelo do dono otimizado
+  // Crusado (2ª vocação do Guerreiro): mesmo esqueleto e a mesma espada e escudo do guerreiro; modelo do dono otimizado.
+  // O descanso da mão deste GLB é outro: sem ajuste, a face do escudo ficava 63° fora da do guerreiro (ponta para cima) e a
+  // lâmina 25° a 35° fora. As rotações abaixo alinham escudo e espada à pegada do guerreiro no parado, no andar, no golpe e
+  // na investida (cosseno da face/lâmina em relação ao guerreiro: de 0,46 e 0,85 para 1,00 e 0,99; medido no bind dos dois GLB).
   crusado: { file: 'models/crusado.glb', height: 1.95, walkRate: 1, ghost: [0.35, 1.25, 1.0], clips: 'warriorUAL', bind: 'ibm',
-    weapons: [{ type: 'sword', bone: 'RightHand', accent: 0xffd67a, tilt: -120, pos: [0, 0.07, 0] }, { type: 'shield', bone: 'LeftHand', accent: 0xffd67a }],
+    weapons: [{ type: 'sword', bone: 'RightHand', accent: 0xffd67a, rot: [-130, -30, 40], pos: [0, 0.07, 0] }, { type: 'shield', bone: 'LeftHand', accent: 0xffd67a, rot: [-40, -50, -30] }],
   },
   // Cléria (arte do jogador → 3D): cajado com cristal e livro; animações da Maga
   mage: { file: 'models/cleria.glb', height: 1.9, walkRate: 1, ghost: [0.55, 0.8, 1.6], clips: 'mage' },
