@@ -2152,8 +2152,8 @@ body.sand-warn #app::after { opacity: 0.12; }
 .worldmap .wm-choices { padding: 16px 20px; }
 .worldmap .wm-ch-head span { color: var(--au-gold-hi); }
 /* três ações lado a lado na largura do painel: moldura mais fina, texto menor e quebra de linha */
-.worldmap .wm-btns { gap: 5px; }
-.worldmap .wm-btns button { flex: 1 1 0; min-width: 0; --bw: 6px; padding: 5px 2px; font-size: 10px; line-height: 1.15; white-space: normal; }
+.worldmap .wm-btns { gap: 5px; display: grid; grid-template-columns: 1fr 1fr; }
+.worldmap .wm-btns button { flex: 1 1 0; min-width: 0; --bw: 6px; padding: 5px 4px; font-size: 10px; line-height: 1.15; white-space: normal; }
 /* ---------- Party no mapa: o reviver fica na linha do próprio cartão (nada sobre os outros botões); com 3 membros a lista rola dentro do painel ---------- */
 .worldmap .wm-hero { flex-wrap: wrap; row-gap: 4px; }
 .worldmap .wm-hero button { position: static; flex: 0 0 100%; margin: 0; padding: 4px 8px; font-size: 11px; }
@@ -2338,7 +2338,7 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
  * .au-sec, .au-h e .au-price. Rede em SVG; zoom e pan suaves; a forma diz o tipo do nó, a cor a região
  * e o brilho/estado diz se está aberto, disponível, sem pontos ou bloqueado.
  * ===================================================================== */
-.gt-veil { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 12px; box-sizing: border-box;
+.gt-veil { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 12px; box-sizing: border-box;
   background: radial-gradient(ellipse at 50% 45%, rgba(8, 12, 30, 0.45), rgba(4, 6, 16, 0.86) 75%); backdrop-filter: blur(1.5px);
   font-family: Tahoma, Verdana, sans-serif; color: var(--au-text); }
 .gt-veil[hidden], .gt-bar[hidden], .gt-reset-btn[hidden] { display: none !important; }
@@ -2365,7 +2365,7 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 10px; padding: 8px 6px 6px; box-sizing: border-box; }
 .gt-canvas { position: relative; min-height: 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(199, 157, 72, 0.4);
   background: radial-gradient(ellipse at 50% 45%, #14204a 0%, #070b1c 75%); }
-.gt-svg { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; user-select: none; }
+.gt-svg { position: absolute; left: 0; top: 52px; width: 100%; height: calc(100% - 52px); display: block; cursor: grab; touch-action: none; user-select: none; }
 .gt-svg:active { cursor: grabbing; }
 .gt-zoom { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; }
 .gt-zoom .au-btn { padding: 5px 10px; font-size: 13px; min-width: 36px; }
@@ -2476,3 +2476,12 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 /* Mapa: quatro botões da party em grade de 2 colunas (com quatro em uma linha, os rótulos saem da caixa) */
 .worldmap .wm-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .worldmap .wm-btns button { flex: none; min-width: 0; }
+
+/* Árvore Global (100+ nós): filtro por categoria, nomes com zoom, pendências */
+.gt-filtros { position: absolute; left: 10px; top: 8px; right: 170px; display: flex; flex-wrap: wrap; gap: 5px; z-index: 2; }
+.gt-filtros .au-btn { padding: 4px 9px; font-size: 11px; }
+.gt-no.dim { opacity: 0.16; }
+.gt-lbl { opacity: 0; }
+.gt-world.gt-lbl-on .gt-lbl, .gt-no.sel .gt-lbl, .gt-no:hover .gt-lbl { opacity: 1; }
+.gt-pend { margin: 8px 0 0; padding: 6px 10px 6px 24px; border-radius: 8px; background: rgba(40, 30, 10, 0.5); border: 1px dashed rgba(199, 157, 72, 0.6); color: #e8d6a0; font-size: 11px; }
+.gt-pend li { margin: 2px 0; }

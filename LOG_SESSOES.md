@@ -1040,3 +1040,26 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - `arvore:save:check` (31: save v1 da jornada e do bastião abre, status iguais, migração idempotente, árvore corrompida consertada).
   - `arvore:combate:check` (24: cada efeito com e sem Mastery, limiar na fronteira, uma vez por batalha, perfil até a simulação, onda inteira com as regras ativas).
   - Chromium (dev, porta 5671): compra, prévia de custo, cancelamento sem gasto, atribuição, recusa de herói não elegível, zoom, arraste, reorganização cancelada e confirmada, Esc e 1280×720 sem erro de console. Varredura `ui:fora-da-tela` do mapa: 0 problemas (antes da grade de botões eram 12).
+
+
+## Árvore Global — 100+ nós, árvore no meta (protótipo, branch arvore-global-proto)
+
+- **Escopo do dono:** árvore com pelo menos 100 nós em seis categorias: progressão geral (21), campanha (16),
+  Bastião (16), combate geral (25), Masteries táticas (18) e notáveis/caminhos de ligação (15). Total: 111 nós.
+- **Árvore no save de meta:** decisão do dono. A árvore persiste entre jornadas e não zera na derrota. Ela fica em
+  `MetaStats.arvore` (save `meta`). Jornada e Bastião só carregam uma referência em memória; o save de jornada e o
+  do Bastião não guardam a árvore. Saves antigos com árvore na jornada são adotados pelo meta na primeira abertura.
+- **Custo dos nós:** continua em pontos de árvore (1 por nível de personagem). Ponto único de decisão para o custo
+  em Zen: `custoDoNo` em `src/config/arvoreGlobal.ts`. O dono decide junto com o balanceamento.
+- **Economia (tetos em config):** EXP em combate 30%, almas 25%, Zen por tipo de nó 25% cada (horda, elite, chefe,
+  sobrevivência), pontos de habilidade +1 por nível (teto 1), recrutas +nível (teto 3), descontos nas cidades 20%,
+  reparo da muralha 25%, itens extras na loja (teto 2), construção do Bastião 25%, reparo do Bastião 30%, muralha
+  +30%, Zen por noite +20 (teto).
+- **Sem gancho ainda (14 nós, valor em zero):** Zen de eventos, Zen da cidade, recompensa da cidade, escolhas extras
+  em eventos, portão do Bastião, blocos de construção e limite de peças. Motivos na config (`ARVORE_ECONOMIA`).
+- **Interpretações a confirmar:** "velocidade de ataque" = Skill Haste (o único acelerador); "recrutas extras" =
+  níveis extras ao recrutar; "sorte de loja" = itens extras no estoque. Não há bônus de chance de drop.
+- **Masteries:** 18, três por família (seis famílias), cada uma com efeito de combate verificado. Cada Mastery vai
+  para um personagem.
+- **Testes:** `arvore:check` (99), `arvore:combate:check` (45), `arvore:save:check` (44). Simulação, aura, Bastião,
+  vocações, cenário e build passam; a saída de `sim:check` continua igual à de antes da árvore.

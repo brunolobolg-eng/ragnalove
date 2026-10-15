@@ -9,7 +9,7 @@
  * (g) Sem duplicar nem residual: nó repetido em save conta uma vez; Mastery sem o nó aberto não vale.
  * (h) Efeito real: nó aberto muda heroStats; reorganizar devolve exatamente os status de antes.
  */
-import { ARVORE_CONFIG, MASTERY_BY_ID, NOS, type MasteryId } from '../src/config/arvoreGlobal';
+import { ARVORE_CAPS_COMBATE, ARVORE_CAP_ATRIBUTO, ARVORE_CONFIG, ARVORE_ECONOMIA, CATEGORIA_IDS, ECO_KEYS, MASTERY_BY_ID, NOS, nosPorCategoria, type MasteryId } from '../src/config/arvoreGlobal';
 import {
   BLOQUEIO_COMBATE,
   alcancavel,
@@ -30,10 +30,15 @@ import {
   textoBonus,
   validarArvore,
   vizinhos,
+  economiaDoPerfil,
   type ArvoreHost,
 } from '../src/core/progression/arvore';
 import { createProfile, heroStats, type Profile } from '../src/core/progression/profile';
-import { newRun } from '../src/core/run/run';
+import { newRun, precoMult, priceMult, repairCost, shopStock, unlockHero } from '../src/core/run/run';
+import { newBastion, structureMaxHp } from '../src/core/bastion/bastion';
+import { buildCostOf } from '../src/core/bastion/rules';
+import { emptyCollection } from '../src/core/progression/cards';
+import { GAME_CONFIG } from '../src/config/gameConfig';
 import type { HeroKind } from '../src/core/progression/skills';
 
 let falhas = 0;
@@ -58,7 +63,7 @@ const semErro = (erros: (string | undefined)[]) => erros.every((e) => e === unde
 // ---------------- (a) desenho ----------------
 const erros = validarArvore();
 check('desenho válido (validarArvore sem erros)', erros.length === 0, erros.join('; '));
-check('16 a 20 nós na árvore', NOS.length >= 16 && NOS.length <= 20, `${NOS.length} nós`);
+check('100 ou mais nós na árvore', NOS.length >= 100, `${NOS.length} nós`);
 const tipos = (t: string) => NOS.filter((n) => n.tipo === t).length;
 check('tem comuns, notáveis, caminhos alternativos e pontos de Mastery', tipos('comum') > 0 && tipos('notavel') > 0 && tipos('caminho') > 0 && tipos('mastery') > 0, `comum ${tipos('comum')} · notável ${tipos('notavel')} · caminho ${tipos('caminho')} · mastery ${tipos('mastery')}`);
 check('três Masteries táticas, cada uma com ponto próprio', ['barreiraDeContencao', 'golpeDeMisericordia', 'pressaoTatica'].every((id) => MASTERY_BY_ID[id] && NOS.some((n) => n.mastery === id)));
@@ -266,6 +271,98 @@ check('pontos = (nível − 1) por herói, somados', pontosTotais(pNiv) === 4 + 
   check('estado: nó ligado sem ponto é "sem-pontos"', (comprarNo(p, 'vigorDoReino'), estadoNo(p, 'escudoAntigo')) === 'sem-pontos');
   check('estado: depois de abrir vira "aberto"', estadoNo(p, 'vigorDoReino') === 'aberto');
   check('estado: nó desconhecido é "bloqueado"', estadoNo(p, 'naoExiste') === 'bloqueado');
+}
+
+// ---------------- (j) categorias, tetos, crítico separado e economia ----------------
+{
+  const porCat = nosPorCategoria();
+  const faltando = CATEGORIA_IDS.filter((c) => porCat[c] === 0);
+  check('seis categorias com nós (progressão, campanha, bastião, combate, masteries, ligação)', CATEGORIA_IDS.length === 6 && faltando.length === 0, CATEGORIA_IDS.map((c) => `${c} ${porCat[c]}`).join(' · '));
+  check('total de nós bate com a soma das categorias', CATEGORIA_IDS.reduce((s, c) => s + porCat[c], 0) === NOS.length);
+  check('notáveis e caminhos (ligação) existem em número', NOS.filter((n) => n.categoria === 'ligacao').length >= 12);
+  const ligados = NOS.filter((n) => n.categoria === 'ligacao').every((n) => vizinhos(n.id).length >= 2);
+  check('cada caminho alternativo liga pelo menos dois nós', ligados);
+}
+{
+  // tetos: nenhum nó passa do teto da economia nem dos caps de combate (validarArvore), e a economia com a árvore inteira aberta respeita os tetos
+  const todos = NOS.filter((n) => n.tipo !== 'raiz').map((n) => n.id);
+  const h = createProfile();
+  h.heroes.warrior.level = 99;
+  h.arvore = { comprados: todos, masteries: {}, reorganizacoes: 0 };
+  const eco = economiaDoPerfil(h);
+  const estourou = ECO_KEYS.filter((k) => eco[k] > ARVORE_ECONOMIA[k].teto);
+  check('economia com a árvore inteira aberta respeita o teto de cada bônus', estourou.length === 0, estourou.join(', ') || 'ok');
+  const pendentesAtivos = ECO_KEYS.filter((k) => !ARVORE_ECONOMIA[k].ligado && eco[k] !== 0);
+  check('bônus sem gancho (pendentes) ficam em zero na economia', pendentesAtivos.length === 0);
+  const tetosDeCombate = (['warrior', 'mage', 'archer', 'sorcerer', 'warlock', 'assassin'] as const).every((k) => {
+    const b = bonusDoHeroi(h, k);
+    const passivaOk = (Object.keys(b.passiva) as (keyof typeof ARVORE_CAPS_COMBATE)[]).every((p) => (b.passiva[p] ?? 0) <= ARVORE_CAPS_COMBATE[p] + 1e-9);
+    const attrOk = (Object.values(b.attrs) as number[]).every((v) => v <= ARVORE_CAP_ATRIBUTO);
+    return passivaOk && attrOk;
+  });
+  check('bônus de combate respeitam os caps de passiva e de atributo para todos os personagens', tetosDeCombate);
+  check('teto de cada economia é positivo e existe na tabela', ECO_KEYS.every((k) => ARVORE_ECONOMIA[k].teto > 0));
+  check('tetos de combate são frações entre 0 e 1 (ou 0,5 para dano crítico)', Object.values(ARVORE_CAPS_COMBATE).every((v) => v > 0 && v <= 1));
+}
+{
+  // crítico (chance) e dano crítico são separados; velocidade de ataque é só Skill Haste
+  const comCrit = NOS.filter((n) => n.bonus.crit !== undefined && n.bonus.critDano !== undefined);
+  check('nenhum nó mistura chance de crítico e dano crítico', comCrit.length === 0);
+  const laminas = NOS.find((n) => n.id === 'laminaPrecisa');
+  check('Lâmina Precisa dá dano crítico (não chance)', laminas?.bonus.critDano !== undefined && laminas.bonus.crit === undefined);
+  const ritmo = NOS.find((n) => n.id === 'ritmoDeBatalha');
+  check('Ritmo de Batalha acelera pelo Skill Haste (único acelerador)', ritmo?.bonus.haste !== undefined && Object.keys(ritmo.bonus).length === 1);
+}
+{
+  // economia ligada: a escolha de um nó de Zen/EXP/pontos aparece no cálculo
+  const h = createProfile();
+  h.heroes.warrior.level = 9;
+  h.zeni = 500;
+  h.arvore = { comprados: ['estudoDeCampo'], masteries: {}, reorganizacoes: 0 };
+  check('EXP em combate: nó aberto soma +3%', Math.abs(economiaDoPerfil(h).expCombate - 0.03) < 1e-9);
+  check('pontos de habilidade só valem se o nó estiver aberto (zero antes)', economiaDoPerfil(createProfile()).pontosHabilidade === 0);
+  h.arvore = { comprados: ['treinoAcelerado'], masteries: {}, reorganizacoes: 0 };
+  check('Treino Acelerado dá +1 ponto de habilidade por nível', economiaDoPerfil(h).pontosHabilidade === 1);
+}
+{
+  // a economia chega às regras de verdade (run: reparo, recrutas, loja; bastião: custo, reparo, muralha)
+  const r = newRun('warrior', 555);
+  r.profile.zeni = 1000;
+  const reparoAntes = repairCost(r, 40);
+  r.profile.arvore = { comprados: ['reparoAgil', 'maosHabeis'], masteries: {}, reorganizacoes: 0 };
+  const reparoDepois = repairCost(r, 40);
+  r.profile.arvore = { comprados: ['olhoDeMercador'], masteries: {}, reorganizacoes: 0 };
+  check('Olho de Mercador: preço da cidade 3% mais barato (precoMult < priceMult)', Math.abs(precoMult(r) - priceMult(r) * 0.97) < 1e-9, `${precoMult(r).toFixed(4)} vs ${(priceMult(r) * 0.97).toFixed(4)}`);
+  r.profile.arvore = { comprados: ['reparoAgil', 'maosHabeis'], masteries: {}, reorganizacoes: 0 };
+  check('reparo da muralha fica mais barato com os nós de reparo (−10%)', reparoDepois < reparoAntes && Math.abs(reparoDepois / reparoAntes - 0.9) < 0.03, `${reparoAntes} -> ${reparoDepois}`);
+  const niveis = { ...r.profile.heroes };
+  r.party = ['warrior'];
+  r.profile.heroes.warrior.level = 5;
+  r.profile.heroes.mage.level = 1;
+  r.profile.arvore = { comprados: ['recrutaPromissor'], masteries: {}, reorganizacoes: 0 };
+  unlockHero(r, 'mage');
+  check('recruta entra com +1 nível pelo nó Recruta Promissor', r.profile.heroes.mage.level === 6, `nível ${r.profile.heroes.mage.level}`);
+  void niveis;
+  r.party = ['warrior'];
+  r.profile.heroes.mage.level = 1;
+  r.profile.arvore = { comprados: [], masteries: {}, reorganizacoes: 0 };
+  r.party = ['warrior'];
+  unlockHero(r, 'mage');
+  check('sem o nó, o recruta entra no nível do grupo', r.profile.heroes.mage.level === 5, `nível ${r.profile.heroes.mage.level}`);
+  r.profile.arvore = { comprados: ['vitrineCheia'], masteries: {}, reorganizacoes: 0 };
+  r.shop = undefined;
+  check('Vitrine Cheia: a loja tem um item a mais', shopStock(r).length === GAME_CONFIG.city.shopStock + 1, `${shopStock(r).length} itens`);
+}
+{
+  const b = newBastion(7, emptyCollection());
+  // a torre (120 de Zen) mostra o desconto; a muralha (5 de Zen) arredonda de volta para 5 (limitação registrada)
+  const base = buildCostOf(b, 'tower');
+  b.profile.arvore = { comprados: ['pedreiroDeOficio'], masteries: {}, reorganizacoes: 0 };
+  check('Pedreiro de Ofício: torre mais barata no Bastião', buildCostOf(b, 'tower') < base, `${base} -> ${buildCostOf(b, 'tower')}`);
+  const hpAntes = structureMaxHp(b, { kind: 'wall', level: 1 });
+  b.profile.arvore = { comprados: ['argamassaForte'], masteries: {}, reorganizacoes: 0 };
+  check('Argamassa Forte: muralha com mais vida no Bastião', structureMaxHp(b, { kind: 'wall', level: 1 }) > hpAntes, `${hpAntes} -> ${structureMaxHp(b, { kind: 'wall', level: 1 })}`);
+  check('a torre não recebe o bônus de muralha', structureMaxHp(b, { kind: 'tower', level: 1 }) === structureMaxHp(newBastion(7, emptyCollection()), { kind: 'tower', level: 1 }));
 }
 
 console.log(`\n${total - falhas}/${total} ok${falhas ? ` · ${falhas} FALHA(S)` : ''}`);

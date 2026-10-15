@@ -7,7 +7,8 @@
  * (e) Árvore corrompida ou editada: o que é inválido sai, o que é válido fica (requisito de ligação, Mastery, limite).
  * (f) Bastião com Profile v1 abre e vira v2.
  */
-import { arvoreVazia, normalizarArvore, pontosTotais, atribuirMastery, comprarNo, reorganizarArvore } from '../src/core/progression/arvore';
+import { anexarArvore, arvoreDoMeta, arvoreVazia, bonusDoHeroi, normalizarArvore, pontosTotais, semArvoreNoSave, atribuirMastery, comprarNo, reorganizarArvore } from '../src/core/progression/arvore';
+import { NO_BY_ID, custoDoNo } from '../src/config/arvoreGlobal';
 import { PROFILE_VERSION, createProfile, heroStats, migrateProfile, type Profile } from '../src/core/progression/profile';
 import { migrateRun, newRun, type RunState } from '../src/core/run/run';
 import { migrateBastion, newBastion, type BastionState } from '../src/core/bastion/bastion';
@@ -188,6 +189,60 @@ check('pontos de árvore dos níveis antigos entram sozinhos', pontosTotais(r.pr
 
 // ---------------- (g) partida nova nasce no formato atual ----------------
 check('perfil novo nasce em versão 2 com árvore vazia', createProfile().version === 2 && JSON.stringify(newRun('warrior', 1).profile.arvore) === JSON.stringify(arvoreVazia()));
+
+// ---------------- (h) árvore no save de meta: sobrevive a jornada nova e à derrota ----------------
+/** Meta como o main grava: JSON de ida e volta (é o que sobrevive a fechar o jogo). */
+const ida = (m: unknown) => JSON.parse(JSON.stringify(m)) as { arvore?: unknown };
+{
+  // jornada 1: o jogador compra um nó; a árvore vai para o meta
+  const meta: { arvore?: unknown } = {};
+  const arvore1 = arvoreDoMeta(meta, []);
+  const j1 = newRun('warrior', 11);
+  anexarArvore(j1.profile, arvore1);
+  j1.profile.heroes.warrior.level = 5;
+  j1.profile.zeni = 500;
+  comprarNo(j1.profile, 'vigorDoReino');
+  meta.arvore = arvore1;
+  check('jornada 1: nó comprado entra na árvore do meta', (ida(meta).arvore as { comprados: string[] }).comprados.includes('vigorDoReino'));
+  // jornada nova (vitória ou não): a árvore vem do meta, com o nó que foi comprado
+  const j2 = newRun('warrior', 12);
+  anexarArvore(j2.profile, arvoreDoMeta(ida(meta)));
+  check('jornada nova mantém a árvore (o nó continua aberto e dá o bônus)', bonusDoHeroi(j2.profile, 'warrior').attrs.vit === 1);
+  // derrota total: a jornada termina e uma nova começa; o meta não muda
+  j2.ended = 'defeat';
+  const j3 = newRun('warrior', 13);
+  anexarArvore(j3.profile, arvoreDoMeta(ida(meta)));
+  check('derrota total não zera a árvore', bonusDoHeroi(j3.profile, 'warrior').attrs.vit === 1 && j3.profile.zeni === 0);
+  check('derrota total não mexe nos pontos de árvore (o progresso da conta segue)', (ida(meta).arvore as { comprados: string[] }).comprados.length === 1);
+}
+{
+  // o save da jornada e o do Bastião não carregam a árvore (ela mora no meta)
+  const j = newRun('warrior', 21);
+  anexarArvore(j.profile, { comprados: ['vigorDoReino'], masteries: {}, reorganizacoes: 0 });
+  const salvo = JSON.parse(JSON.stringify(semArvoreNoSave(j))) as { profile: { arvore?: unknown; zeni: number } };
+  check('save da jornada não guarda a árvore', salvo.profile.arvore === undefined && salvo.profile.zeni === j.profile.zeni);
+  check('semArvoreNoSave não mexe no perfil em uso (cópia)', j.profile.arvore !== undefined);
+  const b = newBastion(9, emptyCollection());
+  anexarArvore(b.profile, { comprados: ['pedreiroDeOficio'], masteries: {}, reorganizacoes: 0 });
+  const sb = JSON.parse(JSON.stringify(semArvoreNoSave(b))) as { profile: { arvore?: unknown } };
+  check('save do Bastião não guarda a árvore', sb.profile.arvore === undefined && b.profile.arvore !== undefined);
+}
+{
+  // migração: save de meta antigo (sem árvore) e jornada antiga com árvore -> adota a da jornada; sem nada -> vazia
+  const semArvoreNoMeta = arvoreDoMeta({}, [undefined]);
+  check('meta sem árvore e sem jornada antiga: árvore vazia (nada se perde)', JSON.stringify(semArvoreNoMeta) === JSON.stringify(arvoreVazia()));
+  const legado = { comprados: ['vigorDoReino', 'escudoAntigo'], masteries: {}, reorganizacoes: 0 };
+  const adotada = arvoreDoMeta({}, [legado]);
+  check('meta sem árvore com árvore de jornada antiga: adota os nós', adotada.comprados.length === 2);
+  check('árvore do meta tem prioridade sobre a da jornada antiga', arvoreDoMeta({ arvore: { comprados: ['vigorDoReino'], masteries: {}, reorganizacoes: 0 } }, [legado]).comprados.join() === 'vigorDoReino');
+  // a migração de um save de jornada antigo (com árvore no perfil) não perde nada do resto
+  const antigo = jornadaV1(perfilV1()) as unknown as { profile: Record<string, unknown> };
+  antigo.profile.arvore = legado;
+  const m = migrateRun(JSON.parse(JSON.stringify(antigo)) as RunState);
+  check('jornada antiga com árvore abre e a árvore chega ao perfil', (m.profile.arvore as { comprados: string[] }).comprados.length === 2 && m.profile.zeni === 340);
+  check('o nó de custo fica num só lugar (custoDoNo)', custoDoNo(NO_BY_ID['vigorDoReino']) === NO_BY_ID['vigorDoReino'].custo);
+  check('árvore corrompida no meta vira árvore válida (normalizar)', arvoreDoMeta({ arvore: { comprados: ['naoExiste', 'nucleo'], masteries: {}, reorganizacoes: -1 } }).comprados.length === 0);
+}
 
 console.log(`\n${total - falhas}/${total} ok${falhas ? ` · ${falhas} FALHA(S)` : ''}`);
 if (falhas) throw new Error(`arvoreSaveCheck: ${falhas} falha(s)`);

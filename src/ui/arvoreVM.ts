@@ -1,4 +1,4 @@
-import { ARVORE_CONFIG, CONEXOES, FAMILIAS, MASTERIES, NOS, REGIOES, TIPO_NO_LABEL, type MasteryDef, type MasteryId, type NoDef, type NoTipo } from '../config/arvoreGlobal';
+import { ARVORE_CONFIG, ARVORE_ECONOMIA, CATEGORIAS, CATEGORIA_IDS, CONEXOES, FAMILIAS, MASTERIES, NOS, REGIOES, TIPO_NO_LABEL, custoDoNo, nosPorCategoria, type Categoria, type MasteryDef, type MasteryId, type NoDef, type NoTipo } from '../config/arvoreGlobal';
 import { HERO_NAME, HERO_ORDER } from '../config/heroes';
 import { RAIZ_ID, estadoNo, masteryDoHeroi, masteryDesbloqueada, pontosDisponiveis, pontosGastos, pontosTotais, previsaoAtribuir, previsaoReorganizar, textoBonus, type EstadoNo } from '../core/progression/arvore';
 import { heroDisplayName, type Profile } from '../core/progression/profile';
@@ -11,6 +11,10 @@ import type { HeroKind } from '../core/progression/skills';
 
 export interface NoVM {
   id: string;
+  categoria: Categoria;
+  categoriaNome: string;
+  /** Bônus de economia que ainda não têm gancho no jogo (texto do motivo). */
+  pendencias: string[];
   nome: string;
   tipo: NoTipo;
   tipoNome: string;
@@ -77,6 +81,8 @@ export interface HeroiVM {
 }
 
 export interface ArvoreVM {
+  categorias: { id: Categoria; nome: string; total: number }[];
+  totalNos: number;
   pontos: { disponiveis: number; total: number; gastos: number };
   zeni: number;
   reorganizar: { custo: number; erro?: string };
@@ -102,10 +108,16 @@ export function montarArvoreVM(p: Profile, retratos: Record<string, string>, ctx
   const disponiveis = pontosDisponiveis(p);
   const nos: NoVM[] = NOS.map((no) => {
     const estado = estadoNo(p, no.id);
-    const falta = Math.max(0, no.custo - disponiveis);
+    const falta = Math.max(0, custoDoNo(no) - disponiveis);
     const mastery = no.mastery ? MASTERIES.find((m) => m.id === no.mastery) : undefined;
+    const pendencias = (Object.keys(no.bonus) as (keyof typeof ARVORE_ECONOMIA)[])
+      .filter((k) => ARVORE_ECONOMIA[k] && !ARVORE_ECONOMIA[k].ligado)
+      .map((k) => `${ARVORE_ECONOMIA[k].nome}: ${ARVORE_ECONOMIA[k].motivo ?? 'sem gancho ainda'}`);
     return {
       id: no.id,
+      categoria: no.categoria,
+      categoriaNome: CATEGORIAS[no.categoria].nome,
+      pendencias,
       nome: no.nome,
       tipo: no.tipo,
       tipoNome: TIPO_NO_LABEL[no.tipo],
@@ -114,9 +126,9 @@ export function montarArvoreVM(p: Profile, retratos: Record<string, string>, ctx
       cor: REGIOES[no.regiao]?.cor ?? '#c79d48',
       x: no.x,
       y: no.y,
-      custo: no.custo,
+      custo: custoDoNo(no),
       estado,
-      estadoTexto: no.id === RAIZ_ID ? 'Ponto de partida: sempre aberto.' : ESTADO_TEXTO(estado, no.custo, falta),
+      estadoTexto: no.id === RAIZ_ID ? 'Ponto de partida: sempre aberto.' : ESTADO_TEXTO(estado, custoDoNo(no), falta),
       descricao: no.descricao,
       bonus: textoBonus(no.bonus),
       para: paraTexto(no),
@@ -159,7 +171,10 @@ export function montarArvoreVM(p: Profile, retratos: Record<string, string>, ctx
     };
   });
   const reorg = previsaoReorganizar(p, ctx);
+  const porCat = nosPorCategoria();
   return {
+    categorias: CATEGORIA_IDS.map((id) => ({ id, nome: CATEGORIAS[id].nome, total: porCat[id] })),
+    totalNos: NOS.length,
     pontos: { disponiveis, total: pontosTotais(p), gastos: pontosGastos(p) },
     zeni: p.zeni,
     reorganizar: { custo: reorg.custo, erro: reorg.erro },

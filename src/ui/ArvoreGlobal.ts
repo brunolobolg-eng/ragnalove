@@ -1,5 +1,5 @@
 import type { HeroKind } from '../core/progression/skills';
-import { ARVORE_CONFIG, type MasteryId, type NoTipo } from '../config/arvoreGlobal';
+import { ARVORE_CONFIG, ARVORE_VISUAL, type Categoria, type MasteryId, type NoTipo } from '../config/arvoreGlobal';
 import { registerOverlay } from './overlays';
 import type { ArvoreVM, CandidatoVM, HeroiVM, MasteryVM, NoVM } from './arvoreVM';
 
@@ -18,12 +18,14 @@ export interface ArvoreCallbacks {
 }
 
 /** Área da rede (unidades da viewBox). A grade do núcleo é multiplicada por ESPACO. A parte de baixo é maior: a legenda cobre o rodapé. */
-const VB = { x: -560, y: -430, w: 1120, h: 960 };
-const ESPACO = 150;
+const VB = { x: -980, y: -980, w: 1960, h: 1960 };
+const ESPACO = ARVORE_VISUAL.espaco;
+/** Zoom a partir do qual os nomes dos nós aparecem (abaixo disso, só a forma, a cor e o nome ao passar o cursor). */
+const ZOOM_ROTULOS = 1.9;
 const NODE_R = 30;
 const RAIZ_R = 40;
-const ZOOM_MIN = 0.7;
-const ZOOM_MAX = 2.4;
+const ZOOM_MIN = 0.6;
+const ZOOM_MAX = 3;
 const ARRASTE_MIN = 4;
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -84,6 +86,15 @@ function forma(tipo: NoTipo, r: number): string {
   }
 }
 
+const CATEGORIA_DESC: Record<Categoria, string> = {
+  progressao: 'EXP, Zen por tipo de nó, pontos de habilidade, recrutas e descontos.',
+  campanha: 'Eventos, reparo e recompensa da cidade, sorte de loja e recursos do mapa.',
+  bastiao: 'Construção, reparo, muralha, portão, Zen por noite e blocos.',
+  combate: 'Vida, dano, velocidade de ataque, crítico, esquiva e atributos.',
+  masteries: 'Pontos que desbloqueiam as Masteries táticas (uma por personagem).',
+  ligacao: 'Notáveis e caminhos alternativos que ligam as regiões.',
+};
+
 const LEGENDA_TIPOS: { tipo: NoTipo; nome: string }[] = [
   { tipo: 'raiz', nome: 'Núcleo' },
   { tipo: 'comum', nome: 'Comum' },
@@ -116,6 +127,8 @@ export class ArvoreGlobal {
   private frame = 0;
   private drag?: { x0: number; y0: number; px: number; py: number };
   private arrastou = false;
+  /** Filtro de categoria (undefined = todas). Nós fora do filtro ficam esmaecidos. */
+  private filtro?: Categoria;
 
   constructor(
     private readonly cb: ArvoreCallbacks,
@@ -134,6 +147,7 @@ export class ArvoreGlobal {
               <defs class="gt-defs"></defs>
               <g class="gt-world"></g>
             </svg>
+            <nav class="gt-filtros" aria-label="Filtrar por categoria"></nav>
             <div class="gt-zoom">
               <button class="au-btn" data-c="zin" title="Aproximar">+</button>
               <button class="au-btn" data-c="zout" title="Afastar">−</button>
@@ -201,6 +215,11 @@ export class ArvoreGlobal {
     switch (c) {
       case 'close':
         return this.close();
+      case 'filtro': {
+        const k = b.dataset.k;
+        this.filtro = k === 'todas' ? undefined : (k as Categoria);
+        break;
+      }
       case 'zin':
         return this.zoomBy(1.25);
       case 'zout':
@@ -385,6 +404,8 @@ export class ArvoreGlobal {
 
   private apply(): void {
     this.world.setAttribute('transform', `translate(${this.panX.toFixed(2)} ${this.panY.toFixed(2)}) scale(${this.zoom.toFixed(4)})`);
+    // nomes só com zoom suficiente: a rede inteira continua legível pela forma e pela cor
+    this.world.classList.toggle('gt-lbl-on', this.zoom >= ZOOM_ROTULOS);
   }
 
   // ---------------- desenho ----------------
@@ -451,18 +472,20 @@ export class ArvoreGlobal {
       })
       .join('');
     const nos = v.nos.map((n) => this.noSvg(n)).join('');
+    this.el.querySelector<HTMLElement>('.gt-filtros')!.innerHTML = [`<button class="au-btn${this.filtro ? '' : ' gold'}" data-c="filtro" data-k="todas">Todas · ${v.totalNos}</button>`, ...v.categorias.map((c) => `<button class="au-btn${this.filtro === c.id ? ' gold' : ''}" data-c="filtro" data-k="${c.id}" title="${esc(CATEGORIA_DESC[c.id])}">${esc(c.nome)} · ${c.total}</button>`)].join('');
     this.world.innerHTML = `${halos}<g class="gt-edges">${arestas}</g><g class="gt-nodes">${nos}</g>`;
   }
 
   private noSvg(n: NoVM): string {
     const r = n.raiz ? RAIZ_R : NODE_R;
     const sel = this.sel === n.id;
+    const esmaecido = this.filtro !== undefined && n.categoria !== this.filtro;
     const custo = n.custo > 0 && n.estado !== 'aberto';
     const badge = custo ? `<g class="gt-cost" transform="translate(${(r * 0.78).toFixed(1)} ${(-r * 0.78).toFixed(1)})"><circle r="12"/><text y="4">${n.custo}</text></g>` : '';
     const anel = sel ? `<circle class="gt-ring" r="${r + 10}"/>` : '';
     const linhas = linhasNome(n.nome);
     const rotulo = linhas.map((l, i) => `<tspan x="0" dy="${i === 0 ? 0 : 16}">${esc(l)}</tspan>`).join('');
-    return `<g class="gt-no ${n.estado} ${n.tipo}${sel ? ' sel' : ''}" data-id="${n.id}" transform="translate(${n.x * ESPACO} ${n.y * ESPACO})" style="--c:${n.cor}">
+    return `<g class="gt-no ${n.estado} ${n.tipo}${sel ? ' sel' : ''}${esmaecido ? ' dim' : ''}" data-id="${n.id}" transform="translate(${n.x * ESPACO} ${n.y * ESPACO})" style="--c:${n.cor}">
       <title>${esc(n.nome)} · ${esc(n.estadoTexto)}</title>${anel}${forma(n.tipo, r)}${badge}
       <text class="gt-lbl" y="${r + 22}">${rotulo}</text></g>`;
   }
@@ -493,6 +516,7 @@ export class ArvoreGlobal {
         ${n.mastery ? `<p class="gt-note">Desbloqueia a Mastery <b>${esc(n.mastery)}</b>.</p>` : ''}
         <p class="gt-para">Vale para: <b>${esc(n.para)}</b></p>
         <p class="gt-state st-${n.estado}">${esc(n.estadoTexto)}</p>
+        ${n.pendencias.length ? `<ul class="gt-pend" title="Bônus que aparecem na árvore mas ainda não atuam no jogo">${n.pendencias.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
         <div class="gt-acts">${acao}</div>`;
     }
     this.side.innerHTML = `
