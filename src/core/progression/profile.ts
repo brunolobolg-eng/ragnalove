@@ -7,7 +7,7 @@ import { HERO_NAME, HERO_ORDER, familyOf, isHeroKind } from '../../config/heroes
 import { VOCATIONS, VOCATIONS_CONFIG, type VocationDef } from '../../config/vocations';
 import type { VocationPassiveBonus } from '../../config/vocationSkills';
 import type { CardRuntime } from './cards';
-import { arvoreVazia, bonusDoHeroi, normalizarArvore, type ArvoreState } from './arvore';
+import { arvoreVazia, bonusDoHeroi, economiaDoPerfil, normalizarArvore, type ArvoreState } from './arvore';
 
 /**
  * Progressão persistente entre ondas (o "save" do jogador). A simulação recebe um
@@ -324,11 +324,12 @@ export interface WaveResult {
 }
 
 /** Leva o herói a um nível/EXP; níveis ganhos viram pontos de atributo. */
-function setProgress(h: HeroProgress, level: number, exp: number): void {
+function setProgress(h: HeroProgress, level: number, exp: number, habExtra = 0): void {
   const gained = level - h.level;
   if (gained > 0) {
     h.points += gained * PROGRESSION.pointsPerLevel;
-    h.skillPoints = (h.skillPoints ?? 0) + gained * PROGRESSION.skillPointsPerLevel;
+    // pontos de habilidade extras da Árvore Global (por nível ganho; teto na economia)
+    h.skillPoints = (h.skillPoints ?? 0) + gained * (PROGRESSION.skillPointsPerLevel + habExtra);
   }
   h.level = level;
   h.exp = exp;
@@ -340,7 +341,7 @@ export function applyWaveResult(p: Profile, r: WaveResult): void {
   addZeni(p, r.zeni);
   for (const [k, res] of Object.entries(r.heroes)) {
     const h = p.heroes[k];
-    if (h) setProgress(h, res.level, res.exp);
+    if (h) setProgress(h, res.level, res.exp, economiaDoPerfil(p).pontosHabilidade);
   }
   p.inventory.push(...r.drops);
 }
@@ -355,7 +356,7 @@ export function addExperience(p: Profile, kind: string, amount: number): number 
     level++;
   }
   const gained = level - h.level;
-  setProgress(h, level, exp);
+  setProgress(h, level, exp, economiaDoPerfil(p).pontosHabilidade);
   return gained;
 }
 

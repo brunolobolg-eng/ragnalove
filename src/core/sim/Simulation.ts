@@ -20,6 +20,7 @@ import { neutralMods, testRangeMult, type SimMods } from './RangeSystem';
 import { updateCombatMovement } from './CombatMovement';
 import { AURA, AURA_KINDS, type AuraKind } from '../../config/auras';
 import type { MasteryRegra } from '../../config/arvoreGlobal';
+import { masteryAoAbater, masteryAoAcertar, masteryAoSofrer, masteryPreDano } from './masteryRules';
 
 /** Semente própria das auras (xor com a da onda): sorteio de portadores e de críticos, separado da horda e do combate. */
 const AURA_SEED = 0x6d2b5a1f;
@@ -58,6 +59,11 @@ export function aggroOf(kind: string): AggroType {
 
 /** Estado que vem da run para a onda: vida da cidade e objetos já usados no planejamento. */
 export interface SimOptions {
+  /**
+   * Bônus de recompensa da Árvore Global (fração: 0,05 = +5%), já com o teto aplicado. Ausente = recompensa de sempre.
+   * `zeni` é o bônus do tipo de nó desta batalha (horda, elite, chefe ou sobrevivência).
+   */
+  recompensas?: { exp: number; almas: number; zeni: number };
   cityHp?: number;
   cityMaxHp?: number;
   /** Ids (índice + 1 no MAP_CONFIG) dos objetos já acionados nesta fase. */
@@ -114,8 +120,6 @@ const CONTINUOUS = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'comb
 const CARD_EXCLUDED = new Set<DamageSource>([...CONTINUOUS, 'card', 'reflect', 'trap', 'tower', 'debug']);
 /** Dano que não recebe o modDano 'causa' do herói: dano de carta (já herda o do golpe) e reflexo (volta do que sofreu). */
 const CARD_NO_MOD = new Set<DamageSource>(['card', 'reflect', 'debug']);
-/** Golpes corpo a corpo da party (a Mastery Pressão Tática empurra só nestes; flechas e magias não). */
-const MELEE_SOURCES = new Set<DamageSource>(['melee', 'bash', 'cleave', 'blade', 'spear', 'execute']);
 
 export interface HeroLoadout {
   stats: HeroStats;
@@ -244,6 +248,10 @@ export class Simulation {
   private readonly taken: Record<string, number> = {};
   private readonly skillsUsed: Record<string, number> = {};
   private expEarned = 0;
+  /** Bônus de recompensa desta batalha (Árvore Global); zero = o jogo de antes. */
+  private readonly recompensas: { exp: number; almas: number; zeni: number } = { exp: 0, almas: 0, zeni: 0 };
+  /** Fração que sobra de um abate com bônus (vai para o próximo abate, sem perder décimos). */
+  private readonly carry: Record<string, number> = {};
 
   constructor(setup: PartySetup, seed = GAME_CONFIG.wave.seed, loadout: Record<string, HeroLoadout> = {}, opts: SimOptions = {}) {
     const bc = GAME_CONFIG.board;
@@ -260,6 +268,7 @@ export class Simulation {
       this.syncObject(o);
     });
     this.cityGoals = this.board.cityTiles();
+    if (opts.recompensas) this.recompensas = { ...this.recompensas, ...opts.recompensas };
     this.cityMaxHp = opts.cityMaxHp ?? GAME_CONFIG.cityDefense.maxHp;
     this.cityDamageOf = opts.contactDamage;
     this.cityHp = Math.min(this.cityMaxHp, opts.cityHp ?? this.cityMaxHp);
@@ -290,6 +299,11 @@ export class Simulation {
       u.cardRules = lo.cards ?? [];
       if (lo.visual) u.visual = lo.visual;
       if (lo.mastery) u.mastery = lo.mastery;
+      // Espinhos: reflete uma parte do dano direto que o herói recebe (vale a batalha inteira)
+      if (lo.mastery?.tipo === 'espinhos') {
+        u.reflectPct = lo.mastery.pct;
+        u.reflectUntil = Number.MAX_SAFE_INTEGER;
+      }
       u.cardCd = {};
       this.heroFinal.set(u.kind, { level: u.level, exp: u.exp });
     }
@@ -625,6 +639,11 @@ export class Simulation {
     return this.sortedUnits('enemy');
   }
 
+  /** Party viva (alvo das Masteries de equipe). */
+  aliados(): Unit[] {
+    return this.sortedUnits('party').filter((u) => u.alive);
+  }
+
   /** @param sourceId unidade que causou o dano (quem mata rouba a alma). */
   /**
    * Aplica dano. Golpes da party podem ser CRÍTICOS (Chance de crítico × Dano crítico do herói);
@@ -718,12 +737,10 @@ export class Simulation {
     if (u.team === 'enemy' && this.auraOn(u, 'mitigacao') && sourceId !== undefined && this.units.get(sourceId)?.team === 'party') amount *= 1 - AURA.mitigacao.reducao;
     // Dano infinito (Dev Lab): qualquer golpe da party mata
     if (this.cheats.oneHit && u.team === 'enemy' && sourceId !== undefined && this.units.get(sourceId)?.team === 'party') amount = u.hp;
-    // Mastery Golpe de Misericórdia (árvore global): golpe da party contra inimigo com pouca vida causa mais dano.
-    // Não sorteia nada; só age quando o herói tem a Mastery (sem ela, o dano é o mesmo de antes).
-    if (u.team === 'enemy' && sourceId !== undefined && !CONTINUOUS.has(source)) {
+    // Masteries táticas que aumentam o dano do golpe (árvore global): ver core/sim/masteryRules.ts
+    if (u.team === 'enemy' && sourceId !== undefined) {
       const a = this.units.get(sourceId);
-      const r = a?.team === 'party' ? a.mastery : undefined;
-      if (r?.tipo === 'execucao' && u.hp <= u.maxHp * r.limiar) amount *= 1 + r.bonus;
+      if (a?.team === 'party') amount = masteryPreDano(u, a, source, amount);
     }
     // Multiplicador de teste da Arena de Skills (neutro = 1: o jogo não muda)
     if (sourceId !== undefined) {
@@ -760,6 +777,7 @@ export class Simulation {
         this.soulHarvest(sourceId);
         const abatedor = sourceId !== undefined ? this.units.get(sourceId) : undefined;
         if (abatedor?.team === 'party') cardTrigger(this, abatedor, 'kill', { target: u });
+        if (abatedor?.team === 'party') masteryAoAbater(this, abatedor, u);
       }
     }
     // Cartas (depois da morte: o golpe extra nunca atinge quem já caiu)
@@ -778,19 +796,11 @@ export class Simulation {
       cardTrigger(this, u, 'hurt', { amount: applied });
       if (u.alive && u.hp <= u.maxHp * 0.3) cardTrigger(this, u, 'lowHp');
     }
-    // Mastery Barreira de Contenção (árvore global): na primeira queda abaixo do limiar da batalha, ganha escudo.
-    const rEscudo = u.team === 'party' ? u.mastery : undefined;
-    if (applied > 0 && rEscudo?.tipo === 'escudoReativo' && u.alive && !u.masteryUsed && u.hp <= u.maxHp * rEscudo.limiar) {
-      u.masteryUsed = true;
-      const ativo = (u.shieldUntil ?? 0) > this.tick ? u.shield ?? 0 : 0;
-      u.shield = ativo + rEscudo.pct * u.maxHp;
-      u.shieldUntil = Math.max(u.shieldUntil ?? 0, this.tick + Math.round(rEscudo.sec * this.tickRate));
-    }
-    // Mastery Pressão Tática (árvore global): golpe corpo a corpo da party pode empurrar o inimigo.
-    // O sorteio só acontece para quem tem a Mastery (último na condição: não gasta RNG dos outros).
-    const heroi = u.team === 'enemy' && applied > 0 && sourceId !== undefined && MELEE_SOURCES.has(source) ? this.units.get(sourceId) : undefined;
-    if (heroi?.team === 'party' && heroi.alive && heroi.mastery?.tipo === 'empurrao' && u.alive && this.combatRng.next() < heroi.mastery.chance) {
-      this.knockback(u, { x: heroi.x, y: heroi.y }, heroi.mastery.passos);
+    // Masteries táticas (árvore global): o que acontece quando o herói sofre dano e quando acerta um golpe
+    if (u.team === 'party' && applied > 0) masteryAoSofrer(this, u, sourceId !== undefined ? this.units.get(sourceId) : undefined, source, applied);
+    if (u.team === 'enemy' && applied > 0 && sourceId !== undefined) {
+      const heroi = this.units.get(sourceId);
+      if (heroi?.team === 'party' && heroi.alive) masteryAoAcertar(this, heroi, u, source, applied);
     }
   }
 
@@ -836,7 +846,7 @@ export class Simulation {
 
   /** Roubo de alma: calculado aqui (autoritativo), o render só desenha o evento. */
   private stealSoul(victim: Unit, sourceId?: number): Unit | undefined {
-    const amount = killRewards(victim.kind).souls;
+    const amount = this.ganho('almas', killRewards(victim.kind).souls, this.recompensas.almas);
     let hero = sourceId !== undefined ? this.units.get(sourceId) : undefined;
     if (!hero || !hero.alive || hero.team !== 'party') {
       // fonte desconhecida: vai para o herói vivo mais próximo
@@ -854,8 +864,16 @@ export class Simulation {
   }
 
   /** EXP para toda a party viva; níveis sobem aqui (os pontos são aplicados no perfil). */
+  /** Recompensa de um abate com bônus fracionário (sem bônus, devolve o próprio valor). */
+  private ganho(chave: string, base: number, bonus: number): number {
+    const exato = base * (1 + bonus) + (this.carry[chave] ?? 0);
+    const inteiro = Math.floor(exato);
+    this.carry[chave] = exato - inteiro;
+    return inteiro;
+  }
+
   private grantExp(victim: Unit): void {
-    const amount = killRewards(victim.kind).exp;
+    const amount = this.ganho('exp', killRewards(victim.kind).exp, this.recompensas.exp);
     this.emit({ type: 'exp', x: victim.x, y: victim.y, amount });
     this.expEarned += amount;
     for (const p of this.sortedUnits('party')) {
@@ -870,7 +888,7 @@ export class Simulation {
   }
 
   private grantZeni(victim: Unit): void {
-    const amount = killRewards(victim.kind).zeni;
+    const amount = this.ganho('zeni', killRewards(victim.kind).zeni, this.recompensas.zeni);
     this.zeni += amount;
     this.emit({ type: 'zeni', x: victim.x, y: victim.y, amount });
   }

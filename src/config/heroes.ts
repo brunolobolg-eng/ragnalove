@@ -1,6 +1,7 @@
 import type { HeroKind, SkillId } from '../core/progression/skills';
 import type { CardCollection } from '../core/progression/cards';
 import { emptyCollection } from '../core/progression/cards';
+import type { ArvoreState } from '../core/progression/arvore';
 
 /**
  * Heróis jogáveis (dados centrais). As classes base vêm liberadas; as avançadas são
@@ -17,6 +18,8 @@ export interface MetaStats {
   runsWon: number;
   /** Coleção permanente de cartas (owns + builds por herói). */
   collection?: CardCollection;
+  /** Árvore Global de Aurenthal: vale entre jornadas e não zera na derrota (ver core/progression/arvore.ts). */
+  arvore?: ArvoreState;
 }
 
 export interface HeroInfo {

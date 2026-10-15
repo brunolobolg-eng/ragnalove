@@ -54,6 +54,8 @@ export interface Unit {
   mastery?: MasteryRegra;
   /** Só party: a Mastery de escudo reativo já deu o escudo nesta batalha (vale uma vez). */
   masteryUsed?: boolean;
+  /** Só party: golpes corpo a corpo dados (Golpe Cíclico conta o quarto). */
+  masteryHits?: number;
   /** Bênção: dano extra (0,1 = +10%) até o tick. */
   blessAmp?: number;
   blessUntil?: number;

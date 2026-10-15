@@ -3,6 +3,7 @@ import { GAME_CONFIG } from '../../config/gameConfig';
 import type { Board } from '../grid/Board';
 import { chebyshev, type Vec2 } from '../grid/types';
 import { addZeni, applyWaveResult, createProfile, type WaveResult } from '../progression/profile';
+import { economiaDoPerfil } from '../progression/arvore';
 import { addCards, applyCardLoadout, cardSlots, rollPack, type CardCollection } from '../progression/cards';
 import { HERO_ORDER } from '../../config/heroes';
 import type { HeroKind } from '../progression/skills';
@@ -99,7 +100,8 @@ export interface BuildEnv {
 export function buildCostOf(b: BastionState, kind: StructureKind): number {
   const def = STRUCTURES[kind];
   const existing = b.structures.filter((s) => s.kind === kind).length;
-  const price = Math.round(def.cost * Math.pow(def.costGrowth, existing));
+  // desconto de construção da Árvore Global (o Bastião tem a própria árvore: ver b.profile.arvore)
+  const price = Math.round(def.cost * Math.pow(def.costGrowth, existing) * (1 - economiaDoPerfil(b.profile).custoConstrucao));
   return def.priceCap !== undefined ? Math.min(def.priceCap, price) : price;
 }
 
@@ -118,10 +120,11 @@ export function upgradeCostOf(b: BastionState, s: Structure): number {
  * Destruída custa a reconstrução (investido × rebuildRate), sempre acima do reparo de qualquer dano.
  */
 export function repairCostOf(b: BastionState, s: Structure): number {
-  if (s.hp <= 0) return Math.max(BASTION.minRepair, Math.ceil(s.invested * BASTION.rebuildRate));
+  const desconto = 1 - economiaDoPerfil(b.profile).reparoBastiao;
+  if (s.hp <= 0) return Math.max(BASTION.minRepair, Math.ceil(s.invested * BASTION.rebuildRate * desconto));
   const lost = 1 - s.hp / structureMaxHp(b, s);
   if (lost <= 0) return 0;
-  return Math.max(BASTION.minRepair, Math.ceil(s.invested * lost * BASTION.repairRate));
+  return Math.max(BASTION.minRepair, Math.ceil(s.invested * lost * BASTION.repairRate * desconto));
 }
 
 /** Zen devolvido ao remover: parte do investido, na proporção da vida que ainda resta. Destruída não devolve. */
@@ -307,7 +310,10 @@ export function startAttempt(b: BastionState, cards: CardCollection): Result {
   b.structures = [];
   b.projects = ['castle'];
   b.coreHp = b.coreMaxHp;
+  // a árvore é do meta (persiste entre tentativas): a nova carteira recebe a mesma referência
+  const arvore = b.profile.arvore;
   b.profile = createProfile();
+  if (arvore) b.profile.arvore = arvore;
   b.profile.zeni = BASTION.startZeni;
   applyCardLoadout(b.profile, cards);
   return { ok: true };
@@ -353,7 +359,7 @@ export function applyNight(b: BastionState, out: NightOutcome, key: string, card
   b.coreHp = Math.min(b.coreMaxHp, Math.max(0, out.coreHp));
   applyWaveResult(b.profile, out.wave);
   if (out.victory) {
-    addZeni(b.profile, GAME_CONFIG.zeni.waveClearBonus);
+    addZeni(b.profile, GAME_CONFIG.zeni.waveClearBonus + economiaDoPerfil(b.profile).zenNoite);
     b.profile.wavesWon = (b.profile.wavesWon ?? 0) + 1;
     b.nights++;
     b.nightsInAttempt++;

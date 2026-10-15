@@ -1,5 +1,6 @@
 import { BASTION, PROJECTS, STRUCTURES, type StructureKind } from '../../config/bastion';
 import { createProfile, migrateProfile, type Profile } from '../progression/profile';
+import { economiaDoPerfil } from '../progression/arvore';
 import { applyCardLoadout, type CardCollection } from '../progression/cards';
 import type { HeroKind } from '../progression/skills';
 
@@ -132,6 +133,8 @@ export function structureMaxHp(b: BastionState, s: Pick<Structure, 'kind' | 'lev
     const bonus = PROJECTS[id]?.bonus;
     if (bonus && bonus.kind === s.kind) hp *= bonus.hpMult;
   }
+  // muralhas: bônus de vida da Árvore Global do Bastião
+  if (s.kind === 'wall') hp *= 1 + economiaDoPerfil(b.profile).muralhaVida;
   return Math.round(hp);
 }
 

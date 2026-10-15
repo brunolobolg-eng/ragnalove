@@ -52,7 +52,7 @@ import { CityScreen } from './ui/CityScreen';
 import { SkillTree } from './ui/SkillTree';
 import { ArvoreGlobal } from './ui/ArvoreGlobal';
 import { montarArvoreVM } from './ui/arvoreVM';
-import { atribuirMastery, comprarNo, removerMastery, reorganizarArvore } from './core/progression/arvore';
+import { anexarArvore, arvoreDoMeta, atribuirMastery, comprarNo, economiaDoPerfil, removerMastery, reorganizarArvore, semArvoreNoSave, type ArvoreState } from './core/progression/arvore';
 import { Modal, paintEventArt } from './ui/RunScreens';
 import { SKILL_ICONS } from './ui/icons';
 import { maxRefine, itemName, type Item } from './core/progression/equipment';
@@ -192,7 +192,7 @@ function saveProfile(): void {
   autoGear();
   if (bastionSession.active) return bastionSession.saveState(); // no Bastião, o save da jornada não é tocado
   try {
-    if (!SaveStore.set(RUN_KEY, JSON.stringify(run))) hud.log('Não foi possível salvar o progresso (disco cheio ou sem permissão?).', 'warn');
+    if (!SaveStore.set(RUN_KEY, JSON.stringify(semArvoreNoSave(run)))) hud.log('Não foi possível salvar o progresso (disco cheio ou sem permissão?).', 'warn');
   } catch {
     /* ignora */
   }
@@ -211,11 +211,17 @@ function loadMetaStats(): MetaStats {
 function saveMetaStats(st: MetaStats): void {
   try {
     const m = JSON.parse(SaveStore.get(META_KEY) ?? '{}') as Record<string, unknown>;
-    m.stats = { kills: st.kills, perfectNights: st.perfectNights, bossesKilled: st.bossesKilled, collection: st.collection ?? emptyCollection() };
+    m.stats = { kills: st.kills, perfectNights: st.perfectNights, bossesKilled: st.bossesKilled, collection: st.collection ?? emptyCollection(), arvore: st.arvore ?? (m.stats as { arvore?: ArvoreState } | undefined)?.arvore };
     SaveStore.set(META_KEY, JSON.stringify(m));
   } catch {
     /* ignora */
   }
+}
+/** Grava a árvore no save de meta (a jornada e o Bastião guardam só o que é da jornada). */
+function gravarArvoreMeta(): void {
+  const st = loadMetaStats();
+  st.arvore = arvoreMeta;
+  saveMetaStats(st);
 }
 /** Heróis que a conta já desbloqueou. */
 function availableHeroes(): HeroKind[] {
@@ -270,6 +276,12 @@ const savedRun = loadRun();
 let hasSavedRun = !!savedRun;
 let run: RunState = savedRun ?? newRun();
 let profile: Profile = run.profile;
+// Árvore Global: mora no save de meta (persiste entre jornadas e não zera na derrota). Saves de jornada antigos
+// que ainda traziam a árvore são adotados pelo meta na primeira abertura.
+let arvoreMeta: ArvoreState = arvoreDoMeta(loadMetaStats(), [savedRun?.profile.arvore]);
+anexarArvore(run.profile, arvoreMeta);
+profile = run.profile;
+if (loadMetaStats().arvore === undefined) gravarArvoreMeta();
 markSeen();
 function loadout(): Record<string, HeroLoadout> {
   const out: Record<string, HeroLoadout> = {};
@@ -353,7 +365,7 @@ let bastionFort: Fortification[] | undefined;
 /** Há construção do Último Bastião (de pé ou destruída) neste tile? Herói não entra nem fica em cima dela. */
 const structureAt = (x: number, y: number): boolean => bastionFort?.some((f) => f.x === x && f.y === y) ?? false;
 function simOpts() {
-  return { cityHp: run.cityHp, cityMaxHp: run.cityMaxHp, usedObjects: run.usedObjects ?? [], fortifications: bastionFort };
+  return { cityHp: run.cityHp, cityMaxHp: run.cityMaxHp, usedObjects: run.usedObjects ?? [], fortifications: bastionFort, recompensas: recompensasAtuais() };
 }
 let sim = new Simulation(liveSetup(), undefined, loadout(), { cityHp: run.cityHp, cityMaxHp: run.cityMaxHp });
 view.bind(sim);
@@ -480,12 +492,15 @@ const bastionGhost = new BastionGhostView(stage.scene);
 /** Último Bastião (Montar Defesa): usa a batalha e as telas da jornada, com a cidade e a carteira do modo. */
 const bastionSession = new BastionSession({
   run: () => run,
+  openArvore: () => openArvore(),
   setRun: (r) => {
     run = r;
+    anexarArvore(run.profile, arvoreMeta);
   },
   profile: () => profile,
   setProfile: (p) => {
     profile = p;
+    anexarArvore(p, arvoreMeta);
   },
   sim: () => sim,
   loadMap: (seed, wave) => loadZone(ZONES[BASTION_ZONE_ID], { ...wave, seed }),
@@ -586,6 +601,9 @@ const ctxArvore = () => ({ emCombate: mode === 'battle' });
 function arvoreAcao(acao: () => string | undefined): string | undefined {
   const err = acao();
   if (!err) {
+    arvoreMeta = profile.arvore ?? arvoreMeta;
+    anexarArvore(run.profile, arvoreMeta);
+    gravarArvoreMeta();
     saveProfile();
     hud.setCharacter(characterVM());
     if (mode === 'map') worldMap.show(mapState());
@@ -595,17 +613,24 @@ function arvoreAcao(acao: () => string | undefined): string | undefined {
 }
 const arvoreTree = new ArvoreGlobal(
   {
-    onBuy: (id) => arvoreAcao(() => comprarNo(run.profile, id, ctxArvore())),
-    onAssign: (m, k) => arvoreAcao(() => atribuirMastery(run.profile, m, k, ctxArvore())),
-    onRemove: (m) => arvoreAcao(() => removerMastery(run.profile, m, ctxArvore())),
-    onReset: () => arvoreAcao(() => reorganizarArvore(run.profile, ctxArvore())),
+    onBuy: (id) => arvoreAcao(() => comprarNo(profile, id, ctxArvore())),
+    onAssign: (m, k) => arvoreAcao(() => atribuirMastery(profile, m, k, ctxArvore())),
+    onRemove: (m) => arvoreAcao(() => removerMastery(profile, m, ctxArvore())),
+    onReset: () => arvoreAcao(() => reorganizarArvore(profile, ctxArvore())),
     onUi: ui,
   },
-  () => montarArvoreVM(run.profile, PORTRAITS, ctxArvore()),
+  () => montarArvoreVM(profile, PORTRAITS, ctxArvore()),
 );
 function openArvore(): void {
   if (arvoreTree.visible) return arvoreTree.close();
   arvoreTree.open();
+}
+/** Bônus de recompensa desta batalha vindos da árvore: EXP e almas sempre; Zen pelo tipo de nó (Bastião = horda). */
+function recompensasAtuais(): { exp: number; almas: number; zeni: number } {
+  const e = economiaDoPerfil(profile);
+  const tipo = bastionSession.active ? 'horde' : run.choice;
+  const zeni = tipo === 'horde' ? e.zeniHorda : tipo === 'elite' ? e.zeniElite : tipo === 'boss' ? e.zeniChefe : tipo === 'survival' ? e.zeniSobrevivencia : 0;
+  return { exp: e.expCombate, almas: e.almasCombate, zeni };
 }
 
 function openCollection(bastionNights = 0, onClose?: () => void): void {
@@ -774,6 +799,7 @@ function openCharSelect(): void {
   charSelect.open((h) => {
     charSelect.close();
     run = newRun(h);
+    anexarArvore(run.profile, arvoreMeta);
     profile = run.profile;
     applyCardLoadout(run.profile, loadMetaStats().collection ?? emptyCollection());
     hasSavedRun = true;
@@ -867,7 +893,7 @@ function startHorde(): void {
     // a formação fica salva para as próximas hordas (a última e a desta zona)
     run.lastLayout = structuredClone(setup);
     run.layouts = { ...run.layouts, [ZONE_STATE.current.id]: structuredClone(setup) };
-    SaveStore.set(RUN_KEY, JSON.stringify(run));
+    SaveStore.set(RUN_KEY, JSON.stringify(semArvoreNoSave(run)));
   }
   sim.start();
   hud.log('A horda se aproxima!', 'warn');
@@ -894,7 +920,7 @@ function resumeBattle(seal: BattleSeal): void {
 // Ao fechar a janela (X, ALT+F4): grava o relógio da jornada. Queda/travamento não passa por aqui —
 // por isso o selo de batalha já está no disco desde o início da horda.
 window.addEventListener('beforeunload', () => {
-  if (hasSavedRun && !bastionSession.active) SaveStore.set(RUN_KEY, JSON.stringify(run));
+  if (hasSavedRun && !bastionSession.active) SaveStore.set(RUN_KEY, JSON.stringify(semArvoreNoSave(run)));
   SaveStore.flush(); // o Bastião pode ainda estar na fila de gravação em segundo plano
 });
 
@@ -1357,7 +1383,7 @@ function finishWave(): void {
   const firstPhase = run.act === 0 && run.node === 0;
   const before = Object.fromEntries(run.party.map((h) => [h, profile.heroes[h].level]));
   const won = sim.phase === 'victory';
-  const bonus = won ? Math.round(GAME_CONFIG.zeni.waveClearBonus * (1 + run.act * 0.6)) : 0;
+  const bonus = won ? Math.round(GAME_CONFIG.zeni.waveClearBonus * (1 + run.act * 0.6) * (1 + recompensasAtuais().zeni)) : 0;
   const payKey = `w:${run.act}:${run.node}`;
   claimOpen = true; // o relatório vai abrir: uma conclusão liberada
   let summary = '';

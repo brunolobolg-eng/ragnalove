@@ -4,6 +4,7 @@ import { ZONES, type ZoneDef } from '../../config/zones';
 import { ACTS, EVENTS, REGION_BY_ID, type EventDef, type EventEffect, type NodeType, type Region } from '../../config/world';
 import { REFINE, RARITIES, RARITY_INFO, rollItem, type Item, type Rarity, type Slot } from '../progression/equipment';
 import { addExperience, addZeni, createProfile, expToNext, heroEquipped, heroStats, migrateProfile, resetAttributes, type Profile } from '../progression/profile';
+import { economiaDoPerfil } from '../progression/arvore';
 import { SKILL_BY_ID, SKILL_ZENI, allHeroSkills, inHeroTree, investedSkillPoints, lvOf, missingRequirements, prereqPath, skillZeniCost, type HeroKind, type SkillId } from '../progression/skills';
 import { Rng } from '../sim/rng';
 import { slotCount, usesSlot } from '../progression/skillSlots';
@@ -106,7 +107,8 @@ export function nextUnlock(r: RunState, available: HeroKind[] = ['warrior', 'mag
 /** Libera um herói novo no nível médio da party (com os pontos desses níveis). */
 export function unlockHero(r: RunState, h: HeroKind): void {
   if (r.party.includes(h)) return;
-  const lvl = Math.max(...r.party.map((k) => r.profile.heroes[k].level));
+  // recrutas: o herói entra com os níveis do grupo mais os da Árvore Global (teto na economia)
+  const lvl = Math.max(...r.party.map((k) => r.profile.heroes[k].level)) + economiaDoPerfil(r.profile).recrutas;
   r.party.push(h);
   const hp = r.profile.heroes[h];
   const gained = Math.max(0, lvl - hp.level);
@@ -150,7 +152,7 @@ export function recordNight(r: RunState, rep: WaveReport): void {
 
 /** Zen para reparar `hp` da muralha (preço sobe por ato). */
 export function repairCost(r: RunState, hp: number): number {
-  return Math.ceil(hp * GAME_CONFIG.cityDefense.repairZeniPerHp * priceMult(r));
+  return Math.ceil(hp * GAME_CONFIG.cityDefense.repairZeniPerHp * precoMult(r) * (1 - economiaDoPerfil(r.profile).reparoCidade));
 }
 
 /** Repara a muralha: `all` conserta tudo o que der com o Zen atual; senão um passo. */
@@ -181,7 +183,7 @@ export function objectActions(r: RunState, type: keyof typeof OBJECT_RULES, id: 
   if (!rule.action || r.usedObjects.includes(id)) return [];
   if (type === 'altar') {
     const A = GAME_CONFIG.objects.altar;
-    const z = Math.round(A.zeniCost * priceMult(r));
+    const z = Math.round(A.zeniCost * precoMult(r));
     return [
       { id: 'zeni', label: `${rule.action} (${z} Zen)`, disabled: r.profile.zeni < z },
       { id: 'souls', label: `${rule.action} (${A.soulCost} almas)`, disabled: r.profile.souls < A.soulCost },
@@ -214,7 +216,7 @@ export function useMapObject(r: RunState, type: keyof typeof OBJECT_RULES, id: n
     }
   } else if (type === 'altar') {
     const A = GAME_CONFIG.objects.altar;
-    if (how === 'zeni' && !spend(r, Math.round(A.zeniCost * priceMult(r)))) return 'Zen insuficiente.';
+    if (how === 'zeni' && !spend(r, Math.round(A.zeniCost * precoMult(r)))) return 'Zen insuficiente.';
     if (how === 'souls') {
       if (p.souls < A.soulCost) return 'Almas insuficientes.';
       p.souls -= A.soulCost;
@@ -348,6 +350,8 @@ export function advance(r: RunState, outcome: string): boolean {
 }
 
 export const priceMult = (r: RunState) => GAME_CONFIG.city.actPriceMult[Math.min(r.act, 2)];
+/** Preço da cidade: a inflação da fase menos o desconto da Árvore Global (só para preços; recompensas usam priceMult). */
+export const precoMult = (r: RunState) => priceMult(r) * (1 - economiaDoPerfil(r.profile).descontoCidade);
 const actScale = (r: RunState) => GAME_CONFIG.city.actPriceMult[Math.min(r.act, 2)];
 
 // ---------------- Eventos ----------------
@@ -409,18 +413,18 @@ export function applyEventEffects(r: RunState, effects: EventEffect[]): string[]
 // ---------------- Cidade ----------------
 export function shopStock(r: RunState): Item[] {
   if (!r.shop) {
-    const n = GAME_CONFIG.city.shopStock;
+    const n = GAME_CONFIG.city.shopStock + Math.floor(economiaDoPerfil(r.profile).sorteLoja);
     const pool: Rarity[] = r.act === 0 ? ['common', 'uncommon', 'uncommon', 'rare'] : r.act === 1 ? ['uncommon', 'rare', 'rare', 'epic'] : ['rare', 'rare', 'epic', 'epic'];
     r.shop = Array.from({ length: n }, () => rollItem(uiRng, 0, itemId(), { rarity: pool[uiRng.int(pool.length)] }, r.party));
   }
   return r.shop;
 }
 
-export const itemPrice = (r: RunState, it: Item) => Math.round(GAME_CONFIG.city.itemPrice[it.rarity] * priceMult(r));
+export const itemPrice = (r: RunState, it: Item) => Math.round(GAME_CONFIG.city.itemPrice[it.rarity] * precoMult(r));
 export const sellPrice = (it: Item) => Math.round(GAME_CONFIG.city.sellPrice[it.rarity] * (1 + 0.3 * (it.refine ?? 0)));
-export const rerollPrice = (r: RunState, it: Item) => Math.round(GAME_CONFIG.city.rerollPrice[it.rarity] * priceMult(r));
-export const potionPrice = (r: RunState, i: number) => Math.round(GAME_CONFIG.city.potions[i].price * priceMult(r));
-export const orePrice = (r: RunState) => Math.round(GAME_CONFIG.city.orePrice * priceMult(r));
+export const rerollPrice = (r: RunState, it: Item) => Math.round(GAME_CONFIG.city.rerollPrice[it.rarity] * precoMult(r));
+export const potionPrice = (r: RunState, i: number) => Math.round(GAME_CONFIG.city.potions[i].price * precoMult(r));
+export const orePrice = (r: RunState) => Math.round(GAME_CONFIG.city.orePrice * precoMult(r));
 export const refineFee = (it: Item) => GAME_CONFIG.city.refineFeePerLevel * ((it.refine ?? 0) + 1);
 export const reviveCost = (r: RunState) => Math.floor(r.profile.zeni * GAME_CONFIG.city.reviveFraction);
 
@@ -478,7 +482,7 @@ export function potionsToLevel(r: RunState, i: number, hero: HeroKind): number {
 
 export const consumablePrice = (r: RunState, id: string): number => {
   const c = GAME_CONFIG.city.consumables.find((x) => x.id === id);
-  return c ? Math.round(c.price * priceMult(r)) : 0;
+  return c ? Math.round(c.price * precoMult(r)) : 0;
 };
 
 /** Poção permanente (Vida/Mana): soma à vida ou mana máxima do herói. Falso se não comprou. */
@@ -583,7 +587,7 @@ export function learnPath(r: RunState, hero: HeroKind, id: SkillId): string | un
   return undefined;
 }
 
-export const skillRespecCost = (r: RunState) => Math.round(SKILL_ZENI.respecBase * priceMult(r));
+export const skillRespecCost = (r: RunState) => Math.round(SKILL_ZENI.respecBase * precoMult(r));
 
 export function respecSkills(r: RunState, hero: HeroKind): boolean {
   const h = r.profile.heroes[hero];

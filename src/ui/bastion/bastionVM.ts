@@ -146,6 +146,8 @@ export interface BastionHubHooks {
   onUpgradeStructure(id: number): void;
   /** Abre a coleção de cartas (os slots do modo contam as ondas vencidas no Bastião). */
   onCards(): void;
+  /** Árvore Global com os nós e as Masteries do Bastião. */
+  onTree(): void;
   onExit(): void;
 }
 

@@ -44,6 +44,8 @@ export interface VocationPassiveBonus {
   dodge: number;
   /** Chance de crítico (fração). */
   crit: number;
+  /** Dano crítico extra (fração, somada ao 150% base; separada da chance). */
+  critDano?: number;
   /** Skill Haste (o único acelerador de recarga). */
   haste: number;
   /** Redução do dano recebido (fração). */

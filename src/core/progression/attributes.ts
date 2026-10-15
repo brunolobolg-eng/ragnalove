@@ -238,6 +238,6 @@ export function computeStats(kind: string, attrsIn: Attrs, gear: GearBonus = emp
     rainRadius: aCfg.rain.radius + (lv('volley') ? SKILL_NUM.volley(lv('volley')).radius : 0),
     rainCooldownTicks: cd(aCfg.rain.cooldownTicks),
     crit: Math.min(GAME_CONFIG.crit.maxChance, GAME_CONFIG.crit.baseChance + attrs.luk * A.luk.critPerPoint + gear.crit + (lv('eagleEye') ? SKILL_NUM.eagleEye(lv('eagleEye')).crit : 0) + step.crit + (vp.crit ?? 0)),
-    critDamage: GAME_CONFIG.crit.baseDamage + gear.critDamage,
+    critDamage: GAME_CONFIG.crit.baseDamage + gear.critDamage + (vp.critDano ?? 0),
   };
 }

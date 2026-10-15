@@ -8,6 +8,7 @@ import { findStructure, migrateBastion, newBastion, structureMaxHp, structureSta
 import { hordeOf, type HordeWave } from '../core/bastion/horde';
 import { bastionBuildEnv } from '../core/bastion/route';
 import { registerOverlay } from '../ui/overlays';
+import { semArvoreNoSave } from '../core/progression/arvore';
 import {
   BUILD_MSG,
   applyNight,
@@ -60,6 +61,8 @@ export interface BastionDeps {
   setProfile(p: Profile): void;
   /** Limite de zoom da câmera: o Bastião tem o próprio; ao sair, a campanha volta ao dela. */
   setZoomProfile(p: 'campaign' | 'bastion'): void;
+  /** Abre a Árvore Global (o perfil em uso é o do Bastião enquanto o modo roda). */
+  openArvore(): void;
   sim(): Simulation;
   /** Carrega o mapa do Bastião com a semente da próxima noite e a horda dela (tropa e chefe, se houver). */
   loadMap(seed: number, wave: WaveOptions): void;
@@ -141,6 +144,7 @@ export class BastionSession {
       onParty: (party) => this.setParty(party),
       onRepairStructure: (id) => this.repair(id),
       onUpgradeStructure: (id) => this.act(upgradeStructure(this.state(), id), 'Construção aprimorada.'),
+      onTree: () => this.d.openArvore(),
       onCards: () => {
         this.hub.close();
         this.d.openCollection(this.state().records.totalNights, () => this.backFromCards());
@@ -344,7 +348,7 @@ export class BastionSession {
 
   /** Grava em segundo plano (SaveStore.setLazy): construir não espera o disco. Falha no disco chega pelo aviso de main.ts. */
   private save(): void {
-    if (!SaveStore.setLazy(SAVE_KEY, JSON.stringify(this.state()))) this.d.log('Não foi possível salvar o Bastião (disco cheio ou sem permissão?).', 'warn');
+    if (!SaveStore.setLazy(SAVE_KEY, JSON.stringify(semArvoreNoSave(this.state())))) this.d.log('Não foi possível salvar o Bastião (disco cheio ou sem permissão?).', 'warn');
   }
 
   /** Guarda a jornada e troca para a cidade do Bastião (run com a party, a carteira e a vida do núcleo do modo). */

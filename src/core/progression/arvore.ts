@@ -1,4 +1,28 @@
-import { ARVORE_CONFIG, BONUS_LABEL, CONEXOES, FAMILIAS, MASTERIES, MASTERY_BY_ID, NOS, NO_BY_ID, REGIOES, type BonusKey, type MasteryDef, type MasteryId, type NoDef } from '../../config/arvoreGlobal';
+import {
+  ARVORE_CAPS_COMBATE,
+  ARVORE_CAP_ATRIBUTO,
+  ARVORE_CONFIG,
+  ARVORE_ECONOMIA,
+  BONUS_LABEL,
+  CATEGORIAS,
+  CATEGORIA_IDS,
+  CONEXOES,
+  ECO_KEYS,
+  custoDoNo,
+  FAMILIAS,
+  MASTERIES,
+  MASTERY_BY_ID,
+  NOS,
+  NO_BY_ID,
+  PASSIVA_KEYS,
+  REGIOES,
+  type BonusKey,
+  type EcoKey,
+  type MasteryDef,
+  type MasteryId,
+  type NoDef,
+  type PassivaKey,
+} from '../../config/arvoreGlobal';
 import { isHeroKind } from '../../config/heroes';
 import { ATTR_KEYS, type Attrs } from './attributes';
 import type { VocationPassiveBonus } from '../../config/vocationSkills';
@@ -7,19 +31,19 @@ import type { HeroKind } from './skills';
 /**
  * Árvore global de progressão: regras puras (sem DOM, sem Three.js, sem sorteio).
  *
- * Modelo:
- * - Um só pool de pontos de árvore, derivado do progresso que já existe: `pontosPorNivel` por nível que cada
- *   herói alcança. Não há moeda nova nem estado de pontos guardado (reorganizar devolve tudo sozinho).
- * - `comprados`: nós abertos. Um nó só abre se estiver ligado a um nó já aberto (a raiz é sempre aberta).
- * - Bônus de nó: calculado na hora a partir de `comprados` (nada de efeito guardado = nada residual).
- * - Mastery: guardada por id -> herói. Um herói carrega no máximo `maxMasteriesPorHeroi`. Ela só vale se o
- *   nó que a desbloqueia continua aberto, o herói é elegível e tem o nível mínimo (senão não tem efeito).
+ * - Pontos de árvore vêm do progresso que já existe: `pontosPorNivel` por nível de cada personagem.
+ * - `comprados`: nós abertos. Um nó só abre se estiver ligado a um nó aberto (a raiz é sempre aberta).
+ * - Bônus de nó são calculados na hora a partir de `comprados`: nada de efeito guardado, nada residual.
+ * - Economia (EXP, Zen, descontos...): somada entre os nós abertos e limitada pelo teto de cada bônus.
+ *   Só valem os bônus com `ligado: true` na config; os outros ficam em 0 até o gancho existir.
+ * - Combate: passivas e atributos são somados e limitados pelos caps de ARVORE_CAPS_COMBATE / ARVORE_CAP_ATRIBUTO.
+ * - Mastery: guardada por id -> personagem. Só vale com o ponto aberto, personagem elegível e nível mínimo.
  *
- * Toda mudança é atômica: se a checagem falha, nada muda e a mensagem (pt-BR) volta. A pré-visualização
- * (`previsao*`) não muda nada: serve para mostrar o custo antes de confirmar.
+ * Toda mudança é atômica: se a checagem falha, nada muda e a mensagem (pt-BR) volta.
+ * A pré-visualização (previsao*) não muda nada.
  */
 
-/** Estado da árvore dentro do Profile (um por jornada). */
+/** Estado da árvore dentro do Profile (um por jornada, e um no Bastião). */
 export interface ArvoreState {
   /** Nós abertos (ids). A raiz não entra aqui: é sempre aberta. */
   comprados: string[];
@@ -41,6 +65,9 @@ export interface ContextoArvore {
   emCombate?: boolean;
 }
 
+/** Economia somada entre os nós abertos (só bônus ligados; os demais ficam em 0). */
+export type Economia = Record<EcoKey, number>;
+
 export const BLOQUEIO_COMBATE = 'A árvore só pode ser mexida fora da luta.';
 
 export function arvoreVazia(): ArvoreState {
@@ -48,17 +75,37 @@ export function arvoreVazia(): ArvoreState {
 }
 
 /**
+ * Árvore que vale para o save de meta: a já guardada no meta; se não há (save antigo), adota a da jornada
+ * antiga (migração: nada se perde); senão, árvore vazia. Pode rodar mais de uma vez (idempotente).
+ */
+export function arvoreDoMeta(meta: { arvore?: unknown }, legados: unknown[] = []): ArvoreState {
+  if (meta.arvore !== undefined && meta.arvore !== null) return normalizarArvore(meta.arvore);
+  for (const l of legados) if (l !== undefined && l !== null) return normalizarArvore(l);
+  return arvoreVazia();
+}
+
+/** Liga a árvore do meta ao perfil em uso (mesma referência: o que muda na tela aparece no meta ao gravar). */
+export function anexarArvore(perfil: { arvore?: ArvoreState }, arvore: ArvoreState): void {
+  perfil.arvore = arvore;
+}
+
+/** Cópia do save sem a árvore: a árvore mora no meta, então o save da jornada e do Bastião não a guarda. */
+export function semArvoreNoSave<T extends { profile?: { arvore?: unknown } }>(save: T): T {
+  if (!save.profile || save.profile.arvore === undefined) return save;
+  const profile: { arvore?: unknown } = { ...save.profile };
+  delete profile.arvore;
+  return { ...save, profile } as T;
+}
+
+/**
  * Conserta a árvore que veio do save (antigo, vazio ou editado à mão). Não perde nada válido:
- * - id de nó desconhecido sai; nó repetido conta uma vez; a raiz não entra na lista;
- * - nó só fica se está ligado à raiz por nós que também ficaram (requisito de ligação não é pulado);
- * - Mastery só fica se o nó que a desbloqueia ficou aberto, o herói é elegível e não passa do limite por herói;
- * - reorganizações: inteiro não negativo, senão zero.
+ * id desconhecido e raiz saem; nó repetido conta uma vez; nó só fica se está ligado à raiz por nós que
+ * também ficaram; Mastery só fica com o nó aberto, herói elegível e dentro do limite por herói.
  * Pode rodar mais de uma vez (idempotente).
  */
 export function normalizarArvore(raw: unknown): ArvoreState {
   if (!raw || typeof raw !== 'object') return arvoreVazia();
   const r = raw as { comprados?: unknown; masteries?: unknown; reorganizacoes?: unknown };
-  // 1) ids conhecidos, sem repetir e sem a raiz
   const pendentes: string[] = [];
   if (Array.isArray(r.comprados)) {
     for (const id of r.comprados) {
@@ -68,7 +115,6 @@ export function normalizarArvore(raw: unknown): ArvoreState {
       pendentes.push(id);
     }
   }
-  // 2) só fica o que está ligado à raiz por nós que também ficaram (ponto fixo: a ordem do save não importa)
   const abertos = new Set<string>([RAIZ_ID]);
   for (let mudou = true; mudou; ) {
     mudou = false;
@@ -83,7 +129,6 @@ export function normalizarArvore(raw: unknown): ArvoreState {
     masteries: {},
     reorganizacoes: typeof r.reorganizacoes === 'number' && Number.isInteger(r.reorganizacoes) && r.reorganizacoes >= 0 ? r.reorganizacoes : 0,
   };
-  // 3) Masteries: ordem alfabética dos ids (determinística), com nó aberto, herói elegível e limite por herói
   if (r.masteries && typeof r.masteries === 'object') {
     const guardadas = r.masteries as Record<string, unknown>;
     for (const id of Object.keys(guardadas).sort()) {
@@ -136,7 +181,7 @@ export function alcancavel(h: ArvoreHost, id: string): boolean {
   return vizinhos(id).some((v) => possui(st, v));
 }
 
-/** Nós abertos (raiz incluída), para a tela. */
+/** Nós abertos (raiz incluída). */
 export function nosAbertos(h: ArvoreHost): Set<string> {
   const st = estado(h);
   return new Set([RAIZ_ID, ...st.comprados]);
@@ -145,18 +190,17 @@ export function nosAbertos(h: ArvoreHost): Set<string> {
 /** Estado de um nó para a tela: aberto, disponível para comprar, falta ponto ou bloqueado (sem ligação). */
 export type EstadoNo = 'aberto' | 'disponivel' | 'sem-pontos' | 'bloqueado';
 
-/** Estado de um nó agora (a raiz e os nós abertos são "aberto"). Só leitura: a tela não decide regra. */
 export function estadoNo(h: ArvoreHost, id: string): EstadoNo {
   const no = NO_BY_ID[id];
   if (!no) return 'bloqueado';
   if (possui(estado(h), id)) return 'aberto';
   if (!alcancavel(h, id)) return 'bloqueado';
-  return pontosDisponiveis(h) >= no.custo ? 'disponivel' : 'sem-pontos';
+  return pontosDisponiveis(h) >= custoDoNo(no) ? 'disponivel' : 'sem-pontos';
 }
 
 // ---------------- pontos ----------------
 
-/** Total de pontos que a conta já ganhou com o progresso (soma de níveis de todos os heróis). */
+/** Total de pontos que o progresso já deu (soma de níveis de todos os personagens). */
 export function pontosTotais(h: ArvoreHost): number {
   let niveis = 0;
   for (const hp of Object.values(h.heroes)) niveis += Math.max(0, (hp.level ?? 1) - 1);
@@ -166,10 +210,10 @@ export function pontosTotais(h: ArvoreHost): number {
 /** Pontos gastos nos nós abertos. */
 export function pontosGastos(h: ArvoreHost): number {
   const st = estado(h);
-  return [...new Set(st.comprados)].reduce((s, id) => s + (NO_BY_ID[id]?.custo ?? 0), 0);
+  return [...new Set(st.comprados)].reduce((s, id) => s + (NO_BY_ID[id] ? custoDoNo(NO_BY_ID[id]) : 0), 0);
 }
 
-/** Pontos livres agora (nunca mostra negativo: um save com níveis reduzidos só deixa de comprar). */
+/** Pontos livres agora (nunca negativo). */
 export function pontosDisponiveis(h: ArvoreHost): number {
   return Math.max(0, pontosTotais(h) - pontosGastos(h));
 }
@@ -186,7 +230,7 @@ export function motivoComprarNo(h: ArvoreHost, id: string, ctx: ContextoArvore =
   const st = estado(h);
   if (possui(st, id)) return 'Este nó já está aberto.';
   if (!alcancavel(h, id)) return 'Abra primeiro um nó ligado a este.';
-  const falta = no.custo - pontosDisponiveis(h);
+  const falta = custoDoNo(no) - pontosDisponiveis(h);
   if (falta > 0) return `Faltam ${falta} ponto(s) de árvore.`;
   return undefined;
 }
@@ -202,13 +246,13 @@ export function comprarNo(h: ArvoreHost, id: string, ctx: ContextoArvore = {}): 
 
 // ---------------- masteries ----------------
 
-/** Mastery com o nó que a desbloqueia aberto (e portanto disponível para atribuir)? */
+/** Mastery com o nó que a desbloqueia aberto? */
 export function masteryDesbloqueada(h: ArvoreHost, masteryId: MasteryId): boolean {
   const m = MASTERY_BY_ID[masteryId];
   return !!m && possui(estado(h), m.noRequerido);
 }
 
-/** Quantas Masteries o herói carrega agora. */
+/** Masteries que estão com o personagem. */
 function masteriesDoHeroi(st: ArvoreState, k: HeroKind): MasteryId[] {
   return (Object.keys(st.masteries) as MasteryId[]).filter((id) => st.masteries[id] === k).sort();
 }
@@ -218,7 +262,7 @@ export function custoAtribuir(): number {
   return ARVORE_CONFIG.atribuirZen;
 }
 
-/** Motivo para não atribuir a Mastery a esse herói agora (ausente = pode). */
+/** Motivo para não atribuir a Mastery a esse personagem agora (ausente = pode). */
 export function motivoAtribuir(h: ArvoreHost, masteryId: MasteryId, k: HeroKind, ctx: ContextoArvore = {}): string | undefined {
   if (ctx.emCombate) return BLOQUEIO_COMBATE;
   const m = MASTERY_BY_ID[masteryId];
@@ -251,7 +295,7 @@ export function atribuirMastery(h: ArvoreHost, masteryId: MasteryId, k: HeroKind
   return undefined;
 }
 
-/** Tira a Mastery do personagem (de graça: ela volta a ficar guardada). */
+/** Tira a Mastery do personagem (de graça: ela volta à guarda). */
 export function removerMastery(h: ArvoreHost, masteryId: MasteryId, ctx: ContextoArvore = {}): string | undefined {
   if (ctx.emCombate) return BLOQUEIO_COMBATE;
   const st = estado(h);
@@ -263,8 +307,8 @@ export function removerMastery(h: ArvoreHost, masteryId: MasteryId, ctx: Context
 }
 
 /**
- * Mastery que vale para o herói AGORA: está com ele, o nó que a desbloqueia está aberto, ele é elegível e
- * tem o nível. Qualquer falta vira "sem efeito" (nada residual). Não depende de a herói estar na party.
+ * Mastery que vale para o personagem AGORA: está com ele, o nó que a desbloqueia está aberto, ele é elegível e
+ * tem o nível. Qualquer falta vira "sem efeito" (nada residual).
  */
 export function masteryDoHeroi(h: ArvoreHost, k: HeroKind): MasteryDef | undefined {
   const st = estado(h);
@@ -299,7 +343,7 @@ export function previsaoReorganizar(h: ArvoreHost, ctx: ContextoArvore = {}): { 
   return { custo: custoReorganizar(h), erro: motivoReorganizar(h, ctx) };
 }
 
-/** Fecha todos os nós e devolve as Masteries para a guarda. Cobra Zen e sobe o custo da próxima vez. */
+/** Fecha todos os nós e devolve as Masteries à guarda. Cobra Zen e sobe o custo da próxima vez. */
 export function reorganizarArvore(h: ArvoreHost, ctx: ContextoArvore = {}): string | undefined {
   const erro = motivoReorganizar(h, ctx);
   if (erro) return erro;
@@ -313,49 +357,80 @@ export function reorganizarArvore(h: ArvoreHost, ctx: ContextoArvore = {}): stri
 
 // ---------------- efeitos agregados ----------------
 
-/** Bônus que os nós abertos dão a um herói: atributos (somam como o equipamento) e passivas derivadas. */
+/** Bônus de combate que os nós abertos dão a um personagem (já limitados pelos caps). */
 export interface BonusArvore {
   attrs: Partial<Attrs>;
   passiva: Partial<VocationPassiveBonus>;
 }
 
-/** Soma o bônus de todos os nós abertos compatíveis com o herói. Cada nó entra uma vez (conjunto). */
+const ECO_SET = new Set<string>(ECO_KEYS);
+const PASSIVA_SET = new Set<string>(PASSIVA_KEYS);
+const isEco = (k: string): k is EcoKey => ECO_SET.has(k);
+const isPassiva = (k: string): k is PassivaKey => PASSIVA_SET.has(k);
+
+/** Soma o bônus de combate dos nós abertos compatíveis com o personagem, respeitando os caps. */
 export function bonusDoHeroi(h: ArvoreHost, k: HeroKind): BonusArvore {
-  const out: BonusArvore = { attrs: {}, passiva: {} };
+  const attrs: Partial<Record<keyof Attrs, number>> = {};
+  const passiva: Partial<Record<PassivaKey, number>> = {};
   const st = estado(h);
   for (const id of new Set(st.comprados)) {
     const no = NO_BY_ID[id];
     if (!no || no.tipo === 'raiz' || !compativel(no, k)) continue;
     for (const [key, valor] of Object.entries(no.bonus) as [BonusKey, number][]) {
+      if (isEco(key)) continue;
       if ((ATTR_KEYS as string[]).includes(key)) {
         const a = key as keyof Attrs;
-        out.attrs[a] = (out.attrs[a] ?? 0) + valor;
-      } else {
-        const p = key as keyof VocationPassiveBonus;
-        out.passiva[p] = (out.passiva[p] ?? 0) + valor;
-      }
+        attrs[a] = (attrs[a] ?? 0) + valor;
+      } else if (isPassiva(key)) passiva[key] = (passiva[key] ?? 0) + valor;
     }
+  }
+  for (const a of Object.keys(attrs) as (keyof Attrs)[]) attrs[a] = Math.min(ARVORE_CAP_ATRIBUTO, attrs[a]!);
+  for (const p of Object.keys(passiva) as PassivaKey[]) passiva[p] = Math.min(ARVORE_CAPS_COMBATE[p], passiva[p]!);
+  return { attrs, passiva: passiva as Partial<VocationPassiveBonus> };
+}
+
+/**
+ * Economia dos nós abertos: soma por bônus e limita pelo teto. Bônus sem gancho (`ligado: false`) ficam em 0.
+ * É daqui que EXP, Zen, descontos, recrutas, pontos de habilidade e os bônus do Bastião leem.
+ */
+export function economiaDoPerfil(h: ArvoreHost): Economia {
+  const out = Object.fromEntries(ECO_KEYS.map((k) => [k, 0])) as Economia;
+  const st = estado(h);
+  for (const id of new Set(st.comprados)) {
+    const no = NO_BY_ID[id];
+    if (!no) continue;
+    for (const [key, valor] of Object.entries(no.bonus) as [BonusKey, number][]) if (isEco(key)) out[key] += valor;
+  }
+  for (const k of ECO_KEYS) {
+    const cfg = ARVORE_ECONOMIA[k];
+    out[k] = cfg.ligado ? Math.min(cfg.teto, out[k]) : 0;
   }
   return out;
 }
 
 const PERC = (v: number) => `${String(Math.round(v * 1000) / 10).replace('.', ',')}%`;
+/** Bônus que reduzem custo (sinal de menos no texto). */
+const NEGATIVO = new Set<BonusKey>(['descontoCidade', 'reparoCidade', 'custoConstrucao', 'reparoBastiao']);
+const ATRIBUTO_KEYS = new Set<string>(['str', 'int', 'vit', 'dex', 'luk']);
 
-/** Textos (pt-BR) de um bônus, para o painel de detalhes e a ficha. Redução de dano sai com sinal de menos. */
+/** Texto (pt-BR) de um bônus, para o painel de detalhes e a ficha. */
 export function textoBonus(b: Partial<Record<BonusKey, number>>): string[] {
   return (Object.keys(b) as BonusKey[])
     .filter((k) => (b[k] ?? 0) !== 0)
     .map((k) => {
       const v = b[k] ?? 0;
       const L = BONUS_LABEL[k];
-      if (L.formato === 'pontos') return `${v > 0 ? '+' : ''}${v} de ${L.nome}`;
-      return k === 'reduce' ? `−${PERC(v)} de ${L.nome}` : `+${PERC(v)} de ${L.nome}`;
+      if (ATRIBUTO_KEYS.has(k)) return `+${v} de ${L.nome}`;
+      if (L.formato === 'pontos') return `${v > 0 ? '+' : ''}${v} ${L.nome}`;
+      const sinal = NEGATIVO.has(k) ? '−' : k === 'reduce' ? '−' : '+';
+      const comDe = L.nome.startsWith('de ') ? L.nome : `de ${L.nome}`;
+      return `${sinal}${PERC(v)} ${comDe}`;
     });
 }
 
 // ---------------- validação do desenho ----------------
 
-/** Confere o desenho (dados) da árvore. Lista vazia = válido. Usado pela checagem e pelo teste. */
+/** Confere o desenho (dados). Lista vazia = válido. Usado pela checagem e pela tela de desenvolvimento. */
 export function validarArvore(): string[] {
   const erros: string[] = [];
   const ids = new Set<string>();
@@ -363,15 +438,26 @@ export function validarArvore(): string[] {
     if (ids.has(n.id)) erros.push(`id repetido: ${n.id}`);
     ids.add(n.id);
     if (!REGIOES[n.regiao]) erros.push(`${n.id}: região desconhecida (${n.regiao})`);
+    if (!CATEGORIAS[n.categoria]) erros.push(`${n.id}: categoria desconhecida (${n.categoria})`);
     if (!Number.isInteger(n.custo) || n.custo < 0) erros.push(`${n.id}: custo inválido (${n.custo})`);
     if (n.tipo === 'raiz' && n.custo !== 0) erros.push(`${n.id}: a raiz não tem custo`);
     if (n.tipo === 'mastery' && !n.mastery) erros.push(`${n.id}: ponto de Mastery sem Mastery`);
     if (n.tipo !== 'mastery' && n.mastery) erros.push(`${n.id}: só ponto de Mastery desbloqueia Mastery`);
-    for (const k of Object.keys(n.bonus)) if (!(k in BONUS_LABEL)) erros.push(`${n.id}: bônus desconhecido (${k})`);
     if (n.para !== 'todos' && (!Array.isArray(n.para) || n.para.length === 0 || n.para.some((k) => !isHeroKind(k)))) erros.push(`${n.id}: compatibilidade inválida`);
+    for (const [k, v] of Object.entries(n.bonus) as [BonusKey, number][]) {
+      if (!(k in BONUS_LABEL)) erros.push(`${n.id}: bônus desconhecido (${k})`);
+      else if (isEco(k)) {
+        if (v > ARVORE_ECONOMIA[k].teto) erros.push(`${n.id}: ${k} (${v}) passa do teto (${ARVORE_ECONOMIA[k].teto})`);
+      } else if (isPassiva(k)) {
+        if (v > ARVORE_CAPS_COMBATE[k]) erros.push(`${n.id}: ${k} (${v}) passa do cap de combate (${ARVORE_CAPS_COMBATE[k]})`);
+      } else if (v > ARVORE_CAP_ATRIBUTO) erros.push(`${n.id}: ${k} (${v}) passa do cap de atributo (${ARVORE_CAP_ATRIBUTO})`);
+    }
   }
+  for (const c of CATEGORIA_IDS) if (!NOS.some((n) => n.categoria === c)) erros.push(`categoria sem nó: ${c}`);
   const raizes = NOS.filter((n) => n.tipo === 'raiz');
   if (raizes.length !== 1) erros.push('a árvore precisa de exatamente um nó raiz');
+  if (NOS.length < ARVORE_CONFIG.minNos) erros.push(`a árvore tem ${NOS.length} nós (mínimo ${ARVORE_CONFIG.minNos})`);
+  // conexões: sem repetição, sem ponta inexistente, sem laço
   const vistos = new Set<string>();
   for (const [a, b] of CONEXOES) {
     if (!ids.has(a) || !ids.has(b)) erros.push(`conexão ${a}–${b} aponta para nó inexistente`);
@@ -380,7 +466,7 @@ export function validarArvore(): string[] {
     if (vistos.has(chave)) erros.push(`conexão repetida: ${a}–${b}`);
     vistos.add(chave);
   }
-  // todo nó precisa ser alcançável a partir da raiz (senão nunca abre)
+  // sem nó órfão: todo nó precisa ser alcançável a partir da raiz
   if (raizes.length === 1) {
     const seen = new Set<string>([RAIZ_ID]);
     const fila = [RAIZ_ID];
@@ -388,8 +474,9 @@ export function validarArvore(): string[] {
       const atual = fila.shift()!;
       for (const v of vizinhos(atual)) if (!seen.has(v)) { seen.add(v); fila.push(v); }
     }
-    for (const n of NOS) if (!seen.has(n.id)) erros.push(`sem caminho até a raiz: ${n.id}`);
+    for (const n of NOS) if (!seen.has(n.id)) erros.push(`sem caminho até a raiz (órfão): ${n.id}`);
   }
+  // Masteries: cada uma com ponto próprio, família conhecida e pelo menos um personagem elegível
   const familias = new Set(FAMILIAS.map((f) => f.id));
   const masteryIds = new Set<string>();
   for (const m of MASTERIES) {
@@ -402,11 +489,33 @@ export function validarArvore(): string[] {
     if (!Number.isInteger(m.nivelMin) || m.nivelMin < 1) erros.push(`${m.id}: nível mínimo inválido`);
     const r = m.regra;
     const frac = (v: number) => v > 0 && v <= 1;
-    if (r.tipo === 'escudoReativo' && !(frac(r.limiar) && frac(r.pct) && r.sec > 0)) erros.push(`${m.id}: regra de escudo fora da faixa`);
-    if (r.tipo === 'execucao' && !(frac(r.limiar) && r.bonus > 0)) erros.push(`${m.id}: regra de execução fora da faixa`);
-    if (r.tipo === 'empurrao' && !(frac(r.chance) && r.passos >= 1)) erros.push(`${m.id}: regra de empurrão fora da faixa`);
+    const ok = (cond: boolean, what: string) => { if (!cond) erros.push(`${m.id}: ${what} fora da faixa`); };
+    switch (r.tipo) {
+      case 'escudoReativo': ok(frac(r.limiar) && frac(r.pct) && r.sec > 0, 'escudo'); break;
+      case 'execucao': ok(frac(r.limiar) && r.bonus > 0, 'execução'); break;
+      case 'empurrao': ok(frac(r.chance) && r.passos >= 1, 'empurrão'); break;
+      case 'bonusContraPesado': ok(frac(r.pct), 'bônus contra pesados'); break;
+      case 'estilhaco': ok(frac(r.chance) && frac(r.pct), 'estilhaço'); break;
+      case 'golpeCiclico': ok(Number.isInteger(r.a) && r.a >= 2 && frac(r.pct), 'golpe cíclico'); break;
+      case 'marca': ok(frac(r.chance) && frac(r.amp) && r.sec > 0, 'marca'); break;
+      case 'frio': ok(frac(r.chance) && r.sec > 0, 'frio'); break;
+      case 'lentidao': ok(frac(r.chance) && r.mult > 1 && r.sec > 0, 'lentidão'); break;
+      case 'atordoar': ok(frac(r.chance) && r.sec > 0, 'atordoar'); break;
+      case 'curaReativa': ok(frac(r.limiar) && frac(r.pct), 'cura'); break;
+      case 'espinhos': ok(frac(r.pct), 'espinhos'); break;
+      case 'recuoSofrido': ok(frac(r.chance) && r.passos >= 1, 'recuo'); break;
+      case 'avancoAbate': ok(r.passos >= 1, 'avanço'); break;
+      case 'recuoAbate': ok(r.passos >= 1, 'recuo ao abate'); break;
+      case 'bencaoEquipe': ok(frac(r.amp) && r.sec > 0, 'bênção'); break;
+      case 'escudoAliado': ok(frac(r.pct) && r.sec > 0, 'escudo aliado'); break;
+      case 'curaColetiva': ok(frac(r.pct), 'cura coletiva'); break;
+      default: erros.push(`${m.id}: tipo de regra desconhecido`);
+    }
   }
-  for (const f of FAMILIAS) if (f.mastery && !MASTERY_BY_ID[f.mastery]) erros.push(`família ${f.id} aponta para Mastery inexistente`);
+  for (const f of FAMILIAS) {
+    const n = MASTERIES.filter((m) => m.familia === f.id).length;
+    if (n < 3 || n > 4) erros.push(`família ${f.id} tem ${n} Masteries (esperado 3 a 4)`);
+  }
   for (const n of NOS) if (n.tipo === 'mastery' && !MASTERIES.some((m) => m.id === n.mastery)) erros.push(`${n.id}: Mastery inexistente (${n.mastery})`);
   return erros;
 }
