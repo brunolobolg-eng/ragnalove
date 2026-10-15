@@ -95,6 +95,7 @@ import {
   vocationOf,
   type Profile,
 } from './core/progression/profile';
+import { masteryDoHeroi } from './core/progression/arvore';
 import { rollItem, type Rarity, type Slot } from './core/progression/equipment';
 import { Rng } from './core/sim/rng';
 import { tileToWorld } from './render/coords';
@@ -271,7 +272,9 @@ function loadout(): Record<string, HeroLoadout> {
   const out: Record<string, HeroLoadout> = {};
   for (const k of Object.keys(profile.heroes)) {
     const h = profile.heroes[k];
-    out[k] = { stats: heroStats(profile, k), level: h.level, exp: h.exp, locked: heroLockedKeys(profile, k), cards: h.cards ?? [], visual: vocationOf(k, h)?.modelo, vocation: vocationOf(k, h)?.id };
+    // a Mastery tática (árvore global) só entra se estiver atribuída e valendo para este herói agora
+    const mastery = isHeroKind(k) ? masteryDoHeroi(profile, k)?.regra : undefined;
+    out[k] = { stats: heroStats(profile, k), level: h.level, exp: h.exp, locked: heroLockedKeys(profile, k), cards: h.cards ?? [], visual: vocationOf(k, h)?.modelo, vocation: vocationOf(k, h)?.id, mastery };
   }
   return out;
 }

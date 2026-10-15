@@ -5,6 +5,7 @@ import type { HeroStats } from '../progression/attributes';
 import type { Item } from '../progression/equipment';
 import type { CardRuntime } from '../progression/cards';
 import type { AuraKind } from '../../config/auras';
+import type { MasteryRegra } from '../../config/arvoreGlobal';
 
 export type Team = 'party' | 'enemy';
 
@@ -49,6 +50,10 @@ export interface Unit {
   /** Escudo Sagrado: dano que ainda absorve e até quando dura. */
   shield?: number;
   shieldUntil?: number;
+  /** Só party: regra de combate da Mastery tática do herói (árvore global; ausente = sem Mastery). */
+  mastery?: MasteryRegra;
+  /** Só party: a Mastery de escudo reativo já deu o escudo nesta batalha (vale uma vez). */
+  masteryUsed?: boolean;
   /** Bênção: dano extra (0,1 = +10%) até o tick. */
   blessAmp?: number;
   blessUntil?: number;

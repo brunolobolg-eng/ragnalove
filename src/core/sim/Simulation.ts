@@ -19,6 +19,7 @@ import { applyStatDelta, cardDealMult, cardStatDelta, cardTakenMult, cardTrigger
 import { neutralMods, testRangeMult, type SimMods } from './RangeSystem';
 import { updateCombatMovement } from './CombatMovement';
 import { AURA, AURA_KINDS, type AuraKind } from '../../config/auras';
+import type { MasteryRegra } from '../../config/arvoreGlobal';
 
 /** Semente própria das auras (xor com a da onda): sorteio de portadores e de críticos, separado da horda e do combate. */
 const AURA_SEED = 0x6d2b5a1f;
@@ -113,6 +114,8 @@ const CONTINUOUS = new Set<DamageSource>(['burn', 'poison', 'oil', 'ruin', 'comb
 const CARD_EXCLUDED = new Set<DamageSource>([...CONTINUOUS, 'card', 'reflect', 'trap', 'tower', 'debug']);
 /** Dano que não recebe o modDano 'causa' do herói: dano de carta (já herda o do golpe) e reflexo (volta do que sofreu). */
 const CARD_NO_MOD = new Set<DamageSource>(['card', 'reflect', 'debug']);
+/** Golpes corpo a corpo da party (a Mastery Pressão Tática empurra só nestes; flechas e magias não). */
+const MELEE_SOURCES = new Set<DamageSource>(['melee', 'bash', 'cleave', 'blade', 'spear', 'execute']);
 
 export interface HeroLoadout {
   stats: HeroStats;
@@ -126,6 +129,8 @@ export interface HeroLoadout {
   visual?: string;
   /** Vocação escolhida (id): com árvore própria, quem comanda é o arquétipo dela. */
   vocation?: string;
+  /** Mastery tática do herói (árvore global): regra de combate, ausente = sem Mastery. */
+  mastery?: MasteryRegra;
 }
 
 /**
@@ -284,6 +289,7 @@ export class Simulation {
       u.exp = lo.exp;
       u.cardRules = lo.cards ?? [];
       if (lo.visual) u.visual = lo.visual;
+      if (lo.mastery) u.mastery = lo.mastery;
       u.cardCd = {};
       this.heroFinal.set(u.kind, { level: u.level, exp: u.exp });
     }
@@ -712,6 +718,13 @@ export class Simulation {
     if (u.team === 'enemy' && this.auraOn(u, 'mitigacao') && sourceId !== undefined && this.units.get(sourceId)?.team === 'party') amount *= 1 - AURA.mitigacao.reducao;
     // Dano infinito (Dev Lab): qualquer golpe da party mata
     if (this.cheats.oneHit && u.team === 'enemy' && sourceId !== undefined && this.units.get(sourceId)?.team === 'party') amount = u.hp;
+    // Mastery Golpe de Misericórdia (árvore global): golpe da party contra inimigo com pouca vida causa mais dano.
+    // Não sorteia nada; só age quando o herói tem a Mastery (sem ela, o dano é o mesmo de antes).
+    if (u.team === 'enemy' && sourceId !== undefined && !CONTINUOUS.has(source)) {
+      const a = this.units.get(sourceId);
+      const r = a?.team === 'party' ? a.mastery : undefined;
+      if (r?.tipo === 'execucao' && u.hp <= u.maxHp * r.limiar) amount *= 1 + r.bonus;
+    }
     // Multiplicador de teste da Arena de Skills (neutro = 1: o jogo não muda)
     if (sourceId !== undefined) {
       const src = this.units.get(sourceId);
@@ -764,6 +777,20 @@ export class Simulation {
     if (applied > 0 && u.team === 'party') {
       cardTrigger(this, u, 'hurt', { amount: applied });
       if (u.alive && u.hp <= u.maxHp * 0.3) cardTrigger(this, u, 'lowHp');
+    }
+    // Mastery Barreira de Contenção (árvore global): na primeira queda abaixo do limiar da batalha, ganha escudo.
+    const rEscudo = u.team === 'party' ? u.mastery : undefined;
+    if (applied > 0 && rEscudo?.tipo === 'escudoReativo' && u.alive && !u.masteryUsed && u.hp <= u.maxHp * rEscudo.limiar) {
+      u.masteryUsed = true;
+      const ativo = (u.shieldUntil ?? 0) > this.tick ? u.shield ?? 0 : 0;
+      u.shield = ativo + rEscudo.pct * u.maxHp;
+      u.shieldUntil = Math.max(u.shieldUntil ?? 0, this.tick + Math.round(rEscudo.sec * this.tickRate));
+    }
+    // Mastery Pressão Tática (árvore global): golpe corpo a corpo da party pode empurrar o inimigo.
+    // O sorteio só acontece para quem tem a Mastery (último na condição: não gasta RNG dos outros).
+    const heroi = u.team === 'enemy' && applied > 0 && sourceId !== undefined && MELEE_SOURCES.has(source) ? this.units.get(sourceId) : undefined;
+    if (heroi?.team === 'party' && heroi.alive && heroi.mastery?.tipo === 'empurrao' && u.alive && this.combatRng.next() < heroi.mastery.chance) {
+      this.knockback(u, { x: heroi.x, y: heroi.y }, heroi.mastery.passos);
     }
   }
 
