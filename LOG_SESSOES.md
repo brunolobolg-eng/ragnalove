@@ -976,3 +976,20 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   1. No repouso, os pés do esqueleto ficam ~0,76 acima do chão, e só a malha mais baixa encosta. Pode parecer suspenso e não totalmente deitado: conferir no PC do dono.
   2. No impacto (~1,0 s a 1,1 s), o quadril sobe ~0,6 de mundo em ~0,2 s para não atravessar o chão. É o preço de manter o ponto mais baixo no nível do chão.
 - **Testes:** `npm run build` (typecheck + build), `sim:check` (determinístico: true), medição de morte no Chromium (overlays da recompensa e da fase ocultados por CSS; o jogo segue).
+
+## Ato III: tempestade no Cume das Cinzas (protótipo) — branch ato3-tempestade-proto
+- **Pedido:** protótipo do clima de tempestade do Ato III (zona `ashPeak`): céu escuro azul-acinzentado com nuvens densas, chuva, relâmpagos, ruínas flutuando ao redor da arena e névoa fria. Atrás de uma flag, sem mexer na grade.
+- **Feito:**
+  1. Flag `ATO3_TEMPESTADE` em `src/config/visualConfig.ts`: `ativo` e `zonas: ['ashPeak']`. Com `ativo: false` o cenário volta ao de antes (conferido pela leitura do código; não foi rodado com a flag desligada).
+  2. Imagens geradas offline por `scripts/gerarCeuTempestade.py`: `public/textures/cenario/ceu_tempestade.webp` (céu com nuvens; o horizonte tem a cor da névoa), `sombra_contato.webp` e `nevoa_suave.webp`.
+  3. `src/render/scenery/tempestade.ts` (novo): esfera do céu, chuva em linhas (260 gotas, pela posição do tempo), relâmpagos com intervalo sorteado por semente fixa (clarão fraco no chão, brilho do céu e um traço nas laterais), 8 ruínas dos pacotes castle/town/survival com balanço e mancha de contato, 14 placas de névoa fria.
+  4. `Stage.applyTheme(tema, tempestade)`: névoa mais densa (14 a 34 tiles), luz fria e gradiente cinza-azulado (`PostFX.setGradient`). `BoardView` e `main.ts` ligam a tempestade só nas zonas da flag.
+- **Medido (Chromium por software, sem GPU real):** montagem síncrona do tabuleiro, 3 repetições: antes 430, 151 e 181 ms; depois 215, 344 e 397 ms (mediana de 181 para 344 ms). Variação alta, não conclusivo. FPS: 0,3 nos dois casos, o que não mede desempenho real.
+- **Pendências:**
+  1. O céu quase não aparece com a câmera do jogo: o chão cobre a tela até a borda. Só aparece com zoom muito aberto e foco no norte. Decidir se o clima fica na névoa e no chão ou se a câmera muda.
+  2. As ruínas ficam nas laterais, fora da visão padrão. Na panorâmica se misturam com as pedras de lava que já existiam.
+  3. No close-up, a sombra de contato quase não aparece sobre a lava.
+  4. O relâmpago sobe o brilho de cerca de 16 para cerca de 33 em 0,1 s (dois pulsos). Se achar forte, reduza `relampago.clarao`.
+  5. O Covil do Detarderus (também do Ato III) ficou de fora. Entra na lista `zonas` se for o caso.
+  6. Ver no PC do dono: fluidez e visual no jogo real.
+- **Testes:** `npm run build`, `sim:check` (determinístico: true), `aura:check` e `cenario:check` passaram.

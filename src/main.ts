@@ -122,6 +122,7 @@ import { ParticleSystem } from './render/fx/Particles';
 import { VFXManager } from './render/fx/vfx/VFXManager';
 import { ModelUnitView } from './render/units/model/ModelUnitView';
 import { BoardView } from './render/BoardView';
+import { tempestadeAtiva } from './render/scenery/tempestade';
 import { loadBossModel, loadHumanoidBoss } from './render/units/model/bossLoader';
 import { krexxCastClip } from './render/units/model/krexxCast';
 import { loadMonsterModels } from './render/units/model/glbMonsters';
@@ -880,7 +881,7 @@ function focusParty(immediate = false): void {
 function loadZone(zone: ZoneDef, wave: WaveOptions): void {
   const themeChanged = ZONE_STATE.current.id !== zone.id;
   applyZone(zone, wave);
-  stage.applyTheme(zone.theme);
+  stage.applyTheme(zone.theme, tempestadeAtiva(zone.id));
   stage.setPainted(!!zone.painted);
   audio.setAmbience(zone.theme);
   if (themeChanged || !view.boardView) view.rebuildBoard();

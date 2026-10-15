@@ -8,7 +8,7 @@ import { MAX_HEAT, createVfxPass } from './fx/kit/VfxPostPass';
 import { PostFX, createFinishPass } from './fx/kit/PostFX';
 import { VFX } from './fx/kit/vfxSettings';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { VISUAL_CONFIG, VISUAL_THEMES } from '../config/visualConfig';
+import { ATO3_TEMPESTADE, VISUAL_CONFIG, VISUAL_THEMES } from '../config/visualConfig';
 import { ACTIVE_ZONE, type ZoneTheme } from '../config/zones';
 import { GAME_CONFIG } from '../config/gameConfig';
 
@@ -145,26 +145,32 @@ export class Stage {
     this.resize();
   }
 
-  /** Troca a atmosfera (luz, névoa, câmera, bloom) para o tema da zona. */
-  applyTheme(theme: ZoneTheme): void {
+  /**
+   * Troca a atmosfera (luz, névoa, câmera, bloom) para o tema da zona.
+   * `tempestade`: clima frio do Ato III (ATO3_TEMPESTADE, visualConfig.ts): névoa mais densa, luz fria e gradiente
+   * cinza-azulado. Sem ele, a atmosfera é a do tema, como antes.
+   */
+  applyTheme(theme: ZoneTheme, tempestade = false): void {
     const V = themeOf(theme);
-    this.renderer.toneMappingExposure = V.exposure;
-    (this.scene.background as THREE.Color).set(V.background);
+    const T = tempestade ? ATO3_TEMPESTADE : undefined;
+    this.renderer.toneMappingExposure = T?.luz.exposicao ?? V.exposure;
+    (this.scene.background as THREE.Color).set(T?.fundo ?? V.background);
     const fog = this.scene.fog as THREE.Fog;
-    fog.color.set(V.background);
-    this.fogBase = { ...V.fog };
+    fog.color.set(T?.horizonte ?? V.background);
+    this.fogBase = T ? { near: T.nevoa.near, far: T.nevoa.far } : { ...V.fog };
     this.applyFog();
     this.scene.environmentIntensity = V.envIntensity;
-    this.hemi.color.set(V.light.sky);
-    this.hemi.groundColor.set(V.light.ground);
-    this.hemi.intensity = V.hemiIntensity;
-    this.moon.color.set(V.light.sun);
-    this.moon.intensity = V.moonIntensity;
+    this.hemi.color.set(T?.luz.sky ?? V.light.sky);
+    this.hemi.groundColor.set(T?.luz.ground ?? V.light.ground);
+    this.hemi.intensity = T?.luz.hemi ?? V.hemiIntensity;
+    this.moon.color.set(T?.luz.sun ?? V.light.sun);
+    this.moon.intensity = T?.luz.lua ?? V.moonIntensity;
     this.camOffset.set(0, V.camera.height, V.camera.distance - V.camera.lookZ);
     this.sunDir.set(...((V as { sun?: [number, number, number] }).sun ?? VISUAL_CONFIG.sun));
     this.bloomBase = V.bloom.strength;
     this.bloom.strength = this.bloomBase * this.gfx.bloomStrength;
     this.postfx.setTheme(theme);
+    if (T) this.postfx.setGradient(T.gradiente);
     this.bloom.radius = V.bloom.radius;
     this.bloom.threshold = V.bloom.threshold;
   }

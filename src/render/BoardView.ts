@@ -13,6 +13,7 @@ import type { ParticleLayer } from './fx/Particles';
 import { isSharedTexture, sharedTexture, softCircle, tileOutline } from './textures';
 import { PathArrows } from './PathArrows';
 import { buildActDressing } from './scenery/ActDressing';
+import { buildTempestade, tempestadeAtiva, type TempestadeHandle } from './scenery/tempestade';
 import { loadTexture, precarregarImagens } from './scenery/naturKit';
 import { CENARIO_DIR, TEXTURAS_CENARIO } from './scenery/sceneryTextures';
 
@@ -34,6 +35,8 @@ export class BoardView {
   private readonly ray = new THREE.Raycaster();
   private readonly plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private readonly scenery: SceneryHandle;
+  /** Ato III: chuva, raios e ruínas flutuantes (só com a flag ATO3_TEMPESTADE ligada para a zona). */
+  private readonly tempestade?: TempestadeHandle;
   private readonly arrows?: PathArrows;
   /** Luzes reais do cenário (braseiros); desligadas no preset Baixo. */
   static sceneryLights = true;
@@ -68,6 +71,7 @@ export class BoardView {
   /** Anima o cenário (fogo, água, corvos, fumaça). */
   update(dt: number, particles: ParticleLayer): void {
     this.scenery.update(dt, particles);
+    this.tempestade?.update(dt);
     this.arrows?.update(dt);
     this.t += dt;
     this.pAcc += dt;
@@ -105,6 +109,10 @@ export class BoardView {
     this.scenery.setLights(BoardView.sceneryLights);
     definirDetalheAgua(BoardView.sceneryLights);
     this.group.add(this.scenery.group);
+    if (tempestadeAtiva(zone.id)) {
+      this.tempestade = buildTempestade(board.width, board.height);
+      this.group.add(this.tempestade.group);
+    }
     // Cenário temático dos monstros do ato + setas discretas do caminho da horda
     if (!zone.painted) this.group.add(buildActDressing(board)); // mapa pintado já traz o cenário
     this.arrows = new PathArrows(board);

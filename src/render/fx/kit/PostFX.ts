@@ -93,6 +93,11 @@ export class PostFX {
     g.forEach((hex, i) => this.gradTarget[i].copy(srgb(hex)));
   }
 
+  /** Gradiente próprio da zona (ex.: a tempestade do Ato III, cinza-azulado): topo, meio e base em hex. */
+  setGradient(hexes: readonly string[]): void {
+    hexes.forEach((hex, i) => this.gradTarget[i].copy(srgb(hex)));
+  }
+
   /** Momento da cena: planejamento, combate ou chefe em campo. */
   setSituation(s: PostFxSituation): void {
     this.situation = s;

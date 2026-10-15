@@ -644,6 +644,53 @@ export const ACT_DRESSING = {
 };
 
 /**
+ * Ato III — Tempestade no Cume das Cinzas (protótipo; só visual: a grade e a simulação não mudam).
+ * `ativo: false` volta ao cenário de antes (lava, névoa quente, sem chuva, sem raios nem ruínas).
+ * `zonas`: quais zonas recebem o clima. O Covil do Detarderus (também do Ato III) fica de fora por enquanto.
+ * O céu (public/textures/cenario/ceu_tempestade.webp, de scripts/gerarCeuTempestade.py) usa o mesmo `horizonte`
+ * desta config: mude os dois juntos.
+ */
+export const ATO3_TEMPESTADE = {
+  ativo: true,
+  zonas: ['ashPeak'] as readonly string[],
+  /** Névoa e fundo frios. `horizonte` é a cor da névoa e a do horizonte do céu (tem que bater com o WebP). */
+  horizonte: 0x2a3340,
+  fundo: 0x161c26,
+  /** Névoa mais densa e fria: `near`/`far` em tiles (escalam com o zoom, como a névoa comum); placas = nevoeiro baixo à deriva. */
+  nevoa: { near: 14, far: 34, cor: 0x7d8ea6, opacidade: 0.2, placas: 14 },
+  /** Luz mais fria: céu azul-acinzentado no ambiente, luar pálido. A direção do sol continua a da zona. */
+  luz: { sky: 0x9fb6d4, ground: 0x2a3140, sun: 0xbcd0ec, hemi: 0.95, lua: 1.25, exposicao: 1.08 },
+  /** Gradiente da pós-produção (topo, meio, base): cinza-azulado frio no lugar do brasa. */
+  gradiente: ['#A9BED8', '#3E4B5E', '#121722'] as readonly string[],
+  /** Chuva leve: linhas finas que caem em loop. `velocidade` em tiles/s (sorteada por gota); `area` = meia-largura em X e Z. */
+  chuva: { gotas: 260, altura: 14, comprimento: 0.9, velocidade: [11, 16] as readonly number[], inclinacao: 0.18, cor: 0x9fb4cc, opacidade: 0.32, area: [24, 22] as readonly number[] },
+  /**
+   * Relâmpagos: intervalo sorteado entre dois raios (s), duração do clarão (s), força do clarão no chão (0..1; baixa,
+   * para não piscar), brilho extra do céu no raio e a cor. `raio` = o traço visível nas laterais (vida em s e opacidade).
+   */
+  relampago: { intervalo: [7, 16] as readonly number[], duracao: 0.7, clarao: 0.09, cor: 0xcfe0ff, brilhoCeu: 0.15, raio: { vida: 0.35, opacidade: 0.9 } },
+  /**
+   * Ruínas flutuando fora da grade: distância (tiles) além da borda do tabuleiro, altura do chão (m), escala e o balanço
+   * (amplitude em m, velocidade em rad/s, giro em rad). `sombra` = tamanho (tiles) da mancha de contato no chão.
+   */
+  ruinas: {
+    quantidade: 8,
+    distancia: [2.5, 7] as readonly number[],
+    altura: [2.2, 4.6] as readonly number[],
+    escala: [1.1, 1.7] as readonly number[],
+    balancoAltura: 0.2,
+    balancoVelocidade: 0.45,
+    balancoGiro: 0.03,
+    sombra: 2.4,
+    /** Cor que as peças puxam (multiplica a textura do pacote): pedra fria e escura. */
+    tom: 0x9aa4b4,
+    pecas: ['castle/tower-square-mid-windows', 'castle/tower-hexagon-mid', 'castle/rocks-large', 'castle/rocks-small', 'town/pillar-stone', 'survival/rock-b'] as readonly string[],
+  },
+  /** Céu: textura gerada e raio da esfera (fica além da borda do mapa; a câmera só a vê com zoom aberto). */
+  ceu: { textura: 'ceu_tempestade.webp', raio: 120 },
+} as const;
+
+/**
  * Menu principal (tela de título): a arte da temporada vigente (`temporadas.ts`) enche a tela; por cima, os botões,
  * o painel de Ranking e o slogan recortados da mesma arte, com as áreas clicáveis e os valores vivos. Coordenadas em
  * pixels da arte de referência (x, y, largura, altura): toda arte de temporada usa esta composição.
