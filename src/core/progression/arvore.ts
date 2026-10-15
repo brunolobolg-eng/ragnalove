@@ -501,5 +501,18 @@ export function validarArvore(): string[] {
     if (n < 3 || n > 4) erros.push(`família ${f.id} tem ${n} Masteries (esperado 3 a 4)`);
   }
   for (const n of NOS) if (n.tipo === 'mastery' && !MASTERIES.some((m) => m.id === n.mastery)) erros.push(`${n.id}: Mastery inexistente (${n.mastery})`);
+  // efeito real: nó que não é ligação (caminho) tem bônus; bônus de economia só com gancho ligado
+  for (const n of NOS) {
+    if (n.tipo === 'raiz' || n.tipo === 'mastery' || n.tipo === 'caminho') continue;
+    if (Object.keys(n.bonus).length === 0) erros.push(`${n.id}: nó sem efeito (sem bônus e não é ligação)`);
+  }
+  for (const n of NOS) for (const k of Object.keys(n.bonus) as BonusKey[]) {
+    if (isEco(k) && !ARVORE_ECONOMIA[k].ligado) erros.push(`${n.id}: bônus ${k} sem gancho no jogo`);
+  }
+  // soma de cada bônus de economia com a árvore inteira aberta: passa do teto = nó que não conta
+  for (const k of ECO_KEYS) {
+    const soma = NOS.reduce((t, n) => t + (n.bonus[k] ?? 0), 0);
+    if (soma > ARVORE_ECONOMIA[k].teto) erros.push(`${k}: soma dos nós (${soma}) passa do teto (${ARVORE_ECONOMIA[k].teto}): nó sem efeito`);
+  }
   return erros;
 }

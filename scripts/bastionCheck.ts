@@ -6,6 +6,7 @@
  * 11) Emperium: dano de contato (vida × força ÷ 30) e a campanha segue pela ameaça por tipo ·
  * 12) Turnos e muralhas recentes (mover no turno) · 13) Horda por noite (comum, mini-chefe e MVP) ·
  * 14) Recomeçar do zero (derrota zera a cidade e os heróis; o total de vitórias, pacotes e slots não zeram).
+ * 15) Economia do banco de Zen: Zen do bloco de 20 noites, bônus da árvore por noite, reembolso fora do bloco.
  */
 import { BASTION, BASTION_HORDE, BASTION_ZONE_ID, PROJECTS, PROJECT_IDS, STRUCTURES } from '../src/config/bastion';
 import { hordeOf } from '../src/core/bastion/horde';
@@ -45,6 +46,8 @@ import type { Unit } from '../src/core/sim/types';
 import { Board } from '../src/core/grid/Board';
 import { chebyshev, type Vec2 } from '../src/core/grid/types';
 import { Simulation, type Fortification } from '../src/core/sim/Simulation';
+import { ARVORE_BANCO } from '../src/config/arvoreGlobal';
+import { chaveBloco, creditoBastiao } from '../src/core/progression/banco';
 
 let failures = 0;
 const check = (label: string, cond: boolean, extra = '') => {
@@ -735,6 +738,33 @@ check('99 vitórias somadas entre as duas tentativas: ainda nenhum pacote', paco
 const cemesima = applyNight(pac14, vitoria(), 'p14:b40', colecao14);
 check('a 100ª vitória, já na tentativa 2, entrega um pacote de 5 cartas', cemesima?.packs.length === 1 && cemesima.packs[0].length === 5 && pac14.packsGiven === 1 && totalCartas(colecao14) === 5);
 check('com 100 vitórias somadas: 16 slots', bastionCardSlots(pac14) === cardSlots(100) && cardSlots(100) === 16);
+
+console.log('\n# 15) Economia do banco de Zen (Zen por noite, bloco de 20 noites e reembolso)');
+{
+  // Zen do bloco: a soma das noites (onda + bônus de onda limpa). O bônus da árvore (Ronda da Madrugada) soma por noite vencida.
+  const N = ARVORE_BANCO.bastiao.noitesPorBloco;
+  const cartasE = emptyCollection();
+  const eco = newBastion(21, cartasE);
+  let blocoE: { numero: number; zen: number } | undefined;
+  for (let i = 1; i <= N; i++) blocoE = applyNight(eco, { ...vitoria(), wave: { souls: 0, zeni: 10, heroes: {}, drops: [] } }, `eco:a${i}`, cartasE)?.bloco ?? blocoE;
+  check('bloco de 20 noites sem bônus da árvore: 20 × (10 da onda + 42 de onda limpa) = 1.040 Zen', blocoE?.zen === N * (10 + GAME_CONFIG.zeni.waveClearBonus), `${blocoE?.zen}`);
+  check('o bloco paga 30% do Zen do bloco (1.040 → 312) e o crédito vai à chave do bloco', creditoBastiao(blocoE?.zen ?? 0) === 312 && chaveBloco(21, 1, 1) === 'bastiao:21:1:1');
+  const ecoArv = newBastion(22, cartasE);
+  ecoArv.profile.arvore = { comprados: ['rondaDaMadrugada'], masteries: {}, reorganizacoes: 0 };
+  let blocoArv: { numero: number; zen: number } | undefined;
+  for (let i = 1; i <= N; i++) blocoArv = applyNight(ecoArv, { ...vitoria(), wave: { souls: 0, zeni: 10, heroes: {}, drops: [] } }, `eco2:a${i}`, cartasE)?.bloco ?? blocoArv;
+  check('Ronda da Madrugada (+5 por noite vencida) entra no Zen do bloco: 20 × 5 = +100', blocoArv?.zen === N * (10 + GAME_CONFIG.zeni.waveClearBonus + 5), `${blocoArv?.zen}`);
+  // reembolso de muralha (remover) é Zen devolvido, não ganho: não entra no bloco
+  const rf = newBastion(23, emptyCollection());
+  rf.profile.zeni = 1000;
+  const parede = placeStructure(rf, env(), 'wall', free[0]);
+  const bloco0 = rf.zenNoBloco;
+  const zeniAntes = rf.profile.zeni;
+  const remov = parede.ok ? removeStructure(rf, parede.id) : undefined;
+  check('reembolso de uma muralha devolve Zen mas não entra no bloco (zenNoBloco igual)', remov?.ok === true && rf.zenNoBloco === bloco0 && rf.profile.zeni > zeniAntes, `bloco ${rf.zenNoBloco} · zeni ${zeniAntes} → ${rf.profile.zeni}`);
+  check('Zen inicial do Bastião segue 20 (provisório, decisão 18)', BASTION.startZeni === 20);
+  check('pacote de cartas segue a cada 100 vitórias (BASTION.packEvery)', BASTION.packEvery === 100);
+}
 
 console.log(failures ?`\n${failures} checagem(ns) falharam.` : '\nTodas as checagens do Último Bastião passaram.');
 if (failures) throw new Error(`bastionCheck: ${failures} falha(s)`);

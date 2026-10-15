@@ -88,8 +88,8 @@ function forma(tipo: NoTipo, r: number): string {
 
 const CATEGORIA_DESC: Record<Categoria, string> = {
   progressao: 'EXP, Zen por tipo de nó, pontos de habilidade, recrutas e descontos.',
-  campanha: 'Eventos, reparo e recompensa da cidade, sorte de loja e recursos do mapa.',
-  bastiao: 'Construção, reparo, muralha, portão, Zen por noite e blocos.',
+  campanha: 'Eventos, reparo e preço da cidade, e recursos dos nós do mapa.',
+  bastiao: 'Construção, reparo, muralha e Zen por noite.',
   combate: 'Vida, dano, velocidade de ataque, crítico, esquiva e atributos.',
   masteries: 'Pontos que desbloqueiam as Masteries táticas (uma por personagem).',
   ligacao: 'Notáveis e caminhos alternativos que ligam as regiões.',

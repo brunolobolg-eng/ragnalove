@@ -9,7 +9,7 @@
  * (g) Sem duplicar nem residual: nó repetido em save conta uma vez; Mastery sem o nó aberto não vale.
  * (h) Efeito real: nó aberto muda heroStats; reorganizar devolve exatamente os status de antes.
  */
-import { ARVORE_CAPS_COMBATE, ARVORE_CAP_ATRIBUTO, ARVORE_CONFIG, ARVORE_ECONOMIA, CATEGORIA_IDS, CUSTO_ZEN_POR_TIPO, ECO_KEYS, MASTERY_BY_ID, NOS, custoDoNo, nosPorCategoria, type MasteryId } from '../src/config/arvoreGlobal';
+import { ARVORE_CAPS_COMBATE, ARVORE_CAP_ATRIBUTO, ARVORE_CONFIG, ARVORE_ECONOMIA, CATEGORIA_IDS, CUSTO_ZEN_POR_TIPO, ECO_KEYS, MASTERY_BY_ID, NOS, NO_BY_ID, custoDoNo, nosPorCategoria, type MasteryId } from '../src/config/arvoreGlobal';
 import {
   BLOQUEIO_COMBATE,
   alcancavel,
@@ -32,7 +32,7 @@ import {
   type ArvoreHost,
 } from '../src/core/progression/arvore';
 import { createProfile, heroStats, type Profile } from '../src/core/progression/profile';
-import { newRun, precoMult, priceMult, repairCost, shopStock, unlockHero } from '../src/core/run/run';
+import { applyEventEffects, bonusVitoriaCampanha, newRun, precoMult, priceMult, repairCost, shopStock, unlockHero } from '../src/core/run/run';
 import { newBastion, structureMaxHp } from '../src/core/bastion/bastion';
 import { buildCostOf } from '../src/core/bastion/rules';
 import { emptyCollection } from '../src/core/progression/cards';
@@ -367,6 +367,40 @@ check('nenhum nó tem custo em pontos (o campo custo saiu)', NOS.every((n) => !(
   b.profile.arvore = { comprados: ['argamassaForte'], masteries: {}, reorganizacoes: 0 };
   check('Argamassa Forte: muralha com mais vida no Bastião', structureMaxHp(b, { kind: 'wall', level: 1 }) > hpAntes, `${hpAntes} -> ${structureMaxHp(b, { kind: 'wall', level: 1 })}`);
   check('a torre não recebe o bônus de muralha', structureMaxHp(b, { kind: 'tower', level: 1 }) === structureMaxHp(newBastion(7, emptyCollection()), { kind: 'tower', level: 1 }));
+}
+
+// ---------------- (k) fase D: 100+ nós com efeito real, Zen dos eventos ligado, bônus de vitória em config ----------------
+{
+  const naoRaiz = NOS.filter((n) => n.tipo !== 'raiz');
+  const comEfeito = naoRaiz.filter((n) => n.tipo === 'mastery' || n.tipo === 'caminho' || Object.keys(n.bonus).length > 0);
+  check('100 ou mais nós com efeito real (bônus, Mastery ou ligação de rota)', comEfeito.length >= ARVORE_CONFIG.minNos && comEfeito.length === naoRaiz.length, `${comEfeito.length} de ${naoRaiz.length} nós não-raiz`);
+  const semGancho = NOS.flatMap((n) => Object.keys(n.bonus).filter((k) => (ECO_KEYS as readonly string[]).includes(k) && !ARVORE_ECONOMIA[k as keyof typeof ARVORE_ECONOMIA].ligado).map((k) => `${n.id}:${k}`));
+  check('nenhum nó usa bônus de economia sem gancho no jogo', semGancho.length === 0, semGancho.join(', ') || 'ok');
+  check('todo bônus de economia com nó tem gancho ligado', ECO_KEYS.filter((k) => NOS.some((n) => n.bonus[k] !== undefined)).every((k) => ARVORE_ECONOMIA[k].ligado));
+  check('a soma de cada bônus de economia com a árvore inteira fica dentro do teto (todo nó conta)', ECO_KEYS.every((k) => NOS.reduce((t, n) => t + (n.bonus[k] ?? 0), 0) <= ARVORE_ECONOMIA[k].teto));
+  check('os 14 nós que não tinham efeito saíram (nenhum nome com "ainda sem gancho")', NOS.every((n) => !n.descricao.includes('ainda sem')));
+  check('Feira de Vila liga pelo Caminho da Vila à Horda Lucrativa (troca do Zen de Vila)', vizinhos('feiraDeVila').includes('caminhoDaVila') && vizinhos('caminhoDaVila').includes('hordaLucrativa') && NO_BY_ID.caminhoDaVila.tipo === 'caminho');
+}
+{
+  // Zen dos eventos: o nó Estrada Segura (+5%) soma no ganho de Zen de um evento que dá 100 (ato I)
+  const r = newRun('warrior', 808);
+  r.profile.zeni = 0;
+  r.profile.arvore = { comprados: [], masteries: {}, reorganizacoes: 0 };
+  applyEventEffects(r, [{ zeni: 100 }]);
+  const semNo = r.profile.zeni;
+  r.profile.zeni = 0;
+  r.profile.arvore = { comprados: ['estradaSegura'], masteries: {}, reorganizacoes: 0 };
+  applyEventEffects(r, [{ zeni: 100 }]);
+  check('Zen dos eventos: Estrada Segura dá +5% no ganho (100 → 105)', semNo === 100 && r.profile.zeni === 105, `${semNo} → ${r.profile.zeni}`);
+  r.profile.zeni = 0;
+  applyEventEffects(r, [{ zeni: -30 }]);
+  check('Zen dos eventos: o bônus não mexe em perda (−30 segue −30)', r.profile.zeni === 0);
+}
+{
+  // bônus de vitória da campanha: 42 / 67 / 92 (config: waveClearBonus × (1 + ato × 0,6))
+  check('bônus de vitória 42 / 67 / 92 (atos I, II e III, sem bônus da árvore)', bonusVitoriaCampanha(0, 0) === 42 && bonusVitoriaCampanha(1, 0) === 67 && bonusVitoriaCampanha(2, 0) === 92, `${bonusVitoriaCampanha(0, 0)} · ${bonusVitoriaCampanha(1, 0)} · ${bonusVitoriaCampanha(2, 0)}`);
+  check('bônus de vitória soma o bônus de Zen da árvore (+25% no ato I: 42 × 1,25 = 52,5 → 53)', bonusVitoriaCampanha(0, 0.25) === 53);
+  check('multiplicador por ato vem da config (waveClearActMult)', GAME_CONFIG.zeni.waveClearActMult === 0.6 && GAME_CONFIG.zeni.waveClearBonus === 42);
 }
 
 console.log(`\n${total - falhas}/${total} ok${falhas ? ` · ${falhas} FALHA(S)` : ''}`);

@@ -350,6 +350,14 @@ export function advance(r: RunState, outcome: string): boolean {
 }
 
 export const priceMult = (r: RunState) => GAME_CONFIG.city.actPriceMult[Math.min(r.act, 2)];
+
+/**
+ * Bônus de vitória de uma onda da campanha: a base (GAME_CONFIG.zeni.waveClearBonus) × o multiplicador do ato
+ * (waveClearActMult por ato) × o bônus de Zen dos chefes/hordas da árvore. Arredonda para o inteiro mais próximo.
+ */
+export function bonusVitoriaCampanha(act: number, bonusZeni: number): number {
+  return Math.round(GAME_CONFIG.zeni.waveClearBonus * (1 + act * GAME_CONFIG.zeni.waveClearActMult) * (1 + bonusZeni));
+}
 /** Preço da cidade: a inflação da fase menos o desconto da Árvore Global (só para preços; recompensas usam priceMult). */
 export const precoMult = (r: RunState) => priceMult(r) * (1 - economiaDoPerfil(r.profile).descontoCidade);
 const actScale = (r: RunState) => GAME_CONFIG.city.actPriceMult[Math.min(r.act, 2)];
@@ -373,7 +381,9 @@ export function applyEventEffects(r: RunState, effects: EventEffect[]): string[]
   const k = actScale(r);
   for (const e of effects) {
     if ('zeni' in e) {
-      const v = Math.round(e.zeni * k);
+      // valor do evento × ato (ver EVENTS); o bônus da árvore (Zen dos eventos) soma só nos ganhos
+      const base = Math.round(e.zeni * k);
+      const v = base > 0 ? Math.round(base * (1 + economiaDoPerfil(p).zeniEvento)) : base;
       ganharZeni(p, v);
       out.push(`${v >= 0 ? '+' : ''}${v} Zen`);
     } else if ('souls' in e) {

@@ -33,6 +33,7 @@ import {
   recordNight,
   objectActions,
   useMapObject,
+  bonusVitoriaCampanha,
   type RunState,
 } from './core/run/run';
 import { OBJECT_RULES } from './core/sim/objects';
@@ -1417,7 +1418,7 @@ function finishWave(): void {
   const firstPhase = run.act === 0 && run.node === 0;
   const before = Object.fromEntries(run.party.map((h) => [h, profile.heroes[h].level]));
   const won = sim.phase === 'victory';
-  const bonus = won ? Math.round(GAME_CONFIG.zeni.waveClearBonus * (1 + run.act * 0.6) * (1 + recompensasAtuais().zeni)) : 0;
+  const bonus = won ? bonusVitoriaCampanha(run.act, recompensasAtuais().zeni) : 0;
   const payKey = `w:${run.act}:${run.node}`;
   claimOpen = true; // o relatório vai abrir: uma conclusão liberada
   let summary = '';

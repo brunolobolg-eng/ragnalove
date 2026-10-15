@@ -81,6 +81,18 @@ const ida = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
   check('evento que tira Zen não conta', r.profile.zenGanho === 100 && r.profile.zeni === 70);
 }
 {
+  // decisão 8: o Zen de evento é o valor de world.ts × ato (1, 1,6 e 2,4), não um valor sem escala
+  const r2 = newRun('warrior', 909);
+  r2.act = 1;
+  r2.profile.zeni = 0;
+  applyEventEffects(r2, [{ zeni: 100 }]);
+  const ato2 = r2.profile.zeni;
+  r2.act = 2;
+  r2.profile.zeni = 0;
+  applyEventEffects(r2, [{ zeni: 100 }]);
+  check('Zen de evento escala por ato: 100 → 160 (ato II) e 240 (ato III)', ato2 === 160 && r2.profile.zeni === 240, `${ato2} e ${r2.profile.zeni}`);
+}
+{
   const r = newRun('warrior', 5);
   r.profile.inventory.push(makeItem('common'));
   const id = r.profile.inventory[0].id;

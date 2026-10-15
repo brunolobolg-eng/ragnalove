@@ -95,8 +95,10 @@ export const GAME_CONFIG = {
   zeni: {
     dropPerKill: { grunt: 3, runner: 2, brute: 8, raydric: 10, necro: 6, elite: 56, boss: 105, boss2: 154, orcboss: 280, satanMorroc: 350, goblinImp: 42, goblinWarlord: 140, dinoBoss: 50, goblinLeader: 46, palhaco: 2, detarderus: 120, trainingDummy: 0 } as Record<string, number>,
     defaultDrop: 2,
-    /** Bônus ao vencer a onda. */
+    /** Bônus ao vencer a onda (campanha: 42 no Ato I; o Ato II e o III multiplicam por 1 + ato × waveClearActMult). */
     waveClearBonus: 42,
+    /** Quanto cada ato a mais aumenta o bônus de vitória da campanha (Ato I ×1, II ×1,6, III ×2,2 → 42, 67, 92). */
+    waveClearActMult: 0.6,
     /** Ponto de atributo comprado com Zen: base + passo × pontos já comprados por esse herói. */
     attrPointBase: 40,
     attrPointStep: 20,
