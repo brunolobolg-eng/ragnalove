@@ -36,6 +36,10 @@ export interface HumanoidJoints {
   armMinY?: number;
   /** Opcional: só vira braço o vértice abaixo desta altura (acima dela é cabelo/cabeça, não o ombro). */
   armMaxY?: number;
+  /** Opcional: braço abaixo da virilha ganha da regra das pernas (mãos na altura da virilha não ficam presas na coxa). */
+  armOverLeg?: boolean;
+  /** Opcional: |x| a partir do qual o braço abaixo da virilha vale (padrão: `armX`). */
+  armOverLegX?: number;
 }
 
 const mirror = (v: THREE.Vector3) => new THREE.Vector3(-v.x, v.y, v.z);
@@ -101,7 +105,10 @@ export function skinHumanoid(geo: THREE.BufferGeometry, J: HumanoidJoints, bones
     };
     const shoulderY = J.upperArm.y;
     const isArm = armOk && y < shoulderY && ax > J.armX + Math.max(0, y - (shoulderY - 0.2)) * 0.4;
-    if (y < J.crotchY + B && ax > 0.04) {
+    const armBaixo = !!J.armOverLeg && armOk && ax > (J.armOverLegX ?? J.armX) && y < J.crotchY + B;
+    if (armBaixo) {
+      chain(['upperArm.' + s, 'foreArm.' + s, 'hand.' + s], [J.foreArm.y, J.hand.y]);
+    } else if (y < J.crotchY + B && ax > 0.04) {
       // pernas (com a parte de cima misturando no quadril)
       const legW = 1 - smooth(J.crotchY - B, J.crotchY + B, y);
       const before = w.length;

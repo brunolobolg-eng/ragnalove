@@ -355,6 +355,8 @@ function juntasDoRegistro(j: RigJointsVisual): HumanoidJoints {
     armZ: j.armZ,
     armMinY: j.armMinY,
     armMaxY: j.armMaxY,
+    armOverLeg: j.armOverLeg,
+    armOverLegX: j.armOverLegX,
   };
 }
 

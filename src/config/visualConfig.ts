@@ -300,6 +300,8 @@ export interface RigJointsVisual {
   armZ?: number;
   armMinY?: number;
   armMaxY?: number;
+  armOverLeg?: boolean;
+  armOverLegX?: number;
 }
 
 /**
@@ -416,8 +418,11 @@ const DETARDERUS_JOINTS: RigJointsVisual = {
   foot: [0.12, 0.05, 0.1],
   armX: 0.7,
   crotchY: 0.51,
-  armMinY: 0.5,
+  // mãos chegam quase à virilha: o braço ganha da perna nessa faixa (sem isso a mão ficava presa à coxa e esticava)
+  armMinY: 0.2,
   armMaxY: 1.15,
+  armOverLeg: true,
+  armOverLegX: 0.45,
 };
 /**
  * Palhaço (malha de 0,98 unidades, pés em 0): juntas medidas no corte da malha. Pernas curtas (virilha em 15% da altura),
