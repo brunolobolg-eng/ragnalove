@@ -5,9 +5,11 @@ import { registerOverlay } from './overlays';
 import { caminhoAte, type ArvoreVM, type CandidatoVM, type HeroiVM, type MasteryVM, type NoVM } from './arvoreVM';
 
 /**
- * Árvore Global de Aurenthal: a roda (anéis, setores por família, núcleo ROGUARD), com zoom e pan suaves,
- * caminho aceso até o nó sob o cursor ou selecionado, painel de detalhes do nó e painel de Masteries
- * (uma por personagem, com custo em Zen antes de confirmar) e reorganização. Tudo é pago pelo banco de Zen.
+ * Árvore Global de Aurenthal: a roda (anéis, setores por família, emblema de Aurenthal no centro), com zoom e pan,
+ * caminho aceso até o nó sob o cursor ou selecionado, tooltip compacto ao passar o cursor, painel de detalhes do nó
+ * (nome, efeito, requisitos, custo e ação) e painel de Masteries (uma por personagem, com custo em Zen antes de
+ * confirmar) e reorganização. Tudo é pago pelo banco de Zen.
+ * Na roda não há nomes: cada nó é uma forma com ícone. O nome aparece no tooltip e no painel (com o toque, pela seleção).
  * Só apresentação: quem decide regra é o núcleo (core/progression/arvore.ts). Cada ação devolve o
  * motivo do erro (pt-BR) ou undefined; a tela sempre redesenha a partir do view model atual.
  */
@@ -24,6 +26,8 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ESC_MAP[c]!);
 const inicial = (nome: string) => esc(nome.trim().charAt(0).toUpperCase());
 const ARRASTE_MIN = 4;
 const PASSO_ZOOM = 1.25;
+/** Deslocamento do tooltip em relação ao cursor (px). */
+const TIP_FOLGA = 16;
 
 /** Polígono regular com `n` lados (rot 0 = vértice no alto), em px. */
 function poligono(n: number, r: number, rot = 0): string {
@@ -81,12 +85,15 @@ const CATEGORIA_DESC: Record<Categoria, string> = {
   ligacao: 'Notáveis e caminhos alternativos que ligam as regiões.',
 };
 
-const LEGENDA_TIPOS: { tipo: NoTipo; nome: string }[] = [
-  { tipo: 'raiz', nome: 'Núcleo' },
-  { tipo: 'comum', nome: 'Comum' },
-  { tipo: 'notavel', nome: 'Notável' },
-  { tipo: 'caminho', nome: 'Caminho alternativo' },
-  { tipo: 'mastery', nome: 'Ponto de Mastery' },
+/** Nome curto do estado (tooltip). */
+const ESTADO_CURTO: Record<NoVM['estado'], string> = { aberto: 'Aberto', disponivel: 'Pode abrir', 'sem-zen': 'Falta Zen', bloqueado: 'Bloqueado' };
+
+/** Tipos de nó da legenda: a forma de cada um e uma frase curta (sem descrever nó por nó). */
+const LEGENDA_TIPOS: { tipo: NoTipo; nome: string; dica: string }[] = [
+  { tipo: 'comum', nome: 'Comum', dica: 'bônus simples' },
+  { tipo: 'notavel', nome: 'Notável', dica: 'efeito maior, com moldura' },
+  { tipo: 'caminho', nome: 'Caminho', dica: 'liga as regiões' },
+  { tipo: 'mastery', nome: 'Mastery', dica: 'abre uma especialização' },
 ];
 
 /** Arestas do caminho aceso: da rede aberta até o primeiro nó fechado, e entre os nós seguintes. */
@@ -108,11 +115,15 @@ export class ArvoreGlobal {
   private readonly head: HTMLElement;
   private readonly bar: HTMLElement;
   private readonly side: HTMLElement;
-  private readonly caminhoCard: HTMLElement;
+  private readonly tip: HTMLElement;
+  private readonly legenda: HTMLElement;
   private vm!: ArvoreVM;
+  /** Nó selecionado (toque ou clique): fixa o painel de detalhes e o caminho aceso. */
   private sel?: string;
+  /** Nó sob o cursor do mouse (o toque não tem passagem: só seleciona). */
   private hover?: string;
-  private selM?: MasteryId;
+  /** Último ponto do ponteiro (px da tela), para reposicionar o tooltip ao redesenhar. */
+  private ptr = { x: 0, y: 0 };
   private pick?: HeroKind;
   private confirmandoReset = false;
   private msg = '';
@@ -145,19 +156,19 @@ export class ArvoreGlobal {
         <header class="gt-head"></header>
         <div class="gt-bar" hidden></div>
         <div class="gt-body">
+          <aside class="gt-legenda" aria-label="Legenda"></aside>
           <section class="gt-canvas" aria-label="Roda da progressão">
             <svg class="gt-svg" aria-hidden="false">
               <defs class="gt-defs"></defs>
               <g class="gt-world"></g>
             </svg>
-            <div class="gt-caminho" hidden></div>
+            <div class="gt-tip" hidden></div>
             <nav class="gt-filtros" aria-label="Filtrar por categoria"></nav>
             <div class="gt-zoom">
               <button class="au-btn" data-c="zin" title="Aproximar">+</button>
               <button class="au-btn" data-c="zout" title="Afastar">−</button>
               <button class="au-btn" data-c="fit" title="Centralizar">Centro</button>
             </div>
-            <details class="gt-legend"></details>
           </section>
           <aside class="gt-side"></aside>
         </div>
@@ -169,7 +180,8 @@ export class ArvoreGlobal {
     this.head = this.el.querySelector<HTMLElement>('.gt-head')!;
     this.bar = this.el.querySelector<HTMLElement>('.gt-bar')!;
     this.side = this.el.querySelector<HTMLElement>('.gt-side')!;
-    this.caminhoCard = this.el.querySelector<HTMLElement>('.gt-caminho')!;
+    this.tip = this.el.querySelector<HTMLElement>('.gt-tip')!;
+    this.legenda = this.el.querySelector<HTMLElement>('.gt-legenda')!;
 
     this.el.addEventListener('click', (e) => this.onClick(e));
     this.el.addEventListener('keydown', (e) => this.onKey(e));
@@ -178,10 +190,12 @@ export class ArvoreGlobal {
     this.svg.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     this.svg.addEventListener('click', (e) => this.onNodeClick(e));
     this.svg.addEventListener('pointerover', (e) => this.onOver(e));
+    this.svg.addEventListener('pointermove', (e) => this.onSvgMove(e));
     this.svg.addEventListener('pointerleave', () => this.setHover(undefined));
     window.addEventListener('pointermove', (e) => this.onMove(e));
     window.addEventListener('pointerup', () => (this.drag = undefined));
-    window.addEventListener('resize', () => this.medirCanvas());
+    // a janela de desenho acompanha o tamanho do canvas (a faixa de mensagem e a janela mudam a altura)
+    new ResizeObserver(() => this.medirCanvas()).observe(this.canvas);
     registerOverlay({ isOpen: () => this.visible, close: () => this.close() });
   }
 
@@ -192,10 +206,10 @@ export class ArvoreGlobal {
   open(): void {
     this.sel = undefined;
     this.hover = undefined;
-    this.selM = undefined;
     this.pick = undefined;
     this.confirmandoReset = false;
     this.msg = '';
+    this.tip.hidden = true;
     this.el.hidden = false;
     this.medirCanvas();
     this.fit(true);
@@ -246,7 +260,6 @@ export class ArvoreGlobal {
       case 'reset-yes': {
         const err = this.cb.onReset();
         this.confirmandoReset = false;
-        this.selM = undefined;
         this.pick = undefined;
         this.flash(err ?? 'Árvore reorganizada: os nós e as Masteries voltaram para a guarda.', !err);
         break;
@@ -258,22 +271,18 @@ export class ArvoreGlobal {
         break;
       }
       case 'mast': {
-        const id = b.dataset.id as MasteryId;
-        this.selM = this.selM === id ? undefined : id;
-        this.pick = undefined;
+        // o cartão da Mastery seleciona o ponto dela na roda (o painel mostra a atribuição)
+        const m = this.vm.masteries.find((x) => x.id === b.dataset.id);
+        this.escolherNo(this.sel === m?.noId ? undefined : m?.noId);
         break;
       }
-      case 'pick':
-        this.pick = b.dataset.k as HeroKind;
-        break;
       case 'roster': {
         const k = b.dataset.k as HeroKind;
-        const m = this.selMasteryVM();
+        const m = this.selMastery();
         if (m?.candidatos.find((x) => x.kind === k)?.elegivel) this.pick = k;
         break;
       }
       case 'cancel':
-        this.selM = undefined;
         this.pick = undefined;
         break;
       case 'assign': {
@@ -282,7 +291,6 @@ export class ArvoreGlobal {
         const err = this.cb.onAssign(m, k);
         const mv = this.vm.masteries.find((x) => x.id === m);
         this.flash(err ?? `${mv?.nome ?? 'Mastery'} agora está com ${this.vm.herois.find((h) => h.kind === k)?.nome ?? k}. Custo: ${mv?.custo ?? 0} Zen.`, !err);
-        this.selM = undefined;
         this.pick = undefined;
         break;
       }
@@ -315,7 +323,13 @@ export class ArvoreGlobal {
     }
   }
 
-  /** Clique no nó (só conta se não foi arraste). Seleção mantém o caminho aceso até trocar. */
+  /** Seleciona um nó (ou nenhum): troca o painel de detalhes e o caminho aceso, e fecha a escolha de herói. */
+  private escolherNo(id: string | undefined): void {
+    this.sel = id;
+    this.pick = undefined;
+  }
+
+  /** Clique (ou toque) no nó: só conta se não foi arraste. A seleção mantém o caminho aceso até trocar. */
   private onNodeClick(e: MouseEvent): void {
     if (this.arrastou) {
       this.arrastou = false;
@@ -324,20 +338,62 @@ export class ArvoreGlobal {
     const g = (e.target as Element).closest<SVGGElement>('.gt-no');
     if (!g) return;
     this.cb.onUi();
-    this.sel = g.dataset.id;
+    this.escolherNo(g.dataset.id);
     this.renderAll();
   }
 
-  /** Cursor sobre um nó: acende o caminho até ele (enquanto o cursor estiver ali). */
+  /** Cursor sobre um nó: acende o caminho até ele e mostra o tooltip. Toque não tem passagem: a seleção faz isso. */
   private onOver(e: PointerEvent): void {
+    if (e.pointerType !== 'mouse') return;
+    this.ptr = { x: e.clientX, y: e.clientY };
     const g = (e.target as Element).closest<SVGGElement>('.gt-no');
     this.setHover(g?.dataset.id);
+    if (g?.dataset.id) this.mostrarTip(g.dataset.id, e.clientX, e.clientY);
+  }
+
+  /** Movimento do cursor sobre a roda: o tooltip segue o cursor (sem refazer o desenho). */
+  private onSvgMove(e: PointerEvent): void {
+    if (e.pointerType !== 'mouse') return;
+    this.ptr = { x: e.clientX, y: e.clientY };
+    if (this.hover && !this.drag) this.posicionarTip(e.clientX, e.clientY);
   }
 
   private setHover(id: string | undefined): void {
     if (this.hover === id) return;
     this.hover = id;
+    if (!id) this.tip.hidden = true;
     this.atualizarDestaque();
+  }
+
+  // ---------------- tooltip ----------------
+
+  /** Tooltip compacto do nó: nome, tipo, estado e o que falta para abrir (sem ocupar espaço fixo). */
+  private mostrarTip(id: string, clientX: number, clientY: number): void {
+    const v = this.vm;
+    const n = v.nos.find((x) => x.id === id);
+    if (!n) return;
+    const cam = caminhoAte(v, id);
+    let linha = '';
+    if (!n.raiz && n.estado !== 'aberto') {
+      const zen = cam.ids.length ? cam.zen : n.custo;
+      const via = cam.umPasso ? 'abre com 1 passo' : cam.ids.length ? `caminho de ${cam.nos} nós` : 'sem caminho ainda';
+      linha = `<em>${via} · ${zen} Zen${zen > v.banco ? ` · faltam ${zen - v.banco}` : ''}</em>`;
+    }
+    this.tip.innerHTML = `<b>${esc(n.nome)}</b><span>${esc(n.tipoNome)} · ${esc(ESTADO_CURTO[n.estado])}</span>${linha}`;
+    this.tip.hidden = false;
+    this.posicionarTip(clientX, clientY);
+  }
+
+  /** Põe o tooltip ao lado do cursor, invertendo para dentro da área da roda quando não cabe. */
+  private posicionarTip(clientX: number, clientY: number): void {
+    const r = this.canvas.getBoundingClientRect();
+    const w = this.tip.offsetWidth;
+    const h = this.tip.offsetHeight;
+    let x = clientX - r.left + TIP_FOLGA;
+    let y = clientY - r.top + TIP_FOLGA;
+    if (x + w > r.width - 8) x = clientX - r.left - w - TIP_FOLGA;
+    if (y + h > r.height - 8) y = clientY - r.top - h - TIP_FOLGA;
+    this.tip.style.transform = `translate(${Math.max(8, x).toFixed(0)}px, ${Math.max(8, y).toFixed(0)}px)`;
   }
 
   // ---------------- zoom e pan ----------------
@@ -379,6 +435,7 @@ export class ArvoreGlobal {
     const dy = e.clientY - this.drag.y0;
     if (!this.arrastou && Math.hypot(dx, dy) < ARRASTE_MIN) return;
     this.arrastou = true;
+    this.tip.hidden = true;
     this.tPanX = this.panX = this.drag.px + dx;
     this.tPanY = this.panY = this.drag.py + dy;
     this.apply();
@@ -455,6 +512,7 @@ export class ArvoreGlobal {
     this.renderCanvas();
     this.renderSide();
     this.apply();
+    if (this.hover && !this.tip.hidden) this.mostrarTip(this.hover, this.ptr.x, this.ptr.y);
   }
 
   private renderHead(): void {
@@ -463,7 +521,7 @@ export class ArvoreGlobal {
     const travado = v.emCombate || !!r.erro;
     this.head.innerHTML = `
       <i class="au-ico" aria-hidden="true">✦</i>
-      <span class="gt-title">Árvore de Aurenthal</span>
+      <span class="gt-title">Árvore de Aurenthal<small>Fortaleça sua equipe. Escolha seu caminho.</small></span>
       <span class="gt-zeni" title="Banco de Zen: o que os nós e as Masteries custam. Vem das jornadas e dos blocos do Bastião."><i class="zeni-ico"></i>Banco: <b>${v.banco.toLocaleString('pt-BR')}</b> Zen</span>
       <button class="au-btn danger gt-reset-btn" data-c="reset-ask" ${this.confirmandoReset ? 'hidden' : ''} ${travado ? 'disabled' : ''} title="${esc(r.erro ?? 'Fecha todos os nós e guarda as Masteries. O Zen gasto não volta.')}">Reorganizar · ${r.custo} Zen</button>
       <button class="au-x" data-c="close" title="Fechar (Esc)" aria-label="Fechar">×</button>`;
@@ -515,7 +573,7 @@ export class ArvoreGlobal {
       .join('');
     const nos = v.nos.map((n) => this.noSvg(n)).join('');
     this.el.querySelector<HTMLElement>('.gt-filtros')!.innerHTML = `<select class="gt-filtro" aria-label="Filtrar por categoria" title="Esmaece os nós fora da categoria escolhida"><option value="todas"${this.filtro ? '' : ' selected'}>Todas as categorias · ${v.totalNos}</option>${v.categorias.map((c) => `<option value="${c.id}"${this.filtro === c.id ? ' selected' : ''} title="${esc(CATEGORIA_DESC[c.id])}">${esc(c.nome)} · ${c.total}</option>`).join('')}</select>`;
-    this.el.querySelector<HTMLElement>('.gt-legend')!.innerHTML = this.legendaHtml(v);
+    this.legenda.innerHTML = this.legendaHtml(v);
     this.world.innerHTML = `
       <image class="gt-miolo" href="ui/arvore/fundo-roda.webp" x="${-mioloRaio}" y="${-mioloRaio}" width="${2 * mioloRaio}" height="${2 * mioloRaio}"/>
       <g class="gt-setores">${setores}</g>
@@ -528,6 +586,7 @@ export class ArvoreGlobal {
     // índices para acender e apagar sem redesenhar
     this.elNo = new Map();
     this.world.querySelectorAll<SVGGElement>('.gt-no').forEach((g) => this.elNo.set(g.dataset.id!, g));
+    this.elAresta = [];
     this.world.querySelectorAll<SVGLineElement>('.gt-aresta').forEach((l) => {
       const [a, b] = l.dataset.k!.split('|');
       this.elAresta.push({ a, b, el: l });
@@ -570,90 +629,126 @@ export class ArvoreGlobal {
       const abertos = (na?.estado === 'aberto' ? 1 : 0) + (nb?.estado === 'aberto' ? 1 : 0);
       el.setAttribute('class', `gt-aresta ${abertos === 2 ? 'aberta' : abertos === 1 ? 'meio' : 'fechada'}${arestasCam.has(`${a}|${b}`) ? ' caminho' : ''}${esmaecidoDe(a) || esmaecidoDe(b) ? ' dim' : ''}`);
     }
-    this.renderCaminhoCard(cam);
   }
 
-  private renderCaminhoCard(cam: ReturnType<typeof caminhoAte> | undefined): void {
-    const alvo = cam ? this.vm.nos.find((n) => n.id === cam.alvo) : undefined;
-    if (!cam || !alvo) {
-      this.caminhoCard.hidden = true;
-      return;
-    }
-    const banco = this.vm.banco;
-    const nomes = cam.ids.map((id) => this.vm.nos.find((n) => n.id === id)?.nome ?? id);
-    const lista = nomes.slice(0, 5).map((n, i) => `<li><i>${i + 1}</i>${esc(n)}</li>`).join('') + (nomes.length > 5 ? `<li class="mais">e mais ${nomes.length - 5}…</li>` : '');
-    let cabeca: string;
-    if (cam.aberto) cabeca = `<b>${esc(alvo.nome)}</b> já está aberto.`;
-    else if (cam.umPasso) cabeca = `<b>${esc(alvo.nome)}</b> abre com 1 passo · <span class="au-price">${cam.zen} Zen</span>${cam.zen > banco ? ` <em>faltam ${cam.zen - banco}</em>` : ''}`;
-    else cabeca = `Caminho até <b>${esc(alvo.nome)}</b>: ${cam.nos} nós · <span class="au-price">${cam.zen} Zen</span>${cam.zen > banco ? ` <em>faltam ${cam.zen - banco}</em>` : ''}`;
-    this.caminhoCard.hidden = false;
-    this.caminhoCard.innerHTML = `<p>${cabeca}</p>${cam.aberto || !cam.ids.length ? '' : `<ol>${lista}</ol>`}`;
-  }
-
-  /** Legenda recolhível: tipos de nó, estados e a cor de cada setor (família). */
+  /** Legenda (coluna da esquerda): tipos de nó, regiões temáticas e estados. Frases curtas; não descreve cada nó. */
   private legendaHtml(v: ArvoreVM): string {
-    const tipos = LEGENDA_TIPOS.map((t) => `<li><svg viewBox="-24 -24 48 48" aria-hidden="true">${forma(t.tipo, 'gt-leg-shape')}</svg>${t.nome}</li>`).join('');
-    const estados = `<li class="gt-leg-sep">Estados</li><li><i class="gt-st aberto"></i>Aberto</li><li><i class="gt-st disponivel"></i>Pode abrir</li><li><i class="gt-st sem-zen"></i>Falta Zen</li><li><i class="gt-st bloqueado"></i>Bloqueado</li><li><i class="gt-st caminho"></i>Caminho aceso</li>`;
-    const setores = v.familias.map((f) => `<li><i class="gt-sw" style="--c:${f.cor}"></i>${esc(f.nome)}</li>`).join('');
-    return `<summary>Legenda</summary><ul>${tipos}${estados}<li class="gt-leg-sep">Setores</li>${setores}</ul>`;
+    const tipos = LEGENDA_TIPOS.map((t) => `<li><svg viewBox="-24 -24 48 48" aria-hidden="true">${forma(t.tipo, 'gt-leg-shape')}</svg><span>${t.nome}<small>${t.dica}</small></span></li>`).join('');
+    const regioes = v.familias.map((f) => `<li><i class="gt-sw" style="--c:${f.cor}"></i><span>${esc(f.nome)}</span></li>`).join('');
+    const estados = [
+      ['aberto', 'Desbloqueado'],
+      ['disponivel', 'Pode abrir'],
+      ['sem-zen', 'Falta Zen'],
+      ['bloqueado', 'Bloqueado'],
+      ['caminho', 'Caminho aceso'],
+      ['sel', 'Selecionado'],
+    ].map(([k, nome]) => `<li><i class="gt-st ${k}"></i>${nome}</li>`).join('');
+    return `<h4 class="au-h">Tipos de nó</h4><ul class="gt-leg-lista">${tipos}</ul>
+      <h4 class="au-h">Regiões temáticas</h4><ul class="gt-leg-lista">${regioes}</ul>
+      <h4 class="au-h">Estados</h4><ul class="gt-leg-estados">${estados}</ul>
+      <p class="gt-leg-nota">Passe o cursor (ou toque) num nó para ver o nome e o que ele dá.</p>`;
   }
 
   private selNo(): NoVM | undefined {
     return this.vm.nos.find((n) => n.id === this.sel);
   }
 
-  private selMasteryVM(): MasteryVM | undefined {
-    return this.vm.masteries.find((m) => m.id === this.selM);
+  /** A Mastery cujo ponto está selecionado na roda (cada ponto de Mastery abre uma). */
+  private selMastery(): MasteryVM | undefined {
+    const n = this.selNo();
+    return n ? this.vm.masteries.find((m) => m.noId === n.id) : undefined;
   }
 
   private renderSide(): void {
-    const v = this.vm;
     const n = this.selNo();
-    let detalhe: string;
-    if (!n) {
-      detalhe = `<h4 class="au-h">Detalhes</h4><p class="gt-hint">Passe o cursor num nó para ver o caminho aceso; clique para fixar e ver o que ele dá, o que falta e o custo.</p>`;
-    } else {
-      const podeAbrir = n.estado === 'disponivel' && !v.emCombate;
-      const acao = n.raiz
-        ? ''
-        : `<button class="au-btn gold" data-c="buy" data-id="${n.id}" ${podeAbrir ? '' : 'disabled'} title="${v.emCombate ? 'Fora da luta.' : n.estado === 'disponivel' ? '' : esc(n.estadoTexto)}">Abrir · ${n.custo} Zen</button>`;
-      const cam = caminhoAte(v, n.id);
-      const caminhoTxt = n.raiz || cam.aberto ? '' : `<p class="gt-caminho-txt">${cam.umPasso ? 'Abre com 1 passo' : `Caminho: ${cam.nos} nós`} · <b>${cam.zen} Zen</b> no total.</p>`;
-      detalhe = `<h4 class="au-h">${esc(n.nome)}</h4>
-        <div class="gt-tags"><span class="au-price">${esc(n.tipoNome)}</span><span class="gt-reg" style="--c:${n.cor}">${esc(n.familiaNome ?? n.regiaoNome)}</span></div>
-        <p class="gt-desc">${esc(n.descricao)}</p>
-        <ul class="gt-bonus">${n.bonus.length ? n.bonus.map((b) => `<li>${esc(b)}</li>`).join('') : '<li class="none">Sem bônus direto: abre uma Mastery</li>'}</ul>
-        ${n.mastery ? `<p class="gt-note">Desbloqueia a Mastery <b>${esc(n.mastery)}</b>.</p>` : ''}
-        <p class="gt-para">Vale para: <b>${esc(n.para)}</b></p>
-        <p class="gt-state st-${n.estado}">${esc(n.estadoTexto)}</p>
-        ${caminhoTxt}
-        ${n.pendencias.length ? `<ul class="gt-pend" title="Bônus que aparecem na árvore mas ainda não atuam no jogo">${n.pendencias.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
-        <div class="gt-acts">${acao}</div>`;
-    }
+    const detalhe = n
+      ? this.detalheNo(n)
+      : `<h4 class="au-h">Detalhes</h4><p class="gt-hint">Passe o cursor num nó para ver o caminho aceso. Toque (ou clique) num nó para ver o que ele dá, o que falta e o custo.</p>`;
     this.side.innerHTML = `
-      <section class="au-sec gt-detail">${detalhe}</section>
+      <section class="au-frame tall gt-detail">${detalhe}</section>
       <section class="au-sec gt-mast">
         <h4 class="au-h">Masteries táticas</h4>
         <p class="gt-sub">Cada Mastery vai para um personagem e fica com ele, mesmo fora da party. Atribuir ou trocar custa ${ARVORE_CONFIG.atribuirZen} Zen.</p>
-        <div class="gt-roster">${v.herois.map((h) => this.heroiSvg(h)).join('')}</div>
-        ${v.masteries.map((m) => this.cardMastery(m)).join('')}
-        ${this.areaAtribuir()}
+        ${this.vm.masteries.map((m) => this.cardMastery(m)).join('')}
       </section>`;
   }
 
-  private heroiSvg(h: HeroiVM): string {
-    const m = this.selMasteryVM();
-    const cand = m?.candidatos.find((c) => c.kind === h.kind);
-    const alvo = !!m && !!cand?.elegivel;
-    const cls = ['gt-hero', alvo ? 'alvo' : '', this.pick === h.kind ? 'on' : '', m && !alvo ? 'no' : '', h.mastery ? 'com' : ''].join(' ');
+  /** Painel de detalhes do nó: nome, efeito, requisitos, custo, estado e a ação. Ponto de Mastery traz a atribuição. */
+  private detalheNo(n: NoVM): string {
+    const v = this.vm;
+    const m = this.selMastery();
+    const cam = caminhoAte(v, n.id);
+    const acao = n.raiz ? '' : this.botaoAbrir(n);
+    const pend = n.pendencias.length ? `<ul class="gt-pend" title="Bônus que aparecem na árvore mas ainda não atuam no jogo">${n.pendencias.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : '';
+    const icone = n.icone ? `<img src="${n.icone}" alt="">` : `<svg viewBox="-24 -24 48 48" aria-hidden="true">${forma(n.tipo, 'gt-leg-shape')}</svg>`;
+    const custo = n.raiz ? 'Grátis' : n.estado === 'aberto' ? `Pago · ${n.custo} Zen` : `${n.custo} Zen${n.custo > v.banco ? ` · faltam ${n.custo - v.banco}` : ''}`;
+    return `
+      <header class="gt-det-cab">
+        <span class="gt-det-ico" style="--c:${n.cor}">${icone}</span>
+        <div><h4>${esc(n.nome)}</h4><small>${esc(n.tipoNome)} · ${esc(n.familiaNome ?? n.regiaoNome)}</small></div>
+      </header>
+      <p class="gt-state st-${n.estado}">${esc(n.estadoTexto)}</p>
+      <p class="gt-desc">${esc(n.descricao)}</p>
+      <div class="gt-bloco"><h5>Efeito</h5>
+        <ul class="gt-bonus">${n.bonus.length ? n.bonus.map((b) => `<li>${esc(b)}</li>`).join('') : '<li class="none">Sem bônus direto: abre uma Mastery</li>'}</ul>
+        <p class="gt-para">Vale para: <b>${esc(n.para)}</b></p>
+      </div>
+      <div class="gt-bloco"><h5>Requisitos</h5><ul class="gt-req-lista">${this.requisitos(n, cam, m)}</ul></div>
+      <div class="gt-bloco"><h5>Custo</h5><p class="gt-custo"><span class="au-price">${custo}</span><span>Banco: <b>${v.banco.toLocaleString('pt-BR')}</b> Zen</span></p></div>
+      ${pend}
+      <div class="gt-acts">${acao}</div>
+      ${m ? this.blocoMastery(m) : ''}`;
+  }
+
+  /** Requisitos do nó: o caminho que falta abrir (ou o que já está pronto) e, na Mastery, o nível do herói. */
+  private requisitos(n: NoVM, cam: ReturnType<typeof caminhoAte>, m: MasteryVM | undefined): string {
+    const itens: string[] = [];
+    if (n.raiz) itens.push('Ponto de partida: sempre aberto.');
+    else if (cam.aberto) itens.push('Já aberto.');
+    else if (cam.umPasso) itens.push('Ligado a um nó aberto: abre com 1 passo.');
+    else if (cam.ids.length) itens.push(`Caminho de ${cam.nos} nós a partir da rede aberta (${cam.zen} Zen no total).`);
+    else itens.push('Sem caminho até a rede aberta: abra antes um nó ligado a este.');
+    if (m) itens.push(`Mastery ${m.nome}: nível mínimo do herói ${m.nivelMin}.`);
+    return itens.map((i) => `<li>${esc(i)}</li>`).join('');
+  }
+
+  /** Botão de ação do nó: abre quando há Zen e a luta acabou; senão, diz por que não. */
+  private botaoAbrir(n: NoVM): string {
+    const v = this.vm;
+    const podeAbrir = n.estado === 'disponivel' && !v.emCombate;
+    const rotulo = n.estado === 'aberto' ? 'Aberto' : n.estado === 'disponivel' ? `Abrir · ${n.custo} Zen` : n.estado === 'sem-zen' ? `Faltam ${n.custo - v.banco} Zen` : 'Bloqueado';
+    const dica = v.emCombate ? 'Fora da luta.' : n.estadoTexto;
+    return `<button class="au-btn${podeAbrir ? ' gold' : ''}" data-c="buy" data-id="${n.id}" ${podeAbrir ? '' : 'disabled'} title="${esc(dica)}">${rotulo}</button>`;
+  }
+
+  /** Atribuição da Mastery dentro do painel do ponto dela: quem recebe, o custo e a confirmação. */
+  private blocoMastery(m: MasteryVM): string {
+    return `<div class="gt-bloco gt-mast-bloco" style="--c:${m.cor}">
+        <h5>Mastery · ${esc(m.familia)}</h5>
+        <p class="gt-mast-nome">${esc(m.nome)}</p>
+        <i>${esc(m.identidade)}</i>
+        <p class="gt-efeito">${esc(m.efeito)}</p>
+        <p class="gt-note">Nível mínimo ${m.nivelMin} · ${m.portador ? `Com <b>${esc(m.portadorNome ?? '')}</b>` : 'Guardada, sem dono'}</p>
+        ${this.areaAtribuir(m)}
+      </div>`;
+  }
+
+  private rosterHtml(m: MasteryVM): string {
+    return `<div class="gt-roster">${this.vm.herois.map((h) => this.heroiSvg(h, m)).join('')}</div>`;
+  }
+
+  private heroiSvg(h: HeroiVM, m: MasteryVM): string {
+    const cand = m.candidatos.find((c) => c.kind === h.kind);
+    const alvo = !!cand?.elegivel;
+    const cls = ['gt-hero', alvo ? 'alvo' : '', this.pick === h.kind ? 'on' : '', alvo ? '' : 'no', h.mastery ? 'com' : ''].join(' ');
     const img = h.retrato ? `<img src="${h.retrato}" alt="">` : `<span class="gt-ini">${inicial(h.nome)}</span>`;
-    const motivo = m && cand?.erro ? ` · ${cand.erro}` : '';
+    const motivo = cand?.erro ? ` · ${cand.erro}` : '';
     return `<button class="${cls}" data-c="roster" data-k="${h.kind}" title="${esc(h.nome)} · Nv. ${h.nivel}${h.mastery ? ` · ${esc(h.mastery)}` : ''}${esc(motivo)}"${alvo ? '' : ' tabindex="-1"'}>
       <span class="gt-port">${img}</span><b>${esc(h.nome)}</b><small>Nv. ${h.nivel}</small>${h.mastery ? `<em>${esc(h.mastery)}</em>` : ''}</button>`;
   }
 
   private cardMastery(m: MasteryVM): string {
-    const on = this.selM === m.id;
+    const on = this.sel === m.noId;
     return `<div class="gt-mcard${on ? ' on' : ''}${m.portador ? ' com' : ''}" role="button" tabindex="0" data-c="mast" data-id="${m.id}" style="--c:${m.cor}">
       <div class="gt-mhead"><b>${esc(m.nome)}</b><small>${esc(m.familia)}</small></div>
       <i>${esc(m.identidade)}</i>
@@ -665,9 +760,8 @@ export class ArvoreGlobal {
       </div></div>`;
   }
 
-  private areaAtribuir(): string {
-    const m = this.selMasteryVM();
-    if (!m) return `<p class="gt-hint">Escolha uma Mastery acima para ver quem pode recebê-la e o custo antes de confirmar.</p>`;
+  /** Quem recebe a Mastery: os retratos (só os elegíveis respondem) e, com um herói escolhido, o custo antes de confirmar. */
+  private areaAtribuir(m: MasteryVM): string {
     const escolhido: CandidatoVM | undefined = this.pick ? m.candidatos.find((c) => c.kind === this.pick) : undefined;
     const erro = escolhido?.erro;
     const tirar = m.portador
@@ -677,9 +771,7 @@ export class ArvoreGlobal {
       ? `<div class="gt-prev"><span class="au-price">${m.custo} Zen</span><span>Banco: <b>${this.vm.banco.toLocaleString('pt-BR')}</b> Zen</span></div>
          <p class="gt-note ${erro ? 'bad' : 'ok'}">${erro ? esc(erro) : `Pronto para ${esc(escolhido.nome)}. Nada é gasto até você confirmar.`}</p>
          <div class="gt-acts"><button class="au-btn" data-c="cancel">Cancelar</button><button class="au-btn gold" data-c="assign" data-m="${m.id}" data-k="${escolhido.kind}" ${erro ? 'disabled' : ''}>Confirmar · ${m.custo} Zen</button></div>`
-      : `<p class="gt-hint">Escolha quem recebe <b>${esc(m.nome)}</b> (retratos acima). ${this.vm.emCombate ? 'Fora da luta.' : ''}</p>
-         <div class="gt-acts"><button class="au-btn" data-c="cancel">Fechar</button></div>`;
-    return `<div class="gt-assign"><h5>Quem recebe ${esc(m.nome)}?</h5>${previa}${tirar ? `<div class="gt-acts">${tirar}</div>` : ''}</div>`;
+      : `<p class="gt-hint">Escolha quem recebe ${esc(m.nome)}. ${this.vm.emCombate ? 'Fora da luta.' : ''}</p>`;
+    return `<div class="gt-assign"><h5>Quem recebe?</h5>${this.rosterHtml(m)}${previa}${tirar ? `<div class="gt-acts">${tirar}</div>` : ''}</div>`;
   }
 }
-

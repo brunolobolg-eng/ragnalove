@@ -38,6 +38,8 @@ export const ARVORE_VISUAL = {
   textura: { pedra: 'textures/pedras/pedra_escura.webp' },
   /** Escala do nó em destaque (cursor ou seleção) e tempo das transições (s). */
   destaque: { escala: 1.12, transicao: 0.18 },
+  /** Raio (px) do brilho que cada nó tem além da forma: fica aceso nos abertos, no caminho e nos notáveis e Masteries. */
+  brilho: { raio: 9 },
   cor: {
     /** Nós sem setor próprio (núcleo e caminhos de ligação): dourado neutro. As demais cores vêm de FAMILIA_VISUAL. */
     neutra: '#d9b45a',

@@ -2347,11 +2347,12 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
   background: radial-gradient(ellipse at 50% 45%, rgba(8, 12, 30, 0.45), rgba(4, 6, 16, 0.86) 75%); backdrop-filter: blur(1.5px);
   font-family: Tahoma, Verdana, sans-serif; color: var(--au-text); }
 .gt-veil[hidden], .gt-bar[hidden], .gt-reset-btn[hidden] { display: none !important; }
-.gt-win { width: min(1240px, 98vw); height: min(860px, 94vh); display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; animation: nrUp .2s ease-out; }
+.gt-win { width: min(1400px, 98vw); height: min(860px, 94vh); display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; animation: nrUp .2s ease-out; }
 
 /* cabeçalho: título, pontos livres, Zen, reorganizar e fechar */
 .gt-head { display: flex; align-items: center; gap: 10px; padding: 4px 6px 8px; flex-wrap: wrap; border-bottom: 1px solid rgba(199, 157, 72, 0.45); }
 .gt-title { margin-right: auto; font: 700 18px Cinzel, serif; letter-spacing: 0.5px; color: var(--au-title); text-shadow: 0 2px 4px #000; }
+.gt-title small { display: block; margin-top: 2px; font: 400 11.5px Tahoma, Verdana, sans-serif; letter-spacing: 0; color: var(--au-dim); text-shadow: none; }
 .gt-pts, .gt-zeni { font-size: 13px; padding: 4px 12px; border-radius: 14px; white-space: nowrap; background: rgba(6, 10, 28, 0.75); border: 1px solid rgba(199, 157, 72, 0.55); }
 .gt-pts b { color: var(--au-gold-hi); font-size: 16px; }
 .gt-pts small { color: var(--au-dim); }
@@ -2367,7 +2368,8 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-bar b { color: var(--au-gold-hi); }
 
 /* corpo: a roda à esquerda, os painéis à direita */
-.gt-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 10px; padding: 8px 6px 6px; box-sizing: border-box; }
+/* três colunas: legenda (esquerda), roda (centro) e painéis (direita); a roda é o centro da tela */
+.gt-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 210px minmax(0, 1fr) 360px; gap: 10px; padding: 8px 6px 6px; box-sizing: border-box; }
 .gt-canvas { position: relative; min-height: 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(199, 157, 72, 0.55);
   background: radial-gradient(circle at 50% 50%, #101a3c 0%, #070b1c 62%, #04060f 100%); }
 .gt-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; user-select: none; }
@@ -2427,28 +2429,23 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-filtro { height: 30px; max-width: 250px; padding: 0 8px; border-radius: 8px; font: 12px Tahoma, Verdana, sans-serif; color: var(--au-text);
   background: rgba(6, 10, 28, 0.92); border: 1px solid rgba(199, 157, 72, 0.6); }
 .gt-filtro option { background: #0b1230; color: var(--au-text); }
-.gt-caminho { position: absolute; right: 10px; top: 10px; width: min(270px, 42%); z-index: 2; padding: 8px 10px; border-radius: 10px; font-size: 12px; color: var(--au-text);
-  background: rgba(6, 10, 28, 0.9); border: 1px solid rgba(255, 211, 106, 0.6); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); pointer-events: none; }
-.gt-caminho[hidden] { display: none; }
-.gt-caminho p { margin: 0 0 4px; line-height: 1.4; }
-.gt-caminho b { color: var(--au-title); }
-.gt-caminho em { color: #ffb3a8; font-style: normal; }
-.gt-caminho ol { margin: 4px 0 0; padding: 0; list-style: none; }
-.gt-caminho li { display: flex; gap: 6px; align-items: baseline; color: #e8d6a0; }
-.gt-caminho li i { font-style: normal; color: var(--au-gold-hi); min-width: 14px; }
-.gt-caminho li.mais { color: var(--au-dim); }
 
-/* legenda recolhível (canto inferior esquerdo): tipos de nó, estados e cor de cada setor */
-.gt-legend { position: absolute; left: 10px; bottom: 10px; z-index: 2; max-width: min(300px, 60%); font-size: 11px; color: var(--au-text); }
-.gt-legend > summary { cursor: pointer; display: inline-block; padding: 5px 12px; border-radius: 10px; list-style: none; background: rgba(6, 10, 28, 0.9); border: 1px solid rgba(199, 157, 72, 0.6); color: var(--au-title); }
-.gt-legend > summary::-webkit-details-marker { display: none; }
-.gt-legend[open] > summary { margin-bottom: 6px; }
-.gt-legend ul { margin: 0; padding: 8px 10px; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; border-radius: 10px; background: rgba(6, 10, 28, 0.92); border: 1px solid rgba(199, 157, 72, 0.45); }
-.gt-legend li { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.gt-legend li.gt-leg-sep { grid-column: 1 / -1; color: var(--au-gold-hi); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-.gt-legend svg { width: 16px; height: 16px; flex: none; overflow: visible; }
-.gt-legend .gt-leg-shape { fill: #0d1530; stroke: #ffd36a; stroke-width: 2; }
-.gt-legend .gt-simb { fill: #ffd36a; stroke: none; }
+/* legenda (coluna da esquerda): tipos de nó, regiões temáticas e estados; frases curtas */
+.gt-legenda { min-height: 0; overflow: auto; padding: 10px 10px 8px; border-radius: 12px; background: rgba(6, 10, 28, 0.72); border: 1px solid rgba(199, 157, 72, 0.4);
+  color: var(--au-text); font-size: 11.5px; }
+.gt-legenda .au-h { margin: 8px 0 6px; font-size: 11px; letter-spacing: 0.6px; }
+.gt-legenda .au-h:first-child { margin-top: 0; }
+.gt-leg-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.gt-leg-lista li { display: flex; align-items: center; gap: 8px; line-height: 1.2; min-width: 0; }
+.gt-leg-lista li > span { min-width: 0; }
+.gt-leg-lista small { display: block; font-size: 10px; color: var(--au-dim); }
+.gt-leg-lista svg { width: 20px; height: 20px; flex: none; overflow: visible; }
+.gt-legenda .gt-leg-shape { fill: #0d1530; stroke: #d9b45a; stroke-width: 2; }
+.gt-legenda .gt-orn { fill: none; stroke: rgba(255, 211, 106, 0.7); stroke-width: 1; }
+.gt-leg-estados { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; }
+.gt-leg-estados li { display: flex; align-items: center; gap: 6px; line-height: 1.2; }
+.gt-leg-nota { margin: 12px 0 0; font-size: 10.5px; line-height: 1.35; color: var(--au-dim); font-style: italic; }
+.gt-st.sel { background: transparent; border: 2px dashed #fff1c4; }
 .gt-st { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 2px solid; flex: none; }
 .gt-st.aberto { background: #d9b45a; border-color: #fff3d6; box-shadow: 0 0 6px #d9b45a; }
 .gt-st.disponivel { background: #17264d; border-color: #ffd36a; }
@@ -2516,12 +2513,45 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-assign h5 { margin: 0 0 8px; font: 700 12px Cinzel, serif; color: #ffe6a8; letter-spacing: 0.5px; text-transform: uppercase; }
 .gt-prev { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
 
+/* tooltip do nó: segue o cursor e não ocupa espaço fixo (só aparece com o mouse) */
+.gt-tip { position: absolute; left: 0; top: 0; z-index: 4; max-width: 240px; padding: 7px 10px; border-radius: 10px; font-size: 12px; line-height: 1.35; color: var(--au-text); pointer-events: none;
+  background: linear-gradient(180deg, rgba(22, 34, 72, 0.97), rgba(9, 14, 34, 0.98)); border: 1px solid rgba(255, 211, 106, 0.55); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.6); animation: gtFade 0.14s ease-out; }
+.gt-tip b { display: block; font: 700 13px Cinzel, serif; color: var(--au-title); }
+.gt-tip span { display: block; font-size: 11px; color: var(--au-dim); }
+.gt-tip em { display: block; margin-top: 3px; font-style: normal; color: #ffe6a8; }
+.gt-tip[hidden] { display: none !important; }
+
+/* painel de detalhes: moldura ornamental e hierarquia (nome, estado, efeito, requisitos, custo, ação) */
+.gt-detail { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; color: var(--au-text); font-size: 12.5px; }
+.gt-det-cab { display: flex; align-items: center; gap: 10px; }
+.gt-det-cab h4 { margin: 0; font: 700 17px Cinzel, serif; color: var(--au-title); text-shadow: 0 2px 4px #000; line-height: 1.15; }
+.gt-det-cab small { display: block; margin-top: 3px; font-size: 11px; color: var(--au-dim); }
+.gt-det-ico { width: 46px; height: 46px; flex: none; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #1d2c58, #070c1f);
+  box-shadow: 0 0 0 1.5px var(--c, var(--au-gold)), 0 0 12px rgba(255, 211, 106, 0.25); }
+.gt-det-ico img { width: 34px; height: 34px; object-fit: contain; }
+.gt-det-ico svg { width: 30px; height: 30px; overflow: visible; }
+.gt-desc { margin: 0; color: var(--au-title); line-height: 1.45; }
+.gt-bloco { padding: 8px 10px; border-radius: 8px; background: rgba(6, 10, 28, 0.6); border: 1px solid var(--au-line); }
+.gt-bloco h5 { margin: 0 0 5px; font: 700 10.5px Cinzel, serif; letter-spacing: 1px; text-transform: uppercase; color: #ffe6a8; }
+.gt-bloco .gt-bonus { margin: 0 0 4px; }
+.gt-req-lista { margin: 0; padding-left: 16px; color: var(--au-text); line-height: 1.4; }
+.gt-custo { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.gt-custo > span:last-child { color: var(--au-dim); font-size: 11.5px; }
+.gt-mast-bloco { border-left: 3px solid var(--c, var(--au-line)); }
+.gt-mast-bloco > i { display: block; color: var(--au-title); margin: 3px 0; font-size: 12px; }
+.gt-mast-nome { margin: 0; font: 700 14px Cinzel, serif; color: #ffe6a8; }
+.gt-efeito { margin: 4px 0 6px; line-height: 1.4; }
+.gt-assign { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(199, 157, 72, 0.35); }
+@keyframes gtFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
 /* telas estreitas: a rede vai para cima e os painéis rolam embaixo */
 @media (max-width: 980px) {
   .gt-win { height: 94vh; overflow-y: auto; }
   .gt-body { grid-template-columns: 1fr; }
   .gt-canvas { height: 56vh; }
   .gt-side { overflow: visible; }
+  .gt-legenda { order: 3; display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  .gt-legenda .au-h, .gt-leg-nota { grid-column: 1 / -1; }
 }
 
 /* Mapa: quatro botões da party em grade de 2 colunas (com quatro em uma linha, os rótulos saem da caixa) */
