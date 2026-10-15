@@ -1,5 +1,5 @@
-import { ARVORE_CONFIG, ARVORE_ECONOMIA, CATEGORIAS, CATEGORIA_IDS, CONEXOES, FAMILIAS, MASTERIES, MASTERY_BY_ID, NOS, NO_BY_ID, REGIOES, TIPO_NO_LABEL, custoDoNo, nosPorCategoria, type Categoria, type FamiliaId, type MasteryDef, type MasteryId, type NoDef, type NoTipo } from '../config/arvoreGlobal';
-import { ARVORE_VISUAL, FAMILIA_VISUAL, SETOR_DA_REGIAO, TAMANHO_NO } from '../config/arvoreVisual';
+import { ARVORE_CONFIG, ARVORE_ECONOMIA, CATEGORIAS, CATEGORIA_IDS, CONEXOES, FAMILIAS, MASTERIES, MASTERY_BY_ID, NOS, NO_BY_ID, REGIOES, TIPO_NO_LABEL, custoDoNo, nosPorCategoria, type BonusKey, type Categoria, type FamiliaId, type MasteryDef, type MasteryId, type NoDef, type NoTipo } from '../config/arvoreGlobal';
+import { ARVORE_VISUAL, FAMILIA_VISUAL, ICONE_POR_BONUS, ICONE_POR_CATEGORIA, SETOR_DA_REGIAO, TAMANHO_NO } from '../config/arvoreVisual';
 import { HERO_NAME, HERO_ORDER } from '../config/heroes';
 import { RAIZ_ID, estadoNo, masteryDoHeroi, masteryDesbloqueada, previsaoAtribuir, previsaoReorganizar, textoBonus, type EstadoNo } from '../core/progression/arvore';
 import { heroDisplayName, type Profile } from '../core/progression/profile';
@@ -10,17 +10,6 @@ import type { HeroKind } from '../core/progression/skills';
  * posições para a tela. Nenhuma regra é decidida aqui: estados, custos e motivos vêm das funções do núcleo.
  * A roda (posições, anéis, setores e rótulos) é geometria de apresentação, calculada uma vez por carga.
  */
-
-export interface RotuloVM {
-  linhas: string[];
-  /** Sem cobrir nó, medalhão ou outro nome: só então o nome aparece sem o cursor (no zoom da sua faixa). */
-  livre: boolean;
-  /** Canto superior esquerdo da caixa do rótulo, em px relativos ao centro da roda. */
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
 
 export interface NoVM {
   id: string;
@@ -44,8 +33,9 @@ export interface NoVM {
   r: number;
   /** Anel (profundidade por BFS a partir do núcleo). */
   anel: number;
-  rotulo?: RotuloVM;
-  /** Notáveis e Masteries mostram o nome já no zoom padrão. */
+  /** Ícone do nó na roda (arte do kit; na Mastery, o emblema do setor). Ausente no núcleo e nos caminhos. */
+  icone?: string;
+  /** Notáveis e Masteries: pedem destaque visual (moldura e brilho). */
   destaque: boolean;
   custo: number;
   estado: EstadoNo;
@@ -115,8 +105,6 @@ export interface RodaVM {
   emblemas: EmblemaVM[];
   /** Maior distância de um nó ao centro, borda externa da forma (px). */
   raioMax: number;
-  /** Rótulos que cobrem algum nó, medalhão ou outro rótulo: aparecem só com o cursor ou a seleção (0 = roda limpa). */
-  rotulosEmConflito: number;
 }
 
 /** Caminho aceso até um nó: os nós que faltam abrir, na ordem de compra, a partir da rede aberta. */
@@ -158,23 +146,16 @@ const ESTADO_TEXTO = (estado: EstadoNo, custo: number, falta: number): string =>
 
 const paraTexto = (no: NoDef): string => (no.para === 'todos' ? 'Todos os heróis' : no.para.map((k) => HERO_NAME[k]).join(', '));
 
+/** Ícone de um nó na roda: a Mastery usa o emblema do setor; o resto, o primeiro bônus com ícone; senão, o da categoria. */
+export function iconeDoNo(no: NoDef, familia?: FamiliaId): string | undefined {
+  if (no.tipo === 'raiz' || no.tipo === 'caminho') return undefined;
+  if (no.tipo === 'mastery') return familia ? FAMILIA_VISUAL[familia].emblema : undefined;
+  const chave = (Object.keys(no.bonus) as BonusKey[]).find((k) => ICONE_POR_BONUS[k]);
+  return chave ? ICONE_POR_BONUS[chave] : ICONE_POR_CATEGORIA[no.categoria];
+}
+
 const RAD = Math.PI / 180;
 const POLAR = (raio: number, angulo: number) => ({ x: raio * Math.cos(angulo), y: raio * Math.sin(angulo) });
-
-/** Quebra o nome em linhas de até `max` caracteres (na palavra). Nomes curtos ficam numa linha só. */
-export function linhasNome(nome: string, max: number): string[] {
-  const palavras = nome.split(' ');
-  const linhas: string[] = [];
-  let atual = '';
-  for (const p of palavras) {
-    if (atual && (atual + ' ' + p).length > max) {
-      linhas.push(atual);
-      atual = p;
-    } else atual = atual ? `${atual} ${p}` : p;
-  }
-  if (atual) linhas.push(atual);
-  return linhas;
-}
 
 // ---------------- roda: geometria (calculada uma vez; o grafo é fixo) ----------------
 
@@ -196,11 +177,9 @@ interface Ponto {
 
 interface Roda {
   pos: Map<string, { x: number; y: number; r: number; anel: number; familia?: FamiliaId }>;
-  rotulos: Map<string, RotuloVM>;
   aneis: number[];
   emblemas: EmblemaVM[];
   raioMax: number;
-  conflitos: number;
 }
 
 let rodaCache: Roda | undefined;
@@ -340,87 +319,10 @@ function calcularRoda(): Roda {
       }
     }
   }
-  // 6) rótulos: cada rótulo testa 24 posições (8 direções, em três distâncias). Aceita-se, de forma gulosa, o maior
-  //    conjunto de nomes que não cobre nó, medalhão, aro nem outro nome aceito. Notáveis e Masteries entram primeiro
-  //    (mostram o nome no zoom padrão) e, dentro de cada grupo, os mais restritos antes. Quem não cabe fica com a
-  //    posição de menor choque e aparece só com o cursor ou a seleção.
-  const { linha, caractere, maxCaracteres } = ARVORE_VISUAL.rotulo;
-  const LIMITE_X = ARVORE_VISUAL.rotulo.limiteX;
-  const LIMITE_Y = ARVORE_VISUAL.rotulo.limiteY;
-  const direcoes: [number, number][] = [];
-  for (let k = 0; k < 16; k++) direcoes.push([Math.cos((k * Math.PI) / 8), Math.sin((k * Math.PI) / 8)]);
-  type Caixa = { x0: number; y0: number; x1: number; y1: number };
-  const medidas = new Map<string, { linhas: string[]; w: number; h: number }>();
-  const candidatosDe = new Map<string, Caixa[]>();
-  for (const p of pts) {
-    const linhas = linhasNome(NO_BY_ID[p.id].nome, maxCaracteres);
-    const w = Math.max(...linhas.map((l) => l.length)) * caractere + 6;
-    const h = linhas.length * linha + 2;
-    medidas.set(p.id, { linhas, w, h });
-    const lista: Caixa[] = [];
-    for (const dist of [1, 1.3, 1.6, 1.9]) {
-      for (const [dx, dy] of direcoes) {
-        const ext = Math.abs(dx) * (w / 2) + Math.abs(dy) * (h / 2);
-        const cx = p.x + dx * (p.r + folga + ext) * dist;
-        const cy = p.y + dy * (p.r + folga + ext) * dist;
-        lista.push({ x0: cx - w / 2, y0: cy - h / 2, x1: cx + w / 2, y1: cy + h / 2 });
-      }
-    }
-    candidatosDe.set(p.id, lista);
-  }
-  /** Choques da caixa com nós, medalhões e os limites da área da roda. */
-  const choqueNo = (id: string, c: Caixa): number => {
-    let n = 0;
-    for (const q of todos) {
-      if (q.id === id) continue;
-      const nx = Math.max(c.x0, Math.min(q.x, c.x1)), ny = Math.max(c.y0, Math.min(q.y, c.y1));
-      if (Math.hypot(q.x - nx, q.y - ny) < q.r + 2) n++;
-    }
-    for (const o of obstaculos) {
-      const nx = Math.max(c.x0, Math.min(o.x, c.x1)), ny = Math.max(c.y0, Math.min(o.y, c.y1));
-      if (Math.hypot(o.x - nx, o.y - ny) < o.r + 2) n++;
-    }
-    // o nome não cobre a arte do núcleo (o centro da roda)
-    const perto = Math.hypot(Math.max(c.x0, Math.min(0, c.x1)), Math.max(c.y0, Math.min(0, c.y1)));
-    if (perto < arte + 2) n++;
-    // o nome pode passar do aro, mas fica dentro da área do canvas
-    if (Math.abs(c.x0) > LIMITE_X || Math.abs(c.x1) > LIMITE_X || Math.abs(c.y0) > LIMITE_Y || Math.abs(c.y1) > LIMITE_Y) n++;
-    return n;
-  };
-  const aceitos = new Map<string, Caixa>();
-  const sobrepoe = (a: Caixa, b: Caixa) => a.x0 < b.x1 + 2 && a.x1 + 2 > b.x0 && a.y0 < b.y1 + 2 && a.y1 + 2 > b.y0;
-  const choqueRotulo = (id: string, c: Caixa): number => {
-    let n = 0;
-    for (const [outro, k] of aceitos) if (outro !== id && sobrepoe(c, k)) n++;
-    return n;
-  };
-  const ordemRot = pts.slice().sort((a, b) => {
-    const grupo = (id: string) => (NO_BY_ID[id].tipo === 'comum' ? 1 : 0);
-    if (grupo(a.id) !== grupo(b.id)) return grupo(a.id) - grupo(b.id);
-    const livres = (id: string) => candidatosDe.get(id)!.filter((c) => choqueNo(id, c) === 0).length;
-    const la = livres(a.id), lb = livres(b.id);
-    if (la !== lb) return la - lb;
-    return a.anel - b.anel || (a.id < b.id ? -1 : 1);
-  });
-  for (const p of ordemRot) {
-    const c = candidatosDe.get(p.id)!.find((cand) => choqueNo(p.id, cand) === 0 && choqueRotulo(p.id, cand) === 0);
-    if (c) aceitos.set(p.id, c);
-  }
-  const rotulos = new Map<string, RotuloVM>();
-  let conflitos = 0;
-  for (const p of ordemRot) {
-    const m = medidas.get(p.id)!;
-    let c = aceitos.get(p.id);
-    if (!c) {
-      conflitos++;
-      c = candidatosDe.get(p.id)!.reduce((melhor, cand) => (choqueNo(p.id, cand) + choqueRotulo(p.id, cand) < choqueNo(p.id, melhor) + choqueRotulo(p.id, melhor) ? cand : melhor));
-    }
-    rotulos.set(p.id, { linhas: m.linhas, livre: aceitos.has(p.id), x: c.x0, y: c.y0, w: m.w, h: m.h });
-  }
   const pos = new Map<string, { x: number; y: number; r: number; anel: number; familia?: FamiliaId }>();
   for (const p of todos) pos.set(p.id, { x: p.x, y: p.y, r: p.r, anel: p.anel, familia: p.fixo ? undefined : p.familia });
   const raioMax = Math.max(...pts.map((p) => Math.hypot(p.x, p.y) + p.r));
-  rodaCache = { pos, rotulos, aneis, emblemas, raioMax, conflitos };
+  rodaCache = { pos, aneis, emblemas, raioMax };
   return rodaCache;
 }
 
@@ -482,7 +384,7 @@ export function montarArvoreVM(p: Profile, retratos: Record<string, string>, ctx
       y: g.y,
       r: g.r,
       anel: g.anel,
-      rotulo: roda.rotulos.get(no.id),
+      icone: iconeDoNo(no, familia),
       destaque: no.tipo === 'notavel' || no.tipo === 'mastery',
       custo: custoDoNo(no),
       estado,
@@ -548,19 +450,17 @@ export function montarArvoreVM(p: Profile, retratos: Record<string, string>, ctx
       aneis: roda.aneis,
       emblemas: roda.emblemas,
       raioMax: roda.raioMax,
-      rotulosEmConflito: roda.conflitos,
     },
     herois,
     masteries,
   };
 }
 
-/** Para a checagem: geometria pura da roda (nós, caixas dos rótulos e medalhões). */
-export function geometriaDaRoda(): { nos: { id: string; x: number; y: number; r: number }[]; rotulos: { id: string; x0: number; y0: number; x1: number; y1: number }[]; emblemas: { id: string; x: number; y: number; r: number }[]; aroRaio: number } {
+/** Para a checagem: geometria pura da roda (nós e medalhões). Os nomes não ficam na roda. */
+export function geometriaDaRoda(): { nos: { id: string; x: number; y: number; r: number }[]; emblemas: { id: string; x: number; y: number; r: number }[]; aroRaio: number } {
   const roda = calcularRoda();
   return {
     nos: [...roda.pos.entries()].map(([id, g]) => ({ id, x: g.x, y: g.y, r: g.r })),
-    rotulos: [...roda.rotulos.entries()].map(([id, r]) => ({ id, x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h })),
     emblemas: roda.emblemas.map((e) => ({ id: e.id, x: e.x, y: e.y, r: ARVORE_VISUAL.emblema.diametro / 2 })),
     aroRaio: ARVORE_VISUAL.aroRaio,
   };

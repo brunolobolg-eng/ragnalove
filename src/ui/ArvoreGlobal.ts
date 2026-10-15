@@ -35,32 +35,41 @@ function poligono(n: number, r: number, rot = 0): string {
   return pts.join(' ');
 }
 
-/** Estrela de 5 pontas (R = externo, r = interno). */
-function estrela(R: number, r: number): string {
+/** Estrela de `pontas` pontas (R = externo, r = interno). */
+function estrela(R: number, r: number, pontas = 5): string {
   const pts: string[] = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < pontas * 2; i++) {
     const rad = i % 2 === 0 ? R : r;
-    const a = (i * Math.PI) / 5 - Math.PI / 2;
+    const a = (i * Math.PI) / pontas - Math.PI / 2;
     pts.push(`${(rad * Math.cos(a)).toFixed(2)},${(rad * Math.sin(a)).toFixed(2)}`);
   }
   return pts.join(' ');
 }
 
-/** Forma de cada tipo de nó (o tamanho vem de TAMANHO_NO; o símbolo interno diz o tipo de relance). */
+/** Forma de cada tipo de nó (o tamanho vem de TAMANHO_NO; a forma diz o tipo de relance, o ícone diz o bônus). */
 function forma(tipo: NoTipo, classe: string): string {
   const d = TAMANHO_NO[tipo] / 2;
   switch (tipo) {
     case 'raiz':
       return `<circle class="${classe}" r="${d}"/>`;
     case 'comum':
-      return `<circle class="${classe}" r="${d}"/><circle class="gt-simb" r="3.5"/>`;
+      return `<circle class="${classe}" r="${d}"/>`;
     case 'notavel':
-      return `<polygon class="${classe}" points="${estrela(d, d * 0.52)}"/><circle class="gt-simb" r="4"/>`;
+      // rosácea de 8 pontas com moldura interna: silhueta própria, maior que o comum
+      return `<polygon class="${classe}" points="${estrela(d, d * 0.8, 8)}"/><circle class="gt-orn" r="${(d * 0.66).toFixed(1)}"/>`;
     case 'caminho':
       return `<polygon class="${classe}" points="${poligono(4, d)}"/><line class="gt-simb" x1="-5" y1="0" x2="5" y2="0"/>`;
     case 'mastery':
-      return `<polygon class="${classe}" points="${poligono(6, d)}"/><polygon class="gt-simb" points="${poligono(4, 6, 45)}"/>`;
+      // hexágono de moldura dupla: é a forma mais rara da roda
+      return `<polygon class="${classe}" points="${poligono(6, d)}"/><polygon class="gt-orn" points="${poligono(6, d * 0.78)}"/>`;
   }
+}
+
+/** Tamanho do ícone dentro do nó (px): o caminho alternativo não tem ícone. */
+function tamanhoIcone(tipo: NoTipo): number {
+  if (tipo === 'notavel') return ARVORE_VISUAL.icone.notavel;
+  if (tipo === 'mastery') return ARVORE_VISUAL.icone.mastery;
+  return ARVORE_VISUAL.icone.comum;
 }
 
 const CATEGORIA_DESC: Record<Categoria, string> = {
@@ -434,10 +443,6 @@ export class ArvoreGlobal {
 
   private apply(): void {
     this.world.setAttribute('transform', `translate(${this.panX.toFixed(2)} ${this.panY.toFixed(2)}) scale(${this.zoom.toFixed(4)})`);
-    // nomes: os notáveis e as Masteries a partir do zoom de destaque; os demais a partir do zoom de todos os nomes
-    const { rotulosDestaque, rotulosTodos } = ARVORE_VISUAL.zoom;
-    this.world.classList.toggle('gt-lbl-dest', this.zoom >= rotulosDestaque);
-    this.world.classList.toggle('gt-lbl-todos', this.zoom >= rotulosTodos);
   }
 
   // ---------------- desenho ----------------
@@ -530,20 +535,16 @@ export class ArvoreGlobal {
     this.atualizarDestaque();
   }
 
+  /** Nó na roda: forma, ícone e nada escrito. O nome vai para o painel de detalhes e para o tooltip. */
   private noSvg(n: NoVM): string {
     const sel = this.sel === n.id;
-    const classes = [n.estado, n.tipo, n.destaque ? 'destaque' : '', n.rotulo?.livre ? 'livre' : ''].filter(Boolean).join(' ');
-    const linhas = n.rotulo?.linhas ?? [];
-    const rx = n.rotulo ? n.rotulo.x - n.x : 0;
-    const ry = n.rotulo ? n.rotulo.y - n.y : 0;
-    const rw = n.rotulo?.w ?? 0;
-    const rotulo = n.rotulo
-      ? `<text class="gt-lbl" x="${(rx + rw / 2).toFixed(1)}" y="${(ry + 12).toFixed(1)}" text-anchor="middle">${linhas.map((l, i) => `<tspan x="${(rx + rw / 2).toFixed(1)}" dy="${i === 0 ? 0 : ARVORE_VISUAL.rotulo.linha}">${esc(l)}</tspan>`).join('')}</text>`
-      : '';
-    const selAnel = sel ? `<circle class="gt-sel" r="${n.r + 6}"/>` : '';
-    const pulso = n.estado === 'disponivel' ? `<circle class="gt-pulso" r="${n.r + 4}"/>` : '';
-    return `<g class="gt-no ${classes} ${n.tipo}" data-id="${n.id}" transform="translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})" style="--c:${n.cor}" tabindex="-1">
-      <title>${esc(n.nome)} · ${esc(n.estadoTexto)}</title>${pulso}${selAnel}<g class="gt-caminho-anel"><circle r="${n.r + 5}"/></g>${forma(n.tipo, 'gt-shape')}${rotulo}</g>`;
+    const classes = [n.estado, n.tipo, n.destaque ? 'destaque' : ''].filter(Boolean).join(' ');
+    const pulso = n.estado === 'disponivel' ? `<circle class="gt-pulso" r="${(n.r + 4).toFixed(1)}"/>` : '';
+    const selAnel = sel ? `<circle class="gt-sel" r="${(n.r + 7).toFixed(1)}"/>` : '';
+    const s = tamanhoIcone(n.tipo);
+    const icone = n.icone ? `<image class="gt-icone" href="${n.icone}" x="${(-s / 2).toFixed(1)}" y="${(-s / 2).toFixed(1)}" width="${s}" height="${s}" preserveAspectRatio="xMidYMid meet"/>` : '';
+    return `<g class="gt-no ${classes}" data-id="${n.id}" transform="translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})" style="--c:${n.cor}" role="button" aria-label="${esc(n.nome)}" tabindex="-1">
+      <g class="gt-corpo">${pulso}${selAnel}<g class="gt-caminho-anel"><circle r="${(n.r + 5).toFixed(1)}"/></g>${forma(n.tipo, 'gt-shape')}${icone}</g></g>`;
   }
 
   /** Acende o caminho até o nó sob o cursor (ou o selecionado) e aplica o filtro de categoria. */

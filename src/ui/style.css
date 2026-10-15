@@ -2414,12 +2414,13 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 @keyframes gtSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .gt-pulso, .gt-sel { animation: none; } .gt-win { animation: none; } }
 
-/* nomes: só aparecem onde cabem (rótulo livre); o cursor ou a seleção mostra o nome de qualquer nó */
-.gt-lbl { display: none; fill: #f3e6c4; font: 600 13px Tahoma, Verdana, sans-serif; paint-order: stroke; stroke: #05070d; stroke-width: 3.2px; stroke-linejoin: round; pointer-events: none; }
-.gt-world.gt-lbl-dest .gt-no.destaque.livre .gt-lbl,
-.gt-world.gt-lbl-todos .gt-no.livre .gt-lbl,
-.gt-no.foco:not(.dim) .gt-lbl { display: block; }
-.gt-no.bloqueado .gt-lbl { fill: #9aa4c6; }
+/* ícones e moldura dos nós: o ícone é da arte do kit; a moldura ornamental vem da forma (.gt-orn) */
+.gt-icone { pointer-events: none; }
+.gt-no .gt-orn { fill: none; stroke: rgba(217, 180, 90, 0.5); stroke-width: 1; }
+.gt-no.notavel .gt-orn { stroke: rgba(255, 211, 106, 0.75); }
+.gt-no.mastery .gt-orn { stroke: rgba(255, 211, 106, 0.9); }
+.gt-no line.gt-simb { stroke: #3c4d7d; stroke-width: 2; }
+.gt-no.bloqueado .gt-icone { filter: grayscale(1) brightness(0.6); opacity: 0.6; }
 
 /* filtro por categoria (canto superior esquerdo, fora da roda), caminho aceso (canto superior direito) */
 .gt-filtros { position: absolute; left: 10px; top: 10px; z-index: 2; }

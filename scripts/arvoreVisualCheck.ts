@@ -1,11 +1,16 @@
+// @ts-nocheck - script Node (lê public/ com fs; o typecheck do jogo não tem os tipos de Node), rodado com tsx
 /**
- * Checagem visual da roda da Árvore de Aurenthal (geometria e caminho aceso). Rode: npm run arvore:visual:check
+ * Checagem visual da roda da Árvore de Aurenthal (geometria, setores, ícones e caminho aceso). Rode: npm run arvore:visual:check
  * (a) Roda: todos os nós têm posição; nenhum nó cobre outro nó nem um medalhão; cada nó cabe dentro do aro.
  * (b) Setores: cada família fica na sua cunha (cor e ângulo da 15.webp); nós sem setor são o núcleo e as ligações.
- * (c) Rótulos: nomes que aparecem sem o cursor não cobrem nó nem medalhão nem outro nome; a contagem no zoom padrão é impressa.
+ * (c) Nomes e ícones: a roda não escreve nomes (o nome vai para o painel e o tooltip). Cada nó comum, notável e de Mastery
+ *     tem ícone, e todo ícone usado existe em public/.
  * (d) Caminho aceso: o caminho até um nó fechado é ligado, sem nó aberto no meio, e o custo é a soma dos nós.
- * (e) Tamanhos e limiares de zoom do desenho (34, 44, 46, 30 e 64 px; nomes a partir de 0,75 e 1,2).
+ * (e) Tamanhos do desenho (34, 44, 46, 30 e 64 px) e dos ícones (comum com pelo menos 20 px).
  */
+import { existsSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { CONEXOES, FAMILIAS, MASTERY_BY_ID, NOS, NO_BY_ID, type FamiliaId } from '../src/config/arvoreGlobal';
 import { ARVORE_VISUAL, FAMILIA_VISUAL, TAMANHO_NO } from '../src/config/arvoreVisual';
 import { caminhoAte, geometriaDaRoda, montarArvoreVM, type ArvoreVM } from '../src/ui/arvoreVM';
@@ -18,20 +23,12 @@ const ok = (cond: boolean, texto: string) => {
     console.log(`  FALHOU: ${texto}`);
   }
 };
-const sobrepoe = (a: { x0: number; y0: number; x1: number; y1: number }, b: { x0: number; y0: number; x1: number; y1: number }) =>
-  a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
-/** Distância de um ponto a uma caixa (0 se o ponto está dentro). */
-const distCaixa = (px: number, py: number, b: { x0: number; y0: number; x1: number; y1: number }) => {
-  const nx = Math.max(b.x0, Math.min(px, b.x1));
-  const ny = Math.max(b.y0, Math.min(py, b.y1));
-  return Math.hypot(px - nx, py - ny);
-};
 
-// ---------------- (e) tamanhos e limiares: vêm do desenho pedido ----------------
-console.log('(e) tamanhos e zoom');
+// ---------------- (e) tamanhos: vêm do desenho pedido ----------------
+console.log('(e) tamanhos');
 ok(TAMANHO_NO.comum === 34 && TAMANHO_NO.notavel === 44 && TAMANHO_NO.mastery === 46 && TAMANHO_NO.caminho === 30 && TAMANHO_NO.raiz === 64, 'tamanhos no zoom 1: comum 34, notável 44, Mastery 46, caminho 30, núcleo 64 px');
-ok(ARVORE_VISUAL.zoom.rotulosDestaque === 0.75 && ARVORE_VISUAL.zoom.rotulosTodos === 1.2, 'nomes: notáveis e Masteries a partir de 0,75; todos a partir de 1,2');
-ok(ARVORE_VISUAL.rotulo.fonte >= 13, 'fonte dos nomes com pelo menos 13 px');
+ok(ARVORE_VISUAL.icone.comum >= 20 && ARVORE_VISUAL.icone.notavel > ARVORE_VISUAL.icone.comum, 'ícones: comum com pelo menos 20 px e notável maior que o comum');
+ok(ARVORE_VISUAL.icone.notavel < TAMANHO_NO.notavel && ARVORE_VISUAL.icone.mastery < TAMANHO_NO.mastery, 'ícones cabem dentro da forma do notável e da Mastery');
 
 // ---------------- (a) roda: nós, medalhões e aro ----------------
 console.log('(a) roda');
@@ -56,7 +53,7 @@ console.log('(b) setores');
 const vm: ArvoreVM = montarArvoreVM({ zeni: 0, heroes: {}, arvore: undefined } as never, {}, {});
 const porId = new Map(vm.nos.map((n) => [n.id, n]));
 let foraDaCunha = 0;
-let semSetor: string[] = [];
+const semSetor: string[] = [];
 for (const n of vm.nos) {
   if (n.raiz) continue;
   if (!n.familia) {
@@ -78,27 +75,17 @@ for (const f of FAMILIAS) {
 }
 ok(FAMILIAS.every((f) => MASTERY_BY_ID && Object.values(MASTERY_BY_ID).some((m) => m.familia === f.id)), 'cada família tem Masteries (sua cor e seu setor)');
 
-// ---------------- (c) rótulos ----------------
-console.log('(c) rótulos');
-const rotulosLivres = g.rotulos.filter((r) => vm.nos.find((n) => n.id === r.id)?.rotulo?.livre);
-let livreSobreNo = 0;
-for (const r of rotulosLivres) {
-  const id = r.id;
-  for (const n of g.nos) {
-    if (n.id === id) continue;
-    if (distCaixa(n.x, n.y, r) < n.r) livreSobreNo++;
-  }
-  for (const e of g.emblemas) if (distCaixa(e.x, e.y, r) < e.r) livreSobreNo++;
-}
-ok(livreSobreNo === 0, `nomes que aparecem sem o cursor não cobrem nó nem medalhão (${livreSobreNo} choques)`);
-let livreSobreLivre = 0;
-for (let i = 0; i < rotulosLivres.length; i++) for (let j = i + 1; j < rotulosLivres.length; j++) if (sobrepoe(rotulosLivres[i], rotulosLivres[j])) livreSobreLivre++;
-ok(livreSobreLivre === 0, `nomes que aparecem sem o cursor não se cobrem (${livreSobreLivre} pares)`);
-const contaTipo = (t: string) => vm.nos.filter((n) => n.tipo === t);
-const livresNoPadrao = (t: string) => contaTipo(t).filter((n) => n.rotulo?.livre).length;
-console.log(`    nomes no zoom padrão: notáveis ${livresNoPadrao('notavel')} de ${contaTipo('notavel').length}, Masteries ${livresNoPadrao('mastery')} de ${contaTipo('mastery').length} (os demais aparecem com o cursor)`);
-ok(livresNoPadrao('notavel') + livresNoPadrao('mastery') >= 45, 'pelo menos 45 nomes de notáveis e Masteries aparecem no zoom padrão');
-ok(vm.roda.raioMax <= ARVORE_VISUAL.aroRaio, `a roda não passa do aro (raio máximo ${vm.roda.raioMax.toFixed(0)} px)`);
+// ---------------- (c) nomes e ícones ----------------
+console.log('(c) nomes e ícones');
+ok(vm.nos.every((n) => n.nome.trim().length > 0), 'todo nó tem nome (aparece no painel e no tooltip, não na roda)');
+const semIcone = vm.nos.filter((n) => (n.tipo === 'comum' || n.tipo === 'notavel' || n.tipo === 'mastery') && !n.icone);
+ok(semIcone.length === 0, `todo nó comum, notável e de Mastery tem ícone (${semIcone.length} sem)`);
+const arquivos = [...new Set(vm.nos.map((n) => n.icone).filter((a): a is string => !!a))];
+const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
+const faltando = arquivos.filter((a) => !existsSync(join(RAIZ, 'public', a)));
+ok(faltando.length === 0, `os ${arquivos.length} ícones usados existem em public/ (${faltando.length} faltando)`);
+const contaComIcone = (t: string) => vm.nos.filter((n) => n.tipo === t && n.icone).length;
+console.log(`    nós com ícone: comum ${contaComIcone('comum')}, notável ${contaComIcone('notavel')}, Mastery ${contaComIcone('mastery')} (o caminho alternativo é só a forma)`);
 
 // ---------------- (d) caminho aceso ----------------
 console.log('(d) caminho aceso');
