@@ -2347,7 +2347,7 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
   background: radial-gradient(ellipse at 50% 45%, rgba(8, 12, 30, 0.45), rgba(4, 6, 16, 0.86) 75%); backdrop-filter: blur(1.5px);
   font-family: Tahoma, Verdana, sans-serif; color: var(--au-text); }
 .gt-veil[hidden], .gt-bar[hidden], .gt-reset-btn[hidden] { display: none !important; }
-.gt-win { width: min(1400px, 98vw); height: min(860px, 94vh); display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; animation: nrUp .2s ease-out; }
+.gt-win { background: linear-gradient(180deg, rgba(14, 22, 50, 0.94), rgba(6, 10, 26, 0.97)), var(--gt-pedra) center / 420px auto; background-clip: padding-box; width: min(1400px, 98vw); height: min(860px, 94vh); display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; animation: nrUp .2s ease-out; }
 
 /* cabeçalho: título, pontos livres, Zen, reorganizar e fechar */
 .gt-head { display: flex; align-items: center; gap: 10px; padding: 4px 6px 8px; flex-wrap: wrap; border-bottom: 1px solid rgba(199, 157, 72, 0.45); }
@@ -2370,28 +2370,40 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 /* corpo: a roda à esquerda, os painéis à direita */
 /* três colunas: legenda (esquerda), roda (centro) e painéis (direita); a roda é o centro da tela */
 .gt-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 210px minmax(0, 1fr) 360px; gap: 10px; padding: 8px 6px 6px; box-sizing: border-box; }
-.gt-canvas { position: relative; min-height: 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(199, 157, 72, 0.55);
+.gt-canvas { position: relative; min-height: 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(199, 157, 72, 0.55); isolation: isolate;
   background: radial-gradient(circle at 50% 50%, #101a3c 0%, #070b1c 62%, #04060f 100%); }
-.gt-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; user-select: none; }
+/* fundo: pedra antiga discreta (textura do projeto) e vinheta de cinema nas bordas */
+.gt-canvas::before { content: ''; position: absolute; inset: 0; background: var(--gt-pedra) center / 340px auto repeat; opacity: 0.2; pointer-events: none; z-index: 0; }
+.gt-canvas::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, transparent 52%, rgba(3, 5, 13, 0.78) 100%); pointer-events: none; z-index: 1; }
+.gt-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; user-select: none; z-index: 0; }
 .gt-svg:active { cursor: grabbing; }
 .gt-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; z-index: 2; }
 .gt-zoom .au-btn { padding: 5px 10px; font-size: 13px; min-width: 36px; }
 
 /* roda: miolo, aro, setores, anéis e medalhões (arte em public/ui/arvore, de scripts/recortarArvore.py) */
 .gt-miolo, .gt-aro, .gt-nucleo-arte, .gt-emblema, .gt-setor { pointer-events: none; }
-.gt-nucleo-arte { filter: drop-shadow(0 0 12px rgba(255, 211, 106, 0.35)); }
+/* emblema oficial de Aurenthal (public/emblem.png, o mesmo da entrada e da HUD): brilho frio e sutil, para não competir com a roda */
+.gt-nucleo-arte { opacity: 0.9; filter: drop-shadow(0 0 10px rgba(150, 190, 255, 0.4)) brightness(0.92); }
 .gt-emblema { opacity: 0.96; }
 .gt-anel { fill: none; stroke: rgba(199, 157, 72, 0.14); stroke-width: 1; }
+.gt-arcano { fill: none; stroke: rgba(255, 211, 106, 0.22); stroke-width: 1; stroke-dasharray: 2 9; }
+/* brilho localizado: aceso nos abertos, no caminho e no cursor; discreto nos notáveis e nas Masteries */
+.gt-brilho { opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
+.gt-no.destaque .gt-brilho { opacity: 0.45; }
+.gt-no.aberto .gt-brilho, .gt-no.caminho .gt-brilho, .gt-no:hover .gt-brilho { opacity: 1; }
 
 /* arestas: fechadas apagadas (visíveis), abertas na cor do setor, caminho aceso em dourado */
-.gt-aresta { stroke: #34457e; stroke-width: 2; opacity: 0.3; stroke-linecap: round; transition: opacity 0.15s; }
+.gt-aresta { stroke: #34457e; stroke-width: 2; opacity: 0.3; stroke-linecap: round; transition: opacity var(--gt-transicao, 0.18s) ease, stroke var(--gt-transicao, 0.18s) ease; }
 .gt-aresta.meio { opacity: 0.6; }
 .gt-aresta.aberta { stroke: var(--c, #d9b45a); stroke-width: 3; opacity: 0.95; }
 .gt-aresta.caminho { stroke: #ffe08a; stroke-width: 4.5; opacity: 1; filter: drop-shadow(0 0 6px rgba(255, 211, 106, 0.9)); }
 .gt-aresta.dim { opacity: 0.08; }
 
 /* nós: forma e símbolo pelo tipo; cor do setor; estados aberto, disponível, sem Zen e bloqueado */
-.gt-no { cursor: pointer; --c: #d9b45a; }
+.gt-no { cursor: pointer; --c: #d9b45a; transition: opacity var(--gt-transicao, 0.18s) ease; }
+/* transições de hover e seleção: só transform (escala) e opacidade, sem trabalho por quadro */
+.gt-corpo { transform-box: fill-box; transform-origin: center; transition: transform var(--gt-transicao, 0.18s) ease; }
+.gt-no:hover .gt-corpo, .gt-no.sel .gt-corpo { transform: scale(var(--gt-escala, 1.12)); }
 .gt-no .gt-shape { fill: #0d1530; stroke: #3c4d7d; stroke-width: 2; transition: fill 0.15s, stroke 0.15s; }
 .gt-no .gt-simb { fill: #3c4d7d; stroke: none; }
 .gt-no:hover .gt-shape { stroke: #fff3d6; }
@@ -2414,7 +2426,7 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-pulso { fill: none; stroke: var(--c); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: gtPulso 2.2s ease-in-out infinite; }
 @keyframes gtPulso { 0%, 100% { opacity: 0.25; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.12); } }
 @keyframes gtSpin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .gt-pulso, .gt-sel { animation: none; } .gt-win { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .gt-pulso, .gt-sel, .gt-detail, .gt-tip { animation: none; } .gt-win { animation: none; } .gt-corpo, .gt-no, .gt-brilho, .gt-aresta { transition: none; } }
 
 /* ícones e moldura dos nós: o ícone é da arte do kit; a moldura ornamental vem da forma (.gt-orn) */
 .gt-icone { pointer-events: none; }
@@ -2522,7 +2534,7 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-tip[hidden] { display: none !important; }
 
 /* painel de detalhes: moldura ornamental e hierarquia (nome, estado, efeito, requisitos, custo, ação) */
-.gt-detail { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; color: var(--au-text); font-size: 12.5px; }
+.gt-detail { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; color: var(--au-text); font-size: 12.5px; animation: gtFade 0.18s ease-out; }
 .gt-det-cab { display: flex; align-items: center; gap: 10px; }
 .gt-det-cab h4 { margin: 0; font: 700 17px Cinzel, serif; color: var(--au-title); text-shadow: 0 2px 4px #000; line-height: 1.15; }
 .gt-det-cab small { display: block; margin-top: 3px; font-size: 11px; color: var(--au-dim); }

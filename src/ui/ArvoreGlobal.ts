@@ -182,6 +182,11 @@ export class ArvoreGlobal {
     this.side = this.el.querySelector<HTMLElement>('.gt-side')!;
     this.tip = this.el.querySelector<HTMLElement>('.gt-tip')!;
     this.legenda = this.el.querySelector<HTMLElement>('.gt-legenda')!;
+    // fundo de pedra antiga (textura do projeto, em public/): a URL vem da config e fica numa variável CSS
+    this.el.style.setProperty('--gt-pedra', `url('${ARVORE_VISUAL.textura.pedra}')`);
+    // escala e tempo do destaque vêm da config (o CSS só usa as variáveis)
+    this.el.style.setProperty('--gt-escala', String(ARVORE_VISUAL.destaque.escala));
+    this.el.style.setProperty('--gt-transicao', `${ARVORE_VISUAL.destaque.transicao}s`);
 
     this.el.addEventListener('click', (e) => this.onClick(e));
     this.el.addEventListener('keydown', (e) => this.onKey(e));
@@ -552,11 +557,14 @@ export class ArvoreGlobal {
     const defs = this.el.querySelector<SVGDefsElement>('.gt-defs')!;
     defs.innerHTML = emblemas
       .map((e) => `<radialGradient id="gt-setor-${e.id}"><stop offset="0" stop-color="${e.cor}" stop-opacity="0.12"/><stop offset="1" stop-color="${e.cor}" stop-opacity="0"/></radialGradient>`)
-      .join('');
+      .join('')
+      + [...emblemas.map((e) => [e.id, e.cor] as const), ['neutra', ARVORE_VISUAL.cor.neutra] as const]
+        .map(([id, cor]) => `<radialGradient id="gt-luz-${id}"><stop offset="0" stop-color="${cor}" stop-opacity="0.6"/><stop offset="1" stop-color="${cor}" stop-opacity="0"/></radialGradient>`)
+        .join('');
     const setores = emblemas
       .map((e) => `<circle class="gt-setor" cx="${(e.x * 1.1).toFixed(1)}" cy="${(e.y * 1.1).toFixed(1)}" r="230" fill="url(#gt-setor-${e.id})"/>`)
       .join('');
-    const anelSvg = aneis.map((r) => `<circle class="gt-anel" r="${r.toFixed(1)}"/>`).join('');
+    const anelSvg = aneis.map((r) => `<circle class="gt-anel" r="${r.toFixed(1)}"/>`).join('') + `<circle class="gt-arcano" r="${(aroRaio - 12).toFixed(1)}"/>`;
     const emblemaSvg = emblemas
       .map((e) => `<image class="gt-emblema" href="${FAMILIA_VISUAL[e.id].emblema}" x="${(e.x - ARVORE_VISUAL.emblema.diametro / 2).toFixed(1)}" y="${(e.y - ARVORE_VISUAL.emblema.diametro / 2).toFixed(1)}" width="${ARVORE_VISUAL.emblema.diametro}" height="${ARVORE_VISUAL.emblema.diametro}" data-f="${e.id}"><title>${esc(e.nome)}</title></image>`)
       .join('');
@@ -582,7 +590,7 @@ export class ArvoreGlobal {
       <g class="gt-emblemas">${emblemaSvg}</g>
       <g class="gt-arestas">${arestas}</g>
       <g class="gt-nos">${nos}</g>
-      <image class="gt-nucleo-arte" href="ui/arvore/nucleo.webp" x="${-nucleoArte / 2}" y="${-nucleoArte / 2}" width="${nucleoArte}" height="${nucleoArte}"/>`;
+      <image class="gt-nucleo-arte" href="emblem.png" x="${-nucleoArte / 2}" y="${-nucleoArte / 2}" width="${nucleoArte}" height="${nucleoArte}"/>`;
     // índices para acender e apagar sem redesenhar
     this.elNo = new Map();
     this.world.querySelectorAll<SVGGElement>('.gt-no').forEach((g) => this.elNo.set(g.dataset.id!, g));
@@ -599,11 +607,12 @@ export class ArvoreGlobal {
     const sel = this.sel === n.id;
     const classes = [n.estado, n.tipo, n.destaque ? 'destaque' : ''].filter(Boolean).join(' ');
     const pulso = n.estado === 'disponivel' ? `<circle class="gt-pulso" r="${(n.r + 4).toFixed(1)}"/>` : '';
+    const brilho = `<circle class="gt-brilho" r="${(n.r + ARVORE_VISUAL.brilho.raio).toFixed(1)}" fill="url(#gt-luz-${n.familia ?? 'neutra'})"/>`;
     const selAnel = sel ? `<circle class="gt-sel" r="${(n.r + 7).toFixed(1)}"/>` : '';
     const s = tamanhoIcone(n.tipo);
     const icone = n.icone ? `<image class="gt-icone" href="${n.icone}" x="${(-s / 2).toFixed(1)}" y="${(-s / 2).toFixed(1)}" width="${s}" height="${s}" preserveAspectRatio="xMidYMid meet"/>` : '';
     return `<g class="gt-no ${classes}" data-id="${n.id}" transform="translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})" style="--c:${n.cor}" role="button" aria-label="${esc(n.nome)}" tabindex="-1">
-      <g class="gt-corpo">${pulso}${selAnel}<g class="gt-caminho-anel"><circle r="${(n.r + 5).toFixed(1)}"/></g>${forma(n.tipo, 'gt-shape')}${icone}</g></g>`;
+      <g class="gt-corpo">${brilho}${pulso}${selAnel}<g class="gt-caminho-anel"><circle r="${(n.r + 5).toFixed(1)}"/></g>${forma(n.tipo, 'gt-shape')}${icone}</g></g>`;
   }
 
   /** Acende o caminho até o nó sob o cursor (ou o selecionado) e aplica o filtro de categoria. */
