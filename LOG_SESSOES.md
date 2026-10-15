@@ -1006,3 +1006,37 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   2. Textura do Krexx continua JPG 2048; o auditor pede WebP de até 1024 px. Não mexida, por ser arte aprovada.
   3. Os pés dos ossos ficam em y=0 (tornozelo), e a sola fica ~0,18 abaixo. É a convenção do loader para todo modelo com `bind: 'ibm'`; não mudada aqui.
 - **Testes:** `npm run build` (typecheck + build), `sim:check` (determinístico: true), `aura:check`. Capturas dos estados em `/tmp/claude-0/-home-user/4ff88cc6-6fa3-5e2c-bcc3-6df5759cbaa1/scratchpad/krexx/capturas`.
+
+## Árvore global de progressão com Masteries táticas (protótipo) — branch arvore-global-proto
+- **Pedido:** árvore global única (nós comuns, notáveis, caminhos alternativos e pontos de Mastery), três Masteries táticas que mudam o combate, atribuição e reorganização com Zen, tela no estilo da referência (rede de nós, zoom e pan), dados separados do núcleo, Profile com migração.
+- **Feito (fases A a E, um commit por fase):**
+  1. Dados em `src/config/arvoreGlobal.ts`: 19 nós em 5 regiões, 22 conexões com ciclos (caminhos alternativos), 3 Masteries com nó que as desbloqueia, nível mínimo e elegíveis.
+  2. Núcleo em `src/core/progression/arvore.ts`: compra de nó com ligação, atribuição, remoção, reorganização, pré-visualização de custo, efeitos agregados na hora (sem efeito guardado), bloqueio em luta, validação do desenho e `normalizarArvore` (consertar save).
+  3. Profile v2 com `arvore`. `migrateProfile` faz o passo v1 para v2 antes de qualquer outra coisa; o bastião usa a mesma migração.
+  4. Efeitos de combate ligados em `Simulation.damage`: Golpe de Misericórdia (+35% de dano contra inimigo com até 30% da vida), Barreira de Contenção (escudo de 20% da vida máxima na primeira queda abaixo de 30%, uma vez por batalha) e Pressão Tática (25% de empurrar com golpe corpo a corpo). Sem Mastery, a saída do sim:check é idêntica à de antes.
+  5. Tela `src/ui/ArvoreGlobal.ts` (DOM e SVG, sem Three.js) com view model em `src/ui/arvoreVM.ts`. Botão "Árvore" no painel da party do mapa.
+- **Decisões que o dono precisa confirmar:**
+  1. **Pontos de árvore** = 1 por nível que cada herói alcança (soma de todos). Não é moeda nova nem gasta pontos de habilidade. Quem já tem níveis num save antigo ganha os pontos sozinho.
+  2. **Escopo da árvore:** a árvore vive no Profile da jornada, então zera a cada jornada (derrota total inclui). Se quiser progresso entre jornadas, a árvore passa para o save de meta.
+  3. **Preços:** atribuir ou trocar Mastery 60 Zen (fixo); reorganizar 80 Zen, subindo a cada uso (como o respec de atributos); tirar uma Mastery é grátis.
+  4. **Limite:** uma Mastery por personagem (`maxMasteriesPorHeroi`).
+  5. **Famílias:** só 3 de 6 foram desenhadas (controle, proteção e execução). Destruição, mobilidade e sinergia ficaram de fora porque exigem mudar o combate; o motivo está em `FAMILIAS`.
+- **Divergências com o pedido:**
+  1. O pedido falava em 5 personagens e 3 na party. O projeto tem 6 classes e a party de campanha fecha em 3 por desbloqueio (`nextUnlock`); no bastião vai até 6. A árvore usa o elenco real.
+  2. O plano de auditoria (`AUDITORIA_E_PLANO.md`) não existia no caminho pedido; o código foi lido diretamente.
+  3. O comando de criação da worktree vinha com um `.` sobrando, que o git recusa; foi executado sem ele.
+- **Lacunas:**
+  1. **Apresentação dos efeitos de combate:** o escudo e o empurrão aparecem só no estado da simulação, sem aviso visual nem linha no log. O `holyShield` existente não serve porque é o efeito do Escudo Sagrado do Mago.
+  2. **Elegibilidade na simulação:** a regra checa elegibilidade no perfil (`masteryDoHeroi`); a simulação recebe a regra pronta e não confere de novo.
+  3. **Legibilidade:** verificada com 19 nós. Com muito mais nós será preciso reduzir os rótulos em zoom baixo.
+  4. **Desempenho do zoom e do pan:** o comportamento foi verificado no Chromium, mas o FPS não foi medido.
+- **Pendências:**
+  1. Confirmar os preços e a regra dos pontos (decisões 1 a 4 acima).
+  2. Ver no PC do dono: fluidez do zoom e leitura da tela em 1600×900 e 1280×720.
+  3. Mudar a faixa de botões da party do mapa (agora grade de 2 colunas): conferir se o dono prefere outra disposição.
+- **Testes:**
+  - `npm run build` (typecheck e build), `sim:check` (determinístico: true, saída igual à linha de base), `aura:check`, `bastion:check`, `vocation:check` e `vocation:skills:check` passaram.
+  - `arvore:check` (76 verificações: requisitos, caminho inválido, Zen insuficiente, cancelamento sem gasto, reorganizar removendo efeito, troca de party, Mastery seguindo o personagem, bloqueio em luta, estado de nó).
+  - `arvore:save:check` (31: save v1 da jornada e do bastião abre, status iguais, migração idempotente, árvore corrompida consertada).
+  - `arvore:combate:check` (24: cada efeito com e sem Mastery, limiar na fronteira, uma vez por batalha, perfil até a simulação, onda inteira com as regras ativas).
+  - Chromium (dev, porta 5671): compra, prévia de custo, cancelamento sem gasto, atribuição, recusa de herói não elegível, zoom, arraste, reorganização cancelada e confirmada, Esc e 1280×720 sem erro de console. Varredura `ui:fora-da-tela` do mapa: 0 problemas (antes da grade de botões eram 12).
