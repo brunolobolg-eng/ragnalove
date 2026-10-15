@@ -256,6 +256,8 @@ export type SimEvent =
   | { type: 'telegraph'; unitId: number; x: number; y: number; radius: number; ticks: number }
   /** `unitId`: autor do meteoro (só a Feiticeira envia; meteoros do campo não têm autor). Só apresentação. */
   | { type: 'meteor'; x: number; y: number; radius: number; unitId?: number }
+  /** Um portal extra abriu (a horda passa a nascer também por ele). `index`: posição em GAME_CONFIG.wave.spawnPoints. Só apresentação. */
+  | { type: 'portal'; index: number; x: number; y: number }
   /** Inimigo alcançou o portão: invadiu a cidade (sai do campo) e descontou `damage` da vida dela. */
   | { type: 'cityHit'; unitId: number; x: number; y: number; damage: number; cityHp: number; cityMaxHp: number }
   /** Objeto do mapa mudou de estado (aceso, derramado, quebrado...) ou levou dano. */

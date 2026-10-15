@@ -309,6 +309,8 @@ export function battleFor(r: RunState, type: NodeType): { zone: ZoneDef; wave: W
   // cada fase tem uma quantidade um pouco diferente de monstros (sorteio pela seed da jornada)
   const J = GAME_CONFIG.wave.organic.countJitter;
   const jitter = (n: number) => Math.max(1, Math.round(n * (1 + J * (new Rng((wave.seed! ^ 0x5bd1e995) >>> 0).next() * 2 - 1))));
+  // elite e chefe têm menos criaturas (GAME_CONFIG.wave.nos); o intervalo cresce na mesma proporção: a noite dura o mesmo tempo
+  const N = GAME_CONFIG.wave.nos;
   if (type === 'survival') {
     wave.count = 99999;
     wave.boss = null;
@@ -318,11 +320,13 @@ export function battleFor(r: RunState, type: NodeType): { zone: ZoneDef; wave: W
     wave.count = jitter(base);
     wave.boss = null;
   } else if (type === 'elite') {
-    wave.count = jitter(base * 0.65);
+    wave.count = jitter(base * N.elite);
     wave.boss = currentNode(r).elite ?? 'elite';
+    wave.intervaloMult = 1 / N.elite;
   } else {
-    wave.count = jitter(base * 0.55);
+    wave.count = jitter(base * N.chefe);
     wave.boss = act.boss;
+    wave.intervaloMult = 1 / N.chefe;
   }
   return { zone, wave };
 }

@@ -1,5 +1,5 @@
 import type { Orientation, Vec2 } from '../core/grid/types';
-import { ACTIVE_ZONE, parseZone, type MapObjectDef, type ZoneDef, type WaveMix } from './zones';
+import { ACTIVE_ZONE, parseZone, type MapObjectDef, type RitmoNoite, type SpawnDef, type ZoneDef, type WaveMix } from './zones';
 
 /** Mapa da zona ativa (ver zones.ts). */
 const ZONE_MAP = parseZone(ACTIVE_ZONE);
@@ -174,8 +174,11 @@ export const GAME_CONFIG = {
   wave: {
     count: ACTIVE_ZONE.wave.count,
     spawnIntervalTicks: ACTIVE_ZONE.wave.spawnIntervalTicks,
-    /** Os pontos de spawn fixos da zona (MAP_CONFIG; N portais, não só 2). */
-    spawnPoints: ACTIVE_ZONE.spawnPoints.map((p) => ({ ...p })) as Vec2[],
+    /**
+     * Os portais de spawn da zona (MAP_CONFIG; N portais). Os 2 primeiros abrem no início; os demais abrem
+     * quando o orçamento chega à fração `ativaEm` (ver zones.ts e o evento 'portal' da simulação).
+     */
+    spawnPoints: ACTIVE_ZONE.spawnPoints.map((p) => ({ ...p })) as SpawnDef[],
     /** Fração da horda que sai do 1º spawn (o resto se divide entre os demais). A zona pode sobrescrever. */
     spawnSplit: ACTIVE_ZONE.spawnSplit ?? 0.5,
     /** Padrão quando a zona não define `spawnSplit`. */
@@ -200,6 +203,13 @@ export const GAME_CONFIG = {
     mix: ACTIVE_ZONE.wave.mix as WaveMix[],
     boss: ACTIVE_ZONE.wave.boss as string | undefined,
     bossDelayTicks: ACTIVE_ZONE.wave.bossDelayTicks,
+    /** Ritmo crescente da noite (ausente = intervalo fixo, como no Bastião e no cerco). Ver RITMO_CAMPANHA. */
+    ritmo: ACTIVE_ZONE.wave.ritmo as RitmoNoite | undefined,
+    /**
+     * Orçamento de criaturas por tipo de nó, multiplicando `count` da zona (a horda usa o cheio). Elite e chefe
+     * têm menos criaturas, e o intervalo delas cresce na mesma proporção (battleFor): a noite dura o mesmo tempo.
+     */
+    nos: { horda: 1, elite: 0.65, chefe: 0.55 },
     /** Escala dos inimigos (ato e posição na rota). */
     hpMult: 1,
     dmgMult: 1,
@@ -213,7 +223,8 @@ export const GAME_CONFIG = {
     /**
      * Horda orgânica: os monstros chegam em LEVAS de tamanho e ritmo sorteados (pela seed da fase),
      * nascem espalhados em volta do portal e cada um "deriva" para um lado do caminho.
-     * O ritmo MÉDIO continua o de `spawnIntervalTicks` (o balanceamento da zona não muda).
+     * O intervalo MÉDIO entre monstros é `spawnIntervalTicks` × média das pausas (pauseMin..pauseMax ≈ 0,85×);
+     * as zonas já são calibradas com isso (scripts/hordaRitmoCheck.ts mede o resultado).
      */
     organic: {
       /** monstros por leva (sorteado entre min e max; a leva inteira sai do mesmo portal) */
@@ -472,6 +483,8 @@ export interface EnemySpell {
 /** Opções da onda de um nó da run (sobre a onda-base da zona). */
 export interface WaveOptions {
   count?: number;
+  /** Multiplica o intervalo da zona (nós com menos criaturas nascem mais espaçadas: a noite dura o mesmo tempo). */
+  intervaloMult?: number;
   boss?: string | null;
   seed?: number;
   hpMult?: number;
@@ -503,7 +516,9 @@ export function applyZone(zone: ZoneDef, o: WaveOptions = {}): void {
   b.theme = zone.theme;
   const w = GAME_CONFIG.wave;
   w.count = o.count ?? zone.wave.count;
-  w.spawnIntervalTicks = zone.wave.spawnIntervalTicks;
+  // o cerco (endless) mantém o intervalo que tinha: a calibração da noite de horda não o muda
+  w.spawnIntervalTicks = (o.endless ? (zone.wave.intervaloCerco ?? zone.wave.spawnIntervalTicks) : zone.wave.spawnIntervalTicks) * (o.intervaloMult ?? 1);
+  w.ritmo = zone.wave.ritmo;
   w.spawnPoints = zone.spawnPoints.map((p) => ({ ...p }));
   w.spawnSplit = zone.spawnSplit ?? w.defaultSpawnSplit;
   w.seed = o.seed ?? zone.wave.seed;

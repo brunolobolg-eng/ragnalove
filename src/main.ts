@@ -37,6 +37,7 @@ import {
   type RunState,
 } from './core/run/run';
 import { OBJECT_RULES } from './core/sim/objects';
+import { comPartyNaZona, muralhaPadrao } from './core/run/formacao';
 import { NightReport, type NightReportVM } from './ui/WaveReport';
 import { applyKit } from './ui/kit';
 import { CHARSELECT_ART, MUSIC, POSTFX, VICTORY_TITLES, VISUAL_CONFIG } from './config/visualConfig';
@@ -1019,10 +1020,9 @@ function savedLayout(zone: ZoneDef, base: PartySetup): PartySetup | undefined {
   return new Set(tiles).size === tiles.length ? out : undefined;
 }
 
-/** Muralha padrão: duas casas à frente do Guerreiro. */
+/** Muralha padrão (ver core/run/formacao.ts). */
 function defaultWall(s: PartySetup): PartySetup['wall'] {
-  const wm = s.members.find((mm) => mm.archetype === 'warrior');
-  return wm ? { x: wm.x, y: wm.y - 2, orientation: 'H' } : undefined;
+  return muralhaPadrao(s);
 }
 
 /**
@@ -1062,34 +1062,9 @@ function centerBase(s: PartySetup, zone: ZoneDef): PartySetup {
   return out;
 }
 
-/** Heróis da party que não estão no setup padrão da zona entram em tiles livres perto do grupo. */
+/** Heróis da party sem lugar no setup padrão entram perto do grupo (núcleo: core/run/formacao.ts). */
 function withPartyMembers(s: PartySetup, zone: ZoneDef): PartySetup {
-  // a classe inicial ocupa o lugar padrão da classe-base da mesma família (ex.: Feiticeira no lugar do Mago)
-  for (const k of run.party) {
-    if (s.members.some((m) => m.archetype === k)) continue;
-    const fam = HERO_INFO[k].family;
-    const slot = s.members.find((m) => m.archetype === fam && !run.party.includes(fam));
-    if (slot) slot.archetype = k;
-  }
-  for (const k of run.party) if (!s.members.some((m) => m.archetype === k)) s = withMember(s, zone, k);
-  return s;
-}
-
-/** Coloca `kind` num tile livre perto do Mago (ou do primeiro herói). */
-function withMember(s: PartySetup, zone: ZoneDef, kind: HeroKind): PartySetup {
-  if (s.members.some((m) => m.archetype === kind)) return s;
-  const pz = parseZone(zone);
-  const free = (x: number, y: number) => pz.floor.some((f) => f.x === x && f.y === y) && !s.members.some((m) => m.x === x && m.y === y) && !structureAt(x, y);
-  const m = s.members.find((mm) => mm.archetype === 'mage') ?? s.members[0];
-  const tries: [number, number][] = [[2, 0], [-2, 0], [2, 1], [-2, 1], [1, 1], [-1, 1], [3, 0], [-3, 0], [0, 1], [0, -1]];
-  for (const [dx, dy] of tries)
-    if (free(m.x + dx, m.y + dy)) {
-      s.members.push({ archetype: kind, x: m.x + dx, y: m.y + dy });
-      return s;
-    }
-  const f = pz.floor.filter((t) => t.y > pz.height / 2 && free(t.x, t.y))[0];
-  if (f) s.members.push({ archetype: kind, x: f.x, y: f.y });
-  return s;
+  return comPartyNaZona(s, zone, run.party, structureAt);
 }
 
 /** Conclui o nó atual e volta para o mapa (viagem animada se mudou de ato). Consumo único: só anda se uma conclusão foi aberta (relatório/cidade/evento) — duplo-clique não avança 2×. */
@@ -1799,7 +1774,7 @@ canvas.addEventListener('pointermove', (e) => {
           : `Clique para dar ordens: ${NAME_PT[g as HeroKind]}`
       : obj
         ? `${OBJECT_RULES[obj.type].label} — clique para ver`
-        : hover && GAME_CONFIG.wave.spawnPoints.some((p) => p.x === hover!.x && p.y === hover!.y)
+        : hover && sim.portaisAbertos().some((p) => p.x === hover!.x && p.y === hover!.y)
           ? 'Portal de spawn: a horda nasce aqui'
           : hover && sim.board.isCity(hover.x, hover.y)
             ? 'Portão da cidade: inimigo que chegar aqui invade a cidade'
@@ -2001,7 +1976,7 @@ function canPlaceMember(kind: Tool, t: Vec2): boolean {
   if (structureAt(t.x, t.y)) return false; // herói não entra em cima de construção do Bastião (de pé ou destruída)
   // longe dos portais de spawn (a horda precisa de onde nascer)
   const R = GAME_CONFIG.wave.spawnSafeRadius;
-  if (GAME_CONFIG.wave.spawnPoints.some((p) => Math.max(Math.abs(p.x - t.x), Math.abs(p.y - t.y)) <= R)) return false;
+  if (sim.portaisAbertos().some((p) => Math.max(Math.abs(p.x - t.x), Math.abs(p.y - t.y)) <= R)) return false;
   return !setup.members.some((m) => m.archetype !== kind && m.x === t.x && m.y === t.y);
 }
 
@@ -2047,7 +2022,7 @@ function drawOverlay(): void {
     bv.mark(sim.board.cityTiles(), C_CITY, 0.35);
     const R = GAME_CONFIG.wave.spawnSafeRadius;
     const nearSpawn: Vec2[] = [];
-    for (const p of GAME_CONFIG.wave.spawnPoints) for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) nearSpawn.push({ x: p.x + dx, y: p.y + dy });
+    for (const p of sim.portaisAbertos()) for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) nearSpawn.push({ x: p.x + dx, y: p.y + dy });
     bv.mark(nearSpawn.filter((p) => sim.board.isWalkable(p.x, p.y)), C_SPAWN, 0.12);
     for (const o of sim.objects.values()) if (o.state === 'spilled') bv.mark(o.area, C_OIL, 0.25);
     if (hover) {
@@ -2461,7 +2436,8 @@ function logEvents(events: SimEvent[]): void {
     else if (e.type === 'cityHit' && e.damage > 0) {
       const k = view.unitKind(e.unitId);
       hud.log(`Um inimigo${k && GAME_CONFIG.bossKinds.includes(k) ? ' poderoso' : ''} invadiu a cidade! −${e.damage} (${e.cityHp}/${e.cityMaxHp})`, 'warn');
-    } else if (e.type === 'oilIgnite') hud.log('O óleo pegou fogo!', 'skill');
+    } else if (e.type === 'portal') hud.log(`Um novo portal se abriu! Agora são ${sim.portaisAbertos().length} portais: a horda nasce também ali.`, 'warn');
+    else if (e.type === 'oilIgnite') hud.log('O óleo pegou fogo!', 'skill');
     else if (e.type === 'ruinCollapse') hud.log('A ruína desabou sobre a horda!', 'skill');
     else if (e.type === 'mud') hud.log('O gelo encharcou o oásis: lama atrasa a horda.', 'skill');
     else if (e.type === 'objectState' && e.state === 'broken') {

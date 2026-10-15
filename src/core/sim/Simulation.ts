@@ -11,6 +11,7 @@ import { expToNext, starterWeapon, type WaveResult } from '../progression/profil
 /** Sem loadout (testes/sandbox): herói com a arma inicial. */
 const defaultGear = (kind: string) => gearBonus([starterWeapon(kind)]);
 import { Rng } from './rng';
+import { fatorDaCurva } from './ritmo';
 import type { AreaEffect, CombatMoveStats, DamageSource, FrostMist, MapObject, Sanctuary, SimEvent, SimPhase, Trap, TrapKind, Unit, WaveReport } from './types';
 import { SKILL_NUM, lvOf, startingSkills, type HeroKind } from '../progression/skills';
 import { lockedSkillKeys } from '../progression/skillSlots';
@@ -177,6 +178,8 @@ export class Simulation {
   private readonly carriers: Unit[] = [];
   private events: SimEvent[] = [];
   private nextSpawnTick = 0;
+  /** Portais abertos agora (índice em GAME_CONFIG.wave.spawnPoints). Os extras abrem conforme o orçamento nasce. */
+  private portalAberto: boolean[] = [];
   /** Meteoros anunciados (caem no tick marcado). */
   private meteors: { x: number; y: number; radius: number; damage: number; land: number; ownerId: number }[] = [];
   /** O chefe da zona já entrou em campo? */
@@ -282,6 +285,7 @@ export class Simulation {
     this.tauntFlowOpen = new FlowField(this.board);
     this.partyFlowOpen = new FlowField(this.board);
     this.rng = new Rng(seed);
+    this.portalAberto = GAME_CONFIG.wave.spawnPoints.map((p) => p.ativaEm === undefined || p.ativaEm <= 0);
     this.lootRng = new Rng((seed ^ 0x9e3779b9) >>> 0);
     this.combatRng = new Rng((seed * 7 + 13) >>> 0);
     this.auraRng = new Rng((seed ^ AURA_SEED) >>> 0);
@@ -1053,7 +1057,7 @@ export class Simulation {
     let n = 0;
     for (const t of tiles) {
       if (!this.board.isWalkable(t.x, t.y) || this.unitAt(t.x, t.y) || this.board.isCity(t.x, t.y)) continue;
-      if (GAME_CONFIG.wave.spawnPoints.some((p) => p.x === t.x && p.y === t.y)) continue;
+      if (this.portaisAbertos().some((p) => p.x === t.x && p.y === t.y)) continue;
       const o = makeObject(this.nextObjectId++, { type: 'shieldWall', x: t.x, y: t.y });
       o.hp = o.maxHp = hp;
       this.objects.set(o.id, o);
@@ -1353,20 +1357,46 @@ export class Simulation {
     return undefined;
   }
 
-  /**
-   * Ordem de tentativa dos portais a partir do sorteado (round-robin: o sorteado,
-   * depois os seguintes em ciclo). Generaliza o antigo "2 spawns".
-   */
-  private portalOrder(first: number): number[] {
-    const n = GAME_CONFIG.wave.spawnPoints.length;
-    return Array.from({ length: n }, (_, k) => (first + k) % n);
+  /** Portais abertos agora (índice e tile). Só eles recebem monstros, aparecem nas setas e restringem a colocação. */
+  portaisAbertos(): { index: number; x: number; y: number }[] {
+    const out: { index: number; x: number; y: number }[] = [];
+    GAME_CONFIG.wave.spawnPoints.forEach((p, i) => {
+      if (this.portalAberto[i]) out.push({ index: i, x: p.x, y: p.y });
+    });
+    return out;
   }
 
-  /** Sorteia o portal da próxima leva: `spawnSplit` no 1º, o resto dividido entre os demais. */
+  /**
+   * Abre (uma vez, em ordem) os portais cujo `ativaEm` o orçamento já alcançou. A onda sem orçamento
+   * (cerco) não abre extras: fica com os 2 portais iniciais, como antes.
+   */
+  private abrirPortais(): void {
+    const w = GAME_CONFIG.wave;
+    if (w.endless || w.count <= 0) return;
+    const progresso = this.spawned / w.count;
+    w.spawnPoints.forEach((p, i) => {
+      if (this.portalAberto[i] || p.ativaEm === undefined || progresso < p.ativaEm) return;
+      this.portalAberto[i] = true;
+      this.emit({ type: 'portal', index: i, x: p.x, y: p.y });
+    });
+  }
+
+  /**
+   * Ordem de tentativa dos portais abertos a partir do sorteado (round-robin: o sorteado,
+   * depois os seguintes em ciclo).
+   */
+  private portalOrder(first: number): number[] {
+    const a = this.portaisAbertos().map((p) => p.index);
+    if (a.length === 0) return [];
+    const k = Math.max(0, a.indexOf(first));
+    return a.map((_, j) => a[(k + j) % a.length]);
+  }
+
+  /** Sorteia o portal da próxima leva entre os abertos: `spawnSplit` no 1º, o resto dividido entre os demais. */
   private pickPortal(): number {
-    const n = GAME_CONFIG.wave.spawnPoints.length;
-    if (this.rng.next() < GAME_CONFIG.wave.spawnSplit || n < 2) return 0;
-    return 1 + this.rng.int(n - 1);
+    const a = this.portaisAbertos().map((p) => p.index);
+    if (this.rng.next() < GAME_CONFIG.wave.spawnSplit || a.length < 2) return a[0] ?? 0;
+    return a[1 + this.rng.int(a.length - 1)];
   }
 
   /**
@@ -1426,19 +1456,18 @@ export class Simulation {
     return undefined;
   }
 
-  /** Spawn mais distante da cidade (o chefe entra por ele). */
+  /** Portal aberto mais distante da cidade (o chefe entra por ele). */
   private farSpawn(): number {
-    const pts = GAME_CONFIG.wave.spawnPoints;
-    let best = 0;
+    let best = -1;
     let bd = -Infinity;
-    pts.forEach((p, i) => {
-      const d = this.flow.at(p.x, p.y);
+    for (const { index, x, y } of this.portaisAbertos()) {
+      const d = this.flow.at(x, y);
       if (d < FlowField.INF && d > bd) {
         bd = d;
-        best = i;
+        best = index;
       }
-    });
-    return best;
+    }
+    return best < 0 ? 0 : best;
   }
 
   /** Mata todos os inimigos vivos pelo caminho normal de dano (almas, EXP e drops continuam valendo). */
@@ -1659,6 +1688,7 @@ export class Simulation {
   private spawnEnemies(): void {
     const w = GAME_CONFIG.wave;
     if (w.endless) return this.spawnEndless();
+    this.abrirPortais();
     const bossTurn = this.spawned >= w.count;
     if (bossTurn && (!w.boss || this.bossSpawned)) return;
     if (this.tick < this.nextSpawnTick) return;
@@ -1677,7 +1707,23 @@ export class Simulation {
     const comum = this.createEnemy(this.rollKind(), at.t.x, at.t.y, at.i);
     this.rollAura(comum);
     this.spawned++;
-    this.nextSpawnTick = this.tick + (this.spawned >= w.count ? w.bossDelayTicks : this.packDelay(w.spawnIntervalTicks));
+    const { intervalo, escala } = this.ritmoAtual();
+    this.nextSpawnTick = this.tick + (this.spawned >= w.count ? w.bossDelayTicks : this.packDelay(intervalo, escala));
+  }
+
+  /**
+   * Intervalo entre criaturas agora. Com `ritmo` na zona: a curva (pelo progresso do orçamento) dividida pelo
+   * fator dos portais extras abertos. Sem `ritmo`, o intervalo da zona (Bastião e cerco não mudam).
+   * `escala` reduz também os intervalos dentro da leva (senão as pausas mínimas travariam o ritmo alto).
+   */
+  private ritmoAtual(): { intervalo: number; escala: number } {
+    const w = GAME_CONFIG.wave;
+    const R = w.ritmo;
+    if (!R) return { intervalo: w.spawnIntervalTicks, escala: 1 };
+    const progresso = w.count > 0 ? Math.min(1, this.spawned / w.count) : 1;
+    const extras = Math.max(0, this.portaisAbertos().length - 1);
+    const escala = fatorDaCurva(R.curva, progresso) / (1 + R.portalBoost * extras);
+    return { intervalo: w.spawnIntervalTicks * escala, escala };
   }
 
   /**
@@ -1712,7 +1758,7 @@ export class Simulation {
     if (kind === 'elite') this.lastEliteStage = st;
     this.createEnemy(kind, at.t.x, at.t.y, at.i);
     this.spawned++;
-    this.nextSpawnTick = this.tick + this.packDelay(Math.max(S.intervalMin, w.spawnIntervalTicks - Math.floor(st / 2)));
+    this.nextSpawnTick = this.tick + this.packDelay(Math.max(S.intervalMin, w.spawnIntervalTicks - Math.floor(st / 2)), 1);
   }
 
   /**
@@ -1738,12 +1784,12 @@ export class Simulation {
   }
 
   /** Espera até o próximo monstro: curta dentro da leva; no fim dela, uma pausa sorteada (ritmo médio = `interval`). */
-  private packDelay(interval: number): number {
+  private packDelay(interval: number, escala = 1): number {
     const O = GAME_CONFIG.wave.organic;
-    const gap = () => O.packGapMin + this.rng.int(O.packGapMax - O.packGapMin + 1);
+    const gap = () => Math.max(1, Math.round((O.packGapMin + this.rng.int(O.packGapMax - O.packGapMin + 1)) * escala));
     if (this.packLeft > 0) return gap();
     // a leva inteira "deve" size × interval; desconta o que já passou entre os monstros dela
-    const avgGap = (O.packGapMin + O.packGapMax) / 2;
+    const avgGap = ((O.packGapMin + O.packGapMax) / 2) * escala;
     const f = O.pauseMin + this.rng.next() * (O.pauseMax - O.pauseMin);
     return Math.max(1, Math.round(this.packSize * interval * f - (this.packSize - 1) * avgGap));
   }

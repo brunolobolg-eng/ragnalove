@@ -57,7 +57,7 @@ export function zoneDefTs(d: MapDoc): string {
   lines.push(`    map: [`);
   for (const row of z.map) lines.push(`      ${q(row)},`);
   lines.push(`    ],`);
-  lines.push(`    spawnPoints: [{ x: ${z.spawnPoints[0].x}, y: ${z.spawnPoints[0].y} }, { x: ${z.spawnPoints[1].x}, y: ${z.spawnPoints[1].y} }],`);
+  lines.push(`    spawnPoints: [${z.spawnPoints.map((p) => `{ x: ${p.x}, y: ${p.y}${p.ativaEm !== undefined ? `, ativaEm: ${p.ativaEm}` : ''} }`).join(', ')}],`);
   if (z.spawnSplit !== undefined) lines.push(`    spawnSplit: ${z.spawnSplit},`);
   lines.push(`    objects: [${z.objects.map((o) => `{ type: ${q(o.type)}, x: ${o.x}, y: ${o.y}${o.w !== undefined ? `, w: ${o.w}` : ''}${o.h !== undefined ? `, h: ${o.h}` : ''} }`).join(', ')}],`);
   lines.push(`    defaultSetup: {`);

@@ -410,7 +410,7 @@ export class MapEditor {
     if (!pm) return;
     this.checkpoint();
     if (pm.kind === 'object') this.doc.objects.push({ type: pm.objType as never, x, y });
-    else if (pm.kind === 'spawn') this.doc.spawnPoints[pm.index] = { x, y };
+    else if (pm.kind === 'spawn') this.doc.spawnPoints[pm.index] = { ...this.doc.spawnPoints[pm.index], x, y };
     else if (pm.kind === 'member') this.doc.setup.members.push({ archetype: pm.hero as never, x, y });
     else if (pm.kind === 'barrier') this.doc.setup.barriers.push({ x, y, orientation: 'H' });
     this.placeMode = null;

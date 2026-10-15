@@ -5,7 +5,7 @@
  */
 import type { Vec2 } from '../core/grid/types';
 import type { PartySetup } from '../config/gameConfig';
-import type { MapObjectDef, WaveMix, ZoneDef, ZoneTheme } from '../config/zones';
+import type { MapObjectDef, SpawnDef, WaveMix, ZoneDef, ZoneTheme } from '../config/zones';
 
 export const MAP_VERSION = 1;
 
@@ -18,7 +18,8 @@ export interface MapDoc {
   height: number;
   /** Uma string por linha (y = 0 em cima, como em zones.ts). */
   grid: string[];
-  spawnPoints: [Vec2, Vec2];
+  /** Portais: os 2 primeiros abrem no início; os extras trazem `ativaEm` (ver SpawnDef). */
+  spawnPoints: SpawnDef[];
   spawnSplit?: number;
   objects: MapObjectDef[];
   setup: PartySetup;
@@ -69,7 +70,7 @@ export function fromZoneDef(z: ZoneDef): MapDoc {
     width: z.widthTiles,
     height: z.heightTiles,
     grid: [...z.map],
-    spawnPoints: [{ ...z.spawnPoints[0] }, { ...z.spawnPoints[1] }],
+    spawnPoints: z.spawnPoints.map((p) => ({ ...p })),
     spawnSplit: z.spawnSplit,
     objects: z.objects.map((o) => ({ ...o })),
     setup: JSON.parse(JSON.stringify(z.defaultSetup)) as PartySetup,
@@ -86,7 +87,7 @@ export function toZoneDef(d: MapDoc): ZoneDef {
     widthTiles: d.width,
     heightTiles: d.height,
     map: [...d.grid],
-    spawnPoints: [{ ...d.spawnPoints[0] }, { ...d.spawnPoints[1] }],
+    spawnPoints: d.spawnPoints.map((p) => ({ ...p })),
     ...(d.spawnSplit !== undefined ? { spawnSplit: d.spawnSplit } : {}),
     objects: d.objects.map((o) => ({ ...o })),
     defaultSetup: JSON.parse(JSON.stringify(d.setup)) as PartySetup,
@@ -121,7 +122,7 @@ export function resize(d: MapDoc, w: number, h: number): void {
   d.width = w;
   d.height = h;
   const clamp = (p: Vec2): Vec2 => ({ x: Math.max(0, Math.min(w - 1, p.x)), y: Math.max(0, Math.min(h - 1, p.y)) });
-  d.spawnPoints = [clamp(d.spawnPoints[0]), clamp(d.spawnPoints[1])];
+  d.spawnPoints = d.spawnPoints.map((p) => ({ ...p, ...clamp(p) }));
   d.objects = d.objects.filter((o) => o.x >= 0 && o.y >= 0 && o.x < w && o.y < h);
   for (const m of d.setup.members) {
     m.x = Math.max(0, Math.min(w - 1, m.x));

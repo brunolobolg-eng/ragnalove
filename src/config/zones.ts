@@ -64,6 +64,20 @@ export interface WaveMix {
   weight: number;
 }
 
+/** Portal de spawn. `ativaEm` = fração do orçamento da noite já nascida para o portal abrir (0 a 1). Ausente = aberto desde o início. */
+export interface SpawnDef extends Vec2 {
+  ativaEm?: number;
+}
+
+/**
+ * Ritmo crescente da noite (ver core/sim/ritmo.ts): `curva` = [progresso, fator] do intervalo entre criaturas e
+ * `portalBoost` = quanto cada portal extra aberto (além do 1º) acelera o nascimento (0,5 = +50% por portal).
+ */
+export interface RitmoNoite {
+  curva: [number, number][];
+  portalBoost: number;
+}
+
 export interface ZoneDef {
   id: string;
   name: string;
@@ -80,13 +94,23 @@ export interface ZoneDef {
   lots?: string[];
   /** Castelo fechado (Último Bastião): muralha de pedra em todos os tiles `W`, sem a paliçada do portão. */
   castle?: boolean;
-  /** Pontos de spawn fixos da zona (2 nos mapas atuais; o motor aceita N e alterna entre eles). */
-  spawnPoints: Vec2[];
+  /** Pontos de spawn fixos da zona. Os 2 primeiros abrem no início; os demais abrem conforme `ativaEm` (ver SpawnDef). */
+  spawnPoints: SpawnDef[];
   /** Fração da horda que sai do 1º spawn (padrão: GAME_CONFIG.wave.spawnSplit). */
   spawnSplit?: number;
   objects: MapObjectDef[];
   defaultSetup: PartySetup;
-  wave: { count: number; spawnIntervalTicks: number; seed: number; mix: WaveMix[]; boss?: string; bossDelayTicks: number };
+  wave: {
+    count: number;
+    spawnIntervalTicks: number;
+    seed: number;
+    mix: WaveMix[];
+    boss?: string;
+    bossDelayTicks: number;
+    ritmo?: RitmoNoite;
+    /** Intervalo do cerco (sobrevivência) nesta zona, quando é diferente do da noite de horda (ausente = spawnIntervalTicks). */
+    intervaloCerco?: number;
+  };
   /**
    * Mapa PINTADO (arte do dono): a imagem é o chão inteiro da zona e a grade só diz onde se anda.
    * Sem cenário 3D por cima. `fx` = pontos animados na imagem (0..1 da largura/altura):
@@ -165,7 +189,22 @@ const ASH_HEAVY: WaveMix[] = [
   { kind: 'raydric', weight: 8 },
   { kind: 'necro', weight: 8 },
 ];
-const wave = (seed: number, mix: WaveMix[], count = 40, interval = 5, bossDelay = 30) => ({ count, spawnIntervalTicks: interval, seed, mix, boss: 'boss', bossDelayTicks: bossDelay });
+/**
+ * Ritmo das noites da campanha: o intervalo começa 30% acima do da zona, chega à média no meio do orçamento e
+ * termina 20% abaixo; cada portal extra aberto encurta mais (+50%). Medido em scripts/hordaRitmoCheck.ts.
+ */
+export const RITMO_CAMPANHA: RitmoNoite = { curva: [[0, 1.3], [0.5, 1], [1, 0.8]], portalBoost: 0.5 };
+
+/**
+ * Duração-alvo das noites de horda de cada ato, em ticks (10 ticks = 1 s): do começo da noite até a última criatura
+ * morrer, com a party típica do ato (builds de scripts/runCheck.ts) e 5 sementes. Ato I = 1000 ticks (1 min 40 s);
+ * Ato II = 1800 (3 min); Ato III = 2700 (4 min 30 s). A noite de chefe e a de elite entram na mesma conta: o
+ * intervalo delas cresce junto com o corte de criaturas (GAME_CONFIG.wave.nos). Cada zona é calibrada (intervalo,
+ * orçamento e portais) até a média cair no alvo; `tolerancia` é o desvio aceito (±15%). scripts/hordaRitmoCheck.ts confere.
+ */
+export const ALVO_DE_NOITE = { duracaoPorAto: [1000, 1800, 2700] as readonly number[], tolerancia: 0.15 };
+
+const wave = (seed: number, mix: WaveMix[], count = 40, interval = 5, bossDelay = 30, ritmo?: RitmoNoite) => ({ count, spawnIntervalTicks: interval, seed, mix, boss: 'boss', bossDelayTicks: bossDelay, ...(ritmo ? { ritmo } : {}) });
 
 export const ZONES: Record<string, ZoneDef> = {
   /** Zona inicial: a ponte de pedra e a praça diante dos portões de Valdrec. Spawn distante (fim da ponte) e próximo (cais do rio). */
@@ -216,7 +255,7 @@ export const ZONES: Record<string, ZoneDef> = {
       '~L,,,,,,,,,,,,,,####,,,,,####,,,,,,,,,,,,,,L~',
       'WWWWWWWWWWWWWWWWWWWWgggggWWWWWWWWWWWWWWWWWWWW',
     ],
-    spawnPoints: [{ x: 22, y: 0 }, { x: 0, y: 31 }],
+    spawnPoints: [{ x: 22, y: 0 }, { x: 0, y: 31 }, { x: 16, y: 18, ativaEm: 0.3 }, { x: 43, y: 29, ativaEm: 0.6 }],
     spawnSplit: 0.65,
     objects: [
       { type: 'cart', x: 25, y: 4, h: 2 },
@@ -231,7 +270,7 @@ export const ZONES: Record<string, ZoneDef> = {
     },
     wave: {
       count: 160,
-      spawnIntervalTicks: 6,
+      spawnIntervalTicks: 23.5,
       seed: 1337,
       mix: [
         { kind: 'grunt', weight: 62 },
@@ -240,6 +279,7 @@ export const ZONES: Record<string, ZoneDef> = {
       ],
       boss: 'boss',
       bossDelayTicks: 30,
+      ritmo: RITMO_CAMPANHA,
     },
   },
   /** Zona antiga (vila com muro em ruínas) — mantida para uso futuro. */
@@ -397,7 +437,7 @@ Object.assign(ZONES, {
       'TTTTTT..........####.....####..........TTTTTT',
       'WWWWWWWWWWWWWWWWWWWWgggggWWWWWWWWWWWWWWWWWWWW',
     ],
-    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }],
+    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }, { x: 3, y: 17, ativaEm: 0.3 }, { x: 42, y: 17, ativaEm: 0.6 }],
     objects: [
       { type: 'torch', x: 31, y: 21 },
       { type: 'roots', x: 27, y: 18, w: 3 },
@@ -410,7 +450,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(2101, UNDEAD, 250, 7),
+    wave: wave(2101, UNDEAD, 170, 7, 30, RITMO_CAMPANHA),
   },
   whisperWood: {
     id: 'whisperWood',
@@ -521,7 +561,7 @@ Object.assign(ZONES, {
       'TTTTTTTTTTTTTTT.####.....####.TTTTTTTTTTTTTTT',
       'WWWWWWWWWWWWWWWWWWWWgggggWWWWWWWWWWWWWWWWWWWW',
     ],
-    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }],
+    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }, { x: 3, y: 18, ativaEm: 0.3 }, { x: 41, y: 9, ativaEm: 0.6 }],
     objects: [
       { type: 'torch', x: 30, y: 19 },
       { type: 'roots', x: 6, y: 11, w: 3 },
@@ -534,7 +574,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(2303, HEAVY, 130, 7),
+    wave: wave(2303, HEAVY, 130, 17.2, 30, RITMO_CAMPANHA),
   },
   rootVale: {
     id: 'rootVale',
@@ -583,7 +623,7 @@ Object.assign(ZONES, {
       'TTTTTT..........####.....####..........TTTTTT',
       'WWWWWWWWWWWWWWWWWWWWgggggWWWWWWWWWWWWWWWWWWWW',
     ],
-    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }],
+    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }, { x: 3, y: 10, ativaEm: 0.3 }, { x: 41, y: 11, ativaEm: 0.6 }],
     objects: [
       { type: 'torch', x: 32, y: 24 },
       { type: 'roots', x: 21, y: 14, w: 3 },
@@ -596,7 +636,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(3101, UNDEAD, 240, 6),
+    wave: wave(3101, UNDEAD, 240, 11.2, 30, RITMO_CAMPANHA),
   },
   dryCrossing: {
     id: 'dryCrossing',
@@ -645,7 +685,7 @@ Object.assign(ZONES, {
       'RRRRRR..........####.....####..........RRRRRR',
       'WWWWWWWWWWWWWWWWWWWWgggggWWWWWWWWWWWWWWWWWWWW',
     ],
-    spawnPoints: [{ x: 22, y: 0 }, { x: 0, y: 13 }],
+    spawnPoints: [{ x: 22, y: 0 }, { x: 0, y: 13 }, { x: 3, y: 0, ativaEm: 0.3 }, { x: 44, y: 11, ativaEm: 0.6 }],
     objects: [
       { type: 'campfire', x: 33, y: 36 },
       { type: 'dryOasis', x: 24, y: 15 },
@@ -658,7 +698,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(3202, FAST, 450, 6),
+    wave: wave(3202, FAST, 416, 5, 30, RITMO_CAMPANHA),
   },
   redDunes: {
     id: 'redDunes',
@@ -707,7 +747,7 @@ Object.assign(ZONES, {
       'RRRRRR..........####.....####..........RRRRRR',
       'WWWWWWWWWWWWWWWWWWWWgggggWWWWWWWWWWWWWWWWWWWW',
     ],
-    spawnPoints: [{ x: 22, y: 0 }, { x: 44, y: 4 }],
+    spawnPoints: [{ x: 22, y: 0 }, { x: 44, y: 4 }, { x: 0, y: 17, ativaEm: 0.3 }, { x: 44, y: 17, ativaEm: 0.6 }],
     objects: [
       { type: 'sandColumn', x: 15, y: 21 },
       { type: 'sandColumn', x: 36, y: 22 },
@@ -722,13 +762,13 @@ Object.assign(ZONES, {
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
     // Dunas: respiro tático do Ato II — horda rápida de flanqueadores (a pressão do ato está em dryCrossing/solarRuins)
-    wave: { count: 260, spawnIntervalTicks: 8, seed: 3303, mix: [
+    wave: { count: 260, spawnIntervalTicks: 12.7, intervaloCerco: 8, seed: 3303, mix: [
       { kind: 'grunt', weight: 48 },
       { kind: 'runner', weight: 34 },
       { kind: 'brute', weight: 6 },
       { kind: 'raydric', weight: 4 },
       { kind: 'necro', weight: 8 },
-    ], boss: 'boss', bossDelayTicks: 30 },
+    ], boss: 'boss', bossDelayTicks: 30, ritmo: RITMO_CAMPANHA },
   },
   solarRuins: {
     id: 'solarRuins',
@@ -777,7 +817,7 @@ Object.assign(ZONES, {
       'UUU###..........####.....####..........###UUU',
       'WWWWWWWWWWWWWWWWWWWWgggggWWWWWWWWWWWWWWWWWWWW',
     ],
-    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }],
+    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }, { x: 3, y: 14, ativaEm: 0.3 }, { x: 41, y: 13, ativaEm: 0.6 }],
     objects: [
       { type: 'unstableRuin', x: 35, y: 21 },
       { type: 'unstableRuin', x: 9, y: 14 },
@@ -793,13 +833,13 @@ Object.assign(ZONES, {
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
     // Ruínas: prelúdio do Colosso Solar — pressão de corredores com poucos brutamontes (duo não tanka HEAVY cheio)
-    wave: { count: 90, spawnIntervalTicks: 7, seed: 3404, mix: [
+    wave: { count: 90, spawnIntervalTicks: 43.4, seed: 3404, mix: [
       { kind: 'grunt', weight: 48 },
       { kind: 'runner', weight: 34 },
       { kind: 'brute', weight: 6 },
       { kind: 'raydric', weight: 4 },
       { kind: 'necro', weight: 8 },
-    ], boss: 'boss', bossDelayTicks: 30 },
+    ], boss: 'boss', bossDelayTicks: 30, ritmo: RITMO_CAMPANHA },
   },
   ashenFields: {
     id: 'ashenFields',
@@ -848,7 +888,7 @@ Object.assign(ZONES, {
       'SSSSSS..........####.....####..........SSSSSS',
       'WWWWWWWWWWWWWWWWWWWWgggggWWWWWWWWWWWWWWWWWWWW',
     ],
-    spawnPoints: [{ x: 22, y: 0 }, { x: 44, y: 4 }],
+    spawnPoints: [{ x: 22, y: 0 }, { x: 44, y: 4 }, { x: 0, y: 12, ativaEm: 0.3 }, { x: 44, y: 12, ativaEm: 0.6 }],
     objects: [
       { type: 'oilBarrel', x: 31, y: 18 },
       { type: 'campfire', x: 33, y: 36 },
@@ -861,7 +901,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(4101, CAMPOS_CINZENTOS, 600, 6),
+    wave: wave(4101, CAMPOS_CINZENTOS, 600, 5.3, 30, RITMO_CAMPANHA),
   },
   rustGorge: {
     id: 'rustGorge',
@@ -910,7 +950,7 @@ Object.assign(ZONES, {
       'RRRRRR..........####.....####..........RRRRRR',
       'WWWWWWWWWWWWWWWWWWWWgggggWWWWWWWWWWWWWWWWWWWW',
     ],
-    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }],
+    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }, { x: 9, y: 8, ativaEm: 0.3 }, { x: 34, y: 9, ativaEm: 0.6 }],
     objects: [
       { type: 'unstableRuin', x: 32, y: 10 },
       { type: 'oilBarrel', x: 25, y: 11 },
@@ -923,7 +963,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(4202, HEAVY, 600, 6),
+    wave: wave(4202, HEAVY, 425, 6, 30, RITMO_CAMPANHA),
   },
   frostPass: {
     id: 'frostPass',
@@ -1033,7 +1073,7 @@ Object.assign(ZONES, {
       'RRRRRRRRR.......####.....####.......RRRRRRRRR',
       'WWWWWWWWWWWWWWWWWWWWgggggWWWWWWWWWWWWWWWWWWWW',
     ],
-    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }],
+    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }, { x: 2, y: 5, ativaEm: 0.3 }, { x: 42, y: 14, ativaEm: 0.6 }],
     objects: [
       { type: 'altar', x: 21, y: 36 },
       { type: 'unstableRuin', x: 9, y: 11 },
@@ -1046,7 +1086,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(4404, ASH_HEAVY, 240, 6, 600),
+    wave: wave(4404, ASH_HEAVY, 240, 17.6, 600, RITMO_CAMPANHA),
   },
   // Covil do Detarderus (Ato III, nó de elite do Passo da Geada): cenário PROVISÓRIO copiado do Cume das Cinzas.
   // O chefe vem do nó (`elite: 'detarderus'`); a grade e os objetos saem quando chegar o cenário próprio do dono.
@@ -1097,7 +1137,7 @@ Object.assign(ZONES, {
       'RRRRRRRRR.......####.....####.......RRRRRRRRR',
       'WWWWWWWWWWWWWWWWWWWWgggggWWWWWWWWWWWWWWWWWWWW',
     ],
-    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }],
+    spawnPoints: [{ x: 12, y: 0 }, { x: 32, y: 0 }, { x: 2, y: 5, ativaEm: 0.3 }, { x: 42, y: 14, ativaEm: 0.6 }],
     objects: [
       { type: 'altar', x: 21, y: 36 },
       { type: 'unstableRuin', x: 9, y: 11 },
@@ -1110,7 +1150,7 @@ Object.assign(ZONES, {
       ],
       barriers: [{ x: 20, y: 37, orientation: 'H' }, { x: 24, y: 37, orientation: 'H' }, { x: 18, y: 34, orientation: 'H' }],
     },
-    wave: wave(4405, ASH_HEAVY, 240, 6, 600),
+    wave: wave(4405, ASH_HEAVY, 240, 15.3, 600, RITMO_CAMPANHA),
   },
   // O Último Bastião: cenário do modo de defesa (ver src/core/bastion). Castelo no centro com o Emperium (`E`, alvo
   // da horda: quem toca morre e desconta a vida da cidade); fosso e quatro portais nas pontas das estradas. `lots`
