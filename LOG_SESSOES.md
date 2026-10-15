@@ -1139,3 +1139,29 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
     Queda entre as duas escritas perde o pacote.
   - Pré-existente: `survivalRewards` (core/run/run.ts) usa `Math.random()`, contra a regra 3 do núcleo. Não foi tocado.
   - Chave da jornada usa a semente. Semente corrompida (não finita) vira 1 na migração e pode colidir com outra jornada.
+
+## Árvore visual: roda com caminho aceso (branch arvore-visual-wf)
+
+- **Data:** 2026-10-15. **Pedido:** redesenhar a Árvore de Aurenthal com a arte da 15.webp (base da roda). Escopo final do
+  dono: só a roda (cabeçalho, painéis laterais, "Tipos de nós", "Regiões temáticas", "Sua equipe", barra inferior e fundo
+  com ilhas ficaram fora). Painéis de detalhe, Masteries, reorganizar em Zen e banco continuam como estavam.
+- **Arte:** `scripts/recortarArvore.py <imagem>` gera `public/ui/arvore/` (seis emblemas de setor, núcleo ROGUARD, aro da
+  moldura e miolo escuro). As caixas são frações da imagem: a HD roda sem ajuste manual.
+- **Setores (15.webp):** topo = Destruição (regiões Campos Ígneos), esquerda-alta = Controle (Ermos), direita-alta =
+  Proteção (Muralha), esquerda-baixa = Execução (Véu Sombrio), base = Mobilidade (Estradas e Cidades), direita-baixa =
+  Sinergia (Fortaleza do Bastião, mais as três Masteries do núcleo). Nós do núcleo e caminhos de ligação ficam soltos.
+  A troca de setor é uma linha em `SETOR_DA_REGIAO` (src/config/arvoreVisual.ts).
+- **Roda:** anéis pela profundidade do grafo (BFS: 9 anéis, do 92 ao 356 px do centro, passo de 33 px). Os 111 nós não se cobrem e cabem no aro.
+  Tamanhos no zoom 1: comum 34, notável 44, Mastery 46, caminho 30, núcleo 64 px (a arte do núcleo tem 118 px).
+- **Caminho aceso:** passar o cursor sobre um nó acende o caminho até a rede aberta (nós, arestas e custo em Zen); clicar
+  mantém o caminho até trocar a seleção. Nós abertos brilham na cor do setor; disponíveis pulsam; bloqueados em cinza.
+- **Nomes:** 13 px no zoom 1. No zoom padrão de 1600x900 aparecem 47 dos 67 nomes de notáveis e Masteries (35 de 49 notáveis e 12 de 18 Masteries) (sem cobrir nó,
+  medalhão ou outro nome). Os demais, e os nomes dos comuns, aparecem com o cursor. Abaixo de 0,75 de zoom, nenhum nome.
+- **Checagem:** `npm run arvore:visual:check` (nós sem sobreposição, aro, cunhas, nomes livres e caminhos).
+- **Pendências:**
+  - Em 1280x720 o zoom padrão fica em ~0,76: a roda cabe, mas os nomes saem com ~10 px, pequenos para ler de perto.
+    Em telas mais altas a roda tem mais espaço para os nomes; a janela continua com altura máxima de 860 px.
+  - Ícones de classe nos nós de classe não foram feitos: a árvore tem poucos nós exclusivos de uma classe e os ícones
+    de `public/icons/skills` ainda não têm uso definido. Decidir com o dono.
+  - Bastião foi para Sinergia (e não Proteção) para equilibrar as cunhas (Proteção ficaria com 28 nós).
+  - Fundo com ilhas e cidade: fora deste escopo. A arte é do dono; se for usada, precisa de uma versão sem os painéis.
