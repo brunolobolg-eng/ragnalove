@@ -68,6 +68,11 @@ export interface BastionState {
   records: { bestNights: number; attempts: number; totalNights: number };
   /** Pacotes de cartas já entregues: um a cada BASTION.packEvery vitórias (records.totalNights). */
   packsGiven: number;
+  /**
+   * Zen ganho no bloco de noites em curso (ARVORE_BANCO.bastiao.noitesPorBloco noites numa tentativa). Zera ao fechar
+   * um bloco (applyNight devolve o bloco fechado, que paga o banco) e ao recomeçar a tentativa. Ausente = 0.
+   */
+  zenNoBloco: number;
 }
 
 /**
@@ -91,6 +96,7 @@ export function newBastion(seed: number, cards: CardCollection, party: HeroKind[
     nextId: 1,
     records: { bestNights: 0, attempts: 1, totalNights: 0 },
     packsGiven: 0,
+    zenNoBloco: 0,
   };
   b.profile.zeni = BASTION.startZeni;
   applyCardLoadout(b.profile, cards);
@@ -117,6 +123,9 @@ export function migrateBastion(b: BastionState): BastionState {
   // Save antigo não tem o total de vitórias: começa nas ondas vencidas (a tentativa única de antes). Inteiro não negativo.
   b.records.totalNights = Number.isInteger(b.records.totalNights) && b.records.totalNights >= 0 ? b.records.totalNights : b.nights;
   b.packsGiven = Number.isFinite(b.packsGiven) && b.packsGiven >= 0 ? b.packsGiven : 0;
+  // Save antigo não tem o contador do bloco: o bloco em andamento começa a contar daqui (o Zen anterior não se recupera)
+  const zb = b.zenNoBloco;
+  b.zenNoBloco = typeof zb === 'number' && Number.isFinite(zb) && zb >= 0 ? Math.floor(zb) : 0;
   // Save sem turno (antes do movimento de muralhas): começa no turno 0. Turno é inteiro não negativo.
   b.turn = Number.isInteger(b.turn) && b.turn >= 0 ? b.turn : 0;
   // Construção sem turno é "antiga": placedTurn -1, que nunca bate com o turno, então não se move.

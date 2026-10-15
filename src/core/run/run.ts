@@ -3,7 +3,7 @@ import type { HeroLoadout } from '../sim/Simulation';
 import { ZONES, type ZoneDef } from '../../config/zones';
 import { ACTS, EVENTS, REGION_BY_ID, type EventDef, type EventEffect, type NodeType, type Region } from '../../config/world';
 import { REFINE, RARITIES, RARITY_INFO, rollItem, type Item, type Rarity, type Slot } from '../progression/equipment';
-import { addExperience, addZeni, createProfile, expToNext, heroEquipped, heroStats, migrateProfile, resetAttributes, type Profile } from '../progression/profile';
+import { addExperience, addZeni, createProfile, expToNext, ganharZeni, heroEquipped, heroStats, migrateProfile, resetAttributes, type Profile } from '../progression/profile';
 import { economiaDoPerfil } from '../progression/arvore';
 import { SKILL_BY_ID, SKILL_ZENI, allHeroSkills, inHeroTree, investedSkillPoints, lvOf, missingRequirements, prereqPath, skillZeniCost, type HeroKind, type SkillId } from '../progression/skills';
 import { Rng } from '../sim/rng';
@@ -211,7 +211,7 @@ export function useMapObject(r: RunState, type: keyof typeof OBJECT_RULES, id: n
       msg = `Entre os escombros, almas presas: +${v} almas.`;
     } else {
       const v = Math.round((C.zeni[0] + uiRng.int(C.zeni[1] - C.zeni[0] + 1)) * k);
-      addZeni(p, v);
+      ganharZeni(p, v);
       msg = `Uma bolsa esquecida na carga: +${v} Zen.`;
     }
   } else if (type === 'altar') {
@@ -374,7 +374,7 @@ export function applyEventEffects(r: RunState, effects: EventEffect[]): string[]
   for (const e of effects) {
     if ('zeni' in e) {
       const v = Math.round(e.zeni * k);
-      addZeni(p, v);
+      ganharZeni(p, v);
       out.push(`${v >= 0 ? '+' : ''}${v} Zen`);
     } else if ('souls' in e) {
       const v = Math.round(e.souls * k);

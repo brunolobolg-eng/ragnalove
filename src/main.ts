@@ -76,6 +76,7 @@ import {
   attrPointCost,
   spentPoints,
   addZeni,
+  ganharZeni,
   equip,
   expToNext,
   heroStats,
@@ -1414,7 +1415,7 @@ function finishWave(): void {
     applyWaveResult(profile, r);
     if (won) {
       profile.wavesWon = (profile.wavesWon ?? 0) + 1;
-      addZeni(profile, bonus);
+      ganharZeni(profile, bonus);
     }
     run.kills += sim.killed;
     run.damage = (run.damage ?? 0) + report.damageDealtByUnit.reduce((s, d) => s + d.amount, 0);

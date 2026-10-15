@@ -14,6 +14,7 @@
     "aura:check": "tsx scripts/auraCheck.ts",
     "arvore:check": "tsx scripts/arvoreCheck.ts",
     "arvore:save:check": "tsx scripts/arvoreSaveCheck.ts",
+    "banco:check": "tsx scripts/bancoCheck.ts",
     "arvore:combate:check": "tsx scripts/arvoreCombateCheck.ts",
     "cenario:check": "tsx scripts/cenarioCheck.ts",
     "vocation:check": "tsx scripts/vocationCheck.ts",

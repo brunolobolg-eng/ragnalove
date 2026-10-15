@@ -1,8 +1,9 @@
 import { BASTION, PROJECTS, STRUCTURES, type StructureKind } from '../../config/bastion';
+import { ARVORE_BANCO } from '../../config/arvoreGlobal';
 import { GAME_CONFIG } from '../../config/gameConfig';
 import type { Board } from '../grid/Board';
 import { chebyshev, type Vec2 } from '../grid/types';
-import { addZeni, applyWaveResult, createProfile, type WaveResult } from '../progression/profile';
+import { addZeni, applyWaveResult, createProfile, ganharZeni, type WaveResult } from '../progression/profile';
 import { economiaDoPerfil } from '../progression/arvore';
 import { addCards, applyCardLoadout, cardSlots, rollPack, type CardCollection } from '../progression/cards';
 import { HERO_ORDER } from '../../config/heroes';
@@ -307,6 +308,7 @@ export function startAttempt(b: BastionState, cards: CardCollection): Result {
   b.records.attempts++;
   b.nights = 0;
   b.nightsInAttempt = 0;
+  b.zenNoBloco = 0;
   b.structures = [];
   b.projects = ['castle'];
   b.coreHp = b.coreMaxHp;
@@ -336,10 +338,12 @@ export interface NightOutcome {
   wave: WaveResult;
 }
 
-/** O que applyNight devolve quando aplica uma onda: os pacotes de cartas que ela entregou. */
+/** O que applyNight devolve quando aplica uma onda: os pacotes de cartas que ela entregou e o bloco que ela fechou. */
 export interface NightResult {
   /** Pacotes de cartas entregues por esta onda (já estão na coleção compartilhada). */
   packs: string[][];
+  /** Bloco completo de noites que esta vitória fechou (numerado na tentativa) e o Zen ganho nele. */
+  bloco?: { numero: number; zen: number };
 }
 
 /**
@@ -357,18 +361,28 @@ export function applyNight(b: BastionState, out: NightOutcome, key: string, card
     if (s) s.hp = Math.min(structureMaxHp(b, s), Math.max(0, f.hp));
   }
   b.coreHp = Math.min(b.coreMaxHp, Math.max(0, out.coreHp));
+  const ganhoAntes = b.profile.zenGanho ?? 0;
   applyWaveResult(b.profile, out.wave);
   if (out.victory) {
-    addZeni(b.profile, GAME_CONFIG.zeni.waveClearBonus + economiaDoPerfil(b.profile).zenNoite);
+    ganharZeni(b.profile, GAME_CONFIG.zeni.waveClearBonus + economiaDoPerfil(b.profile).zenNoite);
     b.profile.wavesWon = (b.profile.wavesWon ?? 0) + 1;
     b.nights++;
     b.nightsInAttempt++;
     b.records.totalNights++;
     b.turn++;
   }
+  // Zen ganho nesta noite (onda + bônus), contado no bloco em curso
+  b.zenNoBloco += (b.profile.zenGanho ?? 0) - ganhoAntes;
+  let bloco: NightResult['bloco'];
+  const N = ARVORE_BANCO.bastiao.noitesPorBloco;
+  if (out.victory && b.nightsInAttempt % N === 0) {
+    bloco = { numero: b.nightsInAttempt / N, zen: b.zenNoBloco };
+    b.zenNoBloco = 0;
+  }
   if (!out.victory || b.coreHp <= 0) b.attemptEnded = true;
   b.records.bestNights = Math.max(b.records.bestNights, b.nightsInAttempt);
-  return { packs: grantWavePacks(b, cards) };
+  const packs = grantWavePacks(b, cards);
+  return bloco ? { packs, bloco } : { packs };
 }
 
 /**

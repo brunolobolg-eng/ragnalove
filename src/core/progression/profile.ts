@@ -49,6 +49,12 @@ export interface Profile {
   souls: number; // almas no banco (moeda de crescimento: EXP, despertar)
   /** Zen: moeda de gasto (atributos, respec, lojas, refino). */
   zeni: number;
+  /**
+   * Zen GANHO no jogo nesta jornada (ou no Bastião, na carteira dele): combate, bônus de vitória, eventos e carroça.
+   * Venda de item e reembolso de construção NÃO contam. É a base do crédito no banco de Zen (core/progression/banco.ts).
+   * Ausente em saves antigos = 0 (migrateProfile).
+   */
+  zenGanho?: number;
   /** Quantas vezes os atributos foram redistribuídos (o custo sobe a cada uso). */
   respecs?: number;
   heroes: Record<string, HeroProgress>;
@@ -77,7 +83,7 @@ export function createProfile(): Profile {
     equipment: { weapon: starterWeapon(k) },
     cards: [],
   });
-  return { version: PROFILE_VERSION, souls: 0, zeni: 0, heroes: Object.fromEntries(HERO_ORDER.map((k) => [k, hero(k)])), inventory: [], arvore: arvoreVazia() };
+  return { version: PROFILE_VERSION, souls: 0, zeni: 0, zenGanho: 0, heroes: Object.fromEntries(HERO_ORDER.map((k) => [k, hero(k)])), inventory: [], arvore: arvoreVazia() };
 }
 
 /** Arma inicial de cada classe (Comum, sem atributos extras). */
@@ -338,7 +344,7 @@ function setProgress(h: HeroProgress, level: number, exp: number, habExtra = 0):
 /** Aplica o resultado de uma onda: níveis viram pontos de atributo, drops vão ao inventário. */
 export function applyWaveResult(p: Profile, r: WaveResult): void {
   addSouls(p, r.souls);
-  addZeni(p, r.zeni);
+  ganharZeni(p, r.zeni);
   for (const [k, res] of Object.entries(r.heroes)) {
     const h = p.heroes[k];
     if (h) setProgress(h, res.level, res.exp, economiaDoPerfil(p).pontosHabilidade);
@@ -401,8 +407,16 @@ export function addSouls(p: Profile, n: number): void {
   p.souls = Math.max(0, p.souls + Math.floor(n));
 }
 
+/** Soma (ou tira) Zen sem contar como ganho: venda, reembolso e ajustes. */
 export function addZeni(p: Profile, n: number): void {
   p.zeni = Math.max(0, (p.zeni ?? 0) + Math.floor(n));
+}
+
+/** Zen ganho no jogo: soma na carteira e conta em `zenGanho` (o que alimenta o banco). Gasto e negativo não contam. */
+export function ganharZeni(p: Profile, n: number): void {
+  const v = Math.floor(n);
+  if (v > 0) p.zenGanho = (p.zenGanho ?? 0) + v;
+  addZeni(p, v);
 }
 
 export function clearSouls(p: Profile): void {
@@ -424,6 +438,9 @@ export function migrateProfile(p: Profile): Profile {
   p.arvore = normalizarArvore(p.arvore);
   p.version = PROFILE_VERSION;
   p.zeni ??= 0;
+  // Zen ganho no jogo (banco de Zen): save antigo não tem o contador, começa em zero
+  const zg = p.zenGanho;
+  p.zenGanho = typeof zg === 'number' && Number.isFinite(zg) && zg >= 0 ? Math.floor(zg) : 0;
   p.souls ??= 0;
   p.inventory ??= [];
   const fresh = createProfile();
