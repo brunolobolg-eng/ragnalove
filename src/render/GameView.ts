@@ -372,6 +372,8 @@ export class GameView {
         }
     }
     this.fogView?.bind(sim);
+    // só os portais abertos agora aparecem (os extras da campanha abrem conforme a noite avança)
+    this.boardView?.sincronizarPortais(sim.portaisAbertos().map((p) => p.index));
     // o objeto novo é montado antes de descartar o antigo: programas de shader em uso não são liberados (sem recompilar)
     const objetosAntigos = this.objectView;
     this.objectView = new ObjectView(sim);
@@ -577,6 +579,22 @@ export class GameView {
       this.magic.onEvent(e);
       if (classVisual(e, (this.cfxCache ??= this.makeCombatCtx()))) continue;
       switch (e.type) {
+        case 'portal': {
+          // portal extra abriu: aparece no campo com um pulso de brilho
+          this.boardView?.abrirPortal(e.index);
+          this.particles.glow.emit({
+            pos: tileToWorld(e.x, e.y, undefined, 0.3),
+            posJitter: 0.6,
+            vel: new THREE.Vector3(0, 1.4, 0),
+            velJitter: 0.6,
+            life: 0.9,
+            size: 0.35,
+            sizeEnd: 0.05,
+            color: new THREE.Color(1.4, 0.35, 1.2),
+            count: 28,
+          });
+          break;
+        }
         case 'spawn': {
           const v = this.addUnit(e.unitId);
           if (v && GAME_CONFIG.bossKinds.includes(this.kinds.get(e.unitId) ?? '')) {

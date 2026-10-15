@@ -55,7 +55,9 @@ function trace(board: Board, flow: FlowField, from: Vec2): Vec2[] {
  * posição inicial da party). Só leitura do mapa: não muda nada da simulação.
  */
 export class PathArrows {
-  readonly mesh?: THREE.InstancedMesh;
+  /** Uma malha de setas por portal (índice = spawn). Só as dos portais abertos aparecem. */
+  readonly meshes: (THREE.InstancedMesh | undefined)[] = [];
+  private mat?: THREE.MeshBasicMaterial;
   private t = 0;
 
   constructor(board: Board) {
@@ -65,9 +67,22 @@ export class PathArrows {
     const flow = new FlowField(board);
     flow.compute(goals, GAME_CONFIG.pathing);
 
-    const marks: { pos: THREE.Vector3; yaw: number }[] = [];
-    for (const sp of GAME_CONFIG.wave.spawnPoints) {
-      if (flow.at(sp.x, sp.y) >= FlowField.INF) continue;
+    const geo = new THREE.PlaneGeometry(PATH_ARROWS.size, PATH_ARROWS.size).rotateX(-Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({
+      map: arrowTexture(),
+      color: PATH_ARROWS.color,
+      transparent: true,
+      opacity: PATH_ARROWS.opacity,
+      depthWrite: false,
+    });
+    this.mat = mat;
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const up = new THREE.Vector3(0, 1, 0);
+    const one = new THREE.Vector3(1, 1, 1);
+    GAME_CONFIG.wave.spawnPoints.forEach((sp, si) => {
+      if (flow.at(sp.x, sp.y) >= FlowField.INF) return;
+      const marks: { pos: THREE.Vector3; yaw: number }[] = [];
       const path = trace(board, flow, sp);
       const end = path.length - 1 - PATH_ARROWS.skipEnd;
       for (let i = PATH_ARROWS.skipStart; i <= end; i += PATH_ARROWS.spacing) {
@@ -78,32 +93,26 @@ export class PathArrows {
         if (dx === 0 && dz === 0) continue;
         marks.push({ pos: tileToWorld(path[i].x, path[i].y, undefined, PATH_ARROWS.height), yaw: Math.atan2(-dx, -dz) });
       }
-    }
-    if (marks.length === 0) return;
-
-    const geo = new THREE.PlaneGeometry(PATH_ARROWS.size, PATH_ARROWS.size).rotateX(-Math.PI / 2);
-    const mat = new THREE.MeshBasicMaterial({
-      map: arrowTexture(),
-      color: PATH_ARROWS.color,
-      transparent: true,
-      opacity: PATH_ARROWS.opacity,
-      depthWrite: false,
+      if (marks.length === 0) return;
+      const mesh = new THREE.InstancedMesh(geo, mat, marks.length);
+      marks.forEach((k, i) => mesh.setMatrixAt(i, m.compose(k.pos, q.setFromAxisAngle(up, k.yaw), one)));
+      mesh.renderOrder = 1;
+      // o portal extra só mostra o caminho depois de abrir (ver setPortal)
+      mesh.visible = sp.ativaEm === undefined || sp.ativaEm <= 0;
+      this.meshes[si] = mesh;
     });
-    const mesh = new THREE.InstancedMesh(geo, mat, marks.length);
-    const m = new THREE.Matrix4();
-    const q = new THREE.Quaternion();
-    const up = new THREE.Vector3(0, 1, 0);
-    const one = new THREE.Vector3(1, 1, 1);
-    marks.forEach((k, i) => mesh.setMatrixAt(i, m.compose(k.pos, q.setFromAxisAngle(up, k.yaw), one)));
-    mesh.renderOrder = 1;
-    this.mesh = mesh;
+  }
+
+  /** Mostra ou esconde as setas de um portal (chamado quando o portal abre ou ao vincular a batalha). */
+  setPortal(index: number, visible: boolean): void {
+    const mesh = this.meshes[index];
+    if (mesh) mesh.visible = visible;
   }
 
   /** Pulso lento e discreto. */
   update(dt: number): void {
-    if (!this.mesh) return;
+    if (!this.mat) return;
     this.t += dt;
-    const mat = this.mesh.material as THREE.MeshBasicMaterial;
-    mat.opacity = PATH_ARROWS.opacity * (1 - PATH_ARROWS.pulse * 0.5 + Math.sin(this.t * PATH_ARROWS.pulseSpeed) * PATH_ARROWS.pulse * 0.5);
+    this.mat.opacity = PATH_ARROWS.opacity * (1 - PATH_ARROWS.pulse * 0.5 + Math.sin(this.t * PATH_ARROWS.pulseSpeed) * PATH_ARROWS.pulse * 0.5);
   }
 }

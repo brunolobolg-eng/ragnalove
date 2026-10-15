@@ -29,19 +29,22 @@ function mulberry(seed: number): () => number {
   };
 }
 
-/** Grupo com o cenário temático do ato atual (vazio fora dos atos). */
-export function buildActDressing(board: Board): THREE.Group {
-  const group = new THREE.Group();
+/**
+ * Um grupo por portal (índice = spawn): o cenário de cada portal só aparece quando ele abre. Fora dos atos,
+ * os grupos ficam vazios.
+ */
+export function buildActDressing(board: Board): THREE.Group[] {
+  const grupos = GAME_CONFIG.wave.spawnPoints.map(() => new THREE.Group());
   const zone = ZONE_STATE.current;
   const act = REGIONS.find((r) => r.zone === zone.id && r.act !== undefined)?.act;
   const kit = act === undefined ? undefined : ACT_DRESSING.atos[act];
-  if (!kit) return group;
+  if (!kit) return grupos;
   let seed = 7;
   for (const ch of zone.id) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
   const rnd = mulberry(seed);
   const used = new Set<string>();
-  /** Cópias de cada modelo (caminho do GLB) no mundo: desenhadas com InstancedMesh, uma chamada por malha. */
-  const copias = new Map<string, THREE.Matrix4[]>();
+  /** Cópias de cada modelo (caminho do GLB) no mundo deste portal: desenhadas com InstancedMesh, uma chamada por malha. */
+  let copias = new Map<string, THREE.Matrix4[]>();
   const place = (peca: ActPeca, x: number, y: number) => {
     const p = tileToWorld(x, y);
     const { path, escala, base } = ACT_DRESSING.pecas[peca];
@@ -56,7 +59,8 @@ export function buildActDressing(board: Board): THREE.Group {
     else copias.set(path, [mx]);
     used.add(`${x},${y}`);
   };
-  for (const sp of GAME_CONFIG.wave.spawnPoints) {
+  GAME_CONFIG.wave.spawnPoints.forEach((sp, si) => {
+    copias = new Map<string, THREE.Matrix4[]>();
     const ring: { x: number; y: number; walk: boolean }[] = [];
     const R = Math.ceil(ACT_DRESSING.radiusMax);
     for (let dy = -R; dy <= R; dy++)
@@ -85,8 +89,8 @@ export function buildActDressing(board: Board): THREE.Group {
       }
       if (flat >= ACT_DRESSING.flatPerSpawn && tall >= ACT_DRESSING.tallPerSpawn) break;
     }
-  }
-  // cada modelo entra depois de carregar (o cenário aparece na hora; as peças chegam um instante depois)
-  for (const [path, mats] of copias) instanceProps(group, path, mats);
-  return group;
+    // cada modelo entra depois de carregar (o cenário aparece na hora; as peças chegam um instante depois)
+    for (const [path, mats] of copias) instanceProps(grupos[si], path, mats);
+  });
+  return grupos;
 }

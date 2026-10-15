@@ -66,7 +66,9 @@ export class BoardView {
   }
 
   /** Portais dos 2 spawns e o brilho da zona de ameaça (portão). */
-  private readonly portals: { pos: THREE.Vector3; ring: THREE.Mesh; glow: THREE.Sprite }[] = [];
+  private readonly portals: { pos: THREE.Vector3; ring: THREE.Mesh; glow: THREE.Sprite; open: boolean; t0: number }[] = [];
+  /** Cenário de cada portal (índice = spawn); só aparece com o portal aberto. */
+  private dressing: THREE.Group[] = [];
   private readonly threat: THREE.Mesh[] = [];
   private t = 0;
   private pAcc = 0;
@@ -82,14 +84,46 @@ export class BoardView {
     const emit = this.pAcc > 0.12;
     if (emit) this.pAcc = 0;
     for (const p of this.portals) {
+      if (!p.open) continue;
+      // portal que acabou de abrir cresce em ~1 s (o inicial já nasce no tamanho cheio)
+      const g = p.t0 === -Infinity ? 1 : Math.min(1, (this.t - p.t0) / 1.2);
+      p.ring.scale.setScalar(0.3 + 0.7 * g);
       p.ring.rotation.z += dt * 0.6;
       const k = 0.75 + Math.sin(this.t * 3) * 0.2;
       (p.ring.material as THREE.MeshBasicMaterial).opacity = k;
-      p.glow.scale.setScalar(2.2 + Math.sin(this.t * 2.4) * 0.3);
+      p.glow.scale.setScalar((2.2 + Math.sin(this.t * 2.4) * 0.3) * g);
       if (emit)
         particles.glow.emit({ pos: p.pos.clone().setY(0.1), posJitter: 0.45, vel: new THREE.Vector3(0, 0.9, 0), velJitter: 0.2, life: 1.0, size: 0.1, sizeEnd: 0.02, color: new THREE.Color(1.6, 0.25, 1.2), colorEnd: new THREE.Color(0.3, 0.02, 0.2), count: 1 });
     }
     for (const m of this.threat) (m.material as THREE.MeshBasicMaterial).opacity = 0.14 + Math.sin(this.t * 2) * 0.06;
+  }
+
+  /** Mostra só os portais abertos (`abertos`: índices de GAME_CONFIG.wave.spawnPoints): ao vincular a batalha. */
+  sincronizarPortais(abertos: number[]): void {
+    this.portals.forEach((p, i) => {
+      const on = abertos.includes(i);
+      if (on && !p.open) this.abrirPortal(i);
+      else if (!on && p.open) this.fecharPortal(i);
+    });
+  }
+
+  /** Um portal abriu (evento 'portal'): aparece com um crescimento curto; cenário e setas acompanham. */
+  abrirPortal(i: number): void {
+    const p = this.portals[i];
+    if (!p || p.open) return;
+    p.open = true;
+    p.t0 = this.t;
+    p.ring.visible = p.glow.visible = true;
+    if (this.dressing[i]) this.dressing[i].visible = true;
+    this.arrows?.setPortal(i, true);
+  }
+
+  private fecharPortal(i: number): void {
+    const p = this.portals[i];
+    p.open = false;
+    p.ring.visible = p.glow.visible = false;
+    if (this.dressing[i]) this.dressing[i].visible = false;
+    this.arrows?.setPortal(i, false);
   }
 
   constructor(board: Board) {
@@ -125,13 +159,16 @@ export class BoardView {
     }
     // Cenário temático dos monstros do ato + setas discretas do caminho da horda.
     // Ato IV (ilhas): sai — o acampamento do ato era peça solta no meio da arena; a composição de ilhas não usa.
-    if (!zone.painted && !ilhas) this.group.add(buildActDressing(board)); // mapa pintado já traz o cenário
+    // cenário do portal (mapa pintado já traz o cenário): cada grupo aparece quando o portal abre
+    this.dressing = !zone.painted && !ilhas ? buildActDressing(board) : [];
+    for (const g of this.dressing) this.group.add(g);
     this.arrows = new PathArrows(board);
-    if (this.arrows.mesh) this.group.add(this.arrows.mesh);
+    for (const m of this.arrows.meshes) if (m) this.group.add(m);
 
     // Portais dos spawns (fixos por mapa): anel rúnico violeta + brilho
     const ringTex = portalTexture();
-    for (const sp of GAME_CONFIG.wave.spawnPoints) {
+    GAME_CONFIG.wave.spawnPoints.forEach((sp) => {
+      const aberto = sp.ativaEm === undefined || sp.ativaEm <= 0;
       const pos = tileToWorld(sp.x, sp.y);
       const ring = new THREE.Mesh(
         new THREE.PlaneGeometry(2.6, 2.6),
@@ -143,9 +180,10 @@ export class BoardView {
       const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: softCircle(), color: new THREE.Color(0.8, 0.12, 0.7), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55 }));
       glow.position.copy(pos).setY(0.6);
       glow.renderOrder = 4;
+      ring.visible = glow.visible = aberto;
       this.group.add(ring, glow);
-      this.portals.push({ pos, ring, glow });
-    }
+      this.portals.push({ pos, ring, glow, open: aberto, t0: aberto ? -Infinity : 0 });
+    });
     // Zona de ameaça: brilho dourado nos tiles do portão da cidade
     for (const c of board.cityTiles()) {
       const m = new THREE.Mesh(
