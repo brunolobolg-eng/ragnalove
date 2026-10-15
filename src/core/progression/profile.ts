@@ -5,7 +5,9 @@ import { inHeroTree, lvOf, startingSkills, startingVocationSkills, vocationPassi
 import { equippedSkills, lockedSkillKeys, manaToNextSlot, slotCount, usesSlot } from './skillSlots';
 import { HERO_NAME, HERO_ORDER, familyOf, isHeroKind } from '../../config/heroes';
 import { VOCATIONS, VOCATIONS_CONFIG, type VocationDef } from '../../config/vocations';
+import type { VocationPassiveBonus } from '../../config/vocationSkills';
 import type { CardRuntime } from './cards';
+import { bonusDoHeroi, type ArvoreState } from './arvore';
 
 /**
  * Progressão persistente entre ondas (o "save" do jogador). A simulação recebe um
@@ -47,6 +49,8 @@ export interface Profile {
   inventory: Item[];
   /** Ondas vencidas (só informativo). */
   wavesWon?: number;
+  /** Árvore global de progressão e Masteries táticas desta jornada (ver core/progression/arvore.ts). */
+  arvore?: ArvoreState;
 }
 
 export const PROGRESSION = GAME_CONFIG.progression;
@@ -138,7 +142,28 @@ export function heroStats(profile: Profile, kind: string): HeroStats {
   const vocation = vocationOf(kind, h)?.bonus ?? {};
   // passivas de atributo das habilidades da vocação (Crusado, Hypnomancer): somam como o equipamento
   const passive = vocationPassive(h.vocation, h.skills);
-  return computeStats(kind, attrs, gearBonus(SLOTS.map((s) => h.equipment[s])), h.skills, { hp: h.bonusHp, mana: h.bonusMana, attrs: vocation, passive });
+  // nós abertos da árvore global que servem a este herói (soma com a vocação, não substitui)
+  const nos = isHeroKind(kind) ? bonusDoHeroi(profile, kind) : { attrs: {}, passiva: {} };
+  return computeStats(kind, attrs, gearBonus(SLOTS.map((s) => h.equipment[s])), h.skills, {
+    hp: h.bonusHp,
+    mana: h.bonusMana,
+    attrs: somaAtributos(vocation, nos.attrs),
+    passive: somaPassiva(passive, nos.passiva),
+  });
+}
+
+/** Soma dois conjuntos de atributos bônus (chave a chave). */
+function somaAtributos(a: Partial<Record<AttrKey, number>>, b: Partial<Record<AttrKey, number>>): Partial<Record<AttrKey, number>> {
+  const out: Partial<Record<AttrKey, number>> = { ...a };
+  for (const k of ATTR_KEYS) if (b[k] !== undefined) out[k] = (out[k] ?? 0) + b[k]!;
+  return out;
+}
+
+/** Soma duas passivas derivadas (vocação + árvore global), chave a chave. */
+function somaPassiva(a: Partial<VocationPassiveBonus>, b: Partial<VocationPassiveBonus>): Partial<VocationPassiveBonus> {
+  const out: Partial<VocationPassiveBonus> = { ...a };
+  for (const k of Object.keys(b) as (keyof VocationPassiveBonus)[]) out[k] = (out[k] ?? 0) + (b[k] ?? 0);
+  return out;
 }
 
 /** Habilidades ativas nos slots do herói (limitadas pela Mana). */

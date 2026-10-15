@@ -12,6 +12,7 @@
     "ui:fora-da-tela": "node scripts/telasForaDaTela.mjs",
     "bastion:path": "tsx scripts/bastionPathCheck.ts",
     "aura:check": "tsx scripts/auraCheck.ts",
+    "arvore:check": "tsx scripts/arvoreCheck.ts",
     "cenario:check": "tsx scripts/cenarioCheck.ts",
     "vocation:check": "tsx scripts/vocationCheck.ts",
     "vocation:skills:check": "tsx scripts/vocationSkillCheck.ts",
