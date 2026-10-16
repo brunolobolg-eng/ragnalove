@@ -102,8 +102,11 @@ export class BoardView {
   sincronizarPortais(abertos: number[]): void {
     this.portals.forEach((p, i) => {
       const on = abertos.includes(i);
-      if (on && !p.open) this.abrirPortal(i);
-      else if (!on && p.open) this.fecharPortal(i);
+      if (on && !p.open) p.t0 = this.t; // abriu agora: cresce como no evento
+      p.open = on;
+      p.ring.visible = p.glow.visible = on;
+      if (this.dressing[i]) this.dressing[i].visible = on;
+      this.arrows?.setPortal(i, on);
     });
   }
 
@@ -116,14 +119,6 @@ export class BoardView {
     p.ring.visible = p.glow.visible = true;
     if (this.dressing[i]) this.dressing[i].visible = true;
     this.arrows?.setPortal(i, true);
-  }
-
-  private fecharPortal(i: number): void {
-    const p = this.portals[i];
-    p.open = false;
-    p.ring.visible = p.glow.visible = false;
-    if (this.dressing[i]) this.dressing[i].visible = false;
-    this.arrows?.setPortal(i, false);
   }
 
   constructor(board: Board) {
