@@ -12,11 +12,20 @@
  */
 import type { DiscoSave } from '../core/progression/banco';
 
-export type SaveKey = 'run' | 'meta' | 'bastion' | 'bastionBackup';
+export type SaveKey = 'run' | 'meta' | 'bastion' | 'bastionBackup' | 'runBackup';
 
-/** 'bastionBackup': cópia do Bastião que não abriu (ilegível). Só gravada, nunca lida de volta pelo jogo. */
-const LEGACY: Record<SaveKey, string> = { run: 'vanguarda.run.v1', meta: 'vanguarda.meta.v1', bastion: 'vanguarda.bastion.v1', bastionBackup: 'vanguarda.bastionBackup.v1' };
-const KEYS: SaveKey[] = ['run', 'meta', 'bastion', 'bastionBackup'];
+/**
+ * 'bastionBackup' e 'runBackup': cópias do Bastião ou da jornada que não abriram (ilegíveis ou de versão nova).
+ * Só gravadas, nunca lidas de volta pelo jogo: são para o dono recuperar o progresso à mão.
+ */
+const LEGACY: Record<SaveKey, string> = {
+  run: 'vanguarda.run.v1',
+  meta: 'vanguarda.meta.v1',
+  bastion: 'vanguarda.bastion.v1',
+  bastionBackup: 'vanguarda.bastionBackup.v1',
+  runBackup: 'vanguarda.runBackup.v1',
+};
+const KEYS: SaveKey[] = ['run', 'meta', 'bastion', 'bastionBackup', 'runBackup'];
 let cache: Record<SaveKey, string | null> | undefined;
 
 function legacyGet(key: SaveKey): string | null {
@@ -30,9 +39,9 @@ function legacyGet(key: SaveKey): string | null {
 function load(): Record<SaveKey, string | null> {
   if (cache) return cache;
   const disk = window.vanguardaDesktop?.save;
-  if (!disk) return (cache = { run: legacyGet('run'), meta: legacyGet('meta'), bastion: legacyGet('bastion'), bastionBackup: legacyGet('bastionBackup') });
+  if (!disk) return (cache = { run: legacyGet('run'), meta: legacyGet('meta'), bastion: legacyGet('bastion'), bastionBackup: legacyGet('bastionBackup'), runBackup: legacyGet('runBackup') });
   const files = disk.read();
-  cache = { run: files.run, meta: files.meta, bastion: files.bastion ?? null, bastionBackup: null };
+  cache = { run: files.run, meta: files.meta, bastion: files.bastion ?? null, bastionBackup: null, runBackup: null };
   for (const key of KEYS) {
     if (cache[key] !== null) continue;
     const old = legacyGet(key);

@@ -149,7 +149,11 @@ Fonte: `src/config/bastion.ts` (`BASTION`, `STRUCTURES`, `PROJECTS`, `BASTION_HO
 
 ## 8. Saves
 
-Adiado nesta etapa; ver a próxima etapa de estabilização.
+Jornada (`run`): versão atual **2**. O campo `sorteio` ({estado, itens}) guarda a sequência de sorteios da jornada (loja, refino, cofre, evento, presente, loot), então uma recarga continua a sequência e não repete nem pula. `migrateRun` converte a v1 (cria o sorteio a partir da seed, como a versão anterior fazia ao abrir). `lerJornada` (`src/core/run/carregamento.ts`) decide o que fazer com o texto do save: nova, ok, migrada, versão futura, corrompida ou encerrada. Versão futura ou ilegível nunca é migrada nem apagada: vai para a lista de cópias `runBackup` antes de qualquer gravação nova. Se a cópia falhar, a jornada não grava por cima (`jornadaBloqueada`) e o jogo avisa.
+
+Saves reais de versões antigas ficam em `tests/saves/` (geradas pelo código de cada versão). `npm run saves:check` prova que abrem, migram, mantêm a sequência após recarga e que o que o jogo não entende não é migrado à força.
+
+Meta, Bastião e banco de Zen: sem mudança de formato nesta etapa. A árvore global continua no meta (`arvore`).
 
 ## 9. Arte e assets
 
@@ -193,4 +197,4 @@ Fora do comando:
 1. Conta nova morre em 50 de 55 noites. Medido no modo literal: guerreiro de nível 1, sem build e sem equipamento. Com a party típica de cada ato, as 55 noites vencem. É balanceamento de combate, e a decisão é do dono (`LOG_SESSOES.md`, entrada de 2026-10-15).
 2. Sobrevivência não medida: `horda:check` não mede o modo de sobrevivência (Bosque Torto, Dunas Vermelhas e Garganta de Ferrugem). Duração da noite de sobrevivência: a confirmar. `sobrevivencia:check` roda no `npm run check`, mas não mede a duração.
 3. Ponto de árvore x Zen: já decidido em Zen do banco. O comentário de `src/config/arvoreGlobal.ts` diz que a moeda da árvore é o Zen do banco, e `LOG_SESSOES.md` (entrada "Árvore visual: refino") registra a decisão.
-4. **Recarga repete os sorteios (urgente).** Desde o determinismo da jornada, o sorteio de loja, refino, cofre, evento e presente sai da seed da jornada, e a seed fica no save. Recarregar o jogo recomeça a sequência: recarregar antes de cada tentativa de refino repete o mesmo resultado (em sementes com sorte, +10 sem falha, cerca de 3.700 Zen, contra 109.600 sem recarga, em média). Antes, o sorteio vinha do relógio e não ficava no save, e recarregar não dava vantagem. Opções: (A) gravar a posição do fluxo no save, com campo novo e migração (recomendado; é a etapa de saves); (B) não guardar a posição nem a seed do fluxo, e começar de entropia nova a cada carga, como a base (fecha a repetição já, sem migração; o combate continua reproduzível pela seed do nó). Registrado em `LOG_SESSOES.md` (entrada de 2026-10-16, revisão independente). Decisão do dono.
+4. **Recarga repete os sorteios: resolvido (opção A).** A sequência de sorteios da jornada fica guardada no save (campo `sorteio`, versão 2), então a recarga continua de onde parou. Migração da v1 e cópia `runBackup` para saves não entendidos. Ver a seção 8 e `LOG_SESSOES.md` (entrada de 2026-10-16, opção A). Decisão do dono.

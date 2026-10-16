@@ -19,7 +19,6 @@ import {
   currentNode,
   currentRegion,
   isCombat,
-  migrateRun,
   newRun,
   phaseNumber,
   pickEvent,
@@ -122,6 +121,7 @@ import { closeOpenOverlays, isTextEntry, registerOverlay } from './ui/overlays';
 import { emptyRecords, updateRecords, updateSurvivalBest, type Records } from './core/run/records';
 import { SaveStore, type SaveKey } from './save/SaveStore';
 import type { BattleSeal } from './core/run/run';
+import { acrescentarCopia, lerJornada } from './core/run/carregamento';
 import { SettingsStore, graphicsFrom } from './settings/Settings';
 import { AudioEngine, type SfxName } from './audio/AudioEngine';
 import { CoachTips } from './ui/CoachTips';
@@ -159,17 +159,30 @@ audio.playMenuMusic(MUSIC.menu);
 // ---------- Run (jornada de 3 atos) salva localmente ----------
 const RUN_KEY: SaveKey = 'run';
 const META_KEY: SaveKey = 'meta';
+/** Lista de cópias das jornadas que o jogo não entendeu ('runBackup'). Só acrescenta: nunca apaga uma cópia. */
+function guardarCopiaDaJornada(raw: string, motivo: string): boolean {
+  return SaveStore.set('runBackup', acrescentarCopia(SaveStore.get('runBackup'), raw, motivo, new Date().toISOString()));
+}
+/** Grava a jornada no disco. Não grava se o save antigo ainda não tem cópia (ver loadRun): não sobrescreve. */
+function gravarJornada(): boolean {
+  if (jornadaBloqueada) return false;
+  return SaveStore.set(RUN_KEY, JSON.stringify(semArvoreNoSave(run)));
+}
+/** Lê a jornada salva. Versões antigas são migradas. Um save que o jogo não entende (ilegível ou de versão nova)
+ * não é apagado: vai para a lista de cópias antes de qualquer gravação nova. Se a cópia falhar, a jornada não grava. */
 function loadRun(): RunState | undefined {
+  let raw: string | null;
   try {
-    const raw = SaveStore.get(RUN_KEY);
-    if (raw) {
-      const r = JSON.parse(raw) as RunState;
-      if (r && r.version === 1 && r.profile?.heroes?.warrior && !r.ended) return migrateRun(r);
-      saveDiscarded = true;
-    }
+    raw = SaveStore.get(RUN_KEY);
   } catch {
     saveDiscarded = true;
+    return undefined;
   }
+  const leitura = lerJornada(raw);
+  if (leitura.tipo === 'nova' || leitura.tipo === 'encerrada') return undefined;
+  if (leitura.tipo === 'ok' || leitura.tipo === 'migrada') return leitura.run;
+  saveDiscarded = true;
+  if (raw !== null && !guardarCopiaDaJornada(raw, leitura.tipo)) jornadaBloqueada = true;
   return undefined;
 }
 /** Itens já vistos: só os NOVOS entram no equipar automático (o que o jogador desequipa fica quieto). */
@@ -197,13 +210,15 @@ function saveProfile(): void {
   autoGear();
   if (bastionSession.active) return bastionSession.saveState(); // no Bastião, o save da jornada não é tocado
   try {
-    if (!SaveStore.set(RUN_KEY, JSON.stringify(semArvoreNoSave(run)))) hud.log('Não foi possível salvar o progresso (disco cheio ou sem permissão?).', 'warn');
+    if (!gravarJornada() && !jornadaBloqueada) hud.log('Não foi possível salvar o progresso (disco cheio ou sem permissão?).', 'warn');
   } catch {
     /* ignora */
   }
 }
 /** O save em disco existia mas foi descartado (corrompido/versão inválida): avisar no menu. */
 let saveDiscarded = false;
+/** Há um save antigo que não entendemos e a cópia dele falhou: a jornada não grava por cima até liberar espaço. */
+let jornadaBloqueada = false;
 /** Conquistas entre jornadas (liberam as classes avançadas) — no mesmo save do jogador. */
 function loadMetaStats(): MetaStats {
   try {
@@ -519,6 +534,7 @@ const bastionSession = new BastionSession({
   openArvore: () => openArvore(),
   setRun: (r) => {
     run = r;
+    seenItems = undefined; // a run trocada tem ids próprios: os vistos da anterior não valem (ver autoGear)
     anexarArvore(run.profile, arvoreMeta);
   },
   profile: () => profile,
@@ -835,6 +851,7 @@ function openCharSelect(): void {
   charSelect.open((h) => {
     charSelect.close();
     run = newRun(h, novaSemente());
+    seenItems = undefined; // jornada nova: ids recomeçam, então os vistos da anterior não valem (ver autoGear)
     anexarArvore(run.profile, arvoreMeta);
     profile = run.profile;
     applyCardLoadout(run.profile, loadMetaStats().collection ?? emptyCollection());
@@ -929,7 +946,7 @@ function startHorde(): void {
     // a formação fica salva para as próximas hordas (a última e a desta zona)
     run.lastLayout = structuredClone(setup);
     run.layouts = { ...run.layouts, [ZONE_STATE.current.id]: structuredClone(setup) };
-    SaveStore.set(RUN_KEY, JSON.stringify(semArvoreNoSave(run)));
+    gravarJornada();
   }
   sim.start();
   hud.log('A horda se aproxima!', 'warn');
@@ -956,7 +973,7 @@ function resumeBattle(seal: BattleSeal): void {
 // Ao fechar a janela (X, ALT+F4): grava o relógio da jornada. Queda/travamento não passa por aqui —
 // por isso o selo de batalha já está no disco desde o início da horda.
 window.addEventListener('beforeunload', () => {
-  if (hasSavedRun && !bastionSession.active) SaveStore.set(RUN_KEY, JSON.stringify(semArvoreNoSave(run)));
+  if (hasSavedRun && !bastionSession.active) gravarJornada();
   SaveStore.flush(); // o Bastião pode ainda estar na fila de gravação em segundo plano
 });
 
@@ -1221,7 +1238,8 @@ function returnToMenu(): void {
   audio.playMenuMusic(MUSIC.menu, MUSIC.fadeMs);
   if (saveDiscarded) {
     saveDiscarded = false;
-    hud.log('Save inválido ou de outra versão — começando do zero.', 'warn');
+    if (jornadaBloqueada) hud.log('Save que o jogo não reconhece e a cópia falhou: a jornada não será salva até haver espaço no disco.', 'warn');
+    else hud.log('Save que o jogo não reconhece (ilegível ou de versão nova). Uma cópia foi guardada; começando do zero.', 'warn');
   }
   menu.open();
 }
