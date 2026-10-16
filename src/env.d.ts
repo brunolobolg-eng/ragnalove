@@ -20,7 +20,7 @@ interface Window {
     };
     /** Save do jogador em userData/saves (gravação atômica + cópia .bak). `null` = ainda não existe. */
     save?: {
-      read(): { run: string | null; meta: string | null; bastion: string | null };
+      read(): { run: string | null; meta: string | null; bastion: string | null; runBackup: string | null };
       write(key: 'run' | 'meta' | 'bastion' | 'bastionBackup' | 'runBackup', text: string): boolean;
       writeAsync(key: 'run' | 'meta' | 'bastion' | 'bastionBackup' | 'runBackup', text: string): Promise<boolean>;
     };

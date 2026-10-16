@@ -1381,3 +1381,46 @@ Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridg
 - `src/config/temporadas.ts` tem `new Date()` como valor padrão (baixa; só a interface importa o arquivo).
 
 **Estado:** a revisão de saves e a de reprodução do sim:check ainda estavam em andamento quando esta entrada foi escrita. Os achados acima já têm evidência. Entradas novas, se houver, vão para o log à parte.
+
+## 2026-10-16 — Opção A: sequência de sorteios guardada no save (versão 2)
+
+**Decisão do dono:** opção A (guardar a posição do sorteio no save, com migração). A recarga continua a sequência de onde parou, em vez de repetir o início.
+
+**O que mudou:**
+- `RunState` ganha `sorteio: { estado, itens }` e vai para a versão 2. Cada sorteio grava o novo estado na própria run (`SorteioDaRun`). O contador de ids de item fica no mesmo campo.
+- `migrateRun` converte a v1: o estado começa da seed (como a versão anterior fazia ao abrir), e o contador começa acima do maior id `it-<base36>` visível no save. Cada campo é conferido sozinho.
+- `lerJornada` (núcleo, pura) decide o que fazer com o texto do save: nova, ok, migrada, versão futura, corrompida ou encerrada. Versão futura ou ilegível não é migrada nem apagada.
+- `acrescentarCopia`: a lista `runBackup` só cresce. Cada jornada não entendida entra nela, e a v1 entra antes da migração.
+- Se a cópia falhar, `jornadaBloqueada` impede a gravação por cima e o encerramento da jornada (sem crédito de Zen). O aviso aparece uma vez por sessão.
+- Ao trocar de run (jornada nova ou entrada no Bastião), os itens vistos da anterior são zerados. Sem isso, o equipar automático deixava de funcionar depois de uma derrota.
+- Electron: a leitura devolve `runBackup` e o texto do principal mesmo quando ele não abre (antes virava "save novo" e era apagado na primeira gravação).
+
+**Provas:**
+- `npm run saves:check` (31 ok): fixtures reais de `867ac0d` e `f3b5bd9` (gerados com o código de cada versão, em `tests/saves/`) e `jornada_v2.json`. Migram, mantêm a seed, não reemitem id já usado, e a recarga não repete nem pula. Um controle com recarga que reinicia a seed é pego. Entradas inválidas, contador enorme, campo inválido e loja malformada são tratados.
+- `npm run determinismo:check`: agora exige que a recarga continue a sequência.
+- Teste de propriedade fora do repositório (verificação adversarial): 230 sequências, 27.600 ações, recarga antes de cada ação. Zero divergências depois da correção do reuso de id (antes, uma).
+- O código antigo diverge em 40 de 40 sequências. A recarga errada (volta à seed, zera o contador, ou consome um sorteio) falha em 70 de 70.
+
+**O que a verificação achou e foi corrigido:**
+- (alta) `encerrarJornada` gravava `run` por cima mesmo bloqueada. Agora não grava e não credita.
+- (média) Electron não lia `runBackup` de volta: a segunda cópia apagava a primeira. Corrigido.
+- (média) JSON ilegível sem `.bak` virava "save novo". Corrigido: o texto principal é devolvido ao jogo.
+- (média) Bloqueio mudo durante a partida. Agora o aviso sai uma vez e o texto diz o que fazer.
+- (baixa) Exceção na leitura não bloqueava. Corrigido.
+- (baixa, reproduzida) Migração v1 reemitia ids de itens vendidos. Corrigido com o maior id visível.
+- (baixa) Contador acima de 2^53 travava o segundo sorteio (`do/while` sem saída). Limite de 1e9. Corrigido.
+- (baixa) Um campo inválido do sorteio jogava fora o outro. Corrigido.
+- (baixa) Loja malformada derrubava os sorteios. Corrigido (sai do save; a cidade regenera).
+
+**Limites conhecidos (registrados, não corrigidos):**
+- O primeiro sorteio depois da migração de um save v1 repete o conteúdo do primeiro sorteio de uma run nova com a mesma seed. Uma vez por save v1; o save v1 não guardava a posição.
+- Um item vendido antes da migração, com número acima do maior id visível, pode voltar a ter o mesmo id. O save não guarda esse número.
+
+**Pendências (fora desta mudança, no desenho, seção 11):**
+- Ids de drop de combate não passam pelo contador da run e podem repetir entre batalhas. A verificar.
+- `bastionBackup` sobrescreve a cópia anterior.
+- `Simulation` usa `GAME_CONFIG.wave.seed` como padrão, um global que `applyZone` reescreve.
+- Pacote de cartas da vitória sorteia com `Math.random` na interface.
+- Loja e cofre dividem o mesmo sorteio: a ordem das ações escolhe o estoque. Decisão de design a registrar.
+
+**Commits:** `179a8f7` (sorteio no save, migração, checagens), `5334afa` (ligação com a interface, runBackup, bloqueio), e o commit seguinte (correções da verificação, desenho e log).

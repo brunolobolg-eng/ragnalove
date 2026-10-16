@@ -158,18 +158,45 @@ export function migrateRun(r: RunState): RunState {
   if (!Number.isFinite(r.seed)) r.seed = 1;
   r.damage ??= 0;
   r.playMs ??= 0;
-  // v1 → v2: o sorteio passa a ser guardado no save. Um save antigo começa a sequência da seed, como a versão anterior.
-  r.sorteio = sorteioValido(r.sorteio) ?? sorteioInicial(r.seed >>> 0);
+  // v1 → v2: o sorteio passa a ser guardado no save. Um save antigo começa a sequência da seed, como a versão
+  // anterior, e o contador de ids começa acima dos ids já visíveis (senão reemite id de item vendido).
+  // Cada campo é conferido sozinho: um campo inválido não joga fora o outro.
+  const lido = (r.sorteio ?? {}) as Partial<Sorteio>;
+  r.sorteio = {
+    estado: estadoValido(lido.estado) ? lido.estado! >>> 0 : sorteioInicial(r.seed >>> 0).estado,
+    itens: itensValido(lido.itens) ? lido.itens! : maiorContadorVisivel(r),
+  };
+  // loja malformada (save editado) não pode derrubar os sorteios: a cidade regenera a loja quando ela some
+  if (!Array.isArray(r.shop) || r.shop.some((it) => !it || typeof it.id !== 'string')) delete r.shop;
   r.version = VERSAO_JORNADA;
   return r;
 }
 
-/** Sorteio lido do save, se for válido (estado numérico e contador inteiro não negativo). */
+/** Limite do contador de ids: acima disso o save foi editado à mão (e um float enorme travaria o sorteio). */
+const LIMITE_CONTADOR = 1_000_000_000;
+const estadoValido = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+const itensValido = (x: unknown): x is number => typeof x === 'number' && Number.isSafeInteger(x) && x >= 0 && x <= LIMITE_CONTADOR;
+
+/** Maior contador já usado por um id `it-<base36>` visível na run (bolsa, equipados, loja). Ids antigos, com tempo, não contam. */
+export function maiorContadorVisivel(r: RunState): number {
+  let maior = 0;
+  const olhar = (id: unknown) => {
+    const m = typeof id === 'string' ? /^it-([0-9a-z]+)$/.exec(id) : null;
+    if (!m) return;
+    const n = parseInt(m[1], 36);
+    if (n <= LIMITE_CONTADOR) maior = Math.max(maior, n);
+  };
+  for (const it of r.profile?.inventory ?? []) olhar(it?.id);
+  for (const h of Object.values(r.profile?.heroes ?? {})) for (const it of Object.values(h?.equipment ?? {})) olhar(it?.id);
+  for (const it of r.shop ?? []) olhar(it?.id);
+  return maior;
+}
+
+/** Sorteio lido do save, se for válido (estado numérico e contador inteiro, não negativo e dentro do limite). */
 export function sorteioValido(s: unknown): Sorteio | undefined {
   if (!s || typeof s !== 'object') return undefined;
   const { estado, itens } = s as Partial<Sorteio>;
-  if (typeof estado !== 'number' || !Number.isFinite(estado)) return undefined;
-  if (typeof itens !== 'number' || !Number.isInteger(itens) || itens < 0) return undefined;
+  if (!estadoValido(estado) || !itensValido(itens)) return undefined;
   return { estado: estado >>> 0, itens };
 }
 

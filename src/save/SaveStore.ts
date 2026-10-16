@@ -41,7 +41,7 @@ function load(): Record<SaveKey, string | null> {
   const disk = window.vanguardaDesktop?.save;
   if (!disk) return (cache = { run: legacyGet('run'), meta: legacyGet('meta'), bastion: legacyGet('bastion'), bastionBackup: legacyGet('bastionBackup'), runBackup: legacyGet('runBackup') });
   const files = disk.read();
-  cache = { run: files.run, meta: files.meta, bastion: files.bastion ?? null, bastionBackup: null, runBackup: null };
+  cache = { run: files.run, meta: files.meta, bastion: files.bastion ?? null, bastionBackup: null, runBackup: files.runBackup ?? null };
   for (const key of KEYS) {
     if (cache[key] !== null) continue;
     const old = legacyGet(key);

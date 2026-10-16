@@ -175,12 +175,19 @@ function loadRun(): RunState | undefined {
   try {
     raw = SaveStore.get(RUN_KEY);
   } catch {
+    // não sabemos o que há no disco: a sessão não grava por cima
     saveDiscarded = true;
+    jornadaBloqueada = true;
     return undefined;
   }
   const leitura = lerJornada(raw);
   if (leitura.tipo === 'nova' || leitura.tipo === 'encerrada') return undefined;
-  if (leitura.tipo === 'ok' || leitura.tipo === 'migrada') return leitura.run;
+  if (leitura.tipo === 'ok') return leitura.run;
+  if (leitura.tipo === 'migrada') {
+    // a migração preserva os dados; a versão antiga também vai para a lista de cópias, por segurança
+    if (raw !== null) guardarCopiaDaJornada(raw, `migrada da versão ${leitura.deVersao}`);
+    return leitura.run;
+  }
   saveDiscarded = true;
   if (raw !== null && !guardarCopiaDaJornada(raw, leitura.tipo)) jornadaBloqueada = true;
   return undefined;
@@ -210,10 +217,20 @@ function saveProfile(): void {
   autoGear();
   if (bastionSession.active) return bastionSession.saveState(); // no Bastião, o save da jornada não é tocado
   try {
-    if (!gravarJornada() && !jornadaBloqueada) hud.log('Não foi possível salvar o progresso (disco cheio ou sem permissão?).', 'warn');
+    if (!gravarJornada()) {
+      if (jornadaBloqueada) avisaBloqueio();
+      else hud.log('Não foi possível salvar o progresso (disco cheio ou sem permissão?).', 'warn');
+    }
   } catch {
     /* ignora */
   }
+}
+let avisoDeBloqueioDado = false;
+/** Com a jornada bloqueada nada é gravado: avisa uma vez por sessão, e não a cada ação. */
+function avisaBloqueio(): void {
+  if (avisoDeBloqueioDado) return;
+  avisoDeBloqueioDado = true;
+  hud.log('A jornada não está sendo salva: o save antigo não pôde ser copiado. Reinicie o jogo com espaço no disco.', 'warn');
 }
 /** O save em disco existia mas foi descartado (corrompido/versão inválida): avisar no menu. */
 let saveDiscarded = false;
@@ -254,6 +271,11 @@ function loadBanco(): BancoZen {
  * chave da jornada; depois o save da jornada já marcada como encerrada. Chamar de novo não paga de novo.
  */
 function encerrarJornada(desfecho: DesfechoCampanha): void {
+  // com o save antigo sem cópia, a jornada não é gravada nem credita o Zen (ver loadRun)
+  if (jornadaBloqueada) {
+    hud.log('A jornada não foi encerrada no disco: reinicie o jogo com espaço no disco.', 'warn');
+    return;
+  }
   const valor = creditoCampanha(run.profile.zenGanho ?? 0, desfecho);
   const r = gravarComCredito(discoDoJogo, chaveJornada(run.seed), valor, { chave: 'run', texto: JSON.stringify(semArvoreNoSave(run)) });
   if (r === 'falhou') hud.log('Não foi possível salvar o progresso (disco cheio ou sem permissão?).', 'warn');
@@ -1238,7 +1260,7 @@ function returnToMenu(): void {
   audio.playMenuMusic(MUSIC.menu, MUSIC.fadeMs);
   if (saveDiscarded) {
     saveDiscarded = false;
-    if (jornadaBloqueada) hud.log('Save que o jogo não reconhece e a cópia falhou: a jornada não será salva até haver espaço no disco.', 'warn');
+    if (jornadaBloqueada) hud.log('O save antigo não pôde ser copiado: a jornada não será salva até reiniciar o jogo com espaço no disco.', 'warn');
     else hud.log('Save que o jogo não reconhece (ilegível ou de versão nova). Uma cópia foi guardada; começando do zero.', 'warn');
   }
   menu.open();

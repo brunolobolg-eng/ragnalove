@@ -155,6 +155,13 @@ Saves reais de versões antigas ficam em `tests/saves/` (geradas pelo código de
 
 Meta, Bastião e banco de Zen: sem mudança de formato nesta etapa. A árvore global continua no meta (`arvore`).
 
+Cópias (`runBackup`): cada jornada que o jogo não entende (ilegível ou de versão nova) e o save v1 antes da migração entram numa lista que só cresce. Nenhuma cópia é apagada. Se a cópia falhar, a jornada não grava por cima e não credita o Zen, e o jogo avisa uma vez por sessão. No executável, a leitura devolve a cópia e o texto do principal mesmo quando ele não abre.
+
+Limites conhecidos da migração (registrados, não corrigidos):
+- Um save v1 não guardava a posição do sorteio. O primeiro sorteio depois da migração repete o conteúdo do primeiro sorteio de uma run nova com a mesma seed. Acontece uma vez por save v1.
+- O contador de ids começa acima do maior id `it-<base36>` visível no save. Um item vendido antes da migração, com número acima do maior visível, pode voltar a ter o mesmo id. O save não guarda esse número.
+- Contador acima de 1e9 é tratado como save editado: volta ao maior id visível.
+
 ## 9. Arte e assets
 
 Regras 6, 7 e 8 do `CLAUDE.md`:
@@ -178,6 +185,7 @@ Grupos cobertos:
 - Determinismo: `determinismo:check` (nenhum sorteio fora da semente no núcleo; a mesma semente dá a mesma jornada).
 - Regras de carta: `cartas:check` e `cartas:regras:check` (efeitos na batalha). A linha de base da campanha sem cartas foi re-ancorada em `d2146067`, quando o palhaço entrou nos Campos Cinzentos de propósito.
 - Sistemas da jornada: `sistemas:check`, `run:check` (economia), `eventos:check`, `sobrevivencia:check`, `zonas:alcance:check` (toda zona navegável), `editor:check` (integração do editor de mapas), `arena:habilidades:check`, `armas:check`, `runas:check`, `bruxa:check`, `agressao:check` e `foco:check`.
+- Saves: `saves:check` (saves reais de 867ac0d e f3b5bd9 em `tests/saves/` abrem e migram; recarga não repete nem pula; entradas inválidas não são migradas à força; lista de cópias só cresce).
 - Texto: `zen:texto:check` (nenhum "Zeni" visível; identificadores como `ganharZeni` não contam).
 
 Fora do comando:
@@ -191,6 +199,11 @@ Fora do comando:
 - `src/main.ts` grande: 2973 linhas, com textos de balanceamento misturados ao código. Quantidade exata de textos: a confirmar.
 - UI reescrita por `innerHTML`: 57 usos em 22 arquivos de `src/ui/`.
 - Arte mista: a arte do dono (WebP e GLB) convive com primitivas do three.js. `scripts/cenarioCheck.ts` ainda aceita 19 primitivas em `Scenery.ts` (tema `town`, que nenhuma fase usa).
+- Ids de drop de combate (`src/core/sim/Simulation.ts`, `it-<tick>-<id>-<n>`): não passam pelo contador da run, e o contador de unidades recomeça em cada batalha. Podem repetir entre batalhas. A verificar com duas batalhas seguidas.
+- Cópia do Bastião (`bastionBackup`): cada cópia nova sobrescreve a anterior. Só a lista da jornada (`runBackup`) acumula.
+- Seed da batalha: `Simulation` usa `GAME_CONFIG.wave.seed` como padrão, um global que `applyZone` reescreve. A campanha passa a seed certa pela ordem das chamadas, mas nada no núcleo impõe isso.
+- Pacote de cartas da vitória: `src/main.ts` sorteia com `Math.random`. A regra é do núcleo, mas a sorte vem da interface.
+- Loja e cofre dividem o mesmo sorteio da jornada: a ordem das ações escolhe o estoque. Decisão de design a registrar.
 
 ## 12. Decisões em aberto
 

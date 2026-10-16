@@ -13,7 +13,7 @@ import { readFileSync, readdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { acrescentarCopia, lerJornada } from '../src/core/run/carregamento';
-import { makeItem, sorteioInicial, sorteioValido, VERSAO_JORNADA } from '../src/core/run/run';
+import { makeItem, maiorContadorVisivel, sorteioInicial, sorteioValido, VERSAO_JORNADA } from '../src/core/run/run';
 
 const RAIZ = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const PASTA = join(RAIZ, 'tests', 'saves');
@@ -63,7 +63,8 @@ for (const nome of ['jornada_v1_867ac0d.json', 'jornada_v1_f3b5bd9.json']) {
   if (!('run' in L)) continue;
   const r = L.run;
   ok(r.version === VERSAO_JORNADA && r.seed === dados.seed, `${nome}: vira a versão ${VERSAO_JORNADA} e mantém a seed`);
-  ok(JSON.stringify(r.sorteio) === JSON.stringify(sorteioInicial(r.seed)), `${nome}: sorteio começa da seed, como a versão anterior fazia`);
+  ok(r.sorteio.estado === sorteioInicial(r.seed).estado, `${nome}: sequência de sorteios começa da seed, como a versão anterior fazia`);
+  ok(r.sorteio.itens === maiorContadorVisivel(r), `${nome}: contador de ids começa no maior id visível (não reemite id já usado)`);
   ok(r.profile.inventory.length === dados.profile.inventory.length, `${nome}: inventário preservado (${r.profile.inventory.length} itens)`);
   const usados = new Set([...r.profile.inventory, ...(r.shop ?? [])].map((it) => it.id));
   const novo = makeItem(r, 'rare');
@@ -139,6 +140,45 @@ for (const [nome, raw, esperado] of casos) {
 ok(sorteioValido({ estado: NaN, itens: 0 }) === undefined, 'sorteioValido recusa estado NaN');
 ok(sorteioValido({ estado: 1, itens: -1 }) === undefined, 'sorteioValido recusa contador negativo');
 ok(sorteioValido({ estado: 1, itens: 1.5 }) === undefined, 'sorteioValido recusa contador fracionado');
+ok(sorteioValido({ estado: 1, itens: 2 ** 53 }) === undefined, 'sorteioValido recusa contador acima de 2^53 (trava o sorteio)');
+ok(sorteioValido({ estado: 1, itens: 1_000_000_001 }) === undefined, 'sorteioValido recusa contador acima do limite de 1e9');
+
+// ---------- 5) Migração endurecida: contador de ids, campos inválidos e loja malformada ----------
+{
+  const raw = readFileSync(join(PASTA, 'jornada_v1_f3b5bd9.json'), 'utf8');
+  const r = lerJornada(raw).run;
+  const maior = maiorContadorVisivel(r);
+  ok(r.sorteio.itens === maior && maior > 0, `v1: contador de ids começa no maior id visível (${maior})`);
+  // um item emitido e vendido não pode voltar: remove o de maior id da run e sorteia de novo
+  const numero = (it) => parseInt(it.id.slice(3), 36);
+  const maiorId = Math.max(...[...r.profile.inventory, ...(r.shop ?? [])].map(numero));
+  r.profile.inventory = r.profile.inventory.filter((it) => numero(it) !== maiorId);
+  r.shop = (r.shop ?? []).filter((it) => numero(it) !== maiorId);
+  const novo = makeItem(r, 'rare');
+  ok(numero(novo) > maiorId, `v1: item novo não reusa id emitido e vendido (${novo.id} depois de it-${maiorId.toString(36)})`);
+}
+{
+  const L = lerJornada(JSON.stringify({ ...v2, sorteio: { estado: v2.sorteio.estado, itens: 2 ** 53 } }));
+  ok(L.run.sorteio.itens <= 1_000_000_000 && Number.isSafeInteger(L.run.sorteio.itens), 'contador enorme no save: volta a um valor seguro');
+  const a = makeItem(L.run, 'rare');
+  const b = makeItem(L.run, 'rare');
+  ok(a.id !== b.id, 'contador enorme no save: os sorteios seguem sem travar e com ids diferentes');
+}
+{
+  const L = lerJornada(JSON.stringify({ ...v2, sorteio: { estado: v2.sorteio.estado, itens: -1 } }));
+  ok(L.run.sorteio.estado === v2.sorteio.estado, 'campo inválido (itens) não joga fora um estado válido: a sequência continua');
+}
+{
+  const L = lerJornada(JSON.stringify({ ...v2, sorteio: { estado: 'x', itens: 2 } }));
+  ok(L.run.sorteio.estado === sorteioInicial(v2.seed).estado && L.run.sorteio.itens === 2, 'estado inválido: volta ao estado da seed e mantém o contador válido');
+}
+{
+  const L1 = lerJornada(JSON.stringify({ ...v2, shop: {} }));
+  ok(L1.tipo === 'ok' && L1.run.shop === undefined, 'loja malformada ({}): sai do save, a cidade regenera a loja');
+  ok(typeof makeItem(L1.run, 'rare').id === 'string', 'loja malformada: os sorteios continuam funcionando');
+  const L2 = lerJornada(JSON.stringify({ ...v2, shop: [null] }));
+  ok(L2.run.shop === undefined, 'loja com item nulo: sai do save');
+}
 
 if (falhas) {
   console.log(`\nsaves: ${falhas} falha(s)`);

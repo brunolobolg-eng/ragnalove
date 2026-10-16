@@ -226,8 +226,25 @@ function readSave(key) {
   return null;
 }
 
+/** Como readSave, mas, se nem o principal nem a cópia abrem, devolve o texto do principal mesmo assim: quem decide
+ * o que fazer com ele é o jogo (lerJornada), que guarda a cópia antes de qualquer gravação. Nunca vira "sem save". */
+function readSaveComTexto(key) {
+  const bom = readSave(key);
+  if (bom !== null) return bom;
+  try {
+    return fs.readFileSync(saveFile(key), 'utf8');
+  } catch {
+    return null;
+  }
+}
+
 ipcMain.on('vg:save-read', (e) => {
-  e.returnValue = { run: readSave('run'), meta: readSave('meta'), bastion: readSave('bastion') };
+  e.returnValue = {
+    run: readSaveComTexto('run'),
+    meta: readSave('meta'),
+    bastion: readSave('bastion'),
+    runBackup: readSaveComTexto('runBackup'),
+  };
 });
 
 /** Grava o save de forma atômica: arquivo temporário, fsync, cópia .bak do atual (se legível) e troca. Devolve false se falhar. */
