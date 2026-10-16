@@ -160,7 +160,7 @@ Regras 6, 7 e 8 do `CLAUDE.md`:
 
 ## 10. Testes
 
-`npm run check` roda o build (`tsc --noEmit` e `vite build`) e as 13 checagens abaixo, em ordem alfabética, cada uma com timeout de 900 s. Opções: `npm run check:rapido` (sem o build) e `npm run check -- --so=<nome>` (uma etapa só). Fonte: `scripts/checkAll.ts`.
+`npm run check` roda o build (`tsc --noEmit` e `vite build`) e todas as checagens do `package.json` (29 no total), em ordem alfabética, cada uma com timeout de 900 s. Opções: `npm run check:rapido` (sem o build) e `npm run check -- --so=<nome>` (uma etapa só). Fonte: `scripts/checkAll.ts`.
 
 Grupos cobertos:
 - Build: typecheck e build do Vite.
@@ -171,10 +171,13 @@ Grupos cobertos:
 - Auras: `aura:check` (chance 0 e chance 1, no Bastião e na campanha).
 - Cenário: `cenario:check` (conta primitivas sólidas no cenário da campanha).
 - Vocações: `vocation:check` (dados, escolha, atributos e save) e `vocation:skills:check` (árvores de Crusado e Hypnomancer, 20 habilidades cada).
+- Determinismo: `determinismo:check` (nenhum sorteio fora da semente no núcleo; a mesma semente dá a mesma jornada).
+- Regras de carta: `cartas:check` e `cartas:regras:check` (efeitos na batalha). A linha de base da campanha sem cartas foi re-ancorada em `d2146067`, quando o palhaço entrou nos Campos Cinzentos de propósito.
+- Sistemas da jornada: `sistemas:check`, `run:check` (economia), `eventos:check`, `sobrevivencia:check`, `zonas:alcance:check` (toda zona navegável), `editor:check` (integração do editor de mapas), `arena:habilidades:check`, `armas:check`, `runas:check`, `bruxa:check`, `agressao:check` e `foco:check`.
+- Texto: `zen:texto:check` (nenhum "Zeni" visível; identificadores como `ganharZeni` não contam).
 
 Fora do comando:
 - `ui:fora-da-tela`: precisa de servidor de dev aberto (`npx vite --port 5561`) e de Chromium com Playwright.
-- 15 arquivos de checagem em `scripts/` sem entrada no `package.json`, portanto não rodam no `npm run check`: `aggressionCheck.ts`, `armBindCheck.ts`, `cardCheck.ts`, `cardRuleCheck.ts`, `eventCheck.ts`, `focusCheck.ts`, `mapEditorCheck.ts`, `runCheck.ts`, `runicCheck.ts`, `skillArenaCheck.ts`, `survivalCheck.ts`, `systemsCheck.ts`, `warlockCheck.ts`, `zoneReachCheck.ts` e `zenTextCheck.mjs`.
 - Verificação visual no navegador (screenshot do jogo rodando) não entra no comando. É obrigatória para mudança de UI ou visual (regra 5).
 
 ## 11. Dívida técnica conhecida

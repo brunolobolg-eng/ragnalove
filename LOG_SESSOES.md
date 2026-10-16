@@ -1319,3 +1319,41 @@ Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridg
 - eebd175 CLAUDE.md: regra 5 passa a exigir npm run check e screenshot para UI
 - 6d92579 Registro da estabilização parte 1 em LOG_SESSOES.md
 - (esta correção) docs/DESENHO.md: vocações sem desenho aparecem como "Em breve" (valor confirmado no código, `null` em `src/config/vocations.ts`)
+
+## 2026-10-16 — Estabilização parte 2: checagens completas, determinismo do núcleo e revisão
+
+**O que mudou:**
+- Determinismo do núcleo (branch `estab-nucleo`, integrada): `newRun(starter, seed)` exige a semente, que vem da interface (`novaSemente()` em `src/main.ts`). Os sorteios de loot, loja, refino, eventos, cofres e sobrevivência saem de um fluxo derivado da semente da jornada. Ids de item viram `it-<contador>`, sem relógio. Nenhum campo novo é salvo, então não há migração.
+- `npm run determinismo:check`: varredura de `src/core` (sem chamadas proibidas) e prova de que a mesma semente dá a mesma jornada.
+- `npm run check`: 30 etapas (build e 29 checagens), todas ok. Passaram a entrar no comando as 15 checagens que estavam só em `scripts/`.
+- `zenTextCheck`: falso positivo corrigido. Ele acusava identificadores como `ganharZeni` e `startZeni`. Agora só conta "Zeni" que começa uma palavra. Não havia texto visível com "Zeni".
+- `cardRuleCheck`: a linha de base da campanha sem cartas foi re-ancorada (`82f09eb9acc64759`, antes `00fdbdc44cff71e4`). Bisect entre `69714ce` e `867ac0d` apontou `d2146067` como o primeiro commit que muda o hash. Esse commit pôs o palhaço na mistura dos Campos Cinzentos, de propósito. O motor não mudou: o hash é o mesmo no `867ac0d` e no branch.
+- `docs/DESENHO.md` e a regra 5 do CLAUDE.md foram atualizados para refletir as checagens registradas.
+
+**Verificação:**
+- `sim:check`: `determinístico: true`. Saída igual à do `867ac0d` (diff vazio, medido pelo agente de determinismo).
+- A linha de base do `sim:check` não foi alterada.
+
+**Decisão em aberto (do dono):**
+- O fluxo de sorteio não é salvo. Ao recarregar o jogo, ele recomeça da semente: dentro da sessão continua de onde parou, mas depois de uma recarga o próximo loot, loja ou refino sai igual ao da primeira vez. Antes da mudança, cada carga do jogo gerava aleatoriedade nova. Hoje, recarregar permite aprender a sequência e escolher o momento. Opções: (a) gravar a posição do fluxo no save, com campo novo e migração, junto com a etapa de saves; (b) aceitar.
+
+**Pendências:**
+- Saves: adiados nesta etapa, como pedido. Incluem a posição do fluxo (acima), a migração e as fixtures.
+- `ui:fora-da-tela`: fica fora do comando, porque precisa de servidor de dev e de Chromium.
+- Pacote de cartas: `src/main.ts` usa `Math.random` na interface (`rollPack`). Está fora do núcleo, mas o determinismo do pacote é uma tarefa à parte.
+- Sobrevivência: a duração da noite não é medida; `horda:check` não cobre o modo.
+- Comentário desatualizado em `src/config/gameConfig.ts` (linha ~81): diz que o Detarderus é "mini-chefe do Passo da Geada", mas em `src/config/world.ts` ele fica no Covil do Detarderus. Não corrigido.
+- Zen inicial do Bastião (20): provisório, a confirmar pelo dono.
+- Conta nova morre em 50 de 55 noites (modo literal): decisão do dono, ver entrada de 2026-10-15.
+- Limpeza: a worktree `estab-check` e o cache de pip foram removidos para liberar espaço. Ainda há cerca de 12 GB de rascunhos em `scratchpad/` (cópias de trabalho antigas), a decidir.
+
+**Commits:**
+- `44ababa` Checagem única: npm run check roda o build e todas as checagens
+- `cb66940` Documento de desenho: docs/DESENHO.md com as 12 seções de referência
+- `4b0265d` CLAUDE.md: regra 5 passa a exigir npm run check e screenshot para UI
+- `8cb9594` Registro da estabilização parte 1 em LOG_SESSOES.md
+- `ae3c990` Desenho: vocações sem desenho aparecem como "Em breve"
+- `cbae78b` Núcleo determinístico: seed vem de fora e sorteios saem da semente
+- `00c2091` Checagem de determinismo do núcleo (determinismo:check)
+- `14b2ca6` Checagens: registra as 15 checagens fora do comando e corrige falso positivo do zenTextCheck
+- `b2ed067` Checagem de regras de carta: linha de base da campanha sem cartas re-ancorada em d2146067
