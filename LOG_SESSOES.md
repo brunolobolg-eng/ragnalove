@@ -1357,3 +1357,27 @@ Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridg
 - `00c2091` Checagem de determinismo do núcleo (determinismo:check)
 - `14b2ca6` Checagens: registra as 15 checagens fora do comando e corrige falso positivo do zenTextCheck
 - `b2ed067` Checagem de regras de carta: linha de base da campanha sem cartas re-ancorada em d2146067
+
+## 2026-10-16 — Revisão independente do determinismo: recarga repete sorteios (decisão urgente do dono)
+
+**Achado mais grave (alta):** desde o determinismo da jornada, o sorteio de loja, refino, cofre, evento e presente sai da seed da jornada, e a seed fica no save. O fluxo não é salvo, então ao recarregar ele recomeça da seed. Recarregar antes de cada tentativa de refino repete o mesmo resultado. Harness do revisor (cópia do branch, fora do repositório, 200 jornadas): em sementes com sorte favorável, chegar ao +10 leva 10 tentativas, sem falha, cerca de 3.700 Zen. Sem recarga, a média é 256 tentativas e 109.600 Zen.
+
+- Antes da mudança (`867ac0d`), o sorteio vinha do relógio a cada carga e não ficava no save. Recarregar não dava vantagem (3 sucessos em 20 tentativas, na mesma proporção de quem não recarregava). Agora dá. O problema é novo como previsibilidade e como custo.
+- Também previsíveis a partir do save: a vitrine da loja (primeiro item = `pool[floor(u0 × 4)]`, em 2000 de 2000 sementes), o cofre e o presente da primeira vitória (com recarga, o presente volta ao de quem não usou o cofre), e a aposta do evento (com recarga antes de cada aposta, vence 10 de 10 em cerca de 90% das sementes; o `paidKey` limita a uma vitória por nó).
+- Causa: o sorteio da jornada é função pura da seed, e a seed está no save em texto. A constante do fluxo está no código público.
+- O combate já era previsível pela seed do nó, na base e agora. Não mudou.
+
+**Opções (decisão do dono, nada aplicado):**
+- **(A) Gravar a posição do fluxo no save**, com campo novo e migração. A recarga continua a sequência: não repete e não rerrola. Previsível só para quem ler o JSON e calcular. Recomendado. Faz parte da etapa de saves.
+- **(B) Não guardar a posição nem a seed do fluxo**, e começar de entropia nova a cada carga (a interface fornece, como a base fazia com `Date.now`). Fecha a repetição já, sem migração. O combate continua reproduzível pela seed do nó. Volta a dar um resultado novo a cada carga, como antes.
+
+**O que a revisão achou além disso** (todos com harness próprio, fora do repositório):
+- `determinismo:check` dava falsa segurança: só rodava a jornada, e um sorteio escondido no combate passava. **Corrigido** nesta entrada (commit `876d04b`): jornada e batalha rodam com guarda que lança erro em `Math.random`, `Date.now`, `performance.now`, `new Date()` e `crypto`; a varredura estática cobre `globalThis`, `window`, imports de `crypto`/`fs`/`process` e `.js`/`.mjs`. Seis mutantes (combate, contador de módulo, `new globalThis.Date()`, alias, `Reflect`, arquivo fora do caminho executado) saem com código 1.
+- O check ainda não prova continuidade após recarga, e o cabeçalho diz isso. Esse é o ponto da opção A.
+- Simulação sem seed explícita: o construtor de `Simulation` usa `GAME_CONFIG.wave.seed`, um global que `applyZone` reescreve. Hoje a campanha passa a seed certa pela ordem das chamadas, mas nada no núcleo impõe isso (média). Pendência.
+- Pacote de cartas da vitória: `src/main.ts` sorteia com `rollPack(Math.random)` (baixa). A regra do pacote é do núcleo (`core/bastion/rules.ts` já recebe um RNG com semente), então a interface decide a sorte. Pergunta ao dono: o pacote deve sair da seed?
+- Bastião: cada entrada cria `newRun(party[0], b.seed)`, e o fluxo recomeça (baixa, sem efeito hoje, porque o Bastião não sorteia loja nem cofre na run).
+- Id de item: após vender um item e reabrir, o contador volta a 0 e um id pode ser reutilizado (baixa; não colide com item em uso).
+- `src/config/temporadas.ts` tem `new Date()` como valor padrão (baixa; só a interface importa o arquivo).
+
+**Estado:** a revisão de saves e a de reprodução do sim:check ainda estavam em andamento quando esta entrada foi escrita. Os achados acima já têm evidência. Entradas novas, se houver, vão para o log à parte.
