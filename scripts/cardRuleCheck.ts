@@ -18,8 +18,12 @@ import { lockedSkillKeys } from '../src/core/progression/skillSlots';
 import type { CardRuntime } from '../src/core/progression/cards';
 import type { SimEvent, Unit } from '../src/core/sim/types';
 
-/** Hash (FNV, ver Hash) dos eventos da campanha sem cartas, medido no motor antes das regras de carta (HEAD b47efdc). */
-const HASH_SEM_CARTAS = '00fdbdc44cff71e4';
+/**
+ * Hash (FNV, ver Hash) dos eventos da campanha sem cartas. Re-ancorado em d2146067: nesse commit o palhaço
+ * entrou na mistura dos Campos Cinzentos (mudança de conteúdo de propósito), e isso muda os eventos da campanha.
+ * Antes: 00fdbdc44cff71e4, medido no motor antes das regras de carta (HEAD b47efdc). Bisect confirmou o commit.
+ */
+const HASH_SEM_CARTAS = '82f09eb9acc64759';
 
 /** Hash FNV-1a de 64 bits (dois de 32) sobre o texto dos eventos. Sem módulos do Node (o tsconfig não os tem). */
 class Hash {
