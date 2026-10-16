@@ -25,8 +25,8 @@ Stack: TypeScript + Vite + Three.js, desktop via Electron (Windows/Steam). Sem f
 3. **Determinismo.** No `core`, use só o `Rng` com seed (`core/sim/rng.ts`). Nunca `Math.random()`/`Date.now()` na lógica.
 4. **Save é sagrado.** Mudou o formato de `RunState`/`Profile`? Escreva a migração (`migrateRun`/`migrateProfile`)
    para saves antigos continuarem abrindo.
-5. **Antes de dizer "pronto"**: `npm run build` (typecheck + build) e `npm run sim:check` devem passar.
-   Mudou UI/visual? Abra o jogo no Chromium headless (Playwright) e confira um screenshot.
+5. **Antes de dizer "pronto"**: `npm run check` precisa passar (build e todas as checagens).
+   Mudou UI/visual? Pede screenshot do jogo rodando (Chromium headless, Playwright).
 6. **Nada de arquivo-fonte pesado no repositório** (modelos originais, PSD, vídeos brutos). O jogo usa
    só versões otimizadas em `public/`. Fontes editáveis vão zipadas para a branch `fontes`.
 7. **GLB novo: antes de qualquer outra coisa, otimize e agregue as animações do jogo.** Otimizar:
