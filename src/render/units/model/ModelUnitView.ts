@@ -502,6 +502,18 @@ export class ModelUnitView {
     return b.localToWorld(out.copy(local));
   }
 
+  /**
+   * Ponta do golpe no mundo, no instante atual do clipe: a ponta da lâmina (espada presa ao osso da mão direita) ou,
+   * sem arma, o ponto `fist` no osso da mão direita. `undefined` se o modelo não tem esse osso. Só lê a pose.
+   */
+  strikeTip(out: THREE.Vector3, fist: THREE.Vector3): THREE.Vector3 | undefined {
+    this.root.updateMatrixWorld(true);
+    const blade = this.weapons.find((w) => w.userData.bladeTip instanceof THREE.Vector3);
+    if (blade) return blade.localToWorld(out.copy(blade.userData.bladeTip as THREE.Vector3));
+    const hand = this.mesh.skeleton.bones.find((x) => x.name === 'RightHand');
+    return hand ? hand.localToWorld(out.copy(fist)) : undefined;
+  }
+
   /** Posição de mundo aproximada do peito (alvo das almas e origem dos projéteis). */
   chestWorld(out = new THREE.Vector3()): THREE.Vector3 {
     this.root.getWorldPosition(out);

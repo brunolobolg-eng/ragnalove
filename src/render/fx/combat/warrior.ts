@@ -8,7 +8,7 @@ import { CLEAVE_IMPACT } from '../CleaveFX';
 import type { CombatVisualCtx, VisualUnit } from './CombatVisualCtx';
 import type { DemoEntry, DemoStep } from './demos';
 import { handleWarriorRunic } from './warriorRunic';
-import { WallRiseFX, WarriorBashFX, WarriorCleaveFX, WarriorFuryFX, WarriorShockFX, WarriorTauntFX } from './warriorFx';
+import { WallRiseFX, WarriorContactFX, WarriorFuryFX, WarriorShockFX, WarriorSlashFX, WarriorTauntFX } from './warriorFx';
 
 const C = WARRIOR_FX;
 
@@ -38,7 +38,8 @@ export function handleWarrior(e: SimEvent, c: CombatVisualCtx): boolean {
       const view = c.view(e.unitId);
       view?.setFacing(f.x, f.y, true);
       view?.attack('heavy');
-      c.add(new WarriorBashFX(from, target, c.kit, e.crit === true));
+      // a lâmina termina no instante em que o dano sai: o mesmo tempo que o GameView usa para adiar o alvo
+      c.add(new WarriorSlashFX(view, from, f, c.kit, C.bash, view?.impactSec?.('heavy') ?? BASH_IMPACT));
       c.spectre(e.unitId, C.bash.spectre);
       return true;
     }
@@ -48,7 +49,7 @@ export function handleWarrior(e: SimEvent, c: CombatVisualCtx): boolean {
       const view = c.view(e.unitId);
       view?.setFacing(e.facing.x, e.facing.y, true);
       view?.attack();
-      c.add(new WarriorCleaveFX(origin, e.facing, e.tiles, e.hitTiles, c.kit));
+      c.add(new WarriorSlashFX(view, origin, e.facing, c.kit, C.cleave, CLEAVE_IMPACT));
       c.spectre(e.unitId, C.cleave.spectre);
       return true;
     }
@@ -90,8 +91,19 @@ export function handleWarrior(e: SimEvent, c: CombatVisualCtx): boolean {
     case 'deathBound':
     case 'hundredSpear':
     case 'windCutter':
-    case 'damage':
       return handleWarriorRunic(e, c);
+    case 'damage': {
+      // impacto do golpe: só quando o dano sai (acerto). No erro, ou com o alvo preso, não há dano e não há impacto.
+      if (e.source === 'bash' || e.source === 'cleave') {
+        const at = c.pos(e.unitId);
+        if (at) {
+          const from = e.sourceId === undefined ? undefined : c.pos(e.sourceId);
+          const style = e.source === 'cleave' ? C.cleave : C.bash;
+          c.add(new WarriorContactFX(at.clone().setY(C.slash.chestHeight), from, c.kit, style, e.crit === true));
+        }
+      }
+      return handleWarriorRunic(e, c);
+    }
     default:
       return false;
   }

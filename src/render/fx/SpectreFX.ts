@@ -34,6 +34,8 @@ export class SpectreFX {
     if (!p || this.t > this.dur) {
       if (p) this.kit.particles.glow.emit({ pos: p, posJitter: 0.3, velJitter: 1.2, life: 0.4, size: 0.06, sizeEnd: 0.01, color: this.color, drag: 2, count: 6 });
       this.done = true;
+      // o grupo fica vazio (só partículas do pool): tira da cena para não acumular um objeto a cada golpe
+      this.group.removeFromParent();
       return;
     }
     this.acc += dt;

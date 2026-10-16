@@ -53,6 +53,9 @@ export const MAGIA_RECIPES: Record<string, MagiaRecipe> = {
   'bash:assassin': { element: 'blood', golpe: {} }, // Golpe Furtivo
   cleave: { element: 'blood', golpe: {} }, // Golpe em Área
   'cleave:assassin': { element: 'shadow', golpe: {} }, // Leque de Lâminas
+  // Guerreiro: sangue no contato (só quando o dano sai), para o erro não mostrar impacto
+  'dmg:bash:warrior': { element: 'blood', golpe: {} },
+  'dmg:cleave:warrior': { element: 'blood', golpe: {} },
   fury: { element: 'blood', aura: { vida: 1.5 }, brilho: { textura: 'levelup', vida: 0.8, tamanho: 1.7 } }, // Fúria
   taunt: { element: 'blood', circulo: { raio: 0 } }, // Provocar
   aggro: { element: 'blood', aura: { vida: 1.5 } }, // provocado

@@ -157,6 +157,8 @@ function sword(accent: number, len = 0.62, width = 0.05, guardW = 0.15, gripLen 
   const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), toon(0xd8b060, accent, 0.4));
   pommel.position.z = -gripLen - 0.005;
   g.add(blade, fuller, edge, guard, grip, pommel);
+  // ponta da lâmina no espaço da arma (a lâmina vai de z = 0 até o comprimento): os efeitos de corte seguem essa ponta
+  g.userData.bladeTip = new THREE.Vector3(0, 0, blade.position.z + len);
   return g;
 }
 

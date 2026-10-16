@@ -50,11 +50,12 @@ export class MagicVfx {
       case 'damage':
         if (e.source) this.golpeEm(`dmg:${e.source}`, e.unitId, e.sourceId);
         break;
+      // Guerreiro: o sangue sai no contato (dano: 'dmg:bash:warrior' / 'dmg:cleave:warrior'), não no início do golpe
       case 'bash':
-        this.area('bash', e.x, e.y, 0, { quem: e.unitId });
+        if (this.ctx.kindOf(e.unitId) !== 'warrior') this.area('bash', e.x, e.y, 0, { quem: e.unitId });
         break;
       case 'cleave':
-        for (const t of e.hitTiles.slice(0, 4)) this.area('cleave', t.x, t.y, 0, { quem: e.unitId });
+        if (this.ctx.kindOf(e.unitId) !== 'warrior') for (const t of e.hitTiles.slice(0, 4)) this.area('cleave', t.x, t.y, 0, { quem: e.unitId });
         break;
       case 'execute':
         this.area('execute', e.x, e.y, 0, { quem: e.unitId });

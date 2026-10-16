@@ -1,27 +1,24 @@
 import * as THREE from 'three';
 import { WARRIOR_FX } from '../../../config/fx/warrior';
 import type { Vec2 } from '../../../core/grid/types';
-import { tileToWorld } from '../../coords';
+import { BladeArc, BladePool } from '../kit/BladeArc';
 import { Flash, Timeline, type FxKit, type OneShotFx } from '../kit/FxKit';
-import type { Ribbon } from '../kit/Ribbons';
 import { disposeFxGroup, flatPlane, fxSprite } from '../kit/Shapes';
 import { crackTexture, energyRingTexture, shardGeometry } from '../kit/procedural';
 import { VFX } from '../kit/vfxSettings';
 import { fxTexture } from '../kit/vfxTextures';
-import { BASH_IMPACT } from '../BashFX';
-import { CLEAVE_IMPACT } from '../CleaveFX';
 import type { VisualUnit } from './CombatVisualCtx';
 
 /**
  * Efeitos do Guerreiro (espada e escudo), um por habilidade. Cada um tem fases legíveis:
  * antecipação → movimento (lâmina, onda, espiral) → impacto → dissipação.
- *  - Investida: UMA camada leve (fita e crescente da lâmina) e um impacto pequeno.
- *  - Golpe em Área: arco largo que varre o cone inteiro; onda de poeira pelos tiles; faíscas nos atingidos.
+ *  - Investida e Golpe em Área: lâmina de energia em meia-lua que segue a ponta real da espada (WarriorSlashFX). O
+ *    impacto (WarriorContactFX) só existe quando o dano sai: no erro, ou com o alvo preso, a lâmina passa e nada toca.
  *  - Onda de Choque: anel de choque claro, anel de poeira escuro atrás, rachadura de pedra e lascas.
  *  - Fúria: espiral de chamas subindo em volta do corpo e círculo de runas que acompanha o guerreiro.
  *  - Provocar: pulso no chão e eco, clarões de grito na cabeça, brilhos puxados para o peito e marca em cada alvo.
  *  - Muralha: pedras saindo do chão pela borda de cada bloco. O bloco em si é desenhado pelo ObjectView.
- * Só apresentação: usa o kit (partículas, fitas, decalques, flashes, tremor) e libera tudo ao fim (`done`).
+ * Só apresentação: usa o kit (partículas, decalques, flashes, tremor) e libera tudo ao fim (`done`).
  * Números vêm de `src/config/fx/warrior.ts`.
  */
 
@@ -35,23 +32,18 @@ export const rgb = (c: Rgb, k = 1): THREE.Color => new THREE.Color(c[0] * k, c[1
 /** Sorteio dentro de uma faixa [min, max]. */
 const pick = (r: readonly [number, number]): number => r[0] + (r[1] - r[0]) * Math.random();
 
-/** Ângulo normalizado para (-π, π]. */
-const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
+/** Suavização de Hermite: 0 abaixo de 0, 1 acima de 1. */
+const smooth01 = (x: number): number => {
+  const k = Math.min(1, Math.max(0, x));
+  return k * k * (3 - 2 * k);
+};
 
-const _pa = new THREE.Vector3();
-const _pb = new THREE.Vector3();
-/** Ângulo, em tela, do segmento a→b: alinha o sprite ao movimento. */
-function screenAngle(cam: THREE.Camera, a: THREE.Vector3, b: THREE.Vector3): number {
-  _pa.copy(a).project(cam);
-  _pb.copy(b).project(cam);
-  return Math.atan2(_pb.y - _pa.y, _pb.x - _pa.x);
-}
-
-/** Ponto na curva quadrática a–c–b (s de 0 a 1), escrito em `out`. */
-function quad(a: THREE.Vector3, c: THREE.Vector3, b: THREE.Vector3, s: number, out: THREE.Vector3): THREE.Vector3 {
-  const u = 1 - s;
-  return out.set(0, 0, 0).addScaledVector(a, u * u).addScaledVector(c, 2 * u * s).addScaledVector(b, s * s);
-}
+/** Ponto do punho (osso da mão direita), usado quando o modelo não tem lâmina. */
+const FIST = new THREE.Vector3(...C.slash.fist);
+const _side = new THREE.Vector3();
+let bladePool: BladePool | undefined;
+/** Pool dos arcos: criado no primeiro golpe e reaproveitado (é só geometria e um material compartilhado). */
+const bladeArcs = (): BladePool => (bladePool ??= new BladePool(C.slash.poolSize, C.slash));
 
 /** Sprite de vida curta: cresce de `from` a `to` e some (estrela de impacto, clarões de grito). */
 export interface Pop {
@@ -76,323 +68,202 @@ export function updatePops(pops: Pop[], t: number): void {
   }
 }
 
-// ---------------------------------------------------------------- Investida (ataque básico)
+/** Tempos e tamanhos de um golpe (Investida ou Golpe em Área). A forma e as fases comuns são de `WARRIOR_FX.slash`. */
+export interface SlashStyle {
+  readonly sweepFrom: number;
+  readonly halfWidth: number;
+  readonly shake: number;
+  readonly kick: number;
+  readonly hitStop: number;
+  readonly starSize: number;
+}
+
+// ---------------------------------------------------------------- Lâmina de energia (Investida e Golpe em Área)
 
 /**
- * Investida: a lâmina cai em arco do alto da cabeça até o alvo (fita curta + crescente na ponta).
- * No impacto (BASH_IMPACT, o instante em que o alvo reage): estrela pequena, faíscas, poeira e um anel mínimo.
+ * Arco de corte: a ponta real da espada é amostrada a cada quadro (no osso da mão, no mesmo clipe do golpe) e vira uma
+ * lâmina de energia em meia-lua. Só desenha: não decide dano nem acerto. `contact` é o instante em que o dano sai (s):
+ * o brilho chega ao máximo ali e depois o arco afina e some.
  */
-export class WarriorBashFX implements OneShotFx {
+export class WarriorSlashFX implements OneShotFx {
   readonly group = new THREE.Group();
   done = false;
   private t = 0;
-  private impacted = false;
-  private readonly kit: FxKit;
-  private readonly k: number;
-  private readonly top = new THREE.Vector3();
-  private readonly ctrl = new THREE.Vector3();
-  private readonly hit = new THREE.Vector3();
+  private arc?: BladeArc;
+  private noArc = false;
   private readonly tip = new THREE.Vector3();
-  private readonly ahead = new THREE.Vector3();
-  private ribbon?: Ribbon;
-  private readonly crescent: THREE.Sprite;
-  private readonly pops: Pop[] = [];
+  private readonly dir: THREE.Vector3;
+  private readonly sampleEnd: number;
+  private readonly life: number;
+  private gain = 0;
+  private width = 0;
 
-  constructor(caster: THREE.Vector3, target: THREE.Vector3, kit: FxKit, crit = false) {
-    const c = C.bash;
-    this.kit = kit;
-    this.k = crit ? c.critScale : 1;
-    // direção do golpe no chão: do guerreiro para o alvo
-    const dir = new THREE.Vector3().subVectors(target, caster).setY(0);
-    if (dir.lengthSq() < 1e-6) dir.set(1, 0, 0);
-    dir.normalize();
-    // a lâmina sai da frente do peito (onde a espada aparece no modelo) e corta em arco curto até o alvo
-    this.top.copy(caster).addScaledVector(UP, c.startHeight).addScaledVector(dir, c.startForward);
-    this.ctrl.copy(caster).addScaledVector(UP, c.ctrlHeight).addScaledVector(dir, c.ctrlForward);
-    this.hit.copy(target).addScaledVector(UP, c.hitHeight).addScaledVector(dir, -c.hitBack);
-    this.crescent = fxSprite(this.group, 'slash', rgb(c.crescentColor), c.crescentSize * this.k);
-    this.crescent.visible = false;
-    this.crescent.position.copy(this.top);
+  /**
+   * @param view unidade visual que golpeia (sem ela, o arco de reserva sai de `origin` no plano do golpe)
+   * @param origin base da unidade no mundo
+   * @param facing direção do golpe na grade (x, y); no mundo vira (x, 0, y)
+   * @param kit kit de efeitos do GameView
+   * @param style tempos e tamanhos deste golpe
+   * @param contact instante do dano (s), o mesmo que o GameView usa para adiar a reação do alvo
+   */
+  constructor(
+    private readonly view: VisualUnit | undefined,
+    private readonly origin: THREE.Vector3,
+    facing: Vec2,
+    private readonly kit: FxKit,
+    private readonly style: SlashStyle,
+    private readonly contact: number,
+  ) {
+    this.dir = new THREE.Vector3(facing.x, 0, facing.y);
+    if (this.dir.lengthSq() < 1e-6) this.dir.set(1, 0, 0);
+    this.dir.normalize();
+    this.sampleEnd = contact + C.slash.sampleAfter;
+    this.life = contact + C.slash.dissolveDelay + C.slash.dissolveLife + C.slash.tail;
   }
 
   update(dt: number): void {
     if (this.done) return;
     this.t += dt;
     const t = this.t;
-    const c = C.bash;
-    const cam = this.kit.stage.camera;
-    if (t >= c.sweepFrom && t < BASH_IMPACT) {
-      const s = (t - c.sweepFrom) / (BASH_IMPACT - c.sweepFrom);
-      if (!this.ribbon) this.ribbon = this.kit.ribbons.acquire(rgb(c.trailColor), c.trailWidth, c.trailLife);
-      quad(this.top, this.ctrl, this.hit, s * s, this.tip);
-      quad(this.top, this.ctrl, this.hit, Math.min(1, s + c.tangentStep) ** 2, this.ahead);
-      // a fita cobre só os últimos `ribbonLen` até o impacto: o rastro tem o mesmo tamanho para qualquer distância
-      if (this.tip.distanceTo(this.hit) <= c.ribbonLen) this.ribbon?.push(this.tip);
-      this.crescent.visible = true;
-      this.crescent.position.copy(this.tip);
-      this.crescent.material.rotation = screenAngle(cam, this.tip, this.ahead) + Math.PI / 2 + c.crescentRot;
-      this.crescent.material.opacity = Math.min(1, s * 4);
-      this.crescent.scale.setScalar(c.crescentSize * this.k * (0.7 + 0.3 * s));
+    if (t >= this.style.sweepFrom && t <= this.sampleEnd && VFX.ribbons && !this.noArc) {
+      if (!this.arc) {
+        this.arc = bladeArcs().acquire(this);
+        if (!this.arc) this.noArc = true; // pool cheio: o golpe segue sem lâmina, sem alterar dano nem impacto
+      }
+      if (this.arc && this.sampleTip(t)) this.arc.push(this.tip, t);
     }
-    if (!this.impacted && t >= BASH_IMPACT) this.impact();
-    if (this.impacted) {
-      const f = (t - BASH_IMPACT) / c.crescentFade;
-      this.crescent.material.opacity = Math.max(0, 1 - f);
-      if (f >= 1) this.crescent.visible = false;
+    if (this.arc) {
+      this.envelope(t);
+      this.arc.rebuild(t, this.kit.stage.camera.position, this.style.halfWidth * this.width, this.gain, C.slash.trailLife);
     }
-    updatePops(this.pops, t);
-    if (t >= c.life) this.dispose();
+    if (t >= this.life) this.dispose();
   }
 
-  private impact(): void {
-    const c = C.bash;
-    this.impacted = true;
-    this.ribbon?.stop();
-    const P = this.kit.particles;
-    const ground = new THREE.Vector3(this.hit.x, C.groundY, this.hit.z);
-    // estrela pequena sobre o golpe
-    const starSize = c.starSize * this.k;
-    const star = fxSprite(this.group, 'impact', rgb(c.starColor), starSize * 0.8);
-    star.position.copy(this.hit);
-    star.material.rotation = Math.random() * Math.PI;
-    this.pops.push({ s: star, t0: BASH_IMPACT, life: c.starLife, from: starSize * 0.8, to: starSize * 1.15 });
+  /** Ponta da lâmina neste instante; sem osso da mão, um arco de reserva que varre o plano do golpe. */
+  private sampleTip(t: number): boolean {
+    if (this.view?.strikeTip?.(this.tip, FIST)) return true;
+    const k = Math.min(1, Math.max(0, (t - this.style.sweepFrom) / (this.contact - this.style.sweepFrom)));
+    const a = -1 + 2 * k;
+    _side.crossVectors(UP, this.dir);
+    this.tip
+      .copy(this.origin)
+      .addScaledVector(UP, 1.1)
+      .addScaledVector(this.dir, 0.9 * Math.cos(a))
+      .addScaledVector(_side, 0.9 * Math.sin(a));
+    return true;
+  }
+
+  /** Fases do brilho e da largura (ver WARRIOR_FX.slash): surge, pico no contato e dissipação. */
+  private envelope(t: number): void {
+    const s = C.slash;
+    const from = this.style.sweepFrom;
+    const surge = smooth01((t - from) / s.surge);
+    const prog = Math.min(1, Math.max(0, (t - from) / (this.contact - from)));
+    const peak = s.restGain + (1 - s.restGain) * prog * prog;
+    const boost = 1 + s.peakBoost * Math.exp(-(((t - this.contact) / s.peakWidth) ** 2));
+    const diss = 1 - smooth01((t - (this.contact + s.dissolveDelay)) / s.dissolveLife);
+    this.gain = surge * peak * boost * diss;
+    this.width = surge * (0.35 + 0.65 * diss);
+  }
+
+  private dispose(): void {
+    if (this.done) return;
+    this.done = true;
+    this.arc?.release();
+    this.arc = undefined;
+    this.group.removeFromParent();
+  }
+}
+
+// ---------------------------------------------------------------- Contato (acerto do golpe)
+
+/**
+ * Impacto de um golpe que ACERTOU: faíscas quentes, fragmentos azuis, estrela e anel no chão, com tremor e um
+ * congelamento curto. Existe só quando o evento de dano chega (o dano é adiado até o contato). No erro, ou com o
+ * alvo preso, não é criado.
+ */
+export class WarriorContactFX implements OneShotFx {
+  readonly group = new THREE.Group();
+  done = false;
+  private t = 0;
+  private readonly pops: Pop[] = [];
+
+  /**
+   * @param at contato no corpo do alvo (peito)
+   * @param from base de quem golpeou (dá a direção dos fragmentos); sem ela, saem para +x
+   * @param crit golpe crítico (o dano chega com `crit`): faíscas e estrela maiores
+   */
+  constructor(at: THREE.Vector3, from: THREE.Vector3 | undefined, kit: FxKit, style: SlashStyle, crit: boolean) {
+    const c = C.slash;
+    const k = crit ? c.critScale : 1;
+    const P = kit.particles;
+    const away = new THREE.Vector3(1, 0, 0);
+    if (from) away.set(at.x - from.x, 0, at.z - from.z);
+    if (away.lengthSq() < 1e-6) away.set(1, 0, 0);
+    away.normalize();
+    // faíscas quentes que caem do contato
     P.spark.emit({
-      pos: this.hit,
+      pos: at,
       posJitter: 0.08,
-      vel: new THREE.Vector3(0, 1.6, 0),
-      velJitter: 2.2,
-      life: 0.32,
+      vel: new THREE.Vector3(0, 1.4, 0),
+      velJitter: 2.0,
+      life: 0.3,
       size: 0.08,
       sizeEnd: 0.02,
       color: rgb(c.sparkColor),
       colorEnd: rgb(c.sparkColorEnd),
       gravity: 9,
       drag: 0.8,
-      count: Math.round(c.sparks * this.k),
+      count: Math.round(c.sparks * k),
     });
-    P.smoke.emit({
-      pos: ground.clone().setY(0.12),
-      posJitter: 0.2,
-      vel: new THREE.Vector3(0, 0.4, 0),
-      velJitter: 0.8,
-      life: 0.7,
-      size: 0.28,
-      sizeEnd: 0.7,
-      color: rgb(c.dustColor),
-      alpha: 0.45,
-      drag: 2.2,
-      count: c.dust,
-      spin: 1,
+    // fragmentos azuis curtos, lançados no sentido do golpe
+    P.spark.emit({
+      pos: at,
+      posJitter: 0.1,
+      vel: away.clone().multiplyScalar(2).setY(1.2),
+      velJitter: 0.9,
+      life: c.fragLife,
+      size: c.fragSize * k,
+      sizeEnd: 0.02,
+      color: rgb(c.fragColor),
+      colorEnd: rgb(c.fragColorEnd),
+      gravity: 9,
+      drag: 0.6,
+      count: c.fragments,
     });
-    this.kit.decals.spawn({
+    // estrela pequena sobre o contato
+    const starSize = style.starSize * k;
+    const star = fxSprite(this.group, 'impact', rgb(c.starColor), starSize * 0.8);
+    star.position.copy(at);
+    star.material.rotation = Math.random() * Math.PI;
+    this.pops.push({ s: star, t0: 0, life: c.starLife, from: starSize * 0.8, to: starSize * 1.15 });
+    // anel mínimo no chão do alvo
+    kit.decals.spawn({
       kind: 'ring',
-      pos: ground,
+      pos: new THREE.Vector3(at.x, C.groundY, at.z),
       size: c.ringSize,
-      sizeEnd: c.ringEnd * this.k,
+      sizeEnd: c.ringEnd * k,
       color: rgb(c.ringColor, VFX.flash),
       life: c.ringLife,
       additive: true,
       fadeIn: 0.01,
       fadeOut: 0.7,
     });
-    this.kit.stage.addShake(c.shake);
-    this.kit.stage.kick(c.kick);
-    this.kit.hitStop(c.hitStop);
-  }
-
-  private dispose(): void {
-    if (this.done) return;
-    this.done = true;
-    this.ribbon?.stop();
-    disposeFxGroup(this.group);
-  }
-}
-
-// ---------------------------------------------------------------- Golpe em Área
-
-/**
- * Golpe em Área: a lâmina varre o cone de um lado ao outro (fita e crescente na ponta). Uma onda de poeira sai de
- * cada tile do cone quando a lâmina chega nele. No impacto, faíscas e estrelas em cada tile atingido e um anel
- * sob o guerreiro, do tamanho do arco.
- */
-export class WarriorCleaveFX implements OneShotFx {
-  readonly group = new THREE.Group();
-  done = false;
-  private t = 0;
-  private readonly kit: FxKit;
-  private readonly origin: THREE.Vector3;
-  private readonly reach: number;
-  private readonly a0: number;
-  private readonly a1: number;
-  private readonly tl = new Timeline();
-  private readonly tip: THREE.Sprite;
-  private readonly pops: Pop[] = [];
-  private blade?: Ribbon;
-  private wake?: Ribbon;
-  private readonly tmp = new THREE.Vector3();
-
-  constructor(origin: THREE.Vector3, facing: Vec2, tiles: Vec2[], hitTiles: Vec2[], kit: FxKit) {
-    const c = C.cleave;
-    this.kit = kit;
-    this.origin = origin.clone();
-    const fa = Math.atan2(facing.y, facing.x); // grade (x, y) → mundo (x, z)
-    // abertura e alcance saem dos próprios tiles do cone que a simulação usou
-    let lo = Infinity;
-    let hi = -Infinity;
-    let reach = 0;
-    for (const t of tiles) {
-      const w = tileToWorld(t.x, t.y);
-      const dx = w.x - origin.x;
-      const dz = w.z - origin.z;
-      const rel = wrap(Math.atan2(dz, dx) - fa);
-      lo = Math.min(lo, rel);
-      hi = Math.max(hi, rel);
-      reach = Math.max(reach, Math.hypot(dx, dz));
-    }
-    if (!tiles.length) {
-      lo = 0;
-      hi = 0;
-    }
-    // um cone estreito ainda varre um arco legível
-    lo = Math.min(lo, -c.minHalfSpan);
-    hi = Math.max(hi, c.minHalfSpan);
-    this.a0 = fa + lo;
-    this.a1 = fa + hi;
-    this.reach = Math.max(1, reach) + 0.25;
-    const span = hi - lo;
-    const sweepLen = CLEAVE_IMPACT - c.sweepFrom;
-
-    this.tip = fxSprite(this.group, 'slash', rgb(c.tipColor), c.tipSize);
-    this.tip.visible = false;
-
-    // a lâmina começa a varrer: pega as fitas do pool só agora (sem fita livre, segue só com o crescente)
-    this.tl.at(c.sweepFrom, () => {
-      this.blade = kit.ribbons.acquire(rgb(c.bladeColor), c.bladeWidth, c.bladeLife);
-      this.wake = kit.ribbons.acquire(rgb(c.wakeColor), c.wakeWidth, c.wakeLife);
-    });
-
-    // onda de poeira: cada tile do cone solta a sua quando a lâmina passa por ele
-    for (const t of tiles) {
-      const w = tileToWorld(t.x, t.y);
-      const dx = w.x - origin.x;
-      const dz = w.z - origin.z;
-      const rel = wrap(Math.atan2(dz, dx) - fa);
-      const s = Math.min(1, Math.max(0, (rel - lo) / span));
-      const dist = Math.hypot(dx, dz) || 1;
-      const out = new THREE.Vector3(dx / dist, 0, dz / dist).multiplyScalar(c.waveSpeed);
-      const p = tileToWorld(t.x, t.y, undefined, 0.25);
-      this.tl.at(c.sweepFrom + sweepLen * s, () =>
-        kit.particles.smoke.emit({
-          pos: p,
-          posJitter: 0.15,
-          vel: out,
-          velJitter: 0.3,
-          life: c.waveLife,
-          size: 0.22,
-          sizeEnd: 0.6,
-          color: rgb(c.waveColor),
-          alpha: 0.5,
-          drag: 1.5,
-          count: c.waveDust,
-          spin: 1,
-        }),
-      );
-    }
-
-    // impacto: no mesmo instante em que os inimigos reagem (CLEAVE_IMPACT)
-    this.tl.at(CLEAVE_IMPACT, () => this.impact(hitTiles));
+    kit.stage.addShake(style.shake * k);
+    kit.stage.kick(style.kick);
+    kit.hitStop(style.hitStop);
   }
 
   update(dt: number): void {
     if (this.done) return;
     this.t += dt;
-    this.tl.update(dt);
-    const t = this.t;
-    const c = C.cleave;
-    const cam = this.kit.stage.camera;
-    if (t >= c.sweepFrom && t < CLEAVE_IMPACT) {
-      const s = (t - c.sweepFrom) / (CLEAVE_IMPACT - c.sweepFrom);
-      const ang = this.a0 + (this.a1 - this.a0) * s;
-      // a lâmina começa perto do corpo e abre até o alcance do cone
-      const r = c.innerRadius + (this.reach - c.innerRadius) * Math.sqrt(s);
-      this.tip.position.set(this.origin.x + Math.cos(ang) * r, c.bladeHeight, this.origin.z + Math.sin(ang) * r);
-      const ang2 = ang + 0.12 * Math.sign(this.a1 - this.a0);
-      this.tmp.set(this.origin.x + Math.cos(ang2) * r, c.bladeHeight, this.origin.z + Math.sin(ang2) * r);
-      this.tip.material.rotation = screenAngle(cam, this.tip.position, this.tmp) + Math.PI / 2 + c.tipRot;
-      this.tip.material.opacity = Math.min(1, s * 4);
-      this.tip.scale.setScalar(c.tipSize * (0.7 + 0.3 * s));
-      this.tip.visible = true;
-      this.blade?.push(this.tip.position);
-      this.wake?.push(this.tmp.copy(this.tip.position).setY(c.bladeHeight - c.wakeDrop));
-    } else if (t >= CLEAVE_IMPACT) {
-      this.blade?.stop();
-      this.wake?.stop();
-      this.tip.material.opacity = Math.max(0, 1 - (t - CLEAVE_IMPACT) / 0.2);
-      if (this.tip.material.opacity <= 0) this.tip.visible = false;
-    }
-    updatePops(this.pops, t);
-    if (t >= c.life) this.dispose();
-  }
-
-  private impact(hitTiles: Vec2[]): void {
-    const c = C.cleave;
-    const P = this.kit.particles;
-    const hits = hitTiles.length;
-    for (const h of hitTiles) {
-      const p = tileToWorld(h.x, h.y, undefined, 0.7);
-      const away = new THREE.Vector3(p.x - this.origin.x, 0, p.z - this.origin.z).normalize();
-      P.spark.emit({
-        pos: p,
-        posJitter: 0.1,
-        vel: away.multiplyScalar(1.5).setY(1.4),
-        velJitter: 2.2,
-        life: 0.32,
-        size: 0.09,
-        sizeEnd: 0.02,
-        color: rgb(c.sparkColor),
-        colorEnd: rgb(c.sparkColorEnd),
-        gravity: 9,
-        drag: 0.9,
-        count: c.sparksPerHit,
-      });
-      P.smoke.emit({
-        pos: tileToWorld(h.x, h.y, undefined, 0.2),
-        posJitter: 0.2,
-        vel: new THREE.Vector3(0, 0.5, 0),
-        velJitter: 0.6,
-        life: 0.6,
-        size: 0.25,
-        sizeEnd: 0.6,
-        color: rgb(c.waveColor),
-        alpha: 0.5,
-        count: c.dustPerHit,
-        spin: 1,
-      });
-      const star = fxSprite(this.group, 'impact', rgb(c.starColor), c.starSize * 0.8);
-      star.position.copy(p);
-      star.material.rotation = Math.random() * Math.PI;
-      this.pops.push({ s: star, t0: CLEAVE_IMPACT, life: c.starLife, from: c.starSize * 0.8, to: c.starSize * 1.1 });
-    }
-    this.kit.decals.spawn({
-      kind: 'ring',
-      pos: this.origin.clone().setY(C.groundY),
-      size: c.ringSize,
-      sizeEnd: this.reach * c.ringEndScale,
-      color: rgb(c.ringColor, VFX.flash),
-      life: c.ringLife,
-      additive: true,
-      fadeIn: 0.01,
-      fadeOut: 0.7,
-    });
-    this.kit.stage.addShake(Math.min(c.shakeMax, c.shakePerHit * hits));
-    this.kit.hitStop(Math.min(c.hitStopMax, c.hitStopBase + c.hitStopPerHit * hits));
+    updatePops(this.pops, this.t);
+    if (this.t >= C.slash.contactLife) this.dispose();
   }
 
   private dispose(): void {
     if (this.done) return;
     this.done = true;
-    this.blade?.stop();
-    this.wake?.stop();
     disposeFxGroup(this.group);
   }
 }

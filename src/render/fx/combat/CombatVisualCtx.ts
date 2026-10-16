@@ -10,6 +10,10 @@ export interface VisualUnit {
   setFacing(x: number, y: number, instant?: boolean): void;
   /** o herói ganhou nível (só as views de modelo têm a animação) */
   levelUp?(): void;
+  /** ponta do golpe no mundo (lâmina, ou o punho sem arma), no instante atual do clipe; undefined sem osso da mão */
+  strikeTip?(out: THREE.Vector3, fist: THREE.Vector3): THREE.Vector3 | undefined;
+  /** instante (s) do impacto do golpe no conjunto do modelo, quando medido (o GameView adia o dano até lá) */
+  impactSec?(style: 'attack' | 'heavy'): number | undefined;
 }
 
 /**

@@ -14,110 +14,93 @@ export const WARRIOR_FX = {
   /** Altura dos decalques de chão (evita que pisquem com o próprio chão). */
   groundY: 0.03,
 
-  /** Investida (ataque básico): golpe LEVE, ~0,4 s, uma camada (lâmina) + um impacto pequeno. */
-  bash: {
-    /** a lâmina começa a descer (s). O impacto é BASH_IMPACT (BashFX.ts). */
-    sweepFrom: 0.09,
-    /** início da lâmina: à frente do peito, na altura da espada do modelo (m e unidades à frente) */
-    startHeight: 1.25,
-    startForward: 0.45,
-    /** ponto de controle do arco da queda (fica um pouco acima e à frente) */
-    ctrlHeight: 1.6,
-    ctrlForward: 0.9,
-    /** ponto do impacto: altura do peito do alvo e recuo para dentro do alvo */
-    hitHeight: 0.6,
-    hitBack: 0.15,
-    /** comprimento da fita: só os últimos trechos da queda, até o impacto (unidades do mundo) */
-    ribbonLen: 0.9,
-    /** passo (fração da queda) usado para medir a direção do crescente na tela */
-    tangentStep: 0.12,
-    /** fita do fio da lâmina (rastro curto) */
-    trailWidth: 0.26,
-    trailLife: 0.18,
-    trailColor: [1.1, 1.5, 1.7],
-    /** crescente na ponta da lâmina (aço azul-claro) */
-    crescentSize: 0.75,
-    crescentColor: [1.6, 2.0, 2.2],
-    /** ajuste de giro do crescente em relação à direção da queda (rad) */
-    crescentRot: 0,
-    /** tempo que o crescente leva para sumir depois do impacto (s) */
-    crescentFade: 0.12,
-    /** estrela de impacto pequena, sobre o alvo */
-    starSize: 0.6,
-    starColor: [1.3, 1.6, 1.8],
-    starLife: 0.16,
-    /** faíscas de aço (branco-quente que esfria) e poeira no impacto */
-    sparks: 8,
+  /**
+   * Lâmina de energia (arco de corte) do ataque básico e do Golpe em Área. A forma é a mesma; o arco segue a ponta
+   * REAL da espada, amostrada quadro a quadro no osso da mão. Fases, em s a partir do início do golpe:
+   *  1) preparação: nada aparece (a lâmina ainda não se moveu);
+   *  2) golpe: o arco surge em `surge` e acompanha a ponta desde o início da varredura;
+   *  3) pico: brilho máximo no contato (o instante em que o dano sai);
+   *  4) dissipação: afina e perde opacidade em `dissolveLife`;
+   *  5) impacto: faíscas e fragmentos só quando o dano sai de fato. No erro (ou alvo preso) o arco passa e nada toca.
+   */
+  slash: {
+    /** 2) o arco surge em `surge` (s) depois do início do golpe */
+    surge: 0.05,
+    /** 3) brilho antes do contato (fração do pico); o pico é no contato, com um reforço curto (`peakBoost`, `peakWidth` em s) */
+    restGain: 0.7,
+    peakBoost: 0.3,
+    peakWidth: 0.04,
+    /** o rastro segue a lâmina até `sampleAfter` (s) depois do contato: o final do movimento entra no arco */
+    sampleAfter: 0.05,
+    /** 4) a dissipação começa `dissolveDelay` (s) depois do contato e some em `dissolveLife` (s); `tail` = folga final */
+    dissolveDelay: 0.02,
+    dissolveLife: 0.16,
+    tail: 0.03,
+    /** idade máxima de um ponto do rastro (s): a cauda some primeiro, a ponta fica por último */
+    trailLife: 0.34,
+    /** forma: expoente do afinamento das pontas (sen^k; 1 = pontas lineares) e raio relativo do miolo */
+    tipExp: 0.9,
+    coreWidth: 0.2,
+    /** cores HDR: miolo branco-azulado, camada principal azul-ciano, cauda externa azul funda (translúcida) */
+    coreColor: [1.6, 1.8, 2.0],
+    mainColor: [0.35, 1.0, 1.25],
+    outerColor: [0.1, 0.3, 0.75],
+    outerAlpha: 0.6,
+    /** amostras do rastro (máximo) e subdivisões suaves entre duas amostras */
+    samples: 40,
+    subdiv: 4,
+    /** arcos pré-alocados: quantos golpes com lâmina podem estar na tela ao mesmo tempo */
+    poolSize: 8,
+    /** sem lâmina no modelo (Bárbaro): ponto do osso da mão direita, em coordenadas locais do osso (m) */
+    fist: [0, 0.05, 0.3],
+    /** altura do contato no alvo (peito, m) */
+    chestHeight: 0.9,
+    /** 5) contato válido: faíscas quentes, fragmentos azuis, estrela e anel no chão; no crítico, `critScale` */
+    sparks: 7,
     sparkColor: [2.6, 2.4, 2.0],
     sparkColorEnd: [1.0, 0.4, 0.1],
-    dust: 3,
-    dustColor: [0.5, 0.46, 0.4],
-    /** anel minúsculo no chão do alvo */
+    fragments: 4,
+    fragColor: [0.7, 1.4, 1.7],
+    fragColorEnd: [0.2, 0.5, 0.9],
+    fragLife: 0.26,
+    fragSize: 0.12,
+    starColor: [1.3, 1.6, 1.8],
+    starLife: 0.14,
     ringColor: [1.4, 1.6, 1.8],
-    ringSize: 0.25,
-    ringEnd: 0.9,
-    ringLife: 0.22,
-    /** tremor, empurrão e congelamento curto (ataque comum: leve) */
+    ringSize: 0.22,
+    ringEnd: 0.8,
+    ringLife: 0.2,
+    /** duração do contato (s) */
+    contactLife: 0.3,
+    critScale: 1.3,
+  },
+
+  /** Investida (ataque básico): golpe leve; a lâmina desce em arco do alto até o alvo. */
+  bash: {
+    /** 1) a lâmina começa a descer (s); antes disso não há arco */
+    sweepFrom: 0.09,
+    /** meia-largura máxima do arco (m) */
+    halfWidth: 0.2,
+    /** tremor, empurrão e congelamento curto do contato (golpe leve) */
     shake: 0.06,
     kick: 0.05,
     hitStop: 0.05,
-    /** golpe crítico (campo opcional `crit` do evento): crescente e estrela maiores */
-    critScale: 1.3,
-    /** duração total do efeito (s) */
-    life: 0.5,
+    /** estrela do contato (m) */
+    starSize: 0.5,
     /** Aura de espectro (fiapos do herói) durante o golpe (s), igual ao caso padrão do GameView */
     spectre: 0.6,
   },
 
-  /** Golpe em Área: arco largo de um lado ao outro do cone, onda de poeira pelos tiles, faíscas nos atingidos. */
+  /** Golpe em Área: a lâmina varre o cone de um lado ao outro; cada alvo atingido tem o seu contato. */
   cleave: {
-    /** a lâmina começa a varrer o cone (s). O fim da varredura é o impacto: CLEAVE_IMPACT (CleaveFX.ts). */
+    /** 1) a lâmina começa a varrer (s) */
     sweepFrom: 0.1,
-    /** altura da lâmina na varredura (m) */
-    bladeHeight: 0.95,
-    /** raio em que a lâmina começa (perto do corpo) */
-    innerRadius: 0.55,
-    /** abertura mínima do arco (rad, cada lado): um cone estreito ainda varre um arco legível */
-    minHalfSpan: 0.45,
-    /** fita da lâmina (rastro) e fita larga e mais fraca logo abaixo (a esteira) */
-    bladeWidth: 0.34,
-    bladeLife: 0.34,
-    bladeColor: [0.9, 1.7, 1.9],
-    wakeWidth: 0.9,
-    wakeLife: 0.34,
-    wakeColor: [0.12, 0.45, 0.5],
-    /** quanto a esteira fica abaixo da lâmina (m) */
-    wakeDrop: 0.3,
-    /** crescente na ponta da lâmina */
-    tipSize: 1.1,
-    tipColor: [1.6, 2.1, 2.3],
-    tipRot: 0,
-    /** onda de poeira que sai de cada tile do cone quando a lâmina passa por ele */
-    waveDust: 2,
-    waveSpeed: 1.5,
-    waveColor: [0.5, 0.45, 0.38],
-    waveLife: 0.8,
-    /** impacto em cada tile atingido: faíscas, poeira e estrela pequena */
-    sparksPerHit: 6,
-    sparkColor: [2.6, 2.4, 2.0],
-    sparkColorEnd: [0.9, 0.3, 0.06],
-    dustPerHit: 2,
-    starSize: 0.55,
-    starColor: [1.3, 1.7, 1.9],
-    starLife: 0.16,
-    /** anel sob o guerreiro, do tamanho do arco (multiplicador do raio) */
-    ringColor: [0.25, 0.5, 0.55],
-    ringSize: 0.4,
-    ringEndScale: 1.4,
-    ringLife: 0.22,
-    /** tremor e congelamento crescem com o número de acertos (com limite) */
-    shakePerHit: 0.025,
-    shakeMax: 0.14,
-    hitStopBase: 0.03,
-    hitStopPerHit: 0.01,
-    hitStopMax: 0.07,
-    /** duração total do efeito (s) */
-    life: 0.62,
+    halfWidth: 0.27,
+    /** tremor e congelamento por alvo (o GameView soma os alvos com limite) */
+    shake: 0.03,
+    kick: 0,
+    hitStop: 0.03,
+    starSize: 0.45,
     /** Aura de espectro durante o golpe (s), igual ao caso padrão do GameView */
     spectre: 0.55,
   },
