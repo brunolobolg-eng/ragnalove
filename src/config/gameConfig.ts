@@ -209,7 +209,7 @@ export const GAME_CONFIG = {
      * Orçamento de criaturas por tipo de nó, multiplicando `count` da zona (a horda usa o cheio). Elite e chefe
      * têm menos criaturas, e o intervalo delas cresce na mesma proporção (battleFor): a noite dura o mesmo tempo.
      */
-    nos: { horda: 1, elite: 0.65, chefe: 0.55 },
+    nos: { horda: 1, elite: 0.9, chefe: 0.85 },
     /** Escala dos inimigos (ato e posição na rota). */
     hpMult: 1,
     dmgMult: 1,
