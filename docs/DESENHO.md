@@ -185,6 +185,7 @@ Grupos cobertos:
 - Determinismo: `determinismo:check` (nenhum sorteio fora da semente no núcleo; a mesma semente dá a mesma jornada).
 - Regras de carta: `cartas:check` e `cartas:regras:check` (efeitos na batalha). A linha de base da campanha sem cartas foi re-ancorada em `d2146067`, quando o palhaço entrou nos Campos Cinzentos de propósito.
 - Sistemas da jornada: `sistemas:check`, `run:check` (economia), `eventos:check`, `sobrevivencia:check`, `zonas:alcance:check` (toda zona navegável), `editor:check` (integração do editor de mapas), `arena:habilidades:check`, `armas:check`, `runas:check`, `bruxa:check`, `agressao:check` e `foco:check`.
+- Determinismo: `determinismo:check` roda a jornada e a batalha no padrão e no deserto (a tempestade de areia só existe no deserto, e cada batalha no deserto tem que ter tempestade). A varredura estática proíbe `Reflect`, que servia para contornar a checagem.
 - Saves: `saves:check` (saves reais de 867ac0d e f3b5bd9 em `tests/saves/` abrem e migram; recarga não repete nem pula; entradas inválidas não são migradas à força; lista de cópias só cresce).
 - Texto: `zen:texto:check` (nenhum "Zeni" visível; identificadores como `ganharZeni` não contam).
 
@@ -203,7 +204,6 @@ Fora do comando:
 - Cópia do Bastião (`bastionBackup`): cada cópia nova sobrescreve a anterior. Só a lista da jornada (`runBackup`) acumula.
 - Seed da batalha: `Simulation` usa `GAME_CONFIG.wave.seed` como padrão, um global que `applyZone` reescreve. A campanha passa a seed certa pela ordem das chamadas, mas nada no núcleo impõe isso.
 - Pacote de cartas da vitória: `src/main.ts` sorteia com `Math.random`. A regra é do núcleo, mas a sorte vem da interface.
-- `determinismo:check` não cobre todo o combate. O ramo da tempestade de areia (`src/core/sim/Simulation.ts`, linha 681, `combatRng`) não roda na batalha de teste: trocar o sorteio por `Reflect.apply(Reflect.get(Math, 'random'), Math, [])` passa no check, e a varredura estática só pega `globalThis` e a forma direta. Reproduzido em cópia fora do repositório. Fechar: incluir o ramo na batalha de teste, ou rodar uma batalha com tempestade, e estender a varredura a `Reflect`.
 
 ## 12. Decisões em aberto
 

@@ -31,7 +31,7 @@ const MEMBROS_PROIBIDOS = new Set(['Math.random', 'Date.now', 'performance.now',
 /** Funções globais proibidas quando chamadas direto. `Date()` sem `new` devolve a data atual. */
 const CHAMADAS_PROIBIDAS = new Set(['setTimeout', 'setInterval', 'requestAnimationFrame', 'Date']);
 /** O núcleo não deve tocar no ambiente do host por nome global. */
-const GLOBAIS_PROIBIDAS = new Set(['globalThis', 'window']);
+const GLOBAIS_PROIBIDAS = new Set(['globalThis', 'window', 'Reflect']); // Reflect serve para contornar a varredura: Reflect.get(Math, 'random')
 /** Módulos do sistema que o núcleo não pode importar (acesso a relógio, acaso, arquivos ou processo). */
 const MODULOS_PROIBIDOS = new Set(['crypto', 'node:crypto', 'fs', 'node:fs', 'perf_hooks', 'node:perf_hooks', 'timers', 'node:timers', 'process', 'node:process']);
 const EXTENSOES = ['.ts', '.tsx', '.js', '.mjs', '.cjs'];
@@ -142,7 +142,7 @@ async function main() {
     // Importa o núcleo só depois da guarda: aliases criados ao carregar o módulo também caem nela.
     const run = await import('../src/core/run/run');
     const { Simulation } = await import('../src/core/sim/Simulation');
-    const { DEFAULT_SETUP } = await import('../src/config/gameConfig');
+    const { DEFAULT_SETUP, GAME_CONFIG } = await import('../src/config/gameConfig');
     const { applyEventEffects, bossMythicReward, buyItem, makeItem, newRun, refineItem, rerollItem, shopStock, starterGift, survivalRewards, useMapObject } = run;
 
     /** Uma parte da jornada, do começo a um save recarregado. Devolve o que sai dela e se os ids são únicos. */
@@ -176,13 +176,29 @@ async function main() {
       return { json: JSON.stringify(dados), idsUnicos: new Set(ids).size === ids.length, continuidade };
     };
 
-    /** Uma batalha inteira com a configuração padrão, com a semente dada. Devolve o desfecho e o hash dos eventos. */
-    const batalha = (seed) => {
-      const sim = new Simulation(DEFAULT_SETUP, seed);
-      const eventos = [];
-      sim.start();
-      while (sim.phase === 'running' && sim.tick < 30000) for (const e of sim.step()) eventos.push(JSON.stringify(e));
-      return { json: JSON.stringify({ fim: sim.phase, ticks: sim.tick, abates: sim.killed, eventos: hashDe(eventos.join('\n')), total: eventos.length }) };
+    /**
+     * Uma batalha inteira, com a semente dada. `tema` troca o tema do tabuleiro: a tempestade de areia só existe no
+     * deserto, então a batalha no deserto é a que percorre o ramo de combate da tempestade. Devolve o desfecho, o hash
+     * dos eventos e quantas tempestades aconteceram.
+     */
+    const batalha = (seed, tema = null) => {
+      const temaAntes = GAME_CONFIG.board.theme;
+      if (tema) GAME_CONFIG.board.theme = tema;
+      try {
+        const sim = new Simulation(DEFAULT_SETUP, seed);
+        const eventos = [];
+        let tempestades = 0;
+        sim.start();
+        while (sim.phase === 'running' && sim.tick < 30000) {
+          for (const e of sim.step()) {
+            eventos.push(JSON.stringify(e));
+            if (e.type === 'sandstorm' && e.on) tempestades++;
+          }
+        }
+        return { json: JSON.stringify({ fim: sim.phase, ticks: sim.tick, abates: sim.killed, eventos: hashDe(eventos.join('\n')), total: eventos.length }), tempestades };
+      } finally {
+        GAME_CONFIG.board.theme = temaAntes;
+      }
     };
 
     console.log('guarda ativa: relógio e acaso lançam erro durante a jornada e a batalha');
@@ -191,6 +207,8 @@ async function main() {
       let erro = null;
       const jornadas = [];
       const batalhas = [];
+      const batalhasDeserto = [];
+      let tempestadesMinimas = Infinity;
       let idsUnicos = true;
       let continuidade = true;
       try {
@@ -200,6 +218,9 @@ async function main() {
           idsUnicos = idsUnicos && j.idsUnicos;
           continuidade = continuidade && j.continuidade;
           batalhas.push(batalha(seed).json);
+          const d = batalha(seed, 'desert');
+          batalhasDeserto.push(d.json);
+          tempestadesMinimas = Math.min(tempestadesMinimas, d.tempestades);
         }
       } catch (e) {
         erro = e.message;
@@ -209,12 +230,14 @@ async function main() {
         console.log(`FALHA semente ${seed}: ${erro}`);
         continue;
       }
-      const iguais = jornadas.every((j) => j === jornadas[0]) && batalhas.every((b) => b === batalhas[0]);
-      const ok = iguais && idsUnicos && continuidade;
+      const iguais = jornadas.every((j) => j === jornadas[0]) && batalhas.every((b) => b === batalhas[0]) && batalhasDeserto.every((b) => b === batalhasDeserto[0]);
+      // o deserto tem que ter tempestade: senão o ramo de combate da tempestade não foi percorrido
+      const tempestadeOk = tempestadesMinimas > 0;
+      const ok = iguais && idsUnicos && continuidade && tempestadeOk;
       if (!ok) falhas++;
-      const assinatura = hashDe(jornadas[0] + batalhas[0]);
+      const assinatura = hashDe(jornadas[0] + batalhas[0] + batalhasDeserto[0]);
       assinaturas.push(assinatura);
-      console.log(`${ok ? 'ok  ' : 'FALHA'} semente ${seed}: jornada e batalha ${iguais ? 'iguais' : 'DIFERENTES'} em ${REPETICOES} execuções no mesmo processo · recarga ${continuidade ? 'continua a sequência' : 'REPETE OU PULA SORTEIOS'} · ids ${idsUnicos ? 'únicos' : 'REPETIDOS'} · hash ${assinatura}`);
+      console.log(`${ok ? 'ok  ' : 'FALHA'} semente ${seed}: jornada e batalhas (padrão e deserto) ${iguais ? 'iguais' : 'DIFERENTES'} em ${REPETICOES} execuções no mesmo processo · tempestades no deserto: ${tempestadesMinimas} · recarga ${continuidade ? 'continua a sequência' : 'REPETE OU PULA SORTEIOS'} · ids ${idsUnicos ? 'únicos' : 'REPETIDOS'} · hash ${assinatura}`);
     }
     const distintas = new Set(assinaturas).size === SEMENTES.length;
     if (!distintas) falhas++;

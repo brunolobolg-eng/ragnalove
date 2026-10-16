@@ -1439,5 +1439,5 @@ Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridg
 - `npm run saves:check`: fixture nova `tests/saves/jornada_v3.json` (gerada pelo código atual, com loja e cofre já usados). Testes de isolamento (loja não mexe no cofre e vice-versa), de recompensa do cofre (igual com ou sem loja antes), de loot da jornada (igual, ids à parte), de recarga contínua de loja e cofre, e dois controles que têm que falhar. A v2 real passa a migrar com o estado da jornada preservado.
 - `npm run determinismo:check`: passa. O hash das sementes mudou, porque a loja e o cofre agora sorteiam de outro fluxo. Esperado.
 
-**Achado nesta etapa (aberto):** `determinismo:check` não cobre o ramo da tempestade de areia (`Simulation.ts:681`). Trocar o sorteio desse ramo por `Reflect.apply(Reflect.get(Math, 'random'), Math, [])` passa no check, e a varredura estática não pega `Reflect`. Está na seção 11 do desenho.
+**Achado nesta etapa (corrigido):** `determinismo:check` não cobria o ramo da tempestade de areia do combate (`Simulation.ts:681`), porque a batalha de teste era só a padrão. Trocar o sorteio desse ramo por `Math['ran' + 'dom']()` passava no check. Correção: a batalha roda também no deserto e exige tempestade; a varredura estática proíbe `Reflect`. Os três mutantes (nome calculado, `Reflect` e `Math.random` direto) agora falham.
 
