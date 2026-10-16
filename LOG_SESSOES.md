@@ -1205,3 +1205,82 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   - Não foi verificado no build do Electron/Steam: as capturas são do Chromium (servidor de desenvolvimento).
   - Item 5 de "interação e animação" veio cortado no pedido: implementamos só hover (tooltip e caminho aceso), seleção e
     transições suaves, como pedido.
+## 2026-10-15 — ritmo das noites de horda: portais que abrem e ritmo crescente (v0.12, em andamento)
+
+**Pedido do dono (fiel):** "preciso que voce reveja as hordas e a noite de cada run pois parece que tem algumas noites que acabam muito cedo e outras demoram muito... a idéia é que conforme vai passando o tempo mais locais de spawn ao redor do mapa vao sendo criados spawnando cada vez mais criatura até chegar o fim que vai ser quando o jogador matar a ultima criatura."
+
+**Diagnóstico (antes):**
+- Com a party típica de cada ato (builds de `scripts/runCheck.ts`), a duração de uma noite de horda variava de 600 a 3863 ticks; dentro do mesmo ato, até 3x (Ato I: 600 a 1365; Ato III: 1723 a 3863). Esse é o "acaba cedo / demora muito" que o dono viu.
+- Correção à nota preliminar: as noites **não** acabam por cidade caindo. Medidas com a montagem da campanha (party por ato, formação padrão, builds típicas), as 55 noites vencem. A derrota da medição preliminar vinha de montagem errada: dois heróis no Ato I, sem o corte de tamanho da party e sem o ajuste de vida do ato.
+- Conta nova, guerreiro nível 1, sem build (modo literal): a party morre em 50 de 55 noites, antes e depois desta mudança. Isso é balanceamento de combate, não ritmo: ficou para o dono decidir.
+- O intervalo médio real entre criaturas é 0,85 × `spawnIntervalTicks` (as pausas das levas são sorteadas entre 0,45 e 1,25). Não corrigi isso, para não mexer no Bastião (usa o mesmo motor). A calibração já considera o fator.
+- Teto de densidade (softAlive 35): em crookedWood, dryCrossing, rustGorge e ashenFields a noite é limitada pela capacidade da party, não pelo intervalo. Nessas zonas o ajuste foi no orçamento.
+
+**O que foi feito:**
+- **Portais extras:** cada zona de batalha da campanha (11) tem 2 portais a mais, que abrem com 30% e 60% do orçamento já nascido. Os 2 portais originais continuam abertos desde o começo; os extras começam fechados. Zonas sem batalha (whisperWood, frostPass), o cerco e o Bastião não têm extras.
+- **Ritmo:** intervalo = intervalo da zona × curva(progresso) ÷ (1 + 0,5 × portais extras abertos). Curva `RITMO_CAMPANHA`: 1,3 no início, 1,0 no meio, 0,8 no fim (`src/config/zones.ts`).
+- **Só portal aberto conta:** recebe criaturas, mostra setas e cenário, e restringe a colocação de heróis. Portal fechado não aparece (decisão: sem marca apagada). Ao abrir, cresce e aparece no log.
+- **Fim da noite:** não mudou (orçamento nascido + última criatura morta). Agora o check confirma que a vitória cai no tick da última morte.
+- **Noites do mesmo ato:** alvo de 1000 ticks (Ato I, 1 min 40 s), 1800 (Ato II, 3 min) e 2700 (Ato III, 4 min 30 s), ±15%. Chefe e elite entram na conta: têm 0,55 e 0,65 do orçamento e intervalo ×1/0,55 e ×1/0,65, para durar o mesmo tempo (`GAME_CONFIG.wave.nos`). Constantes em `ALVO_DE_NOITE` (config).
+- **Cerco e Bastião:** sem curva. Assinatura da simulação idêntica ao commit anterior (18c06a8), bit a bit. O cerco de Dunas Vermelhas mantém o intervalo 8 (campo `intervaloCerco`), porque a calibração da horda mudou o intervalo da zona.
+- **Editor de mapas:** antes só guardava 2 portais (salvar perderia os extras). Agora guarda todos e preserva `ativaEm` ao mover um portal.
+- **Formação padrão da noite** foi para o núcleo (`src/core/run/formacao.ts`). `main.ts` usa a mesma função, sem mudança de jogo. O check usa essa função.
+
+**Valores finais (`src/config/zones.ts`):**
+
+| zona | nó | intervalo | orçamento | portais extras (x,y · abre em) |
+|---|---|---|---|---|
+| bridge | horda, Ato I | 23,5 | 160 (×0,6 com 1 herói) | (16,18) · 0,3; (43,29) · 0,6 |
+| crookedWood | horda, Ato I | 7 | 170 (era 250) | (3,17) · 0,3; (42,17) · 0,6 |
+| ravenGlade | chefe, Ato I | 17,2 | 130 | (3,18) · 0,3; (41,9) · 0,6 |
+| rootVale | horda, Ato II | 11,2 | 240 | (3,10) · 0,3; (41,11) · 0,6 |
+| dryCrossing | horda, Ato II | 5 | 416 (era 450) | (3,0) · 0,3; (44,11) · 0,6 |
+| redDunes | horda, Ato II (cerco: intervalo 8) | 12,7 | 260 | (0,17) · 0,3; (44,17) · 0,6 |
+| solarRuins | chefe, Ato II | 43,4 | 90 | (3,14) · 0,3; (41,13) · 0,6 |
+| ashenFields | horda, Ato III | 5,3 | 600 | (0,12) · 0,3; (44,12) · 0,6 |
+| rustGorge | horda, Ato III | 6 | 425 (era 600) | (9,8) · 0,3; (34,9) · 0,6 |
+| detarderusLair | elite, Ato III | 15,3 | 240 | (2,5) · 0,3; (42,14) · 0,6 |
+| ashPeak | chefe, Ato III | 17,6 | 240 | (2,5) · 0,3; (42,14) · 0,6 |
+
+Os portais extras foram escolhidos com o cálculo de candidatos (chão livre, alcançável até o portão, a 18 a 38 tiles da cidade e a 8 ou mais dos spawns atuais). `horda:check` confere o alcance e a ordem.
+
+**Medição antes/depois** (party típica, 5 sementes, muralha cheia a cada noite). "Ult." é o tick do último nascimento; no chefe, o do chefe.
+
+| noite | antes (mín/méd/máx) | depois (mín/méd/máx) | ult. antes→depois | portais | resultado |
+|---|---|---|---|---|---|
+| bridge · horda I | 511/600/759 | 828/973/1100 | 384→688 | 2→4 | 5 vitórias |
+| crookedWood · horda I | 1256/1365/1462 | 791/953/1052 | 1054→634 | 2→4 | 5 vitórias |
+| ravenGlade · chefe I | 665/741/806 | 845/986/1097 | 287→535 (chefe 317→565) | 2→4 | 5 vitórias |
+| rootVale · horda II | 1427/1667/1978 | 1432/1748/2049 | 1289→1390 | 2→4 | 5 vitórias |
+| dryCrossing · horda II | 1901/2196/2520 | 1651/1833/2110 | 1947→1544 | 2→4 | 5 vitórias |
+| redDunes · horda II | 1511/1907/2189 | 1595/1869/2058 | 1510→1463 | 2→4 | 5 vitórias |
+| solarRuins · chefe II | 626/731/919 | 1373/1832/2156 | 221→1385 (chefe 251→1415) | 2→4 | 5 vitórias |
+| ashenFields · horda III | 2801/3193/3579 | 2400/2725/3183 | 2924→2501 | 2→4 | 5 vitórias |
+| rustGorge · horda III | 3336/3863/4465 | 2399/2711/3117 | 3555→2385 | 2→4 | 5 vitórias |
+| detarderusLair · elite III | 1785/1881/1983 | 2503/2642/2821 | 983→1740 (chefe 1583→2340) | 2→4 | 5 vitórias |
+| ashPeak · chefe III | 1624/1723/1853 | 2427/2755/3018 | 712→1735 (chefe 1312→2335) | 2→4 | 5 vitórias |
+
+Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridge) e 710 e 1351 (ashenFields). Média por ato: Ato I 953 a 986 (alvo 1000); Ato II 1748 a 1869 (alvo 1800); Ato III 2642 a 2755 (alvo 2700).
+
+**Modo literal (conta nova, sem build), antes → depois:** derrotas 50/55 → 50/55 (todas por party morta; nenhuma por cidade caindo).
+
+**Verificação visual (Chromium headless, dev, renderização por software):** `captura_inicio.png` (crookedWood, mapa inteiro, início da noite): os dois anéis violeta no topo são os portais iniciais; os extras (a oeste e a leste, no meio do mapa) não aparecem; as trilhas de chão levam até esses pontos (decisão 4). `captura_meio_portal_v2.png` (mesma noite, tick 280, portal (3,17) aberto, 51 criaturas nasceram e 30 estão vivas): criaturas descem a trilha da esquerda. Nessa captura o anel do portal novo não aparece com nitidez. A leitura da cena confirma o portal aberto e visível (anel visível, setas visíveis). Antes da correção do commit 9468b56, o cenário do portal ainda fechado aparecia; agora fica oculto. Falta olhar o anel do portal novo no PC do dono.
+
+**Testes:** `npm run build`, `npm run sim:check`, `npm run bastion:check`, `npm run aura:check`, `npm run cenario:check`, `npm run arvore:check` (112/112), `npm run banco:check` (37/37), `npm run horda:check` (novo, 31 ok, 0 falha), `zoneReachCheck`, `survivalCheck`, `skillArenaCheck`, `mapEditorCheck`. Neutralidade do Bastião e do cerco: assinatura igual ao commit 18c06a8.
+
+**Linha de base do `sim:check` (atualizada de propósito):** o script só imprime, não compara números. Mudou em todas as zonas da campanha (e na ponte, que é a zona ativa por padrão), porque a noite nova nasce com outro ritmo e outros portais. As zonas de cerco e Bastião, não. Ex.: ponte · defesa padrão, antes "defeat em 788 ticks, abatidos 47"; depois "defeat em 1465 ticks, abatidos 81". Determinístico: true, como antes. Todas as zonas continuam terminando.
+
+**Decisões para o dono:**
+1. Chefe e elite nascem com menos criaturas, mais espaçadas (solarRuins: 49 criaturas em cerca de 1400 ticks). Se preferir noite de chefe curta e densa, é só mudar `GAME_CONFIG.wave.nos`, mas aí a dificuldade sobe.
+2. Cortei o orçamento de crookedWood (250 → 170), rustGorge (600 → 425) e dryCrossing (450 → 416). É uma queda de dificuldade nessas noites. Confirmar.
+3. Alvos: 1000 / 1800 / 2700 ticks (100 s, 180 s e 270 s), ±15%. Confirmar os números.
+4. Portal fechado não aparece (sem marca apagada). As trilhas de chão continuam para todos os pontos (são geografia). Confirmar.
+5. Balanceamento: em conta nova, sem build, a party morre na maioria das noites. Isso não é ritmo, e não mexi em combate.
+
+**Limitações:** a medição não tem equipamento, gasto de habilidades pelo jogador nem formação salva; a muralha da cidade é reparada entre as noites. Não foi testada a fluidez no PC do dono (4 portais e cenário por portal aumentam as chamadas de desenho). Captura feita no Chromium headless com renderização por software, então não mede FPS.
+
+**Commits:**
+- 8a20972 Noite: portais que abrem e ritmo crescente no motor e na campanha
+- a5e9ad4 Apresentação: portal aparece só quando abre
+- 9468b56 Apresentação: cenário de portal fechado fica oculto desde o vínculo
+- (este commit) Checagem horda:check e registro do ritmo das noites

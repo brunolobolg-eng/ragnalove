@@ -2,6 +2,15 @@
 
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
+## 2026-10-15 — ritmo das noites de horda (em andamento)
+- Noite com ritmo crescente: o intervalo entre criaturas encurta conforme o orçamento nasce (curva em RITMO_CAMPANHA).
+- Portais extras (2 por zona de batalha da campanha) abrem conforme o orçamento chega à metade e a dois terços; abre com aviso no log.
+- Cada portal aberto acelera o nascimento (+50% por portal extra). Só portais abertos recebem criaturas, aparecem nas setas e restringem a colocação.
+- Noites do mesmo ato duram parecido: alvo de 1000 ticks (Ato I), 1800 (Ato II) e 2700 (Ato III), ±15%. Chefe e elite têm menos criaturas e intervalo maior na mesma proporção.
+- Cerco e Último Bastião não mudaram (mesma simulação, bit a bit).
+- Formação padrão da noite foi para o núcleo (core/run/formacao.ts). Editor de mapas guarda todos os portais.
+- Checagem nova: npm run horda:check.
+
 ## 2026-10-12 — v0.11 (em andamento)
 - Monstros podem nascer com uma aura (velocidade, crítico, mitigação, regeneração ou queimação). No Bastião, a partir da noite 20; na campanha, depois de liberar Feiticeira, Bruxa e Assassino jogando. A queimação atinge heróis perto do monstro.
 - Cartas: raridade virou tier. Cinco cópias da mesma carta viram a versão "+" (escada 5-2-2-2 até o nível 5). Cada nível escala o bônus, e o nível 5 libera uma habilidade própria.

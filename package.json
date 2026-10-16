@@ -15,6 +15,7 @@
     "arvore:check": "tsx scripts/arvoreCheck.ts",
     "arvore:save:check": "tsx scripts/arvoreSaveCheck.ts",
     "banco:check": "tsx scripts/bancoCheck.ts",
+    "horda:check": "tsx scripts/hordaRitmoCheck.ts",
     "arvore:combate:check": "tsx scripts/arvoreCombateCheck.ts",
     "arvore:visual:check": "tsx scripts/arvoreVisualCheck.ts",
     "cenario:check": "tsx scripts/cenarioCheck.ts",
