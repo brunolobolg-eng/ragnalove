@@ -69,6 +69,9 @@ function forma(tipo: NoTipo, classe: string): string {
   }
 }
 
+/** Versão cinza de um ícone (nó bloqueado): o arquivo `-cinza.webp` ao lado do original (ver o script de geração). */
+const iconeCinza = (url: string): string => url.replace(/\.webp$/, '-cinza.webp');
+
 /** Tamanho do ícone dentro do nó (px): o caminho alternativo não tem ícone. */
 function tamanhoIcone(tipo: NoTipo): number {
   if (tipo === 'notavel') return ARVORE_VISUAL.icone.notavel;
@@ -130,7 +133,18 @@ export class ArvoreGlobal {
   private msgOk = true;
   /** Elementos da roda por id (para acender e apagar sem redesenhar tudo). */
   private elNo = new Map<string, SVGGElement>();
-  private elAresta: { a: string; b: string; el: SVGLineElement }[] = [];
+  private elAresta: { a: string; b: string; el: SVGLineElement; cls?: string }[] = [];
+  /** Nós por id da roda atual (evita refazer o mapa a cada destaque). */
+  private porId = new Map<string, NoVM>();
+  /** Halo do caminho aceso (linhas largas por trás das arestas, no lugar do drop-shadow) e a chave do que está desenhado. */
+  private haloEl?: SVGGElement;
+  private caminhoHaloKey = '';
+  /** Último destaque aplicado a cada nó (bits: caminho, esmaecido, foco, selecionado): só o que muda toca no DOM. */
+  private destaqueNo = new Map<string, number>();
+  /** Tamanho do tooltip (medido quando o conteúdo muda) e retângulo do canvas (medido ao ajustar a janela). */
+  private tipW = 0;
+  private tipH = 0;
+  private canvasRect?: DOMRect;
   // zoom e pan (em px da tela, com a roda centrada): o valor atual se aproxima do alvo; o arraste mexe direto
   private zoom = 1;
   private panX = 0;
@@ -280,17 +294,17 @@ export class ArvoreGlobal {
         // o cartão da Mastery seleciona o ponto dela na roda (o painel mostra a atribuição)
         const m = this.vm.masteries.find((x) => x.id === b.dataset.id);
         this.escolherNo(this.sel === m?.noId ? undefined : m?.noId);
-        break;
+        return this.renderLeve();
       }
       case 'roster': {
         const k = b.dataset.k as HeroKind;
         const m = this.selMastery();
         if (m?.candidatos.find((x) => x.kind === k)?.elegivel) this.pick = k;
-        break;
+        return this.renderLeve();
       }
       case 'cancel':
         this.pick = undefined;
-        break;
+        return this.renderLeve();
       case 'assign': {
         const m = b.dataset.m as MasteryId;
         const k = b.dataset.k as HeroKind;
@@ -345,7 +359,7 @@ export class ArvoreGlobal {
     if (!g) return;
     this.cb.onUi();
     this.escolherNo(g.dataset.id);
-    this.renderAll();
+    this.renderLeve();
   }
 
   /** Cursor sobre um nó: acende o caminho até ele e mostra o tooltip. Toque não tem passagem: a seleção faz isso. */
@@ -387,14 +401,17 @@ export class ArvoreGlobal {
     }
     this.tip.innerHTML = `<b>${esc(n.nome)}</b><span>${esc(n.tipoNome)} · ${esc(ESTADO_CURTO[n.estado])}</span>${linha}`;
     this.tip.hidden = false;
+    // mede uma vez por conteúdo: medir a cada movimento do cursor força o layout da página inteira
+    this.tipW = this.tip.offsetWidth;
+    this.tipH = this.tip.offsetHeight;
     this.posicionarTip(clientX, clientY);
   }
 
   /** Põe o tooltip ao lado do cursor, invertendo para dentro da área da roda quando não cabe. */
   private posicionarTip(clientX: number, clientY: number): void {
-    const r = this.canvas.getBoundingClientRect();
-    const w = this.tip.offsetWidth;
-    const h = this.tip.offsetHeight;
+    const r = this.canvasRect ?? this.canvas.getBoundingClientRect();
+    const w = this.tipW;
+    const h = this.tipH;
     let x = clientX - r.left + TIP_FOLGA;
     let y = clientY - r.top + TIP_FOLGA;
     if (x + w > r.width - 8) x = clientX - r.left - w - TIP_FOLGA;
@@ -412,6 +429,7 @@ export class ArvoreGlobal {
     this.svg.setAttribute('viewBox', `${-w / 2} ${-h / 2} ${w} ${h}`);
     this.svg.dataset.w = String(w);
     this.svg.dataset.h = String(h);
+    this.canvasRect = this.canvas.getBoundingClientRect();
     this.apply();
   }
 
@@ -523,6 +541,13 @@ export class ArvoreGlobal {
     if (this.hover && !this.tip.hidden) this.mostrarTip(this.hover, this.ptr.x, this.ptr.y);
   }
 
+  /** Mudança só de seleção ou de escolha (nó, Mastery, herói): não refaz a roda, só o destaque e os painéis. */
+  private renderLeve(): void {
+    this.renderBar();
+    this.renderSide();
+    this.atualizarDestaque();
+  }
+
   /**
    * Depois de refazer a roda, o nó sob o cursor pode ter sido trocado pelo novo desenho, e o navegador não avisa a
    * saída do nó antigo. Confere o que está sob o ponto do cursor e corrige o caminho aceso e o tooltip.
@@ -587,6 +612,8 @@ export class ArvoreGlobal {
       .map((e) => `<image class="gt-emblema" href="${FAMILIA_VISUAL[e.id].emblema}" x="${(e.x - ARVORE_VISUAL.emblema.diametro / 2).toFixed(1)}" y="${(e.y - ARVORE_VISUAL.emblema.diametro / 2).toFixed(1)}" width="${ARVORE_VISUAL.emblema.diametro}" height="${ARVORE_VISUAL.emblema.diametro}" data-f="${e.id}"><title>${esc(e.nome)}</title></image>`)
       .join('');
     const porId = new Map(v.nos.map((n) => [n.id, n]));
+    this.porId = porId;
+    this.destaqueNo = new Map();
     this.elAresta = [];
     const arestas = v.conexoes
       .map(([a, b]) => {
@@ -607,8 +634,11 @@ export class ArvoreGlobal {
       <image class="gt-aro" href="ui/arvore/anel-roda.webp" x="${-aroRaio}" y="${-aroRaio}" width="${2 * aroRaio}" height="${2 * aroRaio}"/>
       <g class="gt-emblemas">${emblemaSvg}</g>
       <g class="gt-arestas">${arestas}</g>
+      <g class="gt-caminho-brilho"></g>
       <g class="gt-nos">${nos}</g>
       <image class="gt-nucleo-arte" href="emblem.png" x="${-nucleoArte / 2}" y="${-nucleoArte / 2}" width="${nucleoArte}" height="${nucleoArte}"/>`;
+    this.haloEl = this.world.querySelector<SVGGElement>('.gt-caminho-brilho') ?? undefined;
+    this.caminhoHaloKey = '';
     // índices para acender e apagar sem redesenhar
     this.elNo = new Map();
     this.world.querySelectorAll<SVGGElement>('.gt-no').forEach((g) => this.elNo.set(g.dataset.id!, g));
@@ -622,13 +652,15 @@ export class ArvoreGlobal {
 
   /** Nó na roda: forma, ícone e nada escrito. O nome vai para o painel de detalhes e para o tooltip. */
   private noSvg(n: NoVM): string {
-    const sel = this.sel === n.id;
     const classes = [n.estado, n.tipo, n.destaque ? 'destaque' : ''].filter(Boolean).join(' ');
     const pulso = n.estado === 'disponivel' ? `<circle class="gt-pulso" r="${(n.r + 4).toFixed(1)}"/>` : '';
     const brilho = `<circle class="gt-brilho" r="${(n.r + ARVORE_VISUAL.brilho.raio).toFixed(1)}" fill="url(#gt-luz-${n.familia ?? 'neutra'})"/>`;
-    const selAnel = sel ? `<circle class="gt-sel" r="${(n.r + 7).toFixed(1)}"/>` : '';
+    // o anel de seleção existe sempre: aparece pela classe .sel (sem redesenhar a roda ao selecionar)
+    const selAnel = `<circle class="gt-sel" r="${(n.r + 7).toFixed(1)}"/>`;
     const s = tamanhoIcone(n.tipo);
-    const icone = n.icone ? `<image class="gt-icone" href="${n.icone}" x="${(-s / 2).toFixed(1)}" y="${(-s / 2).toFixed(1)}" width="${s}" height="${s}" preserveAspectRatio="xMidYMid meet"/>` : '';
+    // bloqueado: o ícone já vem cinza do arquivo (scripts/gerarIconesArvoreCinza.py), sem filtro no navegador
+    const href = n.estado === 'bloqueado' && n.icone ? iconeCinza(n.icone) : n.icone;
+    const icone = href ? `<image class="gt-icone" href="${href}" x="${(-s / 2).toFixed(1)}" y="${(-s / 2).toFixed(1)}" width="${s}" height="${s}" preserveAspectRatio="xMidYMid meet"/>` : '';
     return `<g class="gt-no ${classes}" data-id="${n.id}" transform="translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})" style="--c:${n.cor}" role="button" aria-label="${esc(n.nome)}" tabindex="-1">
       <g class="gt-corpo">${brilho}${pulso}${selAnel}<g class="gt-caminho-anel"><circle r="${(n.r + 5).toFixed(1)}"/></g>${forma(n.tipo, 'gt-shape')}${icone}</g></g>`;
   }
@@ -643,18 +675,38 @@ export class ArvoreGlobal {
     if (cam && !cam.aberto && cam.ids.length) noCaminho.add(cam.alvo);
     const arestasCam = new Set<string>();
     if (cam && cam.ids.length) for (const [a, b] of arestasDoCaminho(v, cam.ids)) arestasCam.add(`${a}|${b}`).add(`${b}|${a}`);
-    const porId = new Map(v.nos.map((n) => [n.id, n]));
-    const esmaecidoDe = (id: string) => this.filtro !== undefined && porId.get(id)?.categoria !== this.filtro;
-    for (const [id, g] of this.elNo) {
-      g.classList.toggle('caminho', noCaminho.has(id));
-      g.classList.toggle('dim', esmaecidoDe(id));
-      g.classList.toggle('foco', id === this.hover || id === this.sel);
-      g.classList.toggle('sel', id === this.sel);
+    const porId = this.porId;
+    // halo do caminho: refeito só quando o caminho muda (não a cada passagem por um nó do mesmo caminho)
+    const pares = cam && cam.ids.length ? arestasDoCaminho(v, cam.ids) : [];
+    const chaveHalo = pares.map(([a, b]) => `${a}|${b}`).join(';');
+    if (this.haloEl && chaveHalo !== this.caminhoHaloKey) {
+      this.caminhoHaloKey = chaveHalo;
+      this.haloEl.innerHTML = pares
+        .map(([a, b]) => {
+          const na = porId.get(a), nb = porId.get(b);
+          return na && nb ? `<line class="gt-caminho-halo" x1="${na.x.toFixed(1)}" y1="${na.y.toFixed(1)}" x2="${nb.x.toFixed(1)}" y2="${nb.y.toFixed(1)}"/>` : '';
+        })
+        .join('');
     }
-    for (const { a, b, el } of this.elAresta) {
+    const esmaecidoDe = (id: string) => this.filtro !== undefined && porId.get(id)?.categoria !== this.filtro;
+    // só o que mudou toca no DOM: cada troca de classe invalida o estilo do elemento
+    for (const [id, g] of this.elNo) {
+      const bits = (noCaminho.has(id) ? 1 : 0) | (esmaecidoDe(id) ? 2 : 0) | (id === this.hover || id === this.sel ? 4 : 0) | (id === this.sel ? 8 : 0);
+      if (this.destaqueNo.get(id) === bits) continue;
+      this.destaqueNo.set(id, bits);
+      g.classList.toggle('caminho', !!(bits & 1));
+      g.classList.toggle('dim', !!(bits & 2));
+      g.classList.toggle('foco', !!(bits & 4));
+      g.classList.toggle('sel', !!(bits & 8));
+    }
+    for (const aresta of this.elAresta) {
+      const { a, b, el } = aresta;
       const na = porId.get(a), nb = porId.get(b);
       const abertos = (na?.estado === 'aberto' ? 1 : 0) + (nb?.estado === 'aberto' ? 1 : 0);
-      el.setAttribute('class', `gt-aresta ${abertos === 2 ? 'aberta' : abertos === 1 ? 'meio' : 'fechada'}${arestasCam.has(`${a}|${b}`) ? ' caminho' : ''}${esmaecidoDe(a) || esmaecidoDe(b) ? ' dim' : ''}`);
+      const cls = `gt-aresta ${abertos === 2 ? 'aberta' : abertos === 1 ? 'meio' : 'fechada'}${arestasCam.has(`${a}|${b}`) ? ' caminho' : ''}${esmaecidoDe(a) || esmaecidoDe(b) ? ' dim' : ''}`;
+      if (aresta.cls === cls) continue;
+      aresta.cls = cls;
+      el.setAttribute('class', cls);
     }
   }
 

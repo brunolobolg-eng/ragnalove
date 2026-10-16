@@ -2344,7 +2344,8 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
  * e o brilho/estado diz se está aberto, disponível, sem pontos ou bloqueado.
  * ===================================================================== */
 .gt-veil { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 12px; box-sizing: border-box;
-  background: radial-gradient(ellipse at 50% 45%, rgba(8, 12, 30, 0.45), rgba(4, 6, 16, 0.86) 75%); backdrop-filter: blur(1.5px);
+  background: radial-gradient(ellipse at 50% 45%, rgba(8, 12, 30, 0.45), rgba(4, 6, 16, 0.86) 75%);
+  /* sem backdrop-filter: o véu contém a roda, e cada repintura dela refazia o desfoque da tela (medido: ~45 → ~14 fps) */
   font-family: Tahoma, Verdana, sans-serif; color: var(--au-text); }
 .gt-veil[hidden], .gt-bar[hidden], .gt-reset-btn[hidden] { display: none !important; }
 .gt-win { background: linear-gradient(180deg, rgba(14, 22, 50, 0.94), rgba(6, 10, 26, 0.97)), var(--gt-pedra) center / 420px auto; background-clip: padding-box; width: min(1400px, 98vw); height: min(860px, 94vh); display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; animation: nrUp .2s ease-out; }
@@ -2395,7 +2396,9 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-aresta { stroke: #34457e; stroke-width: 2; opacity: 0.3; stroke-linecap: round; transition: opacity var(--gt-transicao, 0.18s) ease, stroke var(--gt-transicao, 0.18s) ease; }
 .gt-aresta.meio { opacity: 0.6; }
 .gt-aresta.aberta { stroke: var(--c, #d9b45a); stroke-width: 3; opacity: 0.95; }
-.gt-aresta.caminho { stroke: #ffe08a; stroke-width: 4.5; opacity: 1; filter: drop-shadow(0 0 6px rgba(255, 211, 106, 0.9)); }
+.gt-aresta.caminho { stroke: #ffe08a; stroke-width: 4.5; opacity: 1; }
+/* halo do caminho: brilho dourado sem filtro (o drop-shadow repintava a roda inteira a cada quadro) */
+.gt-caminho-halo { stroke: #ffd36a; stroke-width: 11; stroke-opacity: 0.22; stroke-linecap: round; pointer-events: none; }
 .gt-aresta.dim { opacity: 0.08; }
 
 /* nós: forma e símbolo pelo tipo; cor do setor; estados aberto, disponível, sem Zen e bloqueado */
@@ -2406,7 +2409,7 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-no .gt-shape { fill: #0d1530; stroke: #3c4d7d; stroke-width: 2; transition: fill 0.15s, stroke 0.15s; }
 .gt-no .gt-simb { fill: #3c4d7d; stroke: none; }
 .gt-no:hover .gt-shape { stroke: #fff3d6; }
-.gt-no.aberto .gt-shape { fill: var(--c); stroke: #fff3d6; stroke-width: 2.5; filter: drop-shadow(0 0 6px var(--c)); }
+.gt-no.aberto .gt-shape { fill: var(--c); stroke: #fff3d6; stroke-width: 2.5; }
 .gt-no.aberto .gt-simb { fill: #fff3d6; }
 .gt-no.disponivel .gt-shape { fill: #17264d; stroke: var(--c); stroke-width: 2.5; }
 .gt-no.disponivel .gt-simb { fill: var(--c); }
@@ -2418,14 +2421,14 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-no.raiz .gt-shape { fill: transparent; stroke: none; }
 .gt-no.caminho .gt-shape { stroke: #ffd36a; stroke-width: 3; }
 .gt-no.dim { opacity: 0.16; }
-.gt-caminho-anel { display: none; }
-.gt-no.caminho .gt-caminho-anel { display: inline; }
-.gt-no.caminho .gt-caminho-anel circle { fill: none; stroke: #ffd36a; stroke-width: 1.5; stroke-opacity: 0.55; }
-.gt-sel { fill: none; stroke: #fff1c4; stroke-width: 2.5; stroke-dasharray: 6 5; transform-box: fill-box; transform-origin: center; animation: gtSpin 14s linear infinite; }
-.gt-pulso { fill: none; stroke: var(--c); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: gtPulso 2.2s ease-in-out infinite; }
-@keyframes gtPulso { 0%, 100% { opacity: 0.25; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.12); } }
-@keyframes gtSpin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .gt-pulso, .gt-sel, .gt-detail, .gt-tip { animation: none; } .gt-win { animation: none; } .gt-corpo, .gt-no, .gt-brilho, .gt-aresta { transition: none; } }
+/* anel do caminho: sempre no DOM e só aparece por opacidade (trocar display mexia no layout a cada hover) */
+.gt-caminho-anel circle { fill: none; stroke: #ffd36a; stroke-width: 1.5; stroke-opacity: 0; }
+.gt-no.caminho .gt-caminho-anel circle { stroke-opacity: 0.55; }
+/* seleção e "pode abrir": parados. Animação infinita dentro do SVG repinta a roda inteira a cada quadro. */
+.gt-sel { fill: none; stroke: #fff1c4; stroke-width: 2.5; stroke-dasharray: 6 5; opacity: 0; }
+.gt-no.sel .gt-sel { opacity: 1; }
+.gt-pulso { fill: none; stroke: var(--c); stroke-width: 2; opacity: 0.6; }
+@media (prefers-reduced-motion: reduce) { .gt-detail, .gt-tip { animation: none; } .gt-win { animation: none; } .gt-corpo, .gt-no, .gt-brilho, .gt-aresta { transition: none; } }
 
 /* ícones e moldura dos nós: o ícone é da arte do kit; a moldura ornamental vem da forma (.gt-orn) */
 .gt-icone { pointer-events: none; }
@@ -2433,7 +2436,8 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-no.notavel .gt-orn { stroke: rgba(255, 211, 106, 0.75); }
 .gt-no.mastery .gt-orn { stroke: rgba(255, 211, 106, 0.9); }
 .gt-no line.gt-simb { stroke: #3c4d7d; stroke-width: 2; }
-.gt-no.bloqueado .gt-icone { filter: grayscale(1) brightness(0.6); opacity: 0.6; }
+/* o ícone bloqueado é a versão cinza do arquivo (sem filtro): só a opacidade fica aqui */
+.gt-no.bloqueado .gt-icone { opacity: 0.6; }
 
 /* filtro por categoria (canto superior esquerdo do canvas, fora da roda) */
 .gt-filtros { position: absolute; left: 10px; top: 10px; z-index: 2; }

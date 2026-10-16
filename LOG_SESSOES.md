@@ -1455,3 +1455,31 @@ Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridg
 - Saves de versão 3 não mudam. Os gravados antes da correção das sobreposições (adc4ed7 e antes) mantêm o estado antigo de loja e cofre, com a chance de sobreposição já descrita.
 - `saves:check` atualizado: v1 e v2 são testadas como descontinuadas; a migração de campos ausentes continua testada com `migrateRun` direto.
 - Aviso do save descontinuado: no log do HUD ele não aparecia (o HUD fica oculto no menu, e o log é limpo quando a jornada nova começa). Agora sai como cartão no menu, na abertura (`MainMenu.aviso`). Conferido no navegador (modo dev, localStorage): v2 vira cópia com o motivo certo, o segundo boot não duplica a cópia, e v3 não gera cópia nem aviso. Captura em tela feita.
+
+## Árvore de Aurenthal: otimização de desempenho
+
+**Problema:** a árvore ficava travada (com nós disponíveis, ~15 quadros por segundo). Medido no navegador, modo dev, com 111 nós, 185 arestas, 104 ícones e 1105 elementos SVG.
+
+**Medição** (Chromium, mesma máquina, 2 rodadas por cenário; valores relativos, sem GPU):
+
+| Cenário | Antes | Depois |
+|---|---|---|
+| Repouso, com nós disponíveis pulsando | 17,5 fps | 60 fps |
+| Passar o cursor pela roda | 15 fps | 46 a 50 fps |
+| Arrastar a roda | 15 fps | 46 a 52 fps |
+| Zoom com a roda do mouse | 15 fps | 35 fps |
+| Clicar em 12 nós | 15 fps | 35 a 40 fps |
+
+**O que pesava e foi tirado:**
+- Animações infinitas dentro do SVG (anel pulsante dos nós disponíveis e anel girando da seleção): repintavam a roda inteira a cada quadro. Agora são estáticos (halo fixo nos disponíveis, anel de seleção parado).
+- ~90 filtros de cinza nos ícones bloqueados: agora são arquivos `-cinza.webp` gerados por `scripts/gerarIconesArvoreCinza.py` (diferença média de 0,6 em 255 contra o filtro original).
+- `drop-shadow` no nó aberto e no caminho aceso: trocados por um halo sem filtro atrás das arestas do caminho.
+- `backdrop-filter` no véu: tirado. Medido: com ele, as interações caem para ~14 fps, porque a roda fica dentro do véu.
+- Destaque e seleção refazendo a roda inteira: agora só mudam as classes que mudaram, e clicar num nó não redesenha a roda.
+- Tooltip media o próprio tamanho a cada movimento do cursor (forçava layout): mede uma vez por conteúdo.
+
+**Trade-off para o dono:** o nó disponível não pulsa mais, e a seleção não gira. O sinal de "pode abrir" continua no anel dourado e no estado.
+
+**Ainda pesa:** arrastar e dar zoom repintam o SVG inteiro a cada quadro. Experimento: esconder cada camada grande (setores, miolo, aro, emblemas, sombra do núcleo) não muda muito, então o custo é estrutural. Próximo passo, se ainda precisar: levar pan e zoom para a composição do navegador (transform no elemento SVG, com `will-change` só durante o gesto). Mexe na geometria do ponteiro e no recorte da roda, por isso não foi feito agora.
+
+**Conferido:** `npm run check` (inclusive `arvore:check`, `arvore:visual:check`); comportamento no navegador (destaque, seleção, filtro, Esc, reabrir, sem erro no console); capturas em 1600×900 e 1280×720.
