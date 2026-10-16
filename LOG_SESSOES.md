@@ -6,6 +6,7 @@ O histórico técnico de cada versão está no `CHANGELOG.md`; o estado atual do
 Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisões, pendências e commits.
 
 ## Pendências em aberto (resumo)
+- **Pacote da campanha (2026-10-16):** agora sai da semente da jornada, sem `Math.random`. Pendências do dono: decidir se o pacote deve depender também da última batalha (hoje é fixo desde o começo da jornada) e se a revelação deve voltar depois de recarregar a página durante a animação (hoje as cartas entram na coleção, mas a revelação não é refeita). Detalhes na entrada de 2026-10-16 abaixo.
 - **O Último Bastião (v0.11, em andamento):** prévia translúcida, muralhas em qualquer ponto, mover muralhas recentes, horda ordenada (mini-chefe a cada 5 noites, MVP a cada 10) e caminho aberto antes de quebrar, já no código (commits 35153a7 e 742b601). Pendências do dono: testar no PC; confirmar a ordem da horda e se o turno também avança na derrota; decidir se mover sai do modo depois de mover (hoje sai); zoom global ou só no Bastião. Detalhes na entrada de 2026-10-12 abaixo.
 - **Álbum de cartas e dica da revelação (v0.10):** Feiticeira e Bruxa não têm ícone de classe na folha 32 (usam o retrato); cartas não têm nível no jogo (o "Nv." da imagem virou ×N); conferir no PC do dono o álbum com cartas reais e a dica do pacote.
 - **Kit de interface nos menus (v0.9):** conferir visualmente no PC do dono o pacote de cartas e as configurações (não conferidos nesta rodada); a moldura do mítico é dourada porque a arte do vermelho está no miolo (decisão de arte); silhuetas de amuleto e anel saíram irregulares, e brinco e cinto não têm silhueta própria; a muralha do guerreiro não tem textura no arquivo do kit (decisão: textura própria ou a do cenário). Ranking do menu é arte da tela inicial, não foi trocado (v0.9).
@@ -931,6 +932,23 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   2. Parada seca: quando a unidade para (fila bloqueada), para no centro do tile sem freio; o andar segue por 0,45 s nos inimigos.
   3. FPS real na GPU do dono não medido (o SwiftShader leva 5 a 9 s por quadro).
 - **Testes:** `npm run build`, `sim:check` (determinístico: true, núcleo intocado), `bastion:check`.
+
+## 2026-10-16 — pacote da campanha pela semente da jornada (v0.11, em andamento)
+- **Pedido do dono:** o pacote de cartas da vitória usava `Math.random` na interface. Passa a usar uma semente que já existe: a mesma vitória gera o mesmo pacote, e recarregar não sorteia de novo.
+- **Como ficou:**
+  - Núcleo (`core/progression/cards.ts`): `rollRunPack(seed)` cria um `Rng` com `run.seed ^ PACOTE_SALT` e chama o `rollPack` que já existia. O salt separa esse sorteio da sequência que a batalha e os eventos usam com a mesma semente.
+  - Interface (`main.ts`): `completeNode` passa `run.seed` no lugar de `Math.random`. O `cardPackDemo` (só dev) aceita uma semente opcional (padrão 1).
+  - Comentário de `rollPack` corrigido: dizia que a interface passava `Math.random`.
+  - Save: nenhum campo novo, então nenhuma migração. `RunState` e a coleção mantêm o mesmo formato.
+  - Bastião: sem mudança. Já sorteava com semente da cidade (`grantWavePacks`).
+- **Por que recarregar não re-rola:** a coleção é gravada antes da revelação. Uma jornada vencida tem `ended = 'victory'`, e `loadRun` descarta jornada encerrada, então nada sorteia de novo ao abrir o jogo. Verificado pela leitura do código; não reproduzi recarregando no navegador.
+- **Decisões para confirmar:**
+  1. O pacote depende só de `run.seed`. Ele fica fixo desde o começo da jornada e não muda com as escolhas do jogador. Se o dono quiser que a última batalha entre no sorteio, basta misturar a fase vencida na semente.
+  2. Recarregar durante a revelação: as cartas já estão na coleção, mas a revelação não volta. Para mostrá-la de novo seria preciso um campo `pendingPack` no meta, com migração. Não fiz, porque o pedido era não re-rolar.
+- **Testes:** `npm run build` (tsc e vite) passa; `npm run sim:check` determinístico: true (núcleo da batalha intocado); `scripts/cardCheck.ts` com 4 checks novos do pacote da jornada (5 cartas do catálogo, mesma semente = mesmo pacote, 20 sementes dão 20 pacotes distintos, nenhuma chamada a `Math.random`); `npm run bastion:check` passa.
+- **Falha que já existia:** `npx tsx scripts/cardRuleCheck.ts` falha no check "sem cartas: eventos da campanha iguais aos do motor antes das cartas". O mesmo erro aparece no HEAD sem estas mudanças (`c1f9f114cebcd634`, contra a referência `00fdbdc44cff71e4`). A referência é de antes de mudanças posteriores no motor. Não ajustei a constante: é preciso entender qual mudança deslocou o hash antes de trocar o número.
+- **Scripts pedidos que não existem:** `npm run determinismo:check`, `npm run arvore:save:check` e `npm run banco:check` não estão no `package.json` nem no histórico do git. Usei os equivalentes: `sim:check`, `cardCheck` e `bastion:check`. Se o dono tiver esses checks em outro lugar, é só dizer onde.
+- **Não verificado:** o navegador não foi aberto nesta entrega (a mudança não é visual), e o executável não foi gerado.
 
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.

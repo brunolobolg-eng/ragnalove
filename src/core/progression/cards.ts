@@ -12,6 +12,7 @@ import type { HeroKind } from './skills';
 import { CARDS_NORMAIS_A } from './cardCatalog/normaisA';
 import { CARDS_NORMAIS_B } from './cardCatalog/normaisB';
 import { CARDS_ESPECIAIS } from './cardCatalog/especiais';
+import { Rng } from '../sim/rng';
 
 export type CardCategory = 'ofensiva' | 'defensiva' | 'sustentacao' | 'utilidade' | 'mobilidade';
 export const CARD_CATEGORIES: readonly CardCategory[] = ['ofensiva', 'defensiva', 'sustentacao', 'utilidade', 'mobilidade'];
@@ -301,8 +302,8 @@ export function unequipCard(c: CardCollection, hero: HeroKind, index: number): v
 }
 
 /**
- * Pacote de fim de run (só vitória): 5 cartas sorteadas igualmente do catálogo. O sorteio vem de fora (`rand`),
- * O sorteio é só o `rand` recebido: a interface passa Math.random, o Bastião passa o rng com semente.
+ * Pacote (5 cartas sorteadas igualmente do catálogo). O sorteio vem de fora (`rand`): quem chama passa um gerador
+ * com semente. Campanha: `rollRunPack`. Bastião: `grantWavePacks` (semente da cidade).
  */
 export function rollPack(rand: () => number): string[] {
   const out: string[] = [];
@@ -311,6 +312,18 @@ export function rollPack(rand: () => number): string[] {
     out.push(CARD_CATALOG[k].id);
   }
   return out;
+}
+
+/** Desloca a semente da jornada antes do sorteio do pacote: não repete a sequência que a batalha e os eventos usam. */
+const PACOTE_SALT = 0x9e3779b9;
+
+/**
+ * Pacote de fim de run (só vitória), sorteado pela semente da jornada (`run.seed`, salva no save). A mesma jornada
+ * vencida dá o mesmo pacote, e recarregar a página não sorteia de novo. Não usa Math.random.
+ */
+export function rollRunPack(seed: number): string[] {
+  const rng = new Rng((seed ^ PACOTE_SALT) >>> 0);
+  return rollPack(() => rng.next());
 }
 
 /** Ordem de revelação do pacote. Sem raridade, a ordem é a que saiu (função mantida para a interface). */

@@ -42,7 +42,7 @@ import { CHARSELECT_ART, MUSIC, POSTFX, VICTORY_TITLES, VISUAL_CONFIG } from './
 import type { PostFxSituation } from './render/fx/kit/PostFX';
 import type { WaveReport } from './core/sim/types';
 import { RUNIC_SKILLS, SKILL_BY_ID, SKILL_NUM, SKILLS, lvOf, type HeroKind, type SkillId } from './core/progression/skills';
-import { CARD_CATALOG, addCards, applyCardLoadout, emptyCollection, equipCard, migrateCollection, rollPack, type CardCollection } from './core/progression/cards';
+import { CARD_CATALOG, addCards, applyCardLoadout, emptyCollection, equipCard, migrateCollection, rollRunPack, type CardCollection } from './core/progression/cards';
 import { CardPack } from './ui/CardPack';
 import { Collection } from './ui/Collection';
 import { orderMove } from './core/sim/CombatMovement';
@@ -1009,7 +1009,7 @@ function completeNode(outcome: string): void {
     // pacote de 5 cartas (só vitória): entra na coleção permanente na hora; a revelação vem antes do placar
     const meta = loadMetaStats();
     meta.collection ??= emptyCollection();
-    const pack = rollPack(Math.random); // sorteio da interface; a regra (5 cartas, catálogo) é do core
+    const pack = rollRunPack(run.seed); // semente da jornada: a mesma vitória dá o mesmo pacote (a regra está no core)
     addCards(meta.collection, pack);
     saveMetaStats(meta);
     saveProfile();
@@ -2430,9 +2430,9 @@ if (import.meta.env.DEV) {
       setMode('battle');
       focusParty(true);
     },
-    // prévias de tela (só dev): roleta de prêmio com um item lendário e o pacote de cartas (ids opcionais)
+    // prévias de tela (só dev): roleta de prêmio com um item lendário e o pacote de cartas (ids opcionais; senão, a semente)
     rouletteDemo: () => { void roulette.spin('Recompensa da primeira vitória', 'Demonstração da roleta', rollItem(debugRng, 0, `demo-roleta-${debugRng.int(1e9)}`, { rarity: 'legendary', slot: 'weapon' }), () => 'weapon'); },
-    cardPackDemo: (ids?: string[]) => cardPack.show(ids ?? rollPack(Math.random), () => {}),
+    cardPackDemo: (ids?: string[], seed = 1) => cardPack.show(ids ?? rollRunPack(seed), () => {}),
     // coleção de exemplo: cópias em vários níveis (para ver seletor de nível, fusão e desbloqueio)
     collectionDemo: () => {
       const c = emptyCollection();

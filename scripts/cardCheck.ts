@@ -26,6 +26,7 @@ import {
   fuseCard,
   migrateCollection,
   rollPack,
+  rollRunPack,
   unequipCard,
   validarCatalogo,
   type CardCollection,
@@ -183,6 +184,24 @@ const CATEGORIAS = ['ofensiva', 'defensiva', 'sustentacao', 'utilidade', 'mobili
   check('todas as 102 cartas saem no sorteio', vistos.size === 102, `${vistos.size}`);
   check('sorteio uniforme (cada carta perto de 980 em 100 mil)', Math.min(...cont) > 700 && Math.max(...cont) < 1300, `min ${Math.min(...cont)} · máx ${Math.max(...cont)}`);
   check('rand = 0,99999… não passa do fim do catálogo', rollPack(() => 0.9999999999).every((id) => !!CARD_BY_ID[id]));
+
+  // pacote da campanha: a semente da jornada (run.seed) decide o pacote, sem Math.random
+  check('pacote da jornada: 5 cartas do catálogo', rollRunPack(42).length === 5 && rollRunPack(42).every((id) => !!CARD_BY_ID[id]));
+  check('mesma jornada (mesma semente), mesmo pacote', JSON.stringify(rollRunPack(42)) === JSON.stringify(rollRunPack(42)));
+  const pacotes = Array.from({ length: 20 }, (_, i) => JSON.stringify(rollRunPack(1000 + i * 7919)));
+  check('jornadas diferentes saem com pacotes diferentes', new Set(pacotes).size > 15, `${new Set(pacotes).size} de 20 distintos`);
+  const mathRandomOriginal = Math.random;
+  let usouMathRandom = false;
+  Math.random = () => {
+    usouMathRandom = true;
+    return 0.5;
+  };
+  try {
+    rollRunPack(42);
+  } finally {
+    Math.random = mathRandomOriginal;
+  }
+  check('o pacote da jornada não usa Math.random', !usouMathRandom);
 }
 
 // ---------- escala e desbloqueio ----------
