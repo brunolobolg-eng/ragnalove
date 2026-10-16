@@ -64,11 +64,11 @@ Fontes: `src/config/heroes.ts` (papel, liberação), `src/config/vocations.ts` (
 | Classe | Papel | Vocações (nível 10) | Slots de Mana (custo por slot) | Atributo principal | Liberação |
 |---|---|---|---|---|---|
 | Guerreiro | Linha de frente | Bárbaro, Crusado | 20 (2×) | Força | desde o início |
-| Mago | Maga divina | a confirmar (sem desenho) | 10 (1×) | Inteligência | desde o início |
-| Arqueira | Dano à distância | a confirmar (sem desenho) | 15 (1,5×) | Destreza | desde o início |
-| Feiticeira | Dano arcano | a confirmar (sem desenho) | 10 (1×) | Inteligência | 1000 monstros abatidos, somando as jornadas |
+| Mago | Maga divina | Em breve (sem desenho) | 10 (1×) | Inteligência | desde o início |
+| Arqueira | Dano à distância | Em breve (sem desenho) | 15 (1,5×) | Destreza | desde o início |
+| Feiticeira | Dano arcano | Em breve (sem desenho) | 10 (1×) | Inteligência | 1000 monstros abatidos, somando as jornadas |
 | Bruxa | Maldições | Hypnomancer (2ª vaga sem desenho) | 10 (1×) | Inteligência | derrotar o chefe do Ato II |
-| Assassino | Corpo a corpo letal | a confirmar (sem desenho) | 15 (1,5×) | Destreza | vencer 10 ondas sem a cidade levar dano |
+| Assassino | Corpo a corpo letal | Em breve (sem desenho) | 15 (1,5×) | Destreza | vencer 10 ondas sem a cidade levar dano |
 
 Notas:
 - Vocação: escolhida no nível 10, uma vez por jornada (`src/config/vocations.ts`, `VOCATIONS_CONFIG.level`).

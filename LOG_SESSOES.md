@@ -1317,4 +1317,5 @@ Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridg
 - 4866b42 Checagem única: npm run check roda o build e todas as checagens
 - 4d348ff Documento de desenho: docs/DESENHO.md com as 12 seções de referência
 - eebd175 CLAUDE.md: regra 5 passa a exigir npm run check e screenshot para UI
-- (este commit) Registro da estabilização parte 1 em LOG_SESSOES.md
+- 6d92579 Registro da estabilização parte 1 em LOG_SESSOES.md
+- (esta correção) docs/DESENHO.md: vocações sem desenho aparecem como "Em breve" (valor confirmado no código, `null` em `src/config/vocations.ts`)
