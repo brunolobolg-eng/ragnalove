@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "check": "tsx scripts/checkAll.ts",
+    "check:rapido": "tsx scripts/checkAll.ts --rapido",
     "preview": "vite preview",
     "sim:check": "tsx scripts/simCheck.ts",
     "bastion:check": "tsx scripts/bastionCheck.ts",
