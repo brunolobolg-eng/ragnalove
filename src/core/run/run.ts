@@ -12,29 +12,42 @@ import { HERO_INFO, HERO_ORDER, HERO_NAME as HERO_NAMES } from '../../config/her
 import { OBJECT_RULES } from '../sim/objects';
 import type { WaveReport } from '../sim/types';
 
-/** Versão atual do save da jornada. A v1 não tinha o campo `sorteio` (migrateRun converte). */
-export const VERSAO_JORNADA = 2;
+/**
+ * Versão atual do save da jornada. v1: sem o campo `sorteio`. v2: `sorteio` com um estado só.
+ * v3: um estado por fluxo de sorteio (jornada, loja e cofre). migrateRun converte as anteriores.
+ */
+export const VERSAO_JORNADA = 3;
 
-/** Sorteio da jornada: estado do gerador e contador de ids de item. Vai no save. */
+/** Fluxos de sorteio da jornada. Cada um tem o seu estado: um não mexe na sequência do outro. */
+export type FluxoNome = 'jornada' | 'loja' | 'cofre';
+const FLUXOS: FluxoNome[] = ['jornada', 'loja', 'cofre'];
+
+/** Sorteio da jornada: estado de cada fluxo e contador de ids de item. Vai no save. */
 export interface Sorteio {
-  estado: number;
+  estados: Record<FluxoNome, number>;
   itens: number;
 }
 
-/** Constante que separa o sorteio da jornada do das ondas (mesmo padrão do Simulation). */
-const SALT_FLUXO_JORNADA = 0x2c1b3c6d;
+/**
+ * Constantes que separam cada fluxo (mesmo padrão do Simulation: lootRng/combatRng). A jornada usa a constante de
+ * sempre, então o estado inicial dela não muda em relação à v2.
+ */
+const SALT_FLUXO: Record<FluxoNome, number> = { jornada: 0x2c1b3c6d, loja: 0x7f4a7c15, cofre: 0x3c6ef372 };
 
-/** Sorteio inicial de uma jornada: a mesma seed dá a mesma sequência desde o começo. */
-export const sorteioInicial = (seed: number): Sorteio => ({ estado: (seed ^ SALT_FLUXO_JORNADA) >>> 0, itens: 0 });
+/** Sorteio inicial de uma jornada: a mesma seed dá a mesma sequência de cada fluxo desde o começo. */
+export const sorteioInicial = (seed: number): Sorteio => ({
+  estados: { jornada: (seed ^ SALT_FLUXO.jornada) >>> 0, loja: (seed ^ SALT_FLUXO.loja) >>> 0, cofre: (seed ^ SALT_FLUXO.cofre) >>> 0 },
+  itens: 0,
+});
 
 /**
  * Estado de uma run (jornada de 3 atos × 5 fases). Toda a progressão dos heróis vive aqui:
  * derrota completa encerra a run e a próxima começa do zero.
  */
 export interface RunState {
-  version: 2;
+  version: 3;
   seed: number;
-  /** Sorteio da jornada (loot, loja, refino, eventos, cofres). Vai no save: uma recarga continua a sequência. */
+  /** Sorteios da jornada (loot, refino, eventos, presente; loja e cofre têm fluxo próprio). Vão no save: uma recarga continua a sequência. */
   sorteio: Sorteio;
   act: number;
   node: number;
@@ -158,14 +171,9 @@ export function migrateRun(r: RunState): RunState {
   if (!Number.isFinite(r.seed)) r.seed = 1;
   r.damage ??= 0;
   r.playMs ??= 0;
-  // v1 → v2: o sorteio passa a ser guardado no save. Um save antigo começa a sequência da seed, como a versão
-  // anterior, e o contador de ids começa acima dos ids já visíveis (senão reemite id de item vendido).
-  // Cada campo é conferido sozinho: um campo inválido não joga fora o outro.
-  const lido = (r.sorteio ?? {}) as Partial<Sorteio>;
-  r.sorteio = {
-    estado: estadoValido(lido.estado) ? lido.estado! >>> 0 : sorteioInicial(r.seed >>> 0).estado,
-    itens: itensValido(lido.itens) ? lido.itens! : maiorContadorVisivel(r),
-  };
+  // v1 → v2 → v3: o sorteio ganha um estado por fluxo (loja e cofre fora da jornada). Cada campo é conferido
+  // sozinho; o que falta começa da seed. O contador de ids começa acima dos ids já visíveis (senão reemite id vendido).
+  r.sorteio = sorteioDoSave(r, r.sorteio);
   // loja malformada (save editado) não pode derrubar os sorteios: a cidade regenera a loja quando ela some
   if (!Array.isArray(r.shop) || r.shop.some((it) => !it || typeof it.id !== 'string')) delete r.shop;
   r.version = VERSAO_JORNADA;
@@ -192,12 +200,28 @@ export function maiorContadorVisivel(r: RunState): number {
   return maior;
 }
 
-/** Sorteio lido do save, se for válido (estado numérico e contador inteiro, não negativo e dentro do limite). */
+/** Sorteio lido do save, se for válido (cada estado numérico, contador inteiro não negativo e dentro do limite). */
 export function sorteioValido(s: unknown): Sorteio | undefined {
   if (!s || typeof s !== 'object') return undefined;
-  const { estado, itens } = s as Partial<Sorteio>;
-  if (!estadoValido(estado) || !itensValido(itens)) return undefined;
-  return { estado: estado >>> 0, itens };
+  const { estados, itens } = s as Partial<Sorteio>;
+  if (!estados || !FLUXOS.every((n) => estadoValido(estados[n])) || !itensValido(itens)) return undefined;
+  return { estados: { jornada: estados.jornada >>> 0, loja: estados.loja >>> 0, cofre: estados.cofre >>> 0 }, itens };
+}
+
+/**
+ * Sorteio de um save v1, v2 ou v3, com cada campo conferido sozinho. A v2 tinha um estado só, que era da jornada:
+ * ele é preservado, e loja e cofre começam da seed. O que falta ou está inválido também começa da seed.
+ */
+function sorteioDoSave(r: RunState, lido: unknown): Sorteio {
+  const base = sorteioInicial(r.seed >>> 0);
+  const v = (lido ?? {}) as { estado?: unknown; estados?: Partial<Record<FluxoNome, unknown>>; itens?: unknown };
+  const estados = { ...base.estados };
+  for (const nome of FLUXOS) {
+    const x = v.estados?.[nome];
+    if (estadoValido(x)) estados[nome] = x >>> 0;
+  }
+  if (!v.estados && estadoValido(v.estado)) estados.jornada = v.estado >>> 0;
+  return { estados, itens: itensValido(v.itens) ? v.itens : maiorContadorVisivel(r) };
 }
 
 // ---------------- Vida da cidade ----------------
@@ -265,7 +289,7 @@ export function useMapObject(r: RunState, type: keyof typeof OBJECT_RULES, id: n
   if (type === 'cart') {
     const C = GAME_CONFIG.objects.cart;
     const k = priceMult(r);
-    const g = fluxo(r).rng;
+    const g = fluxo(r, 'cofre').rng;
     if (g.next() < C.soulChance) {
       const v = Math.round((C.souls[0] + g.int(C.souls[1] - C.souls[0] + 1)) * k);
       p.souls += v;
@@ -320,19 +344,20 @@ export function survivalRewards(r: RunState, kills: number, seconds: number): { 
   return { score, rarities: rarities.sort((a, b) => RARITIES.indexOf(a) - RARITIES.indexOf(b)) };
 }
 
-// ---------------- Sorteios da jornada (loot, loja, refino, eventos, cofres) ----------------
+// ---------------- Sorteios da jornada (loot, refino, eventos, presente; loja e cofre têm fluxo próprio) ----------------
 /**
- * Sorteio da jornada fora da batalha. O estado do gerador fica em r.sorteio, então vai no save: ao recarregar,
- * a sequência continua de onde parou (não repete). Cada sorteio grava o novo estado na própria run.
+ * Sorteio de um fluxo fora da batalha. O estado fica em r.sorteio.estados, então vai no save: ao recarregar, a
+ * sequência continua de onde parou (não repete). Cada sorteio grava o novo estado na própria run, então dois objetos
+ * do mesmo fluxo (ex.: a loja e o item de dentro dela) continuam do mesmo ponto.
  */
 class SorteioDaRun extends Rng {
-  constructor(private readonly r: RunState) {
-    super(r.sorteio.estado);
+  constructor(private readonly r: RunState, private readonly nome: FluxoNome) {
+    super(r.sorteio.estados[nome]);
   }
   next(): number {
-    this.estado = this.r.sorteio.estado; // sempre o estado atual da run, mesmo se outro fluxo já sorteou
+    this.estado = this.r.sorteio.estados[this.nome]; // sempre o estado atual da run, mesmo se outro objeto já sorteou
     const x = super.next();
-    this.r.sorteio.estado = this.estado;
+    this.r.sorteio.estados[this.nome] = this.estado;
     return x;
   }
 }
@@ -340,9 +365,13 @@ class SorteioDaRun extends Rng {
 function garanteSorteio(r: RunState): Sorteio {
   return (r.sorteio ??= sorteioInicial(r.seed));
 }
-function fluxo(r: RunState): { rng: Rng } {
+/**
+ * Gerador de um fluxo. Loja e cofre têm o seu: abrir um cofre não muda o estoque da loja, e a ordem das ações
+ * não muda o que cada um sorteia (decisão do dono, registrada em docs/DESENHO.md, seção 8).
+ */
+function fluxo(r: RunState, nome: FluxoNome = 'jornada'): { rng: Rng } {
   garanteSorteio(r);
-  return { rng: new SorteioDaRun(r) };
+  return { rng: new SorteioDaRun(r, nome) };
 }
 
 /**
@@ -389,9 +418,12 @@ export function bossMythicReward(r: RunState, nodeType: NodeType | undefined, dr
   return makeItem(r, 'mythic', undefined, r.party);
 }
 
-/** Item sorteado da jornada: raridade/slot/tipo pelo fluxo da run, id pelo contador (sem relógio). */
-export function makeItem(r: RunState, rarity: Rarity, slot?: Slot, users: string[] = []): Item {
-  return rollItem(fluxo(r).rng, 0, novoIdItem(r), { rarity, slot }, users);
+/**
+ * Item sorteado: raridade/slot/tipo pelo fluxo escolhido (padrão: jornada), id pelo contador (sem relógio).
+ * O id é só um nome: não entra no sorteio, então o contador compartilhado não muda o conteúdo dos itens.
+ */
+export function makeItem(r: RunState, rarity: Rarity, slot?: Slot, users: string[] = [], nome: FluxoNome = 'jornada'): Item {
+  return rollItem(fluxo(r, nome).rng, 0, novoIdItem(r), { rarity, slot }, users);
 }
 /** Número da fase (1..15). */
 export const phaseNumber = (r: RunState) => ACTS.slice(0, r.act).reduce((s, a) => s + a.nodes.length, 0) + r.node + 1;
@@ -535,8 +567,8 @@ export function shopStock(r: RunState): Item[] {
   if (!r.shop) {
     const n = GAME_CONFIG.city.shopStock + Math.floor(economiaDoPerfil(r.profile).sorteLoja);
     const pool: Rarity[] = r.act === 0 ? ['common', 'uncommon', 'uncommon', 'rare'] : r.act === 1 ? ['uncommon', 'rare', 'rare', 'epic'] : ['rare', 'rare', 'epic', 'epic'];
-    const g = fluxo(r).rng;
-    r.shop = Array.from({ length: n }, () => makeItem(r, pool[g.int(pool.length)], undefined, r.party));
+    const g = fluxo(r, 'loja').rng;
+    r.shop = Array.from({ length: n }, () => makeItem(r, pool[g.int(pool.length)], undefined, r.party, 'loja'));
   }
   return r.shop;
 }

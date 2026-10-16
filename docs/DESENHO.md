@@ -149,7 +149,7 @@ Fonte: `src/config/bastion.ts` (`BASTION`, `STRUCTURES`, `PROJECTS`, `BASTION_HO
 
 ## 8. Saves
 
-Jornada (`run`): versão atual **2**. O campo `sorteio` ({estado, itens}) guarda a sequência de sorteios da jornada (loja, refino, cofre, evento, presente, loot), então uma recarga continua a sequência e não repete nem pula. `migrateRun` converte a v1 (cria o sorteio a partir da seed, como a versão anterior fazia ao abrir). `lerJornada` (`src/core/run/carregamento.ts`) decide o que fazer com o texto do save: nova, ok, migrada, versão futura, corrompida ou encerrada. Versão futura ou ilegível nunca é migrada nem apagada: vai para a lista de cópias `runBackup` antes de qualquer gravação nova. Se a cópia falhar, a jornada não grava por cima (`jornadaBloqueada`) e o jogo avisa.
+Jornada (`run`): versão atual **3**. O campo `sorteio` ({`estados`, `itens`}) guarda o estado de três fluxos de sorteio: `jornada` (loot, refino, eventos e presente da 1ª vitória), `loja` e `cofre` (o objeto "Vasculhar a carga"). **Loja e cofre não dividem sorteio** (decisão do dono, 2026-10-16): abrir o cofre não muda o estoque da loja, e a ordem das ações não muda o que cada um sorteia. Uma recarga continua cada sequência e não repete nem pula. `migrateRun` converte a v1 (cria os três a partir da seed, como a versão anterior fazia ao abrir) e a v2 (preserva o estado da jornada; loja e cofre começam da seed). O contador de ids é compartilhado: id é nome, não sorteio. `lerJornada` (`src/core/run/carregamento.ts`) decide o que fazer com o texto do save: nova, ok, migrada, versão futura, corrompida ou encerrada. Versão futura ou ilegível nunca é migrada nem apagada: vai para a lista de cópias `runBackup` antes de qualquer gravação nova. Se a cópia falhar, a jornada não grava por cima (`jornadaBloqueada`) e o jogo avisa.
 
 Saves reais de versões antigas ficam em `tests/saves/` (geradas pelo código de cada versão). `npm run saves:check` prova que abrem, migram, mantêm a sequência após recarga e que o que o jogo não entende não é migrado à força.
 
@@ -203,7 +203,7 @@ Fora do comando:
 - Cópia do Bastião (`bastionBackup`): cada cópia nova sobrescreve a anterior. Só a lista da jornada (`runBackup`) acumula.
 - Seed da batalha: `Simulation` usa `GAME_CONFIG.wave.seed` como padrão, um global que `applyZone` reescreve. A campanha passa a seed certa pela ordem das chamadas, mas nada no núcleo impõe isso.
 - Pacote de cartas da vitória: `src/main.ts` sorteia com `Math.random`. A regra é do núcleo, mas a sorte vem da interface.
-- Loja e cofre dividem o mesmo sorteio da jornada: a ordem das ações escolhe o estoque. Decisão de design a registrar.
+- `determinismo:check` não cobre todo o combate. O ramo da tempestade de areia (`src/core/sim/Simulation.ts`, linha 681, `combatRng`) não roda na batalha de teste: trocar o sorteio por `Reflect.apply(Reflect.get(Math, 'random'), Math, [])` passa no check, e a varredura estática só pega `globalThis` e a forma direta. Reproduzido em cópia fora do repositório. Fechar: incluir o ramo na batalha de teste, ou rodar uma batalha com tempestade, e estender a varredura a `Reflect`.
 
 ## 12. Decisões em aberto
 

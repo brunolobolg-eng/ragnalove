@@ -1424,3 +1424,20 @@ Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridg
 - Loja e cofre dividem o mesmo sorteio: a ordem das ações escolhe o estoque. Decisão de design a registrar.
 
 **Commits:** `179a8f7` (sorteio no save, migração, checagens), `5334afa` (ligação com a interface, runBackup, bloqueio), e o commit seguinte (correções da verificação, desenho e log).
+
+## 2026-10-16 — Loja e cofre com sorteio próprio (decisão do dono)
+
+**Decisão do dono:** loja e cofre não dividem sorteio. Antes, os dois puxavam do mesmo gerador da jornada, então abrir o cofre antes de ver a loja mudava o estoque (seed 7: loja `common, common, uncommon, rare` contra `rare, uncommon, uncommon, uncommon`). Seção 11 do desenho confirmada.
+
+**O que mudou:**
+- Save passa à versão 3. `Sorteio` tem `estados: { jornada, loja, cofre }` e `itens`. Cada fluxo tem o seu estado, guardado no save, e cada um continua de onde parou depois de uma recarga.
+- `loja` usa o fluxo da loja (`shopStock`). `cofre` (objeto "Vasculhar a carga") usa o fluxo do cofre. Loot, refino, eventos, presente e reroll continuam na jornada.
+- Migração: v2 preserva o estado da jornada (a sequência não recomeça); loja e cofre começam da seed. v1 começa os três da seed, como antes. Save v2 vai para a lista `runBackup` uma vez, na migração.
+- O contador de ids continua compartilhado: id é nome, não entra no sorteio, então o conteúdo dos itens não depende dele.
+
+**Provas:**
+- `npm run saves:check`: fixture nova `tests/saves/jornada_v3.json` (gerada pelo código atual, com loja e cofre já usados). Testes de isolamento (loja não mexe no cofre e vice-versa), de recompensa do cofre (igual com ou sem loja antes), de loot da jornada (igual, ids à parte), de recarga contínua de loja e cofre, e dois controles que têm que falhar. A v2 real passa a migrar com o estado da jornada preservado.
+- `npm run determinismo:check`: passa. O hash das sementes mudou, porque a loja e o cofre agora sorteiam de outro fluxo. Esperado.
+
+**Achado nesta etapa (aberto):** `determinismo:check` não cobre o ramo da tempestade de areia (`Simulation.ts:681`). Trocar o sorteio desse ramo por `Reflect.apply(Reflect.get(Math, 'random'), Math, [])` passa no check, e a varredura estática não pega `Reflect`. Está na seção 11 do desenho.
+
