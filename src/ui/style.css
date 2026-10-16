@@ -2496,6 +2496,8 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-hero.alvo { border-color: rgba(255, 211, 106, 0.7); cursor: pointer; }
 .gt-hero.alvo:hover { box-shadow: 0 0 10px rgba(255, 196, 80, 0.4); }
 .gt-hero.on { border-color: #ffd36a; box-shadow: 0 0 0 1px #ffd36a, 0 0 12px rgba(255, 211, 106, 0.5); background: linear-gradient(180deg, rgba(60, 80, 150, 0.95), rgba(26, 40, 90, 0.95)); }
+/* o botão global (button:hover) pintaria o cartão de branco: o cartão mantém o tema escuro no hover */
+.gt-hero:hover:not(.on) { background: linear-gradient(180deg, rgba(40, 58, 118, 0.9), rgba(18, 28, 64, 0.92)); }
 .gt-hero.no { opacity: 0.4; }
 .gt-hero.com { border-color: #6aa8ff; }
 .gt-hero:focus-visible { outline: 2px solid #ffd36a; }
@@ -2526,7 +2528,7 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 
 /* tooltip do nó: segue o cursor e não ocupa espaço fixo (só aparece com o mouse) */
 .gt-tip { position: absolute; left: 0; top: 0; z-index: 4; max-width: 240px; padding: 7px 10px; border-radius: 10px; font-size: 12px; line-height: 1.35; color: var(--au-text); pointer-events: none;
-  background: linear-gradient(180deg, rgba(22, 34, 72, 0.97), rgba(9, 14, 34, 0.98)); border: 1px solid rgba(255, 211, 106, 0.55); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.6); animation: gtFade 0.14s ease-out; }
+  background: linear-gradient(180deg, rgba(22, 34, 72, 0.97), rgba(9, 14, 34, 0.98)); border: 1px solid rgba(255, 211, 106, 0.55); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.6); animation: gtFadeOp 0.14s ease-out; }
 .gt-tip b { display: block; font: 700 13px Cinzel, serif; color: var(--au-title); }
 .gt-tip span { display: block; font-size: 11px; color: var(--au-dim); }
 .gt-tip em { display: block; margin-top: 3px; font-style: normal; color: #ffe6a8; }
@@ -2554,6 +2556,8 @@ body:has(.run-veil:not([hidden]), .skilltree-veil:not([hidden]), .cards-veil:not
 .gt-efeito { margin: 4px 0 6px; line-height: 1.4; }
 .gt-assign { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(199, 157, 72, 0.35); }
 @keyframes gtFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+/* o tooltip usa transform inline para seguir o cursor: a animação mexe só na opacidade */
+@keyframes gtFadeOp { from { opacity: 0; } to { opacity: 1; } }
 
 /* telas estreitas: a rede vai para cima e os painéis rolam embaixo */
 @media (max-width: 980px) {

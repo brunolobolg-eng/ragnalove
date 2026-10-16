@@ -411,7 +411,8 @@ export function montarArvoreVM(p: Profile, retratos: Record<string, string>, ctx
     const portador: HeroKind | undefined = p.arvore?.masteries[m.id];
     const candidatos: CandidatoVM[] = HERO_ORDER.map((k) => {
       const prev = previsaoAtribuir(p, m.id, k, ctx);
-      return { kind: k, nome: nomeHeroi(k), retrato: retratos[k] ?? '', nivel: p.heroes[k]?.level ?? 1, elegivel: m.elegiveis.includes(k), erro: prev.erro };
+      // destino só quando serve à Mastery E já chegou ao nível dela (o motivo do bloqueio aparece antes da escolha)
+      return { kind: k, nome: nomeHeroi(k), retrato: retratos[k] ?? '', nivel: p.heroes[k]?.level ?? 1, elegivel: m.elegiveis.includes(k) && (p.heroes[k]?.level ?? 1) >= m.nivelMin, erro: prev.erro };
     });
     return {
       id: m.id,
