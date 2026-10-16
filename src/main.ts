@@ -183,14 +183,12 @@ function loadRun(): RunState | undefined {
   const leitura = lerJornada(raw);
   if (leitura.tipo === 'nova' || leitura.tipo === 'encerrada') return undefined;
   if (leitura.tipo === 'ok') return leitura.run;
-  if (leitura.tipo === 'migrada') {
-    // a migração preserva os dados; a versão antiga também vai para a lista de cópias. Se a cópia falhar, a
-    // jornada não grava por cima (mesma regra do save não entendido)
-    if (raw !== null && !guardarCopiaDaJornada(raw, `migrada da versão ${leitura.deVersao}`)) jornadaBloqueada = true;
-    return leitura.run;
-  }
+  // descontinuada ou que o jogo não entende: o texto vai para a cópia de segurança antes de qualquer gravação nova.
+  // Se a cópia falhar, a jornada não grava por cima.
   saveDiscarded = true;
-  if (raw !== null && !guardarCopiaDaJornada(raw, leitura.tipo)) jornadaBloqueada = true;
+  if (leitura.tipo === 'descontinuada') jornadaDescontinuada = true;
+  const motivo = leitura.tipo === 'descontinuada' ? `descontinuada: versão ${leitura.versao}` : leitura.tipo;
+  if (raw !== null && !guardarCopiaDaJornada(raw, motivo)) jornadaBloqueada = true;
   return undefined;
 }
 /** Itens já vistos: só os NOVOS entram no equipar automático (o que o jogador desequipa fica quieto). */
@@ -237,6 +235,8 @@ function avisaBloqueio(): void {
 let saveDiscarded = false;
 /** Há um save antigo que não entendemos e a cópia dele falhou: a jornada não grava por cima até liberar espaço. */
 let jornadaBloqueada = false;
+/** A jornada salva é de uma versão descontinuada (ver lerJornada): avisar no menu, com o motivo. */
+let jornadaDescontinuada = false;
 /** Conquistas entre jornadas (liberam as classes avançadas) — no mesmo save do jogador. */
 function loadMetaStats(): MetaStats {
   try {
@@ -546,6 +546,14 @@ const menu = new MainMenu({
   onUi: () => audio.sfx('ui'),
   state: menuState,
 });
+// Save que o carregamento não continuou (ver loadRun): o aviso aparece no menu, logo na abertura. No log do HUD não
+// serve: o HUD está oculto no menu e o log é limpo quando a jornada nova começa.
+if (saveDiscarded) {
+  saveDiscarded = false;
+  if (jornadaBloqueada) menu.aviso('Jornada não salva', 'O save antigo não pôde ser copiado. A jornada não será salva até reiniciar o jogo com espaço no disco.');
+  else if (jornadaDescontinuada) menu.aviso('Jornada de uma versão antiga', 'O sorteio de loja e cofre mudou, e a jornada salva não bate mais com o jogo. Ela foi guardada em cópia de segurança (arquivo runBackup, na pasta de saves). Você começa do zero.');
+  else menu.aviso('Save não reconhecido', 'O save está ilegível ou é de uma versão mais nova que o jogo. Uma cópia foi guardada. Você começa do zero.');
+}
 
 // ---------- Fluxo da run: mapa-múndi → fase (batalha/cidade/evento) → mapa ----------
 type Mode = 'menu' | 'select' | 'map' | 'battle' | 'city' | 'event' | 'end';
@@ -1259,11 +1267,6 @@ function returnToMenu(): void {
   hudRoot.style.visibility = 'hidden';
   audio.stopGameMusic();
   audio.playMenuMusic(MUSIC.menu, MUSIC.fadeMs);
-  if (saveDiscarded) {
-    saveDiscarded = false;
-    if (jornadaBloqueada) hud.log('O save antigo não pôde ser copiado: a jornada não será salva até reiniciar o jogo com espaço no disco.', 'warn');
-    else hud.log('Save que o jogo não reconhece (ilegível ou de versão nova). Uma cópia foi guardada; começando do zero.', 'warn');
-  }
   menu.open();
 }
 

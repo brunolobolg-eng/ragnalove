@@ -1448,3 +1448,10 @@ Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridg
 - Nota de desenho para o dono: quem já tem save v2 vai ver a sequência futura da jornada mudar em relação ao código antigo, quando a loja gerar estoque ou o cofre sortear. Isso é a separação decidida (seção 8), não um erro, mas o dono deve saber.
 - Achado de texto (seção 11): o rótulo "Vasculhar a carga" aparece no objeto de mapa (fluxo do cofre) e na opção de evento com aposta (fluxo da jornada). Decisão do dono.
 - A roleta de atributos do Ferreiro usa o fluxo da jornada; foi incluída na lista da seção 8.
+
+**Decisões do dono (depois da revisão):**
+- Rótulo duplicado: a opção de evento "Vasculhar a carga" virou "Revistar os panos rasgados" (`src/config/world.ts`). O objeto de mapa continua "Vasculhar a carga" (fluxo do cofre).
+- Saves de versão 1 e 2 não são mais continuados. Eles sorteavam loja e cofre na mesma sequência da jornada, e o conflito é grande demais para migrar. Ao abrir, o texto inteiro vai para `runBackup` (cópia de segurança, não apagada), a jornada começa nova, e o menu avisa. O arquivo principal é substituído na primeira gravação da jornada nova. A cópia continua na pasta de saves até o dono apagá-la.
+- Saves de versão 3 não mudam. Os gravados antes da correção das sobreposições (adc4ed7 e antes) mantêm o estado antigo de loja e cofre, com a chance de sobreposição já descrita.
+- `saves:check` atualizado: v1 e v2 são testadas como descontinuadas; a migração de campos ausentes continua testada com `migrateRun` direto.
+- Aviso do save descontinuado: no log do HUD ele não aparecia (o HUD fica oculto no menu, e o log é limpo quando a jornada nova começa). Agora sai como cartão no menu, na abertura (`MainMenu.aviso`). Conferido no navegador (modo dev, localStorage): v2 vira cópia com o motivo certo, o segundo boot não duplica a cópia, e v3 não gera cópia nem aviso. Captura em tela feita.

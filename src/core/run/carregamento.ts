@@ -6,12 +6,17 @@ import { migrateRun, VERSAO_JORNADA, type RunState } from './run';
 
 export type LeituraJornada =
   | { tipo: 'nova' }
-  | { tipo: 'ok' | 'migrada'; run: RunState; deVersao: number }
+  | { tipo: 'ok'; run: RunState }
+  | { tipo: 'descontinuada'; versao: number }
   | { tipo: 'versao_futura'; versao: number }
   | { tipo: 'corrompida'; motivo: string }
   | { tipo: 'encerrada' };
 
-/** Lê o texto do save (ou null, se não há save). Versão mais nova que a atual não é migrada nem entendida. */
+/**
+ * Lê o texto do save (ou null, se não há save). Só a versão atual é continuada. As anteriores são descontinuadas
+ * (decisão do dono): a v1 e a v2 sorteavam loja e cofre na mesma sequência da jornada, e a v3 não reproduz isso.
+ * Quem chama guarda o texto em cópia de segurança e começa uma jornada nova. Versão mais nova também não é entendida.
+ */
 export function lerJornada(raw: string | null): LeituraJornada {
   if (raw === null) return { tipo: 'nova' };
   let dados: Record<string, unknown>;
@@ -24,6 +29,7 @@ export function lerJornada(raw: string | null): LeituraJornada {
   const versao = dados.version;
   if (typeof versao !== 'number' || !Number.isInteger(versao) || versao < 1) return { tipo: 'corrompida', motivo: 'sem versão válida' };
   if (versao > VERSAO_JORNADA) return { tipo: 'versao_futura', versao };
+  if (versao < VERSAO_JORNADA) return { tipo: 'descontinuada', versao };
   const heroes = (dados.profile as { heroes?: Record<string, unknown> } | undefined)?.heroes;
   if (!heroes?.warrior) return { tipo: 'corrompida', motivo: 'sem perfil de herói' };
   if (dados.ended) return { tipo: 'encerrada' };
@@ -33,7 +39,7 @@ export function lerJornada(raw: string | null): LeituraJornada {
   } catch (e) {
     return { tipo: 'corrompida', motivo: `migração falhou: ${(e as Error).message}` };
   }
-  return { tipo: versao === VERSAO_JORNADA ? 'ok' : 'migrada', run, deVersao: versao };
+  return { tipo: 'ok', run };
 }
 
 /** Uma jornada que o jogo não entendeu, guardada em 'runBackup'. */

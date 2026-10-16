@@ -186,7 +186,7 @@ export const EVENTS: EventDef[] = [
     text: 'Uma carroça de refugiados tombada à beira da estrada. As rodas ainda giram devagar com o vento.',
     options: [
       {
-        label: 'Vasculhar a carga',
+        label: 'Revistar os panos rasgados',
         effects: [{ gamble: { chance: 0.9, win: [{ zeni: 140 }], lose: [{ zeni: -50 }], winText: 'Entre panos rasgados, uma bolsa esquecida de Zen.', loseText: 'Saqueadores escondidos! Vocês se livram, mas não de graça.' } }],
         result: '',
       },

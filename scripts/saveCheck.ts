@@ -1,13 +1,15 @@
 // @ts-nocheck - script Node (usa fs, path e url; o typecheck do jogo não tem os tipos de Node), rodado com tsx
 /**
- * Saves da jornada (regra 4 do CLAUDE.md, "save é sagrado") e fluxos de sorteio (loja e cofre separados).
- * 1) Saves reais (tests/saves/, gerados pelo código de cada versão): v1 e v2 migram; a v3 abre direto.
+ * Saves da jornada (regra 4 do CLAUDE.md, "save é sagrado"), fluxos de sorteio e versões descontinuadas.
+ * 1) Saves reais (tests/saves/, gerados pelo código de cada versão): v1 e v2 são descontinuadas (o texto vai para
+ *    a cópia de segurança e a jornada não continua); a v3 abre direto.
  * 2) Uma recarga do jogo continua a sequência de cada fluxo: não repete e não pula. Um controle com recarga que
  *    reinicia os fluxos tem que dar diferente, para provar que o teste enxerga o erro.
  * 3) Loja e cofre têm fluxos próprios: abrir o cofre não muda o estoque da loja, e a ordem não muda a recompensa.
  *    Os sorteios da jornada (loot) também não mudam com loja e cofre (ids à parte).
- * 4) Entradas que o jogo não entende não são migradas à força. Migrar duas vezes não muda o save.
- * 5) Cópias (runBackup), limites do sorteio e migração endurecida.
+ * 4) Entradas que o jogo não entende não são continuadas à força. Ler de novo não muda o save.
+ * 5) Cópias (runBackup), limites do sorteio e campos ausentes (helper migrateRun, só para o save atual).
+ * 6) Regressões da revisão: sobreposição entre fluxos, loja que não é lista, estado fora de 32 bits.
  *
  * Uso: npm run saves:check
  */
@@ -15,7 +17,7 @@ import { readFileSync, readdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { acrescentarCopia, lerJornada } from '../src/core/run/carregamento';
-import { makeItem, maiorContadorVisivel, newRun, shopStock, sorteioInicial, sorteioValido, useMapObject, VERSAO_JORNADA } from '../src/core/run/run';
+import { makeItem, maiorContadorVisivel, migrateRun, newRun, shopStock, sorteioInicial, sorteioValido, useMapObject, VERSAO_JORNADA } from '../src/core/run/run';
 import { Rng } from '../src/core/sim/rng';
 
 const RAIZ = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -82,59 +84,38 @@ function lojaECofre(r0, n, recarga, reinicia = false) {
   return saida;
 }
 
-// ---------- 1) Fixtures: saves reais de cada versão ----------
-const esperadas = ['jornada_v1_867ac0d.json', 'jornada_v1_f3b5bd9.json', 'jornada_v2.json', 'jornada_v3.json'];
+// ---------- 1) Saves reais: versões antigas são descontinuadas; a atual abre direto ----------
 const presentes = readdirSync(PASTA);
+const esperadas = ['jornada_v1_867ac0d.json', 'jornada_v1_f3b5bd9.json', 'jornada_v2.json', 'jornada_v3.json'];
 ok(esperadas.every((n) => presentes.includes(n)), `fixtures presentes em tests/saves/ (${esperadas.join(', ')})`);
 
-for (const nome of ['jornada_v1_867ac0d.json', 'jornada_v1_f3b5bd9.json']) {
+for (const nome of ['jornada_v1_867ac0d.json', 'jornada_v1_f3b5bd9.json', 'jornada_v2.json']) {
   const raw = lerSave(nome);
-  const dados = JSON.parse(raw);
-  ok(dados.version === 1 && !('sorteio' in dados), `${nome}: save real da versão 1, sem o campo sorteio`);
+  const versao = JSON.parse(raw).version;
   const L = lerJornada(raw);
-  ok(L.tipo === 'migrada' && L.deVersao === 1, `${nome}: abre e migra (tipo ${L.tipo})`);
-  if (!('run' in L)) continue;
-  const r = L.run;
-  ok(r.version === VERSAO_JORNADA && r.seed === dados.seed, `${nome}: vira a versão ${VERSAO_JORNADA} e mantém a seed`);
-  ok(r.sorteio.estados.jornada === iniciais(r.seed).jornada, `${nome}: sequência da jornada começa da seed, como a versão anterior fazia`);
-  ok(r.sorteio.estados.loja === iniciais(r.seed).loja && r.sorteio.estados.cofre === iniciais(r.seed).cofre, `${nome}: loja e cofre começam da seed`);
-  ok(r.sorteio.itens === maiorContadorVisivel(r), `${nome}: contador de ids começa no maior id visível (não reemite id já usado)`);
-  ok(r.profile.inventory.length === dados.profile.inventory.length, `${nome}: inventário preservado (${r.profile.inventory.length} itens)`);
-  const usados = new Set([...r.profile.inventory, ...(r.shop ?? [])].map((it) => it.id));
-  const novo = makeItem(r, 'rare');
-  ok(!usados.has(novo.id), `${nome}: item novo não reaproveita id de item já na run (${novo.id})`);
-  ok(JSON.stringify(lerJornada(JSON.stringify(r)).run) === JSON.stringify(r), `${nome}: migrar de novo não muda o save`);
+  ok(L.tipo === 'descontinuada' && L.versao === versao, `${nome}: versão ${versao} é descontinuada (tipo ${L.tipo})`);
+  ok(!('run' in L), `${nome}: a jornada não é continuada (nenhuma run é devolvida)`);
+  const copia = JSON.parse(acrescentarCopia(null, raw, `descontinuada: versão ${versao}`, '2026-10-16T00:00:00Z'));
+  ok(copia.length === 1 && copia[0].conteudo === raw, `${nome}: o texto inteiro vai para a cópia de segurança`);
 }
-
 {
-  const raw = lerSave('jornada_v2.json');
-  const dados = JSON.parse(raw);
+  const raw = lerSave('jornada_v3.json');
   const L = lerJornada(raw);
-  ok(L.tipo === 'migrada' && L.deVersao === 2, `jornada_v2.json: abre e migra da versão 2 (tipo ${L.tipo})`);
-  const r = L.run;
-  ok(r.sorteio.estados.jornada === dados.sorteio.estado, 'jornada_v2.json: o estado da jornada é preservado (a sequência não recomeça)');
-  ok(r.sorteio.estados.loja === iniciais(r.seed).loja && r.sorteio.estados.cofre === iniciais(r.seed).cofre, 'jornada_v2.json: loja e cofre começam da seed');
-  ok(r.sorteio.itens === dados.sorteio.itens, 'jornada_v2.json: contador de ids preservado');
-  ok(!('estado' in r.sorteio), 'jornada_v2.json: o formato antigo (um estado só) sai do save migrado');
-}
-
-{
-  const L = lerJornada(lerSave('jornada_v3.json'));
-  ok(L.tipo === 'ok' && L.deVersao === VERSAO_JORNADA, `jornada_v3.json: abre direto, sem migrar (tipo ${L.tipo})`);
+  ok(L.tipo === 'ok' && L.run.version === VERSAO_JORNADA, `jornada_v3.json: abre direto na versão ${VERSAO_JORNADA} (tipo ${L.tipo})`);
   ok(JSON.stringify(lerJornada(JSON.stringify(L.run)).run) === JSON.stringify(L.run), 'jornada_v3.json: ler de novo não muda o save');
 }
 
-// ---------- 2) Recarga continua a sequência de cada fluxo ----------
+// ---------- 2) Recarga continua a sequência de cada fluxo (save atual) ----------
 const N = 8;
-for (const nome of esperadas.filter((n) => n !== 'jornada_v3.json').concat(['jornada_v3.json'])) {
-  const raw = lerSave(nome);
+{
+  const raw = lerSave('jornada_v3.json');
   const continua = sequenciaContinua(raw, N);
   const { saida, idsUnicos } = sequenciaComRecarga(raw, N);
-  ok(JSON.stringify(saida) === JSON.stringify(continua), `${nome}: ${N} sorteios da jornada com recarga antes de cada um = sem recarga (não repete nem pula)`);
-  ok(idsUnicos && new Set(saida).size === N, `${nome}: ids e sorteios da jornada sem repetição com recarga`);
+  ok(JSON.stringify(saida) === JSON.stringify(continua), `jornada_v3.json: ${N} sorteios da jornada com recarga antes de cada um = sem recarga (não repete nem pula)`);
+  ok(idsUnicos && new Set(saida).size === N, 'jornada_v3.json: ids e sorteios da jornada sem repetição com recarga');
   const semRecarga = lojaECofre(lerJornada(raw).run, 6, false);
   const comRecarga = lojaECofre(lerJornada(raw).run, 6, true);
-  ok(JSON.stringify(semRecarga) === JSON.stringify(comRecarga), `${nome}: loja e cofre com recarga antes de cada ação = sem recarga`);
+  ok(JSON.stringify(semRecarga) === JSON.stringify(comRecarga), 'jornada_v3.json: loja e cofre com recarga antes de cada ação = sem recarga');
 }
 {
   const raw = lerSave('jornada_v3.json');
@@ -186,7 +167,7 @@ for (const nome of esperadas.filter((n) => n !== 'jornada_v3.json').concat(['jor
   ok(JSON.stringify(lootSo) === JSON.stringify(lootMisto), 'loot da jornada: loja e cofre não mudam o conteúdo dos sorteios da jornada (ids à parte)');
 }
 
-// ---------- 4) Cópias das jornadas não entendidas: a lista só cresce ----------
+// ---------- 4) Cópias das jornadas não continuadas: a lista só cresce ----------
 const v3 = JSON.parse(lerSave('jornada_v3.json'));
 const v3Futura = JSON.stringify({ ...v3, version: 4 });
 {
@@ -201,7 +182,7 @@ const v3Futura = JSON.stringify({ ...v3, version: 4 });
   ok(ilegivel.length === 2 && ilegivel[0].conteudo === 'lista quebrada {', 'cópia: lista ilegível vira a primeira entrada, sem perder o texto');
 }
 
-// ---------- 5) O que o jogo não entende não é migrado à força ----------
+// ---------- 5) O que o jogo não entende não é continuado à força ----------
 const casos = [
   ['sem save', null, 'nova'],
   ['texto vazio', '', 'corrompida'],
@@ -214,6 +195,8 @@ const casos = [
   ['sem perfil de herói', JSON.stringify({ ...v3, profile: {} }), 'corrompida'],
   ['versão nova (4)', v3Futura, 'versao_futura'],
   ['jornada encerrada', JSON.stringify({ ...v3, ended: 'defeat' }), 'encerrada'],
+  ['versão 2 (descontinuada)', lerSave('jornada_v2.json'), 'descontinuada'],
+  ['versão 1 (descontinuada)', lerSave('jornada_v1_f3b5bd9.json'), 'descontinuada'],
 ];
 for (const [nome, raw, esperado] of casos) {
   const L = lerJornada(raw);
@@ -221,10 +204,10 @@ for (const [nome, raw, esperado] of casos) {
 }
 {
   const L = lerJornada(v3Futura);
-  ok(L.tipo === 'versao_futura' && L.versao === 4 && !('run' in L), 'versão nova: não devolve jornada nenhuma (nada é migrado nem gravado por cima)');
+  ok(L.tipo === 'versao_futura' && L.versao === 4 && !('run' in L), 'versão nova: não devolve jornada nenhuma (nada é continuado nem gravado por cima)');
 }
 
-// ---------- 6) Limites do sorteio e migração endurecida ----------
+// ---------- 6) Limites do sorteio e campos ausentes ----------
 const comSorteio = (sorteio) => JSON.stringify({ ...v3, sorteio });
 ok(sorteioValido({ estados: { jornada: NaN, loja: 1, cofre: 2 }, itens: 0 }) === undefined, 'sorteioValido recusa estado NaN');
 ok(sorteioValido({ estados: { jornada: 1, loja: 2, cofre: 3 }, itens: -1 }) === undefined, 'sorteioValido recusa contador negativo');
@@ -232,17 +215,20 @@ ok(sorteioValido({ estados: { jornada: 1, loja: 2, cofre: 3 }, itens: 1.5 }) ===
 ok(sorteioValido({ estados: { jornada: 1, loja: 2, cofre: 3 }, itens: 2 ** 53 }) === undefined, 'sorteioValido recusa contador acima de 2^53 (trava o sorteio)');
 ok(sorteioValido({ estados: { jornada: 1, loja: 2, cofre: 3 }, itens: 1_000_000_001 }) === undefined, 'sorteioValido recusa contador acima do limite de 1e9');
 ok(sorteioValido({ estados: { jornada: 1, cofre: 3 }, itens: 0 }) === undefined, 'sorteioValido recusa fluxo ausente (loja)');
-ok(sorteioValido({ estado: 1, itens: 0 }) === undefined, 'sorteioValido recusa o formato v2 (um estado só)');
+ok(sorteioValido({ estado: 1, itens: 0 }) === undefined, 'sorteioValido recusa o formato antigo (um estado só)');
 {
-  const r = lerJornada(lerSave('jornada_v1_f3b5bd9.json')).run;
+  // migrateRun só é chamado no save atual; aqui é testado direto, com campos ausentes (o save da v1 antiga não é mais continuado)
+  const dados = JSON.parse(lerSave('jornada_v1_f3b5bd9.json'));
+  const r = migrateRun(dados);
   const maior = maiorContadorVisivel(r);
-  ok(r.sorteio.itens === maior && maior > 0, `v1: contador de ids começa no maior id visível (${maior})`);
+  ok(r.sorteio.itens === maior && maior > 0, `campos ausentes: contador de ids começa no maior id visível (${maior})`);
+  ok(r.sorteio.estados.jornada === iniciais(r.seed).jornada && r.sorteio.estados.loja === iniciais(r.seed).loja, 'campos ausentes: os três fluxos começam da seed');
   const numero = (it) => parseInt(it.id.slice(3), 36);
   const maiorId = Math.max(...[...r.profile.inventory, ...(r.shop ?? [])].map(numero));
   r.profile.inventory = r.profile.inventory.filter((it) => numero(it) !== maiorId);
   r.shop = (r.shop ?? []).filter((it) => numero(it) !== maiorId);
   const novo = makeItem(r, 'rare');
-  ok(numero(novo) > maiorId, `v1: item novo não reusa id emitido e vendido (${novo.id} depois de it-${maiorId.toString(36)})`);
+  ok(numero(novo) > maiorId, `campos ausentes: item novo não reusa id emitido e vendido (${novo.id} depois de it-${maiorId.toString(36)})`);
 }
 {
   const L = lerJornada(comSorteio({ estados: v3.sorteio.estados, itens: 2 ** 53 }));
@@ -301,7 +287,6 @@ for (const [nome, valor] of [['1e308', 1e308], ['2^32', 4294967296], ['1.5', 1.5
   const L = lerJornada(comSorteio({ estados: { ...v3.sorteio.estados, jornada: valor }, itens: 2 }));
   ok(L.run.sorteio.estados.jornada === iniciais(v3.seed).jornada, `estado da jornada ${nome} fora de 32 bits: volta à seed (não vira 0 em silêncio)`);
 }
-
 {
   // distância no ciclo do gerador: k tal que b = a + k*GAMMA (mod 2^32). Dois fluxos só se encontram se |k| for pequeno.
   const GAMMA = 0x6d2b79f5;

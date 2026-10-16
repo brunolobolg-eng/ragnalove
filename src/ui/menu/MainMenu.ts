@@ -158,6 +158,17 @@ export class MainMenu {
 
   // ---------------------------------------------------------------- cartões (Opções / Info / Donate)
 
+  /** Aviso no menu (ex.: a jornada salva é de uma versão descontinuada). Fecha com o × ou Esc, como os outros cartões. */
+  aviso(titulo: string, texto: string): void {
+    this.openCard('aviso');
+    const card = this.el.querySelector<HTMLElement>('.mm-card')!;
+    const h = document.createElement('h2');
+    h.textContent = titulo;
+    const p = document.createElement('p');
+    p.textContent = texto;
+    card.append(h, p);
+  }
+
   private openCard(id: string): void {
     const card = this.el.querySelector<HTMLElement>('.mm-card')!;
     if (this.card === 'options' && id !== 'options') this.hooks.onCloseOptions();

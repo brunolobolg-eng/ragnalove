@@ -13,8 +13,8 @@ import { OBJECT_RULES } from '../sim/objects';
 import type { WaveReport } from '../sim/types';
 
 /**
- * Versão atual do save da jornada. v1: sem o campo `sorteio`. v2: `sorteio` com um estado só.
- * v3: um estado por fluxo de sorteio (jornada, loja e cofre). migrateRun converte as anteriores.
+ * Versão atual do save da jornada: um estado por fluxo de sorteio (jornada, loja e cofre). As versões 1 e 2 são
+ * descontinuadas (lerJornada as guarda em cópia de segurança): sorteavam loja e cofre na sequência da jornada.
  */
 export const VERSAO_JORNADA = 3;
 
@@ -176,8 +176,8 @@ export function migrateRun(r: RunState): RunState {
   if (!Number.isFinite(r.seed)) r.seed = 1;
   r.damage ??= 0;
   r.playMs ??= 0;
-  // v1 → v2 → v3: o sorteio ganha um estado por fluxo (loja e cofre fora da jornada). Cada campo é conferido
-  // sozinho; o que falta começa da seed. O contador de ids começa acima dos ids já visíveis (senão reemite id vendido).
+  // Só chega aqui save da versão atual (lerJornada descontinua as outras). Campos ausentes ou inválidos do sorteio
+  // começam da seed; o contador de ids começa acima dos ids já visíveis (senão reemite id vendido).
   // loja malformada (save editado) não pode derrubar os sorteios: a cidade regenera a loja quando ela some.
   // Vem antes do sorteio, porque o contador de ids lê a loja.
   if (!Array.isArray(r.shop) || r.shop.some((it) => !it || typeof it.id !== 'string')) delete r.shop;
@@ -215,19 +215,15 @@ export function sorteioValido(s: unknown): Sorteio | undefined {
   return { estados: { jornada: estados.jornada >>> 0, loja: estados.loja >>> 0, cofre: estados.cofre >>> 0 }, itens };
 }
 
-/**
- * Sorteio de um save v1, v2 ou v3, com cada campo conferido sozinho. A v2 tinha um estado só, que era da jornada:
- * ele é preservado, e loja e cofre começam da seed. O que falta ou está inválido também começa da seed.
- */
+/** Sorteio do save atual, com cada campo conferido sozinho: o que falta ou está inválido começa da seed. */
 function sorteioDoSave(r: RunState, lido: unknown): Sorteio {
   const base = sorteioInicial(r.seed >>> 0);
-  const v = (lido ?? {}) as { estado?: unknown; estados?: Partial<Record<FluxoNome, unknown>>; itens?: unknown };
+  const v = (lido ?? {}) as { estados?: Partial<Record<FluxoNome, unknown>>; itens?: unknown };
   const estados = { ...base.estados };
   for (const nome of FLUXOS) {
     const x = v.estados?.[nome];
     if (estadoValido(x)) estados[nome] = x >>> 0;
   }
-  if (!v.estados && estadoValido(v.estado)) estados.jornada = v.estado >>> 0;
   return { estados, itens: itensValido(v.itens) ? v.itens : maiorContadorVisivel(r) };
 }
 
