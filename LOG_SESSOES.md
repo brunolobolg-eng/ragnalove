@@ -1284,3 +1284,37 @@ Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridg
 - a5e9ad4 Apresentação: portal aparece só quando abre
 - 9468b56 Apresentação: cenário de portal fechado fica oculto desde o vínculo
 - (este commit) Checagem horda:check e registro do ritmo das noites
+
+## 2026-10-16 — Estabilização parte 1: checagens únicas e desenho
+
+**Pedido do dono:** juntar as checagens num comando só, registrar o desenho do jogo num documento de referência e deixar os saves de fora desta etapa.
+
+**O que mudou:**
+- `npm run check`: roda o build e todas as checagens (13), em ordem alfabética, com timeout de 900 s por etapa. Mostra uma tabela (ok ou FALHA, tempo, código de saída e última linha) e termina com "N ok, M falhas". Opções: `npm run check:rapido` (sem o build) e `npm run check -- --so=<nome>` (uma etapa). As checagens são descobertas no `package.json` (nome com "check", mais `bastion:path`). Arquivo: `scripts/checkAll.ts`.
+- `docs/DESENHO.md`: referência do jogo em 12 seções. Cada número traz o caminho do arquivo de origem; o que não deu para confirmar está como "a confirmar".
+- `CLAUDE.md`, regra 5: passa a exigir `npm run check` e screenshot para mudança de UI ou visual.
+
+**Verificação:** `npm run check` deu 14 ok e 0 falhas (build em 23,5 s). O caminho de falha foi testado num projeto de teste fora do repositório: código de saída 1, saída da etapa mostrada e resumo correto. O documento foi conferido contra o código (85 valores, mais as 11 misturas de criaturas da tabela).
+
+**Decisões:**
+- `checkAll.ts` usa `/// <reference types="node" />`, porque o `tsconfig` tem `types: []`. Os outros scripts com Node usam `@ts-nocheck`; este mantém a checagem de tipos.
+- `ui:fora-da-tela` fica fora do comando, porque precisa de servidor de dev e de navegador. Aparece no fim da saída com o motivo.
+- Saves ficam adiados nesta etapa: nenhuma mudança de formato, migração ou fixture.
+
+**Correções do desenho em relação ao log:**
+- O documento segue o código: chefe e elite com ×0,85 e ×0,9 (`GAME_CONFIG.wave.nos`, commit 0966d2f). A entrada de 2026-10-15 ainda cita ×0,55 e ×0,65, que estão desatualizados.
+- A medição de 50 de 55 noites é do modo literal (conta nova, guerreiro nível 1, sem build), e não da party típica. Com party típica, as 55 noites vencem.
+
+**Pendências:**
+- Saves: adiados para a próxima etapa de estabilização.
+- `ui:fora-da-tela`: fora do comando (precisa de servidor e navegador). Para rodar à mão: `npx vite --port 5561` e depois `npm run ui:fora-da-tela`.
+- 15 arquivos de checagem em `scripts/` sem entrada no `package.json` não rodam no `npm run check` (lista em `docs/DESENHO.md`, seção 10). Decidir se entram no comando.
+- Sobrevivência não medida: `horda:check` não cobre o modo. Duração da noite de sobrevivência: a confirmar.
+- Dívida técnica (`docs/DESENHO.md`, seção 11): efeitos de magia em sistemas paralelos, duas árvores de habilidades, `main.ts` com 2973 linhas, 57 usos de `innerHTML` em `src/ui`, arte mista.
+- Dono: confirmar o Zen inicial do Bastião (20, provisório) e a decisão sobre a conta nova (50 de 55 noites).
+
+**Commits:**
+- 4866b42 Checagem única: npm run check roda o build e todas as checagens
+- 4d348ff Documento de desenho: docs/DESENHO.md com as 12 seções de referência
+- eebd175 CLAUDE.md: regra 5 passa a exigir npm run check e screenshot para UI
+- (este commit) Registro da estabilização parte 1 em LOG_SESSOES.md
