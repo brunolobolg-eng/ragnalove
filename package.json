@@ -10,6 +10,7 @@
     "check:rapido": "tsx scripts/checkAll.ts --rapido",
     "preview": "vite preview",
     "sim:check": "tsx scripts/simCheck.ts",
+    "determinismo:check": "tsx scripts/determinismoCheck.ts",
     "bastion:check": "tsx scripts/bastionCheck.ts",
     "ui:fora-da-tela": "node scripts/telasForaDaTela.mjs",
     "bastion:path": "tsx scripts/bastionPathCheck.ts",
