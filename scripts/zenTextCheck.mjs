@@ -1,5 +1,6 @@
 // Varredura de texto: nenhum "Zeni" visível ao jogador pode restar.
 // Identificadores internos e chaves de config (allowlist) continuam "zeni".
+// Só conta "Zeni" que começa uma palavra: ganharZeni e startZeni são identificadores, não texto.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -25,7 +26,7 @@ let bad = 0;
 for (const f of files) {
   const lines = readFileSync(f, 'utf8').split('\n');
   lines.forEach((ln, i) => {
-    if (!ln.includes('Zeni')) return;
+    if (!/(?<![A-Za-z0-9_])Zeni/.test(ln)) return;
     if (ALLOW.some((a) => ln.includes(a))) return;
     bad++;
     console.log(`TEXTO: ${f.split('src')[1]}:${i + 1}: ${ln.trim().slice(0, 110)}`);
