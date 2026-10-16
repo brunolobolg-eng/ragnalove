@@ -1,5 +1,15 @@
 import './bastion.css';
-import { repairVerb, type BastionHeroRow, type BastionHordeRow, type BastionHubHooks, type BastionHubVM, type BastionStructureRow } from './bastionVM';
+import type { HeroKind } from '../../core/progression/skills';
+import {
+  repairVerb,
+  type BastionHeroRow,
+  type BastionHordeRow,
+  type BastionHubHooks,
+  type BastionHubVM,
+  type BastionStructureRow,
+  type BastionTempleHeroRow,
+  type BastionTempleVM,
+} from './bastionVM';
 
 /** Tamanho da party (regra do core: de 1 a 6 heróis). A tela só desliga o toggle que a quebraria. */
 const PARTY_MAX = 6;
@@ -27,6 +37,13 @@ const partyBlocked = (party: BastionHeroRow[], i: number): boolean => {
   const count = party.filter((h) => h.selected).length;
   const next = party[i].selected ? count - 1 : count + 1;
   return next < 1 || next > PARTY_MAX;
+};
+
+/** Aviso do templo quando ele não libera heróis (sem templo ou caído). Vazio = o templo está de pé. */
+const temploAviso = (t: BastionTempleVM): string => {
+  if (!t.exists) return 'Construa um templo na cidade para liberar heróis.';
+  if (!t.standing) return 'O templo caiu: reconstrua-o para liberar heróis.';
+  return '';
 };
 
 /** Tela principal do Último Bastião (Montar Defesa): só mostra o VM e chama os ganchos. */
@@ -92,7 +109,7 @@ export class BastionHub {
     const el = (e.target as Element | null)?.closest<HTMLElement>('[data-act],[data-tab]');
     const vm = this.vm;
     if (!el || !vm || (el as HTMLButtonElement).disabled) return;
-    const { act, tab, id, i } = el.dataset;
+    const { act, tab, id, i, kind } = el.dataset;
     if (tab) {
       this.tab = tab as Tab;
       this.render();
@@ -110,6 +127,7 @@ export class BastionHub {
       case 'repair': this.hooks.onRepairStructure(sid); break;
       case 'upgrade': this.hooks.onUpgradeStructure(sid); break;
       case 'unlock': this.hooks.onUnlock(id ?? ''); break;
+      case 'unlock-hero': if (kind) this.hooks.onUnlockHero(kind as HeroKind); break;
       case 'party': this.hooks.onParty(this.partyWith(vm, Number(i))); break;
     }
   }
@@ -204,11 +222,41 @@ export class BastionHub {
 
   private heroes(vm: BastionHubVM): string {
     const picked = vm.party.filter((h) => h.selected).length;
+    // herói ainda não liberado (só no templo) não entra na party: o botão fica desligado e marcado como bloqueado
     const cells = vm.party
-      .map(
-        (h, i) => `<button class="au-tab bs-hero${h.selected ? ' on' : ''}" data-act="party" data-i="${i}" aria-pressed="${h.selected}"${partyBlocked(vm.party, i) ? ' disabled' : ''}>${esc(h.name)}</button>`,
-      )
+      .map((h, i) => {
+        const off = h.locked || partyBlocked(vm.party, i);
+        const tag = h.locked ? ' <span class="au-price">bloqueado</span>' : '';
+        const dica = h.locked ? ' title="Bloqueado: libere no templo"' : '';
+        return `<button class="au-tab bs-hero${h.selected ? ' on' : ''}" data-act="party" data-i="${i}" aria-pressed="${h.selected}"${off ? ' disabled' : ''}${dica}>${esc(h.name)}${tag}</button>`;
+      })
       .join('');
-    return `<p class="bs-hint">Escolha de 1 a ${PARTY_MAX} heróis para defender o bastião. Escolhidos: ${picked}.</p><div class="bs-heroes">${cells}</div>`;
+    return `<p class="bs-hint">Escolha de 1 a ${PARTY_MAX} heróis para defender o bastião. Escolhidos: ${picked}.</p><div class="bs-heroes">${cells}</div>${this.templo(vm.templo)}`;
+  }
+
+  /** Templo: sacrifica almas + Zen para liberar um herói. A regra (canUnlock, why) vem pronta do núcleo. */
+  private templo(t: BastionTempleVM): string {
+    const aviso = temploAviso(t);
+    const linhas = t.exists && t.standing ? t.heroes.map((h) => this.temploRow(h)).join('') : '';
+    return `<section class="bs-templo" aria-label="Templo">
+          <h3 class="au-h">Templo</h3>
+          <p class="bs-kv"><span>Almas</span><b>${fmt(t.souls)}</b></p>
+          ${aviso ? `<p class="bs-hint">${aviso}</p>` : ''}
+          ${linhas ? `<div class="bs-panel">${linhas}</div>` : ''}
+        </section>`;
+  }
+
+  private temploRow(h: BastionTempleHeroRow): string {
+    const acao = h.unlocked
+      ? '<span class="bs-owned">Liberado</span>'
+      : `<button class="au-btn" data-act="unlock-hero" data-kind="${esc(h.kind)}"${h.canUnlock ? '' : ' disabled'}>Sacrificar</button>`;
+    return `<article class="au-sec bs-row">
+          <div class="bs-row-main">
+            <b class="bs-row-name">${esc(h.name)}</b>
+            ${!h.unlocked && !h.canUnlock && h.why ? `<small class="bs-lock">${esc(h.why)}</small>` : ''}
+          </div>
+          ${h.unlocked ? '' : `<span class="au-price">${fmt(h.souls)} almas + ${fmt(h.zeni)} Zen</span>`}
+          <div class="bs-row-acts">${acao}</div>
+        </article>`;
   }
 }

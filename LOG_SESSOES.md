@@ -1483,3 +1483,30 @@ Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridg
 **Ainda pesa:** arrastar e dar zoom repintam o SVG inteiro a cada quadro. Experimento: esconder cada camada grande (setores, miolo, aro, emblemas, sombra do núcleo) não muda muito, então o custo é estrutural. Próximo passo, se ainda precisar: levar pan e zoom para a composição do navegador (transform no elemento SVG, com `will-change` só durante o gesto). Mexe na geometria do ponteiro e no recorte da roda, por isso não foi feito agora.
 
 **Conferido:** `npm run check` (inclusive `arvore:check`, `arvore:visual:check`); comportamento no navegador (destaque, seleção, filtro, Esc, reabrir, sem erro no console); capturas em 1600×900 e 1280×720.
+
+## Último Bastião: construções 4×4, templo e escolha de personagem (2026-10-16)
+
+**Pedido do dono:** (1) "Montar Defesa" abre a escolha de personagem, como a campanha; (2) cada construção da cidade (mercado, ferreiro etc.) é um quadrado 4×4 que bloqueia a passagem; (3) a cidade começa com um personagem só, e o templo libera os outros sacrificando almas + Zen.
+
+**Decisões tomadas (o dono pode trocar):**
+- "Templo" é uma construção 4×4 da cidade do Bastião, não o serviço de cura da cidade da campanha (Irmã Maela).
+- Escolha de personagem igual à campanha: com cidade em andamento, retoma o planejamento; sem cidade (ou depois de derrota), abre a escolha. Voltar leva ao menu.
+- Heróis liberados persistem entre derrotas, como os projetos. Almas e Zen zeram com a cidade.
+- Custos do templo são provisórios (tabela em `docs/DESENHO.md`, seção 7). Zen inicial segue 20.
+- Uma vida por construção 4×4: quebrar uma abre os 16 tiles de uma vez.
+- Placeholder de arte: torre do kit em escala do quadrado. Arte definitiva das construções 4×4 pendente do dono.
+- Migração: save antigo (sem `heroesLiberados`) ganha todos os heróis liberados, para não tirar nada de quem já jogava. Sem bump de versão de save.
+- Compatibilidade: versão anterior não reconhece as construções novas nem `heroesLiberados`.
+
+**Correção no caminho:** "Montar Defesa" abria a escolha com o menu principal por cima. Agora o menu fecha antes, como em "Começar jornada". A preparação de saída do menu (música, HUD) virou `prepararSaidaDoMenu` e é usada pelos dois caminhos.
+
+**O que mudou:** núcleo (`footprint.ts`, `templo.ts`, `rules.ts`, `bastion.ts`), config (`bastion.ts`, `zones.ts`), simulação (`Simulation.ts`, `objects.ts`: bloco `bastionBuilding`), render (`ObjectView.ts`, `BastionGhostView.ts`), UI (`BastionHub.ts`, `BastionBuildPanel.ts`, `bastionVM.ts`, `MainMenu.ts`), sessão (`bastionSession.ts`), `main.ts` (`openCharSelect` com bloqueados, `structureAt` cobre o quadrado inteiro na batalha).
+
+**Conferido:**
+- `npm run check`: 31 de 31 ok. `bastion:check` tem seção 16 nova: quadrado 4×4, sobreposição, herói em tile que não é a origem, terreno, simulação com 16 tiles bloqueados, templo, almas e Zen, derrota e migração.
+- Navegador (dev, 1600×900): escolha de personagem com 5 de 6 bloqueados; mercado e templo colocados; mago liberado pelo sacrifício; sem erro de página nem de console. Ajustes de Zen e almas feitos só na captura (ferramenta de dev).
+- Desempenho: o hub do Bastião roda a ~1 fps no Chromium sem GPU, no HEAD e nesta versão (medido nas duas). Não é regressão desta mudança: é o cenário 3D atrás do painel, em renderização por software.
+
+**Não verificado:** encaixe da construção 4×4 no chão, de perto. A câmera não chegou ao foco no navegador de teste (cerca de 1 quadro por segundo). Conferir no PC do dono.
+
+**Pendências:** arte das construções 4×4; calibrar custos do templo e o Zen inicial; decidir se a vida passa a ser por tile; `PROJECTS.castle` ainda descreve só as muralhas (texto).

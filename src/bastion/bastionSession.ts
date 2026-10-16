@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BASTION_ZONE_ID, PROJECTS, PROJECT_IDS, STRUCTURES, type StructureKind } from '../config/bastion';
+import { BASTION, BASTION_ZONE_ID, PROJECTS, PROJECT_IDS, STRUCTURES, sizeOf, type StructureKind } from '../config/bastion';
 import { GAME_CONFIG, type WaveOptions } from '../config/gameConfig';
 import { AURA } from '../config/auras';
 import { HERO_NAME, HERO_ORDER } from '../config/heroes';
@@ -46,7 +46,9 @@ import { chaveBloco, creditoBastiao, gravarComCredito } from '../core/progressio
 import { BastionBuildPanel } from '../ui/bastion/BastionBuildPanel';
 import { BastionHub } from '../ui/bastion/BastionHub';
 import { BastionReport } from '../ui/bastion/BastionReport';
-import type { BastionBuildVM, BastionHordeRow, BastionHubVM, BastionMoveWhy, BastionPaletteRow, BastionProjectRow, BastionReportVM, BastionStructureRow } from '../ui/bastion/bastionVM';
+import type { BastionBuildVM, BastionHordeRow, BastionHubVM, BastionMoveWhy, BastionPaletteRow, BastionProjectRow, BastionReportVM, BastionStructureRow, BastionTempleHeroRow, BastionTempleVM } from '../ui/bastion/bastionVM';
+import { areaDaEstrutura, estruturaCobre } from '../core/bastion/footprint';
+import { custoDoHeroi, liberarHeroi as liberarNoTemplo, motivoLiberar, temploDePe } from '../core/bastion/templo';
 
 /**
  * Último Bastião (Montar Defesa) como modo jogável. Enquanto o modo está ativo, a jornada (run e perfil) fica
@@ -64,6 +66,11 @@ export interface BastionDeps {
   setZoomProfile(p: 'campaign' | 'bastion'): void;
   /** Abre a Árvore Global (o perfil em uso é o do Bastião enquanto o modo roda). */
   openArvore(): void;
+  /**
+   * Tela de escolha de personagem, igual à da campanha: `bloqueados` aparecem escurecidos e não podem ser escolhidos.
+   * `onPick` recebe o herói escolhido; voltar fecha a tela e leva ao menu.
+   */
+  escolherHeroi(bloqueados: HeroKind[], onPick: (h: HeroKind) => void): void;
   sim(): Simulation;
   /** Carrega o mapa do Bastião com a semente da próxima noite e a horda dela (tropa e chefe, se houver). */
   loadMap(seed: number, wave: WaveOptions): void;
@@ -102,7 +109,8 @@ type Area = (mark: (tiles: Vec2[], color: THREE.Color, strength: number) => void
 type Done = { ok: true } | { ok: false; error: BuildError };
 
 const SAVE_KEY = 'bastion';
-const KINDS: StructureKind[] = ['wall', 'tower'];
+/** Construções que aparecem na palheta, na ordem de STRUCTURES (muralha, torre, depois as construções da cidade). */
+const KINDS = Object.keys(STRUCTURES) as StructureKind[];
 
 /** Lê o Bastião salvo. Ausente ou corrompido = cidade nova. */
 export function loadBastionState(): BastionState | undefined {
@@ -143,6 +151,7 @@ export class BastionSession {
       onNewAttempt: () => this.newAttempt(),
       onUnlock: (id) => this.act(unlockProject(this.state(), id), 'Projeto desbloqueado.'),
       onParty: (party) => this.setParty(party),
+      onUnlockHero: (kind) => this.liberarHeroi(kind),
       onRepairStructure: (id) => this.repair(id),
       onUpgradeStructure: (id) => this.act(upgradeStructure(this.state(), id), 'Construção aprimorada.'),
       onTree: () => this.d.openArvore(),
@@ -177,8 +186,51 @@ export class BastionSession {
     if (this.ctx) this.save();
   }
 
-  /** Entrada pelo menu principal ("Montar Defesa"): monta o planejamento e abre o menu do modo. */
+  /**
+   * Entrada pelo menu principal ("Montar Defesa"). Com uma cidade em andamento, retoma o planejamento. Sem ela
+   * (nunca começou ou a tentativa acabou), abre a escolha de personagem, como a campanha: a cidade começa com um herói.
+   */
   open(): void {
+    const salvo = this.b ?? loadBastionState();
+    if (salvo && !salvo.attemptEnded) {
+      this.b = salvo;
+      this.enter();
+      this.d.closeMenu();
+      this.planning();
+      this.hub.open(this.hubVM());
+      return;
+    }
+    this.escolherHeroi((h) => this.comecar(h));
+  }
+
+  /** Heróis que ainda não estão liberados (a escolha de personagem mostra estes escurecidos). */
+  private bloqueados(): HeroKind[] {
+    const liberados = this.b?.heroesLiberados ?? BASTION.heroesIniciais;
+    return HERO_ORDER.filter((h) => !liberados.includes(h));
+  }
+
+  /** Abre a escolha de personagem; o herói escolhido vai para `aoEscolher`. */
+  private escolherHeroi(aoEscolher: (h: HeroKind) => void): void {
+    this.d.escolherHeroi(this.bloqueados(), aoEscolher);
+  }
+
+  /**
+   * Começa a cidade (ou uma nova tentativa, depois de uma derrota) com o herói escolhido como única party.
+   * Depois disso, entra no modo e abre o planejamento.
+   */
+  private comecar(h: HeroKind): void {
+    const cards = this.d.cards();
+    let b = this.b ?? loadBastionState();
+    if (!b) {
+      this.guardarIlegivel();
+      b = newBastion((Date.now() ^ 0x9e3779b9) >>> 0, cards, [h]);
+    } else {
+      // recomeço depois de uma derrota: a cidade zera, a party vira o herói escolhido (os liberados ficam)
+      if (b.attemptEnded) startAttempt(b, cards);
+      setParty(b, [h]);
+    }
+    this.b = b;
+    this.save();
     this.enter();
     this.d.closeMenu();
     this.planning();
@@ -204,14 +256,15 @@ export class BastionSession {
     if (!this.ctx || this.d.sim().phase !== 'setup') return false;
     if (this.moving !== undefined) return this.moveTo(t);
     const b = this.state();
-    const alvo = b.structures.find((s) => s.x === t.x && s.y === t.y);
+    const alvo = b.structures.find((s) => estruturaCobre(s, t));
     const heroi = this.heroAt(t); // herói parado aqui: o clique é dele (arrastar ou escolher), não da construção
     if (this.kind && !alvo && !heroi) {
       const kind = this.kind;
       const r = placeStructure(b, this.env(), kind, t);
       if (r.ok) {
         this.selected = r.id;
-        this.msg = `${STRUCTURES[kind].name} construída por ${r.cost} Zen.`;
+        // neutro no gênero: "Mercado" e "Templo" são masculinos, "Muralha de pedra" é feminino
+        this.msg = `${STRUCTURES[kind].name}: construção por ${r.cost} Zen.`;
         this.touch();
       } else {
         this.msg = BUILD_MSG[r.error];
@@ -411,7 +464,18 @@ export class BastionSession {
    * Recomeçar do zero (depois de uma derrota): a cidade e os heróis voltam ao início (ver startAttempt). A run
    * guardada aponta para o perfil novo, e o planejamento é refeito (mapa e horda da noite 1).
    */
+  /** Nova tentativa (depois de uma derrota): escolhe o herói de novo, como a campanha, e só então recomeça. */
   private newAttempt(): void {
+    if (!this.state().attemptEnded) {
+      this.msg = BUILD_MSG.attemptRunning;
+      this.touch();
+      return;
+    }
+    this.hub.close();
+    this.escolherHeroi((h) => this.recomecar(h));
+  }
+
+  private recomecar(h: HeroKind): void {
     const r = startAttempt(this.state(), this.d.cards());
     if (!r.ok) {
       this.msg = BUILD_MSG[r.error];
@@ -419,6 +483,7 @@ export class BastionSession {
       return;
     }
     const b = this.state();
+    setParty(b, [h]);
     this.selected = undefined;
     this.leaveMove();
     this.d.run().profile = b.profile;
@@ -426,6 +491,7 @@ export class BastionSession {
     this.msg = 'Tudo recomeçou do zero.';
     this.save();
     this.planning();
+    this.hub.open(this.hubVM());
     this.refresh();
   }
 
@@ -433,7 +499,7 @@ export class BastionSession {
   private repair(id: number): void {
     const b = this.state();
     const s = findStructure(b, id);
-    if (s && s.hp <= 0 && this.heroAt(s)) {
+    if (s && s.hp <= 0 && areaDaEstrutura(s).some((t) => this.heroAt(t))) {
       this.msg = BUILD_MSG.hero;
       this.refresh();
       return;
@@ -659,7 +725,7 @@ export class BastionSession {
 
   /** Há construção (de pé ou destruída) neste tile? */
   private structureAt(t: Vec2): boolean {
-    return this.state().structures.some((s) => s.x === t.x && s.y === t.y);
+    return this.state().structures.some((s) => estruturaCobre(s, t));
   }
 
   /** Área liberada para construir (lotes do mapa), calculada uma vez. */
@@ -684,12 +750,33 @@ export class BastionSession {
       canStartNight: canStartNight(b),
       attemptEnded: !!b.attemptEnded,
       canNewAttempt: !!b.attemptEnded,
-      party: HERO_ORDER.map((kind) => ({ kind, name: HERO_NAME[kind], selected: b.party.includes(kind) })),
+      party: HERO_ORDER.map((kind) => ({ kind, name: HERO_NAME[kind], selected: b.party.includes(kind), locked: !b.heroesLiberados.includes(kind) })),
+      templo: this.temploVM(b),
       structures: b.structures.map((s) => this.structureRow(b, s)),
       projects: PROJECT_IDS.map((id) => this.projectRow(b, id)),
       nextHorde: this.hordeRow(b),
       message: this.msg,
     };
+  }
+
+  /** Seção do templo no hub: heróis fechados com o custo em almas e Zen e o motivo de não dar para liberar agora. */
+  private temploVM(b: BastionState): BastionTempleVM {
+    const heroes: BastionTempleHeroRow[] = HERO_ORDER.filter((kind) => custoDoHeroi(kind)).map((kind) => {
+      const custo = custoDoHeroi(kind)!;
+      const unlocked = b.heroesLiberados.includes(kind);
+      const err = unlocked ? undefined : motivoLiberar(b, kind);
+      return { kind, name: HERO_NAME[kind], unlocked, souls: custo.souls, zeni: custo.zeni, canUnlock: !unlocked && !err, why: err ? BUILD_MSG[err] : undefined };
+    });
+    return { exists: b.structures.some((s) => s.kind === 'temple'), standing: !!temploDePe(b), heroes, souls: b.profile.souls };
+  }
+
+  /** Libera um herói no templo: o núcleo valida e desconta almas e Zen; a tela só mostra o resultado. */
+  private liberarHeroi(kind: HeroKind): void {
+    const b = this.state();
+    const r = liberarNoTemplo(b, kind);
+    this.msg = r.ok ? `${HERO_NAME[kind]} liberado no templo: ${r.souls} almas e ${r.zeni} Zen sacrificados.` : BUILD_MSG[r.error];
+    this.save();
+    this.refresh();
   }
 
   /** A horda da próxima noite (nights + 1): o núcleo monta; a tela só mostra. */
@@ -709,6 +796,7 @@ export class BastionSession {
         desc: def.desc,
         cost: buildCostOf(b, kind),
         hp: def.hp,
+        size: sizeOf(kind),
         shot: def.shot ? { damage: def.shot.damage, range: def.shot.range } : undefined,
         unlocked: liberada,
         lockReason: liberada ? undefined : `Projeto necessário: ${PROJECTS[def.project].name}`,

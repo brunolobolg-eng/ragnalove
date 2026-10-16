@@ -1,4 +1,5 @@
 import { BASTION, PROJECTS, STRUCTURES, type StructureKind } from '../../config/bastion';
+import { HERO_ORDER } from '../../config/heroes';
 import { createProfile, migrateProfile, type Profile } from '../progression/profile';
 import { economiaDoPerfil } from '../progression/arvore';
 import { applyCardLoadout, type CardCollection } from '../progression/cards';
@@ -55,6 +56,11 @@ export interface BastionState {
   profile: Profile;
   /** Heróis que defendem a cidade. */
   party: HeroKind[];
+  /**
+   * Heróis já liberados: começam com BASTION.heroesIniciais e ganham mais no templo (sacrifício de almas e Zen).
+   * Permanentes: a derrota não tira (como os projetos). Só estes podem entrar na party.
+   */
+  heroesLiberados: HeroKind[];
   structures: Structure[];
   /** Projetos desbloqueados (permanentes). */
   projects: string[];
@@ -79,7 +85,7 @@ export interface BastionState {
  * Cidade nova: só o castelo básico desbloqueado, núcleo cheio e a party inicial. `cards` é a coleção
  * compartilhada com a campanha (save de meta): só os bônus dela são copiados para os heróis do modo.
  */
-export function newBastion(seed: number, cards: CardCollection, party: HeroKind[] = ['warrior', 'mage']): BastionState {
+export function newBastion(seed: number, cards: CardCollection, party: HeroKind[] = [...BASTION.heroesIniciais]): BastionState {
   const b: BastionState = {
     version: 1,
     seed: seed >>> 0,
@@ -91,6 +97,7 @@ export function newBastion(seed: number, cards: CardCollection, party: HeroKind[
     coreMaxHp: BASTION.coreMaxHp,
     profile: createProfile(),
     party: [...party],
+    heroesLiberados: [...new Set([...BASTION.heroesIniciais, ...party])],
     structures: [],
     projects: ['castle'],
     nextId: 1,
@@ -107,6 +114,9 @@ export function newBastion(seed: number, cards: CardCollection, party: HeroKind[
 export function migrateBastion(b: BastionState): BastionState {
   b.profile = migrateProfile(b.profile);
   b.party ??= ['warrior', 'mage'];
+  // save antigo (antes do templo): todos os heróis seguem liberados, como era; a party sempre cabe nos liberados
+  if (!Array.isArray(b.heroesLiberados)) b.heroesLiberados = [...HERO_ORDER];
+  b.heroesLiberados = [...new Set([...b.heroesLiberados, ...b.party])];
   b.structures ??= [];
   b.projects ??= ['castle'];
   if (!b.projects.includes('castle')) b.projects.unshift('castle');
@@ -137,6 +147,7 @@ export function migrateBastion(b: BastionState): BastionState {
 /** Vida máxima de uma estrutura: nível + bônus permanentes dos projetos desbloqueados. */
 export function structureMaxHp(b: BastionState, s: Pick<Structure, 'kind' | 'level'>): number {
   const def = STRUCTURES[s.kind];
+  if (!def) return 0; // tipo que esta versão não conhece (save de versão mais nova): sem vida, não derruba o carregamento
   let hp = def.hp + def.hpPerLevel * (s.level - 1);
   for (const id of b.projects) {
     const bonus = PROJECTS[id]?.bonus;

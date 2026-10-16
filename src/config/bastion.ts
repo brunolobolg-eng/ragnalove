@@ -13,8 +13,12 @@ import type { HeroKind } from '../core/progression/skills';
  * Os números de estrutura e projeto são INICIAIS: calibrar com o dono antes de fechar o balanceamento.
  */
 
-/** Tipos de estrutura. Muralha bloqueia (a horda quebra); torre bloqueia e atira sozinha. */
-export type StructureKind = 'wall' | 'tower';
+/**
+ * Tipos de estrutura. Muralha bloqueia (a horda quebra); torre bloqueia e atira sozinha. As construções da cidade
+ * (mercado, ferreiro, mestre de armas, oráculo e templo) são quadrados de 4×4 tiles que bloqueiam a passagem; o
+ * templo libera heróis (ver BASTION.temploHerois).
+ */
+export type StructureKind = 'wall' | 'tower' | 'market' | 'forge' | 'weapons' | 'oracle' | 'temple';
 
 export interface StructureDef {
   name: string;
@@ -37,6 +41,8 @@ export interface StructureDef {
   anywhere?: boolean;
   /** Pode ser movida no turno em que foi construída (ver isMovable em core/bastion/rules.ts). */
   movable?: boolean;
+  /** Lado do quadrado em tiles (1 = um tile). A origem é o canto de cima à esquerda. */
+  size?: number;
 }
 
 export const STRUCTURES: Record<StructureKind, StructureDef> = {
@@ -66,7 +72,71 @@ export const STRUCTURES: Record<StructureKind, StructureDef> = {
     anywhere: false,
     movable: false,
   },
+  // construções da cidade: quadrados 4×4 que bloqueiam a passagem (a horda contorna ou quebra). Números INICIAIS.
+  market: {
+    name: 'Mercado',
+    desc: 'Barreira de 4×4: bloqueia a passagem. Erguido onde a cidade negocia. Pode ser erguido em qualquer ponto do mapa.',
+    project: 'castle',
+    cost: 60,
+    costGrowth: 1,
+    hp: 300,
+    hpPerLevel: 100,
+    maxLevel: 3,
+    anywhere: true,
+    size: 4,
+  },
+  forge: {
+    name: 'Ferreiro',
+    desc: 'Barreira de 4×4: bloqueia a passagem. A forja da cidade, de pedra e fogo. Pode ser erguida em qualquer ponto do mapa.',
+    project: 'castle',
+    cost: 80,
+    costGrowth: 1,
+    hp: 300,
+    hpPerLevel: 100,
+    maxLevel: 3,
+    anywhere: true,
+    size: 4,
+  },
+  weapons: {
+    name: 'Mestre de armas',
+    desc: 'Barreira de 4×4: bloqueia a passagem. O pátio de treino da cidade. Pode ser erguido em qualquer ponto do mapa.',
+    project: 'castle',
+    cost: 100,
+    costGrowth: 1,
+    hp: 300,
+    hpPerLevel: 100,
+    maxLevel: 3,
+    anywhere: true,
+    size: 4,
+  },
+  oracle: {
+    name: 'Oráculo',
+    desc: 'Barreira de 4×4: bloqueia a passagem. Um santuário de pedra com a visão do futuro. Pode ser erguido em qualquer ponto do mapa.',
+    project: 'castle',
+    cost: 120,
+    costGrowth: 1,
+    hp: 300,
+    hpPerLevel: 100,
+    maxLevel: 3,
+    anywhere: true,
+    size: 4,
+  },
+  temple: {
+    name: 'Templo',
+    desc: 'Barreira de 4×4: bloqueia a passagem. Aqui a cidade sacrifica almas e Zen para liberar novos heróis. Pode ser erguido em qualquer ponto do mapa.',
+    project: 'castle',
+    cost: 150,
+    costGrowth: 1,
+    hp: 300,
+    hpPerLevel: 100,
+    maxLevel: 3,
+    anywhere: true,
+    size: 4,
+  },
 };
+
+/** Lado de uma construção em tiles (1 quando não declarado: muralha e torre). */
+export const sizeOf = (kind: StructureKind): number => STRUCTURES[kind]?.size ?? 1;
 
 export interface ProjectDef {
   name: string;
@@ -119,6 +189,19 @@ export const BASTION = {
    * (85 de vida, força 8) causa 23. Vida da cidade: GAME_CONFIG.cityDefense.maxHp.
    */
   emperium: { contactDivisor: 30 },
+  /** Heróis liberados quando a cidade começa: só um. Os outros se liberam no templo, sacrificando almas e Zen. */
+  heroesIniciais: ['warrior'] as HeroKind[],
+  /**
+   * Custo de liberar cada herói no templo da cidade: almas sacrificadas + Zen. Liberado fica liberado (sobrevive às
+   * derrotas, como os projetos). PROVISÓRIO: calibrar com o dono; uma horda rende algumas dezenas de almas.
+   */
+  temploHerois: {
+    mage: { souls: 40, zeni: 150 },
+    archer: { souls: 70, zeni: 300 },
+    sorcerer: { souls: 110, zeni: 450 },
+    warlock: { souls: 160, zeni: 650 },
+    assassin: { souls: 220, zeni: 900 },
+  } as Partial<Record<HeroKind, { souls: number; zeni: number }>>,
 };
 
 /** Definição da horda por noite (ver core/bastion/horde.ts). Os números e a ordem dos ciclos são dados. */

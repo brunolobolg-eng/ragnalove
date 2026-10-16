@@ -6,9 +6,12 @@ const esc = (s: string | number): string => String(s).replace(/[&<>"']/g, (c) =>
 const fmt = (n: number): string => n.toLocaleString('pt-BR');
 const frac = (v: number, max: number): number => (max > 0 ? Math.min(1, Math.max(0, v / max)) : 0);
 const STATUS: Record<BastionStructureRow['status'], string> = { intact: 'Inteira', damaged: 'Danificada', destroyed: 'Destruída' };
-const HINT = 'Escolha uma construção e leve o mouse ao campo: a prévia mostra onde ela fica e se dá. Muralhas vão a qualquer lugar; torres só nos lotes azuis.';
+const HINT = 'Escolha uma construção e leve o mouse ao campo: a prévia mostra onde ela fica e se dá. Muralhas vão a qualquer lugar; torres só nos lotes azuis; as construções de 4×4 ocupam um quadrado inteiro.';
 /** Com um tipo escolhido, a descrição já está na linha dele: a dica fica curta para caber na janela. */
 const HINT_PICK = 'Leve o mouse ao campo e clique para construir. A prévia mostra se dá.';
+/** Dica com o tipo escolhido: 1 tile (muralha, torre) usa HINT_PICK; quadrado maior diz o tamanho da barreira. */
+const hintPick = (size: number): string =>
+  size > 1 ? `Barreira de ${size}×${size}: leve o mouse ao campo e clique para construir. A prévia mostra se dá.` : HINT_PICK;
 const MOVING = 'Movendo: leve o mouse ao campo e clique numa casa livre. Clique na própria muralha ou Esc cancela o movimento.';
 /** Por que a construção pode (ou não) ser movida. A regra é isMovable (core); aqui só o texto. */
 const MOVE_WHY: Record<BastionMoveWhy, string> = {
@@ -72,9 +75,9 @@ export class BastionBuildPanel {
     if (!vm) return;
     this.night.disabled = !vm.canStartNight;
     const moving = vm.selected?.moving === true;
-    const picked = vm.palette.some((r) => r.selected);
+    const pick = vm.palette.find((r) => r.selected);
     // com uma construção escolhida, a dica geral sai para dar espaço às ações (a lista ainda rola em 800 px de altura)
-    const hint = moving ? MOVING : picked ? HINT_PICK : vm.selected ? '' : HINT;
+    const hint = moving ? MOVING : pick ? hintPick(pick.size) : vm.selected ? '' : HINT;
     this.body.innerHTML = `
       <p class="bs-city-line">Zen <b>${fmt(vm.zeni)}</b> · Núcleo <b>${fmt(vm.coreHp)} / ${fmt(vm.coreMaxHp)}</b></p>
       <p class="bs-msg" aria-live="polite">${esc(vm.message ?? '')}</p>
@@ -85,9 +88,11 @@ export class BastionBuildPanel {
 
   private paletteBtn(r: BastionPaletteRow, i: number): string {
     const shot = r.shot ? ` · Tiro ${fmt(r.shot.damage)} · alcance ${fmt(r.shot.range)}` : '';
+    // o tamanho do quadrado só aparece quando passa de 1 tile (muralha e torre não mostram nada)
+    const area = r.size > 1 ? ` · ${r.size}×${r.size}` : '';
     return `<button class="au-btn bs-pal" data-i="${i}" aria-pressed="${r.selected}" title="${esc(r.desc)}"${r.unlocked ? '' : ' disabled'}>
         <span class="bs-pal-top"><b>${esc(r.name)}</b><span class="au-price">${fmt(r.cost)} Zen</span></span>
-        <span class="bs-pal-meta">HP ${fmt(r.hp)}${shot}</span>
+        <span class="bs-pal-meta">HP ${fmt(r.hp)}${area}${shot}</span>
         ${r.selected ? `<span class="bs-pal-desc">${esc(r.desc)}</span>` : ''}
         ${!r.unlocked && r.lockReason ? `<span class="bs-lock">${esc(r.lockReason)}</span>` : ''}
       </button>`;

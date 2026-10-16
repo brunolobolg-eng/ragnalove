@@ -41,6 +41,31 @@ export interface BastionHeroRow {
   kind: HeroKind;
   name: string;
   selected: boolean;
+  /** Ainda não liberado (só se libera no templo): não entra na party. */
+  locked: boolean;
+}
+
+/** Um herói no templo: custo em almas e Zen e se dá para liberar agora (o motivo, se não der). */
+export interface BastionTempleHeroRow {
+  kind: HeroKind;
+  name: string;
+  unlocked: boolean;
+  souls: number;
+  zeni: number;
+  canUnlock: boolean;
+  /** Por que não dá para liberar agora (pré-verificado pelo núcleo; ausente = pode). */
+  why?: string;
+}
+
+/** Seção do templo no hub: o templo fica numa construção da cidade (4×4). */
+export interface BastionTempleVM {
+  /** Há um templo na cidade. */
+  exists: boolean;
+  /** O templo está de pé (vida acima de zero): só ele libera heróis. */
+  standing: boolean;
+  heroes: BastionTempleHeroRow[];
+  /** Almas da cidade (o que se sacrifica). */
+  souls: number;
 }
 
 /** Próxima horda (de hordeOf): o que a tela mostra. O tipo (tier) define a marca de mini-chefe e MVP. */
@@ -73,6 +98,8 @@ export interface BastionHubVM {
   attemptEnded: boolean;
   canNewAttempt: boolean;
   party: BastionHeroRow[];
+  /** Templo da cidade: libera heróis com almas + Zen. */
+  templo: BastionTempleVM;
   structures: BastionStructureRow[];
   projects: BastionProjectRow[];
   /** A horda da próxima noite (hordeOf de nights + 1). */
@@ -90,6 +117,8 @@ export interface BastionPaletteRow {
   desc: string;
   cost: number;
   hp: number;
+  /** Lado do quadrado em tiles (1 para muralha e torre; 4 para as construções da cidade). */
+  size: number;
   /** Só torres: dano e alcance do tiro no nível 1. */
   shot?: { damage: number; range: number };
   unlocked: boolean;
@@ -142,6 +171,8 @@ export interface BastionHubHooks {
   onNewAttempt(): void;
   onUnlock(id: string): void;
   onParty(party: HeroKind[]): void;
+  /** Libera um herói no templo (sacrifica almas e Zen). */
+  onUnlockHero(kind: HeroKind): void;
   onRepairStructure(id: number): void;
   onUpgradeStructure(id: number): void;
   /** Abre a coleção de cartas (os slots do modo contam as ondas vencidas no Bastião). */

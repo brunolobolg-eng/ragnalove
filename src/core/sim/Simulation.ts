@@ -82,9 +82,12 @@ export interface SimOptions {
 export interface Fortification {
   /** Id da estrutura na cidade (volta em `fortificationStates`). */
   id: number;
-  kind: 'wall' | 'tower';
+  /** Muralha, torre, ou bloco da cidade (as construções 4×4: mercado, templo e outras). */
+  kind: 'wall' | 'tower' | 'building';
+  /** Origem (canto de cima à esquerda) e lado do quadrado em tiles (1 para muralha e torre). */
   x: number;
   y: number;
+  size?: number;
   hp: number;
   maxHp: number;
   /** Só torres: dano por tiro, alcance (tiles) e recarga (ticks). */
@@ -1085,7 +1088,7 @@ export class Simulation {
   /** Estrutura da cidade (Bastião) de pé neste tile: os campos abertos não passam por ela. */
   private bastionStandingAt(x: number, y: number): boolean {
     const o = this.objects.get(this.board.objectAt(x, y));
-    return !!o && (o.type === 'bastionWall' || o.type === 'bastionTower') && o.state !== 'broken';
+    return !!o && (o.type === 'bastionWall' || o.type === 'bastionTower' || o.type === 'bastionBuilding') && o.state !== 'broken';
   }
 
   /** Passagem do campo aberto de muralhas: a de `wallPass`, mas a estrutura da cidade de pé é intransponível. */
@@ -1134,8 +1137,18 @@ export class Simulation {
    */
   private addFortification(f: Fortification): void {
     this.fortInput.push(f);
-    if (f.hp <= 0 || !this.board.isWalkable(f.x, f.y) || this.unitAt(f.x, f.y) || this.board.isCity(f.x, f.y)) return;
-    const o = makeObject(FORT_OBJECT_BASE + f.id, { type: f.kind === 'tower' ? 'bastionTower' : 'bastionWall', x: f.x, y: f.y });
+    // o quadrado inteiro tem de estar livre: chão andável, sem unidade e fora do portão
+    const n = f.size ?? 1;
+    for (let dy = 0; dy < n; dy++) {
+      for (let dx = 0; dx < n; dx++) {
+        const x = f.x + dx;
+        const y = f.y + dy;
+        if (!this.board.isWalkable(x, y) || this.unitAt(x, y) || this.board.isCity(x, y)) return;
+      }
+    }
+    if (f.hp <= 0) return;
+    const type = f.kind === 'tower' ? 'bastionTower' : f.kind === 'building' ? 'bastionBuilding' : 'bastionWall';
+    const o = makeObject(FORT_OBJECT_BASE + f.id, { type, x: f.x, y: f.y, w: n, h: n });
     o.hp = f.hp;
     o.maxHp = f.maxHp;
     this.objects.set(o.id, o);

@@ -1,4 +1,4 @@
-import { BASTION, PROJECTS, STRUCTURES, type StructureKind } from '../../config/bastion';
+import { BASTION, PROJECTS, STRUCTURES, sizeOf, type StructureKind } from '../../config/bastion';
 import { ARVORE_BANCO } from '../../config/arvoreGlobal';
 import { GAME_CONFIG } from '../../config/gameConfig';
 import type { Board } from '../grid/Board';
@@ -10,6 +10,7 @@ import { HERO_ORDER } from '../../config/heroes';
 import type { HeroKind } from '../progression/skills';
 import { Rng } from '../sim/rng';
 import { findStructure, structureMaxHp, type BastionState, type Structure } from './bastion';
+import { footprintTiles, footprintsOverlap } from './footprint';
 import type { Fortification } from '../sim/Simulation';
 
 /**
@@ -45,7 +46,11 @@ export type BuildError =
   | 'attemptRunning'
   | 'partySize'
   | 'partyDuplicate'
-  | 'unknownHero';
+  | 'unknownHero'
+  | 'heroLocked'
+  | 'heroOwned'
+  | 'noTemple'
+  | 'souls';
 
 export const BUILD_MSG: Record<BuildError, string> = {
   unknownKind: 'Essa construção não existe.',
@@ -74,6 +79,10 @@ export const BUILD_MSG: Record<BuildError, string> = {
   partySize: 'A party tem de ter de 1 a 6 heróis.',
   partyDuplicate: 'Um herói não pode entrar duas vezes na party.',
   unknownHero: 'Herói desconhecido.',
+  heroLocked: 'Esse herói ainda não foi liberado: sacrifique almas e Zen no templo.',
+  heroOwned: 'Esse herói já está liberado.',
+  noTemple: 'Construa um templo de pé na cidade para liberar heróis.',
+  souls: 'Almas insuficientes.',
 };
 
 export type Result<T extends object = object> = ({ ok: true } & T) | { ok: false; error: BuildError };
@@ -147,12 +156,14 @@ export function coreRepairCost(hp: number): number {
  * `ignoreId` tira uma construção da conta de ocupação (o próprio movimento).
  */
 function siteError(b: BastionState, env: BuildEnv, kind: StructureKind, at: Vec2, ignoreId?: number): BuildError | undefined {
-  if (!STRUCTURES[kind].anywhere && !env.buildable(at.x, at.y)) return 'outside';
-  if (env.board.isCity(at.x, at.y)) return 'city';
-  if (!env.board.isWalkable(at.x, at.y)) return 'terrain';
-  if (env.spawns.some((p) => chebyshev(p, at) <= env.spawnSafeRadius)) return 'spawn';
-  if (b.structures.some((s) => s.id !== ignoreId && s.x === at.x && s.y === at.y)) return 'occupied';
-  if (env.heroes.some((h) => h.x === at.x && h.y === at.y)) return 'hero';
+  // todo o quadrado da construção (1×1 para muralha e torre; 4×4 para as construções da cidade) tem de caber
+  const area = footprintTiles(kind, at);
+  if (!STRUCTURES[kind].anywhere && !area.every((t) => env.buildable(t.x, t.y))) return 'outside';
+  if (area.some((t) => env.board.isCity(t.x, t.y))) return 'city';
+  if (area.some((t) => !env.board.isWalkable(t.x, t.y))) return 'terrain';
+  if (area.some((t) => env.spawns.some((p) => chebyshev(p, t) <= env.spawnSafeRadius))) return 'spawn';
+  if (b.structures.some((s) => s.id !== ignoreId && footprintsOverlap({ kind, at }, { kind: s.kind, at: { x: s.x, y: s.y } }))) return 'occupied';
+  if (env.heroes.some((h) => area.some((t) => t.x === h.x && t.y === h.y))) return 'hero';
   return undefined;
 }
 
@@ -215,13 +226,18 @@ export function moveStructure(b: BastionState, env: BuildEnv, id: number, at: Ve
 
 /** Estruturas da cidade como a simulação da onda recebe: vida atual e, nas torres, o tiro pelo nível. */
 export function fortificationsOf(b: BastionState): Fortification[] {
-  return b.structures.map((s) => {
-    const f: Fortification = { id: s.id, kind: s.kind, x: s.x, y: s.y, hp: s.hp, maxHp: structureMaxHp(b, s) };
-    const shot = STRUCTURES[s.kind].shot;
-    if (shot) f.shot = { damage: shot.damage + shot.damagePerLevel * (s.level - 1), range: shot.range, cooldownTicks: shot.cooldownTicks };
-    return f;
-  });
+  return b.structures
+    .filter((s) => STRUCTURES[s.kind])
+    .map((s) => {
+      const f: Fortification = { id: s.id, kind: simKindOf(s.kind), x: s.x, y: s.y, size: sizeOf(s.kind), hp: s.hp, maxHp: structureMaxHp(b, s) };
+      const shot = STRUCTURES[s.kind].shot;
+      if (shot) f.shot = { damage: shot.damage + shot.damagePerLevel * (s.level - 1), range: shot.range, cooldownTicks: shot.cooldownTicks };
+      return f;
+    });
 }
+
+/** Como a simulação enxerga a construção: muralha, torre, ou bloco da cidade (as construções 4×4). */
+const simKindOf = (kind: StructureKind): Fortification['kind'] => (kind === 'tower' ? 'tower' : kind === 'wall' ? 'wall' : 'building');
 
 // ---------- manutenção de estruturas ----------
 
@@ -407,6 +423,7 @@ export function setParty(b: BastionState, party: HeroKind[]): Result {
   if (party.length < 1 || party.length > 6) return fail('partySize');
   if (new Set(party).size !== party.length) return fail('partyDuplicate');
   if (!party.every((h) => HERO_ORDER.includes(h))) return fail('unknownHero');
+  if (!party.every((h) => b.heroesLiberados.includes(h))) return fail('heroLocked');
   b.party = [...party];
   return { ok: true };
 }

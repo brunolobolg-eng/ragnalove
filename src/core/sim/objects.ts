@@ -51,7 +51,7 @@ const nearObject = (o: MapObject, p: Vec2, r: number) => o.tiles.some((t) => che
  * Obstáculos que a horda inteira quebra quando não há passo livre quase tão bom (custo GAME_CONFIG.pathing.breakCost).
  * A Muralha do Guerreiro e as estruturas da cidade (Bastião) entram aqui; raízes e colunas só os pesados quebram.
  */
-export const WALL_BREAKERS: ReadonlySet<MapObjectType> = new Set<MapObjectType>(['shieldWall', 'bastionWall', 'bastionTower']);
+export const WALL_BREAKERS: ReadonlySet<MapObjectType> = new Set<MapObjectType>(['shieldWall', 'bastionWall', 'bastionTower', 'bastionBuilding']);
 
 export const OBJECT_RULES: Record<MapObjectType, ObjectRule> = {
   shieldWall: {
@@ -66,6 +66,14 @@ export const OBJECT_RULES: Record<MapObjectType, ObjectRule> = {
   bastionWall: {
     label: 'Muralha de pedra',
     desc: 'Bloco da cidade: a horda só o quebra quando não há caminho livre até o seu alvo.',
+    blocksWalk: standing,
+    blocksSight: never,
+    breakable: true,
+  },
+  // construções da cidade de 4×4 (mercado, templo…): um bloco com uma vida só; a horda o quebra sem outro caminho
+  bastionBuilding: {
+    label: 'Construção da cidade',
+    desc: 'Barreira de 4×4 da cidade: bloqueia a passagem. A horda só a quebra quando não há caminho livre até o seu alvo.',
     blocksWalk: standing,
     blocksSight: never,
     breakable: true,

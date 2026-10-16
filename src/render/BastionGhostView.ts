@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { STRUCTURES, type StructureKind } from '../config/bastion';
+import { STRUCTURES, sizeOf, type StructureKind } from '../config/bastion';
 import { VISUAL_CONFIG } from '../config/visualConfig';
 import type { Vec2 } from '../core/grid/types';
 import { tileToWorld } from './coords';
@@ -12,8 +12,18 @@ export interface GhostPreview {
   valid: boolean;
 }
 
-const OBJECT_OF: Record<StructureKind, 'bastionWall' | 'bastionTower'> = { wall: 'bastionWall', tower: 'bastionTower' };
-const KINDS: StructureKind[] = ['wall', 'tower'];
+/** Peça do campo de cada construção: muralha e torre são 1 tile; as da cidade são o placeholder 4×4 (bastionBuilding). */
+const OBJECT_OF: Record<StructureKind, 'bastionWall' | 'bastionTower' | 'bastionBuilding'> = {
+  wall: 'bastionWall',
+  tower: 'bastionTower',
+  market: 'bastionBuilding',
+  forge: 'bastionBuilding',
+  weapons: 'bastionBuilding',
+  oracle: 'bastionBuilding',
+  temple: 'bastionBuilding',
+};
+/** Todas as construções do núcleo (um modelo por tipo, montado na primeira prévia). */
+const KINDS = Object.keys(STRUCTURES) as StructureKind[];
 
 /** Tem alguma malha de verdade? (Enquanto o kit de muralhas carrega, as peças vêm vazias.) */
 function temMalha(g: THREE.Object3D): boolean {
@@ -61,7 +71,7 @@ export class BastionGhostView {
     this.rangeFillMat = mat(new THREE.MeshBasicMaterial({ transparent: true, opacity: C.rangeFill, depthWrite: false }));
     this.rangeEdgeMat = mat(new THREE.LineBasicMaterial({ transparent: true, opacity: C.rangeEdgeOpacity, depthWrite: false }));
 
-    // contorno do tile (quadrado de 1 tile, um pouco para dentro para não encostar no vizinho)
+    // contorno do tile (quadrado de 1 tile, um pouco para dentro para não encostar no vizinho; show() estica para n×n)
     const h = C.tileSize / 2;
     const tileGeo = this.geo(new THREE.PlaneGeometry(2 * h, 2 * h).rotateX(-Math.PI / 2).translate(0, C.lift, 0));
     this.tile = new THREE.Mesh(tileGeo, this.tileMat);
@@ -100,7 +110,11 @@ export class BastionGhostView {
       return;
     }
     this.group.visible = true;
-    tileToWorld(p.at.x, p.at.y, this.group.position);
+    // a origem é o canto de cima à esquerda: o quadrado de n×n tiles vai de at até at+n-1, e o centro fica no meio
+    const n = sizeOf(p.kind);
+    tileToWorld(p.at.x + (n - 1) / 2, p.at.y + (n - 1) / 2, this.group.position);
+    this.tile.scale.set(n, 1, n);
+    this.tileEdge.scale.set(n, 1, n);
     const key = `${p.kind}|${p.valid ? 1 : 0}`;
     if (key === this.key) return;
     const C = VISUAL_CONFIG.bastionGhost;
@@ -138,7 +152,7 @@ export class BastionGhostView {
   private model(kind: StructureKind): THREE.Group {
     const cached = this.models.get(kind);
     if (cached) return cached;
-    const m = fortMesh(OBJECT_OF[kind]);
+    const m = fortMesh(OBJECT_OF[kind], sizeOf(kind));
     // o kit ainda carregando devolve peças vazias: não guarda nem mostra, tenta de novo na próxima prévia
     if (!temMalha(m)) return m;
     m.traverseVisible((o) => {

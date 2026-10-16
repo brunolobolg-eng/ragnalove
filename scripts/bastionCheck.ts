@@ -48,6 +48,9 @@ import { chebyshev, type Vec2 } from '../src/core/grid/types';
 import { Simulation, type Fortification } from '../src/core/sim/Simulation';
 import { ARVORE_BANCO } from '../src/config/arvoreGlobal';
 import { chaveBloco, creditoBastiao } from '../src/core/progression/banco';
+import { HERO_ORDER } from '../src/config/heroes';
+import { estruturaCobre, footprintTiles, footprintsOverlap } from '../src/core/bastion/footprint';
+import { custoDoHeroi, liberarHeroi, motivoLiberar, temploDePe } from '../src/core/bastion/templo';
 
 let failures = 0;
 const check = (label: string, cond: boolean, extra = '') => {
@@ -93,7 +96,7 @@ check('há terreno livre suficiente para os testes', free.length >= 4, `${free.l
 
 console.log('\n# 2) Estado e migração');
 const b0 = newBastion(7, emptyCollection());
-check('cidade nova: só o castelo, núcleo cheio, party inicial', b0.projects.join() === 'castle' && b0.coreHp === BASTION.coreMaxHp && b0.party.join() === 'warrior,mage' && b0.attempt === 1);
+check('cidade nova: só o castelo, núcleo cheio, começa com um herói só (liberados = party)', b0.projects.join() === 'castle' && b0.coreHp === BASTION.coreMaxHp && b0.party.join() === 'warrior' && b0.heroesLiberados.join() === 'warrior' && b0.attempt === 1);
 const j0 = JSON.stringify(b0);
 check('save vai e volta pelo JSON sem perda', JSON.stringify(migrateBastion(JSON.parse(j0))) === j0);
 const legacy = JSON.parse(j0) as Partial<BastionState>;
@@ -402,7 +405,10 @@ const upAlvo2 = upgradeStructure(bx, alvo.id);
 check('aprimorar 2→3 também para no teto (999, e não 1.998)', upAlvo2.ok && upAlvo2.cost === 999, upAlvo2.ok ? '' : BUILD_MSG[upAlvo2.error]);
 
 const bh = newBastion(7, emptyCollection());
-check('as seis classes entram na party do Bastião', setParty(bh, ['archer', 'sorcerer', 'warlock', 'assassin', 'warrior', 'mage']).ok === true && bh.party.length === 6);
+const seis = ['archer', 'sorcerer', 'warlock', 'assassin', 'warrior', 'mage'] as const;
+check('party só com heróis liberados: as seis classes são recusadas enquanto não forem liberadas no templo', setParty(bh, [...seis]).ok === false && errOf(setParty(bh, [...seis])) === 'heroLocked');
+bh.heroesLiberados = [...HERO_ORDER];
+check('as seis classes entram na party do Bastião depois de liberadas', setParty(bh, [...seis]).ok === true && bh.party.length === 6);
 check('party com herói repetido: recusada', errOf(setParty(bh, ['warrior', 'warrior'])) === 'partyDuplicate');
 check('party vazia: recusada', errOf(setParty(bh, [])) === 'partySize');
 check('party com 7 heróis: recusada', errOf(setParty(bh, ['warrior', 'mage', 'archer', 'sorcerer', 'warlock', 'assassin', 'warrior'])) === 'partySize');
@@ -764,6 +770,89 @@ console.log('\n# 15) Economia do banco de Zen (Zen por noite, bloco de 20 noites
   check('reembolso de uma muralha devolve Zen mas não entra no bloco (zenNoBloco igual)', remov?.ok === true && rf.zenNoBloco === bloco0 && rf.profile.zeni > zeniAntes, `bloco ${rf.zenNoBloco} · zeni ${zeniAntes} → ${rf.profile.zeni}`);
   check('Zen inicial do Bastião segue 20 (provisório, decisão 18)', BASTION.startZeni === 20);
   check('pacote de cartas segue a cada 100 vitórias (BASTION.packEvery)', BASTION.packEvery === 100);
+}
+
+console.log('\n# 16) Construções 4×4 da cidade e o templo');
+{
+  // área e sobreposição: origem no canto de cima à esquerda, lado 4
+  const area = footprintTiles('market', { x: 10, y: 20 });
+  check('construção 4×4: cobre 16 tiles a partir da origem', area.length === 16 && area[0].x === 10 && area[15].x === 13 && area[15].y === 23);
+  check('estruturaCobre: cobre o tile do canto de baixo à direita e não o vizinho de fora', estruturaCobre({ kind: 'market', x: 10, y: 20 }, { x: 13, y: 23 }) && !estruturaCobre({ kind: 'market', x: 10, y: 20 }, { x: 14, y: 20 }));
+  check('dois quadrados 4×4 que se encostam não se sobrepõem; com um tile de sobreposição, sim', !footprintsOverlap({ kind: 'market', at: { x: 10, y: 20 } }, { kind: 'forge', at: { x: 14, y: 20 } }) && footprintsOverlap({ kind: 'market', at: { x: 10, y: 20 } }, { kind: 'forge', at: { x: 13, y: 20 } }));
+  check('muralha e torre seguem 1×1 (o quadrado não muda o que já existia)', footprintTiles('wall', { x: 3, y: 3 }).length === 1 && footprintTiles('tower', { x: 3, y: 3 }).length === 1);
+
+  // colocação: todo o quadrado tem de caber (tiles livres, sem herói no quadrado)
+  const freeKey = new Set(free.map((p) => `${p.x},${p.y}`));
+  const cabe = (o: Vec2) => footprintTiles('market', o).every((t) => freeKey.has(`${t.x},${t.y}`));
+  const origem = free.find((p) => cabe(p));
+  check('há um lugar 4×4 livre no mapa de teste', origem !== undefined);
+  if (origem) {
+    const bf4 = newBastion(7, emptyCollection());
+    bf4.profile.zeni = 5000;
+    const r1 = placeStructure(bf4, env(), 'market', origem);
+    check('construir o mercado 4×4 num lugar livre: custa Zen e vira uma construção', r1.ok === true && bf4.structures.length === 1 && bf4.structures[0].kind === 'market');
+    const sobre = placeStructure(bf4, env(), 'forge', { x: origem.x + 3, y: origem.y });
+    check('quadrado que encosta com um tile de sobreposição é recusado (ocupado)', errOf(sobre) === 'occupied');
+    const aoLado = placeStructure(bf4, env(), 'forge', { x: origem.x + 4, y: origem.y });
+    check('quadrado ao lado, sem sobrepor, não é recusado por ocupação', errOf(aoLado) !== 'occupied');
+    const heroiNoQuadrado = { ...env(), heroes: [{ x: origem.x + 2, y: origem.y + 1 }] };
+    const bh4 = newBastion(7, emptyCollection());
+    bh4.profile.zeni = 5000;
+    check('herói parado num tile do quadrado (não só na origem) bloqueia a construção', errOf(placeStructure(bh4, heroiNoQuadrado, 'oracle', origem)) === 'hero');
+    const borda = [...Array(40)].map((_, i) => ({ x: 6 + (i % 10), y: 20 + Math.floor(i / 10) })).find((p) => board.isWalkable(p.x, p.y) && footprintTiles('market', p).some((t) => !board.isWalkable(t.x, t.y)));
+    check('achar uma origem livre cujo quadrado cobre um tile de parede (condição do teste)', borda !== undefined);
+    check('quadrado que cobre um tile de parede é recusado, mesmo com a origem livre', borda !== undefined && errOf(placeStructure(bh4, env(), 'market', borda)) !== undefined);
+  }
+
+  // simulação: o quadrado inteiro vira bloco (16 tiles) e bloqueia
+  if (origem) {
+    const bsim = newBastion(7, emptyCollection());
+    bsim.profile.zeni = 5000;
+    placeStructure(bsim, env(), 'market', origem);
+    const simF = new Simulation(DEFAULT_SETUP, undefined, {}, { fortifications: fortificationsOf(bsim) });
+    const blocos = [...simF.objects.values()].filter((o) => o.type === 'bastionBuilding');
+    check('simulação: a construção 4×4 vira um bloco de 16 tiles', blocos.length === 1 && blocos[0].tiles.length === 16 && blocos[0].w === 4 && blocos[0].h === 4);
+    check('simulação: todos os 16 tiles ficam ocupados pelo bloco (o caminho não passa)', blocos.length === 1 && blocos[0].tiles.every((t) => simF.board.objectAt(t.x, t.y) === blocos[0].id));
+  }
+
+  // templo: libera heróis com almas + Zen; liberado fica liberado
+  const bt2 = newBastion(7, emptyCollection());
+  check('começa com um herói liberado e os outros fechados', bt2.heroesLiberados.length === 1 && bt2.heroesLiberados[0] === 'warrior');
+  bt2.profile.souls = 500;
+  bt2.profile.zeni = 5000;
+  check('sem templo: não libera herói (motivo: templo)', motivoLiberar(bt2, 'mage') === 'noTemple');
+  const temploOk = origem ? placeStructure(bt2, env(), 'temple', origem) : undefined;
+  check('templo construído: está de pé', temploOk?.ok === true && temploDePe(bt2) !== undefined);
+  const custo = custoDoHeroi('mage')!;
+  bt2.profile.souls = custo.souls - 1;
+  check('almas insuficientes: recusa e não gasta nada', motivoLiberar(bt2, 'mage') === 'souls' && liberarHeroi(bt2, 'mage').ok === false && bt2.profile.souls === custo.souls - 1);
+  bt2.profile.souls = 500;
+  bt2.profile.zeni = custo.zeni - 1;
+  check('Zen insuficiente: recusa e não gasta nada', motivoLiberar(bt2, 'mage') === 'zeni' && bt2.profile.zeni === custo.zeni - 1);
+  bt2.profile.zeni = 5000;
+  const zenAntes = bt2.profile.zeni;
+  const liberou = liberarHeroi(bt2, 'mage');
+  check('liberar o mago: desconta as almas e o Zen do custo e entra na lista', liberou.ok === true && bt2.heroesLiberados.includes('mage') && bt2.profile.souls === 500 - custo.souls && bt2.profile.zeni === zenAntes - custo.zeni);
+  check('liberar de novo o mago é recusado (já liberado) e não gasta', errOf(liberarHeroi(bt2, 'mage')) === 'heroOwned' && bt2.profile.souls === 500 - custo.souls);
+  check('mago liberado pode entrar na party', setParty(bt2, ['mage']).ok === true);
+
+  // derrota: a tentativa acaba (como no combate); o liberado fica, as almas e o templo somem com a cidade
+  bt2.attemptEnded = true;
+  check('recomeço depois da derrota: a cidade volta do zero', startAttempt(bt2, emptyCollection()).ok === true);
+  check('derrota: o herói liberado no templo continua liberado (permanente)', bt2.heroesLiberados.includes('mage'));
+  check('derrota: as almas e o templo somem com a cidade (recomeço do zero)', bt2.profile.souls === 0 && bt2.structures.length === 0);
+  check('sem o templo de volta, outro herói não libera (motivo: templo)', motivoLiberar(bt2, 'archer') === 'noTemple');
+
+  // migração: save antigo (antes do templo) segue com todos os heróis liberados, a party cabe
+  const antigo = JSON.parse(JSON.stringify(bt2)) as Partial<BastionState>;
+  delete antigo.heroesLiberados;
+  antigo.party = ['archer'];
+  const migrado = migrateBastion(antigo as BastionState);
+  check('save antigo (sem templo): todos os heróis seguem liberados, como era', migrado.heroesLiberados.join() === [...HERO_ORDER].join() && migrado.party.join() === 'archer');
+
+  // construção de um tipo que a versão não conhece (save de versão mais nova) não derruba nada
+  const desconhecido = { ...bt2, structures: [{ id: 999, kind: 'castelo_novo' as never, x: 1, y: 1, level: 1, hp: 50, invested: 10, placedTurn: 0 }] } as BastionState;
+  check('tipo de construção desconhecido: a exportação para a simulação ignora (não derruba)', fortificationsOf(desconhecido).length === 0);
 }
 
 console.log(failures ?`\n${failures} checagem(ns) falharam.` : '\nTodas as checagens do Último Bastião passaram.');

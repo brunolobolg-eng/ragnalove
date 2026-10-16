@@ -423,8 +423,12 @@ const barrierIndex = (t: Tool) => (t === 'barrier' ? 0 : t === 'barrier2' ? 1 : 
 /** Estado da run que a onda precisa: vida da cidade e objetos já acionados nesta fase. */
 /** Construções do Último Bastião que a batalha recebe (undefined fora do modo). */
 let bastionFort: Fortification[] | undefined;
-/** Há construção do Último Bastião (de pé ou destruída) neste tile? Herói não entra nem fica em cima dela. */
-const structureAt = (x: number, y: number): boolean => bastionFort?.some((f) => f.x === x && f.y === y) ?? false;
+/** Há construção do Último Bastião (de pé ou destruída) neste tile? Herói não entra nem fica em cima dela. Cobre o quadrado inteiro (size). */
+const structureAt = (x: number, y: number): boolean =>
+  bastionFort?.some((f) => {
+    const n = f.size ?? 1;
+    return x >= f.x && x < f.x + n && y >= f.y && y < f.y + n;
+  }) ?? false;
 function simOpts() {
   return { cityHp: run.cityHp, cityMaxHp: run.cityMaxHp, usedObjects: run.usedObjects ?? [], fortifications: bastionFort, recompensas: recompensasAtuais() };
 }
@@ -519,15 +523,13 @@ function menuState(): MenuState {
   };
 }
 const menu = new MainMenu({
-  onBastion: () => bastionSession.open(),
+  onBastion: () => {
+    prepararSaidaDoMenu();
+    bastionSession.open();
+  },
   onTree: () => openArvore(),
   onStart: () => {
-    audio.stopMenuMusic(); // a música do menu é só da tela inicial
-    audio.unlock(); // o navegador só libera som após um gesto do jogador
-    audio.preloadMusic([MUSIC.city, MUSIC.battle]);
-    hudRoot.classList.remove('menu-options');
-    panels.closeAll();
-    hudRoot.style.visibility = '';
+    prepararSaidaDoMenu();
     if (hasSavedRun && !run.ended) {
       if (run.battle) resumeBattle(run.battle);
       else openMap();
@@ -563,6 +565,7 @@ const bastionGhost = new BastionGhostView(stage.scene);
 const bastionSession = new BastionSession({
   run: () => run,
   openArvore: () => openArvore(),
+  escolherHeroi: (bloqueados, onPick) => openCharSelect(onPick, bloqueados),
   setRun: (r) => {
     run = r;
     seenItems = undefined; // a run trocada tem ids próprios: os vistos da anterior não valem (ver autoGear)
@@ -873,27 +876,42 @@ function startNewRun(): void {
   openCharSelect();
 }
 
-/** Tela de escolha do herói inicial → nova jornada. */
-function openCharSelect(): void {
+/** Tela de escolha do herói: a campanha (nova jornada) e o Bastião (cidade) usam a mesma tela. */
+function openCharSelect(onPick: (h: HeroKind) => void = startCampaignRun, locked?: HeroKind[]): void {
   closeOverlays();
   setMode('select');
   const meta = loadMetaStats();
   audio.preloadSamples(CHARSELECT_ART.hoverSounds);
   charSelect.open((h) => {
     charSelect.close();
-    run = newRun(h, novaSemente());
-    seenItems = undefined; // jornada nova: ids recomeçam, então os vistos da anterior não valem (ver autoGear)
-    anexarArvore(run.profile, arvoreMeta);
-    profile = run.profile;
-    applyCardLoadout(run.profile, loadMetaStats().collection ?? emptyCollection());
-    hasSavedRun = true;
-    claimOpen = false;
-    saveProfile();
-    hud.clearLog();
-    hud.setParty(run.party, run.dead);
-    hud.setCharacter(characterVM());
-    openMap();
-  }, HERO_ORDER.filter((k) => !heroUnlocked(k, meta)), meta);
+    onPick(h);
+  }, locked ?? HERO_ORDER.filter((k) => !heroUnlocked(k, meta)), meta);
+}
+
+/** Ao sair do menu principal para jogar (campanha ou Último Bastião): o som do menu para e a HUD volta ao normal. */
+function prepararSaidaDoMenu(): void {
+  audio.stopMenuMusic(); // a música do menu é só da tela inicial
+  audio.unlock(); // o navegador só libera som após um gesto do jogador
+  audio.preloadMusic([MUSIC.city, MUSIC.battle]);
+  hudRoot.classList.remove('menu-options');
+  panels.closeAll();
+  hudRoot.style.visibility = '';
+}
+
+/** Herói escolhido na tela de escolha → nova jornada da campanha. */
+function startCampaignRun(h: HeroKind): void {
+  run = newRun(h, novaSemente());
+  seenItems = undefined; // jornada nova: ids recomeçam, então os vistos da anterior não valem (ver autoGear)
+  anexarArvore(run.profile, arvoreMeta);
+  profile = run.profile;
+  applyCardLoadout(run.profile, loadMetaStats().collection ?? emptyCollection());
+  hasSavedRun = true;
+  claimOpen = false;
+  saveProfile();
+  hud.clearLog();
+  hud.setParty(run.party, run.dead);
+  hud.setCharacter(characterVM());
+  openMap();
 }
 
 /** Opção escolhida no nó atual do mapa. */

@@ -143,7 +143,10 @@ Fonte: `src/config/bastion.ts` (`BASTION`, `STRUCTURES`, `PROJECTS`, `BASTION_HO
 - Torre de tiro: 120 Zen, vida 100 (mais 40 por nível), dano 14 (mais 4 por nível), alcance 6, recarga de 12 ticks. Só nos lotes de construção.
 - Projetos: Castelo básico (grátis); Torres de tiro (200 Zen, exige a Arqueira na party); Reforços estruturais (150 Zen, 2 ondas vencidas, muralhas com +25% de vida).
 - Reparo: investido × fração perdida × 0,5, mínimo 1 Zen. Reconstruir: investido × 0,8. Remover devolve 50% do investido, na proporção da vida que resta; estrutura destruída não devolve nada (`BASTION`, `refundRate`).
-- Derrota: a tentativa termina. "Recomeçar do zero" zera cidade, noites e heróis do modo; recordes e cartas ficam (`src/core/bastion/rules.ts`, `startAttempt`).
+- Construções da cidade 4×4 (mercado, ferreiro, mestre de armas, oráculo e templo): ocupam um quadrado de 4×4 tiles (`sizeOf`, `src/core/bastion/footprint.ts`), vida 300 e funcionam como barreira que bloqueia a passagem. Custos 60, 80, 100, 120 e 150 Zen. A construção inteira é um só bloco de vida: quando ela cai, os 16 tiles abrem de uma vez. Muralha e torre seguem 1×1.
+- Heróis: a cidade começa só com o guerreiro (`BASTION.heroesIniciais`). Os outros se liberam no templo, sacrificando almas e Zen (`BASTION.temploHerois`, custos provisórios: mago 40 almas + 150 Zen, arqueira 70 + 300, feiticeira 110 + 450, bruxa 160 + 650, assassino 220 + 900). Sem templo de pé, ninguém libera (`src/core/bastion/templo.ts`).
+- Derrota: a tentativa termina. "Recomeçar do zero" zera a cidade (construções, noites, almas e Zen), o perfil dos heróis (nível, equipamento) e a party; os heróis já liberados no templo continuam liberados. Recordes e cartas também ficam (`src/core/bastion/rules.ts`, `startAttempt`).
+- "Montar Defesa" abre a escolha de personagem como a campanha: a cidade começa com o herói escolhido. Com uma cidade em andamento, retoma o planejamento.
 - Banco: 30% do Zen de cada bloco de 20 noites (`ARVORE_BANCO.bastiao`).
 - Pacote de cartas a cada 100 ondas vencidas (`BASTION.packEvery`).
 
@@ -209,5 +212,6 @@ Fora do comando:
 
 1. Conta nova morre em 50 de 55 noites. Medido no modo literal: guerreiro de nível 1, sem build e sem equipamento. Com a party típica de cada ato, as 55 noites vencem. É balanceamento de combate, e a decisão é do dono (`LOG_SESSOES.md`, entrada de 2026-10-15).
 2. Sobrevivência não medida: `horda:check` não mede o modo de sobrevivência (Bosque Torto, Dunas Vermelhas e Garganta de Ferrugem). Duração da noite de sobrevivência: a confirmar. `sobrevivencia:check` roda no `npm run check`, mas não mede a duração.
+5. Último Bastião, construções 4×4 e templo (2026-10-16). Custos dos heróis no templo e o Zen inicial (20) são provisórios, para calibrar. A arte das construções 4×4 é um placeholder (torre do kit em escala do quadrado), à espera da arte do dono. Cada construção tem uma vida só: a decisão de vida por tile fica em aberto. Compatibilidade: uma versão anterior do jogo não reconhece as construções novas nem o campo de heróis liberados de uma cidade salva por esta versão (ver `LOG_SESSOES.md`).
 3. Ponto de árvore x Zen: já decidido em Zen do banco. O comentário de `src/config/arvoreGlobal.ts` diz que a moeda da árvore é o Zen do banco, e `LOG_SESSOES.md` (entrada "Árvore visual: refino") registra a decisão.
 4. **Recarga repete os sorteios: resolvido (opção A).** A sequência de sorteios da jornada fica guardada no save (campo `sorteio`, versão 2), então a recarga continua de onde parou. Migração da v1 e cópia `runBackup` para saves não entendidos. Ver a seção 8 e `LOG_SESSOES.md` (entrada de 2026-10-16, opção A). Decisão do dono.

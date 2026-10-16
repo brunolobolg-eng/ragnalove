@@ -301,6 +301,15 @@ const BUILDERS: Record<MapObject['type'], Builder> = {
     p.group.add(tower);
     shadow(tower);
   },
+  bastionBuilding(p) {
+    // construção da cidade de 4×4 (mercado, templo…). PLACEHOLDER: a torre do kit do dono, em escala de todo o
+    // quadrado (p.obj.w tiles). A arte definitiva das construções ainda não existe.
+    const tower = fortressPiece('Tower_Round');
+    const size = fortressSize('Tower_Round');
+    tower.scale.setScalar(p.obj.w / (Math.max(size.x, size.z) || 1));
+    p.group.add(tower);
+    shadow(tower);
+  },
   cart(p) {
     const g = p.group;
     const wood = lambert(0x7a5634);
@@ -671,8 +680,9 @@ const BUILDERS: Record<MapObject['type'], Builder> = {
  * Desenho de uma construção do Bastião sem objeto da simulação (prévia do fantasma no campo): usa as mesmas
  * peças e construtores do campo, então a prévia é igual à construção de verdade. Só visual. Muro solto: o módulo
  * do castelo num tile sem vizinhos. Vazio enquanto muros.glb não carregou (o fantasma tenta de novo).
+ * `lado` é o lado do quadrado em tiles (só a construção 4×4 o usa; muralha e torre ficam como são).
  */
-export function fortMesh(type: 'bastionWall' | 'bastionTower'): THREE.Group {
+export function fortMesh(type: 'bastionWall' | 'bastionTower' | 'bastionBuilding', lado = 1): THREE.Group {
   const g = new THREE.Group();
   if (type === 'bastionWall') {
     const geo = geometriaDoMuro([{ x: 0, y: 0 }], (x) => x, (y) => y, VISUAL_CONFIG.muralha.alturaCastelo);
@@ -684,8 +694,9 @@ export function fortMesh(type: 'bastionWall' | 'bastionTower'): THREE.Group {
     }
     return g;
   }
-  // os construtores das torres não leem o objeto: só o grupo e o estado inicial
-  BUILDERS[type]({ obj: undefined as unknown as MapObject, group: g, state: 'idle', shake: 0 }, 0);
+  // torres não leem o objeto; a construção 4×4 lê o lado em obj.w (o mesmo campo que o objeto real tem)
+  const obj = { w: lado, h: lado } as MapObject;
+  BUILDERS[type]({ obj, group: g, state: 'idle', shake: 0 }, 0);
   return g;
 }
 

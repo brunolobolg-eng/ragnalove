@@ -152,7 +152,10 @@ export class MainMenu {
     if (id === 'start') {
       this.close();
       this.hooks.onStart();
-    } else if (id === 'bastion') this.hooks.onBastion();
+    } else if (id === 'bastion') {
+      this.close(); // como a campanha: o menu sai antes da escolha de personagem (Voltar volta ao menu)
+      this.hooks.onBastion();
+    }
     else this.openCard(id);
   }
 
