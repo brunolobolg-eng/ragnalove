@@ -28,17 +28,22 @@ export interface Sorteio {
   itens: number;
 }
 
-/**
- * Constantes que separam cada fluxo (mesmo padrão do Simulation: lootRng/combatRng). A jornada usa a constante de
- * sempre, então o estado inicial dela não muda em relação à v2.
- */
-const SALT_FLUXO: Record<FluxoNome, number> = { jornada: 0x2c1b3c6d, loja: 0x7f4a7c15, cofre: 0x3c6ef372 };
+/** Constante da jornada (a mesma de sempre: o estado inicial dela não muda em relação à v1 e à v2). */
+const SALT_JORNADA = 0x2c1b3c6d;
 
 /** Sorteio inicial de uma jornada: a mesma seed dá a mesma sequência de cada fluxo desde o começo. */
-export const sorteioInicial = (seed: number): Sorteio => ({
-  estados: { jornada: (seed ^ SALT_FLUXO.jornada) >>> 0, loja: (seed ^ SALT_FLUXO.loja) >>> 0, cofre: (seed ^ SALT_FLUXO.cofre) >>> 0 },
-  itens: 0,
-});
+/**
+ * Distância entre os fluxos no ciclo do gerador: 2^30 estados. A jornada começa na posição de sempre, e loja e cofre
+ * começam 2^30 e 2^31 à frente. O gerador anda sempre o mesmo passo, então dois fluxos só se encontrariam depois de
+ * ~2^30 sorteios: nenhuma run chega perto. (Antes, a posição era seed XOR constante, e a distância dependia da seed:
+ * em 65536 sementes um fluxo repetia o outro deslocado em 1515 sorteios.)
+ */
+const DISTANCIA_FLUXOS = 0x40000000;
+
+export const sorteioInicial = (seed: number): Sorteio => {
+  const jornada = (seed ^ SALT_JORNADA) >>> 0;
+  return { estados: { jornada, loja: (jornada + DISTANCIA_FLUXOS) >>> 0, cofre: (jornada + 2 * DISTANCIA_FLUXOS) >>> 0 }, itens: 0 };
+};
 
 /**
  * Estado de uma run (jornada de 3 atos × 5 fases). Toda a progressão dos heróis vive aqui:
@@ -173,16 +178,18 @@ export function migrateRun(r: RunState): RunState {
   r.playMs ??= 0;
   // v1 → v2 → v3: o sorteio ganha um estado por fluxo (loja e cofre fora da jornada). Cada campo é conferido
   // sozinho; o que falta começa da seed. O contador de ids começa acima dos ids já visíveis (senão reemite id vendido).
-  r.sorteio = sorteioDoSave(r, r.sorteio);
-  // loja malformada (save editado) não pode derrubar os sorteios: a cidade regenera a loja quando ela some
+  // loja malformada (save editado) não pode derrubar os sorteios: a cidade regenera a loja quando ela some.
+  // Vem antes do sorteio, porque o contador de ids lê a loja.
   if (!Array.isArray(r.shop) || r.shop.some((it) => !it || typeof it.id !== 'string')) delete r.shop;
+  r.sorteio = sorteioDoSave(r, r.sorteio);
   r.version = VERSAO_JORNADA;
   return r;
 }
 
 /** Limite do contador de ids: acima disso o save foi editado à mão (e um float enorme travaria o sorteio). */
 const LIMITE_CONTADOR = 1_000_000_000;
-const estadoValido = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+/** Estado de um fluxo: inteiro de 32 bits. Fora disso o `>>> 0` zeraria ou torceria o valor em silêncio. */
+const estadoValido = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x >= 0 && x <= 0xffffffff;
 const itensValido = (x: unknown): x is number => typeof x === 'number' && Number.isSafeInteger(x) && x >= 0 && x <= LIMITE_CONTADOR;
 
 /** Maior contador já usado por um id `it-<base36>` visível na run (bolsa, equipados, loja). Ids antigos, com tempo, não contam. */

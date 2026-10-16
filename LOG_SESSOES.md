@@ -1441,3 +1441,10 @@ Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridg
 
 **Achado nesta etapa (corrigido):** `determinismo:check` não cobria o ramo da tempestade de areia do combate (`Simulation.ts:681`), porque a batalha de teste era só a padrão. Trocar o sorteio desse ramo por `Math['ran' + 'dom']()` passava no check. Correção: a batalha roda também no deserto e exige tempestade; a varredura estática proíbe `Reflect`. Os três mutantes (nome calculado, `Reflect` e `Math.random` direto) agora falham.
 
+
+**Revisão independente da mudança (depois do commit 74c4232):**
+- Achados corrigidos: (média) a migração da v2 gravava a v3 mesmo se a cópia em runBackup falhasse; agora bloqueia a gravação, como os outros saves; (baixa) loja que não é lista derrubava a abertura do save, porque o contador de ids lia a loja; agora a loja sai antes; (baixa) estado fora de 32 bits virava 0 em silêncio; agora volta à seed; (baixa, verificada) loja e cofre repetiam a jornada deslocada por 1515 sorteios em 65536 sementes, porque seed XOR constante com o mesmo incremento do Rng deixava os estados iniciais alinhados; agora loja e cofre começam 2^30 e 2^31 estados à frente da jornada, no ciclo do gerador, então não se encontram numa run (a jornada não muda, para a v1 e a v2 continuarem a sequência). Medido em 4 milhões de sementes: 58 sobreposições antes, 0 depois. Saves já gravados com a versão anterior mantêm o estado antigo; neles a chance de sobreposição é de uma em cerca de 65 mil sementes e só aparece depois de mais de 1500 sorteios de um fluxo.
+- Regressões em `saves:check` (sete casos): os sete falharam antes da correção e passam depois.
+- Nota de desenho para o dono: quem já tem save v2 vai ver a sequência futura da jornada mudar em relação ao código antigo, quando a loja gerar estoque ou o cofre sortear. Isso é a separação decidida (seção 8), não um erro, mas o dono deve saber.
+- Achado de texto (seção 11): o rótulo "Vasculhar a carga" aparece no objeto de mapa (fluxo do cofre) e na opção de evento com aposta (fluxo da jornada). Decisão do dono.
+- A roleta de atributos do Ferreiro usa o fluxo da jornada; foi incluída na lista da seção 8.

@@ -16,6 +16,7 @@ import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { acrescentarCopia, lerJornada } from '../src/core/run/carregamento';
 import { makeItem, maiorContadorVisivel, newRun, shopStock, sorteioInicial, sorteioValido, useMapObject, VERSAO_JORNADA } from '../src/core/run/run';
+import { Rng } from '../src/core/sim/rng';
 
 const RAIZ = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const PASTA = join(RAIZ, 'tests', 'saves');
@@ -274,6 +275,48 @@ ok(sorteioValido({ estado: 1, itens: 0 }) === undefined, 'sorteioValido recusa o
   ok(typeof makeItem(L1.run, 'rare').id === 'string', 'loja malformada: os sorteios continuam funcionando');
   const L2 = lerJornada(JSON.stringify({ ...v3, shop: [null] }));
   ok(L2.run.shop === undefined, 'loja com item nulo: sai do save');
+}
+
+// ---------- 7) Regressões da revisão: sobreposição entre fluxos, loja que não é lista, estado fora de 32 bits ----------
+{
+  // seeds em que o cofre (ou a loja) caía no meio da sequência da jornada, deslocado de 1515 sorteios
+  const da = (estado) => {
+    const g = new Rng(estado);
+    const v = [];
+    for (let i = 0; i < 3000; i++) v.push(g.next());
+    return v;
+  };
+  for (const seed of [296209, 275859982]) {
+    const e = iniciais(seed);
+    const jornada = new Set(da(e.jornada));
+    const repetidos = da(e.cofre).filter((x) => jornada.has(x)).length + da(e.loja).filter((x) => jornada.has(x)).length;
+    ok(repetidos === 0, `sementes ${seed}: os fluxos não repetem valores uns dos outros nos primeiros 3000 sorteios (${repetidos} repetidos)`);
+  }
+}
+{
+  const L = lerJornada(JSON.stringify({ ...v3, shop: 5, sorteio: { estados: v3.sorteio.estados } }));
+  ok(L.tipo === 'ok' && L.run.shop === undefined, 'loja que não é lista e contador ausente: o save abre (não vira "corrompida") e a loja é regenerada');
+}
+for (const [nome, valor] of [['1e308', 1e308], ['2^32', 4294967296], ['1.5', 1.5], ['-1', -1]]) {
+  const L = lerJornada(comSorteio({ estados: { ...v3.sorteio.estados, jornada: valor }, itens: 2 }));
+  ok(L.run.sorteio.estados.jornada === iniciais(v3.seed).jornada, `estado da jornada ${nome} fora de 32 bits: volta à seed (não vira 0 em silêncio)`);
+}
+
+{
+  // distância no ciclo do gerador: k tal que b = a + k*GAMMA (mod 2^32). Dois fluxos só se encontram se |k| for pequeno.
+  const GAMMA = 0x6d2b79f5;
+  const inverso = (a) => {
+    let x = a;
+    for (let i = 0; i < 5; i++) x = Math.imul(x, (2 - Math.imul(a, x)) | 0);
+    return x >>> 0;
+  };
+  const INV = inverso(GAMMA);
+  const distancia = (a, b) => Math.abs(Math.imul((b - a) >>> 0, INV) | 0);
+  for (const seed of [7, 4242, 90210, 296209, 275859982]) {
+    const e = iniciais(seed);
+    const menor = Math.min(distancia(e.jornada, e.loja), distancia(e.jornada, e.cofre), distancia(e.loja, e.cofre));
+    ok(menor >= 2 ** 29, `sementes ${seed}: os três fluxos ficam a pelo menos 2^29 sorteios uns dos outros (menor distância ${menor})`);
+  }
 }
 
 if (falhas) {

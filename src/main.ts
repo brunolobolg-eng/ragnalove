@@ -184,8 +184,9 @@ function loadRun(): RunState | undefined {
   if (leitura.tipo === 'nova' || leitura.tipo === 'encerrada') return undefined;
   if (leitura.tipo === 'ok') return leitura.run;
   if (leitura.tipo === 'migrada') {
-    // a migração preserva os dados; a versão antiga também vai para a lista de cópias, por segurança
-    if (raw !== null) guardarCopiaDaJornada(raw, `migrada da versão ${leitura.deVersao}`);
+    // a migração preserva os dados; a versão antiga também vai para a lista de cópias. Se a cópia falhar, a
+    // jornada não grava por cima (mesma regra do save não entendido)
+    if (raw !== null && !guardarCopiaDaJornada(raw, `migrada da versão ${leitura.deVersao}`)) jornadaBloqueada = true;
     return leitura.run;
   }
   saveDiscarded = true;
