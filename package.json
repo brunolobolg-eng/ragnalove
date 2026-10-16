@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "sim:check": "tsx scripts/simCheck.ts",
+    "determinismo:check": "tsx scripts/determinismCheck.ts",
     "bastion:check": "tsx scripts/bastionCheck.ts",
     "bastion:path": "tsx scripts/bastionPathCheck.ts",
     "aura:check": "tsx scripts/auraCheck.ts",

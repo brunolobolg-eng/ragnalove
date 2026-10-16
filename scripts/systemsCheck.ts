@@ -148,7 +148,7 @@ const check = (label: string, cond: boolean, extra = '') => {
 // ---------- 5) LOJA: vender tudo preserva Míticos (só a bolsa; equipado não mexe) ----------
 {
   const run = newRun('warrior', 49);
-  run.profile.inventory.push(makeItem('common'), makeItem('rare'), makeItem('legendary'), makeItem('mythic'));
+  run.profile.inventory.push(makeItem(run, 'common'), makeItem(run, 'rare'), makeItem(run, 'legendary'), makeItem(run, 'mythic'));
   const expected = run.profile.inventory.filter((it) => it.rarity !== 'mythic').reduce((s, it) => s + sellPrice(it), 0);
   const res = sellAllItems(run);
   check('vende tudo exceto Mítico', res.count === 3 && res.total === expected && run.profile.zeni === expected, `${res.count} itens por ${res.total} Zen`);

@@ -11,6 +11,9 @@ description: Save do ROguard — o que é salvo (RunState com Profile dentro, me
   Em dev: `localStorage` (`vanguarda.run.v1`, `vanguarda.meta.v1`). Saves antigos do localStorage são copiados.
 - `RunState` (`core/run/run.ts`, `version: 1`) contém `profile: Profile` (`version: 1`): heróis, Zeni, almas, bolsa,
   party, mortos, histórico, loja, vida da cidade, relatórios, objetos usados, dano/tempo (ranking).
+- `RunState.sorteio` (`{ rng, itens }`): posição do gerador de sorteios da jornada (loja, loot, refino, evento, cofre,
+  roleta). Gravado por `salvarJornada(run)` — use sempre essa função ao salvar a jornada, nunca `JSON.stringify(run)` direto.
+  `migrateRun` preenche o campo em saves antigos a partir da seed da run. Checagem: `npm run determinismo:check`.
 - **Selo de batalha** (`run.battle`): formação + status no início da onda. Se o jogo fechar no meio, a onda recomeça
   igual (é determinística) — anti-"save scum".
 - Configurações: `vanguarda.settings.v1` (`settings/Settings.ts`); V-Sync do desktop em `desktop.json`.

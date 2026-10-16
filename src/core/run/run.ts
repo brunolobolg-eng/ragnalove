@@ -67,6 +67,12 @@ export interface RunState {
    * mas não paga duas vezes. Saves antigos (sem a chave) pagam normalmente 1×.
    */
   paidKey?: string;
+  /**
+   * Posição do gerador de sorteios da jornada (loja, loot, refino, aposta de evento, cofre e roleta de
+   * sobrevivência): o estado do Rng e o contador de ids de item. Gravado a cada save (`salvarJornada`);
+   * ao carregar, a sequência continua daqui. Sem o campo (saves antigos), a migração parte da seed da run.
+   */
+  sorteio?: { rng: number; itens: number };
 }
 
 export interface BattleSeal {
@@ -118,6 +124,61 @@ export function unlockHero(r: RunState, h: HeroKind): void {
   r.dead = r.dead.filter((d) => d !== h);
 }
 
+// ---------------- Gerador de sorteios da jornada ----------------
+/** Sal da semente do gerador da jornada: separa a sequência de sorteios da seed que as batalhas usam. */
+const SALT_FLUXO_JORNADA = 0x9e3779b9;
+const sementeDoFluxo = (seed: number): number => (seed ^ SALT_FLUXO_JORNADA) >>> 0;
+
+interface FluxoJornada {
+  rng: Rng;
+  /** Contador de ids de item (`it-<seed>-<n>`). */
+  itens: number;
+}
+/** Um fluxo por objeto de run. O Último Bastião usa a run temporária dele, sem tocar a da jornada. */
+const fluxos = new WeakMap<RunState, FluxoJornada>();
+
+/**
+ * Fluxo de sorteios de `r`. Na primeira vez retoma `r.sorteio` (o que foi gravado) ou, sem ele,
+ * começa da seed da run. Depois disso a posição fica em memória até `salvarJornada` gravá-la.
+ */
+function fluxo(r: RunState): FluxoJornada {
+  let f = fluxos.get(r);
+  if (!f) {
+    f = r.sorteio ? { rng: new Rng(r.sorteio.rng), itens: r.sorteio.itens } : { rng: new Rng(sementeDoFluxo(r.seed)), itens: 0 };
+    fluxos.set(r, f);
+  }
+  return f;
+}
+
+/** Grava a posição do gerador em `r.sorteio`. Use `salvarJornada` para salvar a run. */
+function gravarSorteio(r: RunState): void {
+  const f = fluxo(r);
+  r.sorteio = { rng: f.rng.estado, itens: f.itens };
+}
+
+/** Texto do save da jornada, com a posição do gerador: a sequência de sorteios continua depois de recarregar. */
+export function salvarJornada(r: RunState): string {
+  gravarSorteio(r);
+  return JSON.stringify(r);
+}
+
+/** Prefixo dos ids de item da run: `it-<seed>-`. Com o contador, o id é único na jornada e entre as jornadas. */
+const prefixoDeItem = (r: RunState): string => `it-${r.seed.toString(36)}-`;
+
+/** Maior contador já usado por um id `it-<seed>-<n>` desta run (saves sem o gerador começam acima dele). */
+function maiorItemUsado(r: RunState): number {
+  const prefixo = prefixoDeItem(r);
+  let max = 0;
+  const conta = (it: Item | undefined) => {
+    if (!it?.id.startsWith(prefixo)) return;
+    max = Math.max(max, Number(it.id.slice(prefixo.length)) || 0);
+  };
+  r.profile.inventory.forEach(conta);
+  r.shop?.forEach(conta);
+  for (const h of Object.values(r.profile.heroes)) for (const it of Object.values(h.equipment)) conta(it);
+  return max;
+}
+
 export function migrateRun(r: RunState): RunState {
   r.party ??= ['warrior', 'mage'];
   migrateProfile(r.profile);
@@ -135,6 +196,11 @@ export function migrateRun(r: RunState): RunState {
   if (!Number.isFinite(r.seed)) r.seed = 1;
   r.damage ??= 0;
   r.playMs ??= 0;
+  // gerador de sorteios: save antigo (sem o campo, ou com o campo corrompido) segue da seed da run,
+  // e o contador de ids nasce acima de todo id já existente (ids continuam únicos)
+  if (!r.sorteio || !Number.isFinite(r.sorteio.rng) || !Number.isFinite(r.sorteio.itens)) {
+    r.sorteio = { rng: sementeDoFluxo(r.seed), itens: maiorItemUsado(r) };
+  }
   return r;
 }
 
@@ -203,12 +269,13 @@ export function useMapObject(r: RunState, type: keyof typeof OBJECT_RULES, id: n
   if (type === 'cart') {
     const C = GAME_CONFIG.objects.cart;
     const k = priceMult(r);
-    if (uiRng.next() < C.soulChance) {
-      const v = Math.round((C.souls[0] + uiRng.int(C.souls[1] - C.souls[0] + 1)) * k);
+    const { rng } = fluxo(r);
+    if (rng.next() < C.soulChance) {
+      const v = Math.round((C.souls[0] + rng.int(C.souls[1] - C.souls[0] + 1)) * k);
       p.souls += v;
       msg = `Entre os escombros, almas presas: +${v} almas.`;
     } else {
-      const v = Math.round((C.zeni[0] + uiRng.int(C.zeni[1] - C.zeni[0] + 1)) * k);
+      const v = Math.round((C.zeni[0] + rng.int(C.zeni[1] - C.zeni[0] + 1)) * k);
       addZeni(p, v);
       msg = `Uma bolsa esquecida na carga: +${v} Zen.`;
     }
@@ -235,9 +302,15 @@ export const currentNode = (r: RunState) => currentAct(r).nodes[Math.min(r.node,
 export const currentRegion = (r: RunState): Region => REGION_BY_ID[currentNode(r).region];
 export const isCombat = (t: NodeType) => t === 'horde' || t === 'elite' || t === 'boss' || t === 'survival';
 
-/** Sobrevivência: pontuação (abates + tempo) → raridades dos prêmios da roleta. */
-export function survivalRewards(kills: number, seconds: number): { score: number; rarities: Rarity[] } {
-  const score = Math.round(kills + seconds / 2);
+/** Sobrevivência: pontuação (abates + tempo). Não sorteia nada. */
+export function survivalScore(kills: number, seconds: number): number {
+  return Math.round(kills + seconds / 2);
+}
+
+/** Sobrevivência: pontuação → raridades dos prêmios da roleta (sorteio no gerador da jornada `r`). */
+export function survivalRewards(r: RunState, kills: number, seconds: number): { score: number; rarities: Rarity[] } {
+  const score = survivalScore(kills, seconds);
+  const { rng } = fluxo(r);
   const tiers: [number, Rarity, Rarity][] = [
     [0, 'common', 'uncommon'],
     [25, 'uncommon', 'rare'],
@@ -247,7 +320,7 @@ export function survivalRewards(kills: number, seconds: number): { score: number
   ];
   const t = [...tiers].reverse().find(([min]) => score >= min)!;
   const n = Math.min(3, 1 + Math.floor(score / 60));
-  const rarities = Array.from({ length: n }, (_, i) => (i === 0 ? t[2] : Math.random() < 0.5 ? t[2] : t[1]));
+  const rarities = Array.from({ length: n }, (_, i) => (i === 0 ? t[2] : rng.next() < 0.5 ? t[2] : t[1]));
   // o melhor prêmio sai por último (clímax da roleta)
   return { score, rarities: rarities.sort((a, b) => RARITIES.indexOf(a) - RARITIES.indexOf(b)) };
 }
@@ -258,14 +331,15 @@ export function survivalRewards(kills: number, seconds: number): { score: number
  */
 export function starterGift(r: RunState): Item[] {
   const G = GAME_CONFIG.loot.starterGift;
+  const { rng } = fluxo(r);
   const entries = Object.entries(G.weights) as [Rarity, number][];
   const pick = (): Rarity => {
-    let x = uiRng.next() * entries.reduce((s, [, w]) => s + w, 0);
+    let x = rng.next() * entries.reduce((s, [, w]) => s + w, 0);
     for (const [k, w] of entries) if ((x -= w) < 0) return k;
     return entries[0][0];
   };
-  const n = uiRng.next() < G.secondChance ? 2 : 1;
-  return Array.from({ length: n }, () => makeItem(pick(), undefined, r.party));
+  const n = rng.next() < G.secondChance ? 2 : 1;
+  return Array.from({ length: n }, () => makeItem(r, pick(), undefined, r.party));
 }
 
 /**
@@ -276,11 +350,13 @@ export function bossMythicReward(r: RunState, nodeType: NodeType | undefined, dr
   if (nodeType !== 'boss' || r.mythicGranted) return undefined;
   r.mythicGranted = true;
   if (drops.some((d) => d.rarity === 'mythic')) return undefined;
-  return makeItem('mythic', undefined, r.party);
+  return makeItem(r, 'mythic', undefined, r.party);
 }
 
-export function makeItem(rarity: Rarity, slot?: Slot, users: string[] = []): Item {
-  return rollItem(uiRng, 0, itemId(), { rarity, slot }, users);
+/** Item sorteado no gerador da jornada `r`. O id vem do contador do fluxo (não gasta sorteio). */
+export function makeItem(r: RunState, rarity: Rarity, slot?: Slot, users: string[] = []): Item {
+  const f = fluxo(r);
+  return rollItem(f.rng, 0, `${prefixoDeItem(r)}${++f.itens}`, { rarity, slot }, users);
 }
 /** Número da fase (1..15). */
 export const phaseNumber = (r: RunState) => ACTS.slice(0, r.act).reduce((s, a) => s + a.nodes.length, 0) + r.node + 1;
@@ -359,9 +435,6 @@ export function pickEvent(r: RunState): EventDef {
   return list[rng.int(list.length)];
 }
 
-let uiRng = new Rng((Date.now() >>> 0) || 1);
-const itemId = () => `it-${Date.now().toString(36)}-${uiRng.int(1e9)}`;
-
 /** Aplica os efeitos de uma opção de evento. Devolve o texto do resultado. */
 export function applyEventEffects(r: RunState, effects: EventEffect[]): string[] {
   const p = r.profile;
@@ -381,8 +454,7 @@ export function applyEventEffects(r: RunState, effects: EventEffect[]): string[]
       for (const h of r.party) if (!r.dead.includes(h)) addExperience(p, h, v);
       out.push(`+${v} EXP para a party`);
     } else if ('item' in e) {
-      const it = rollItem(uiRng, 0, itemId(), { rarity: e.item }, r.party);
-      p.inventory.push(it);
+      p.inventory.push(makeItem(r, e.item, undefined, r.party));
       out.push(`Item ${RARITY_INFO[e.item].label} no inventário`);
     } else if ('attrPoints' in e) {
       for (const h of r.party) p.heroes[h].points += e.attrPoints;
@@ -398,7 +470,7 @@ export function applyEventEffects(r: RunState, effects: EventEffect[]): string[]
       if (r.dead.length) out.push(`${r.dead.map((h) => HERO_NAME[h]).join(' e ')} revivido(s)`);
       r.dead = [];
     } else if ('gamble' in e) {
-      const win = uiRng.next() < e.gamble.chance;
+      const win = fluxo(r).rng.next() < e.gamble.chance;
       out.push(win ? e.gamble.winText : e.gamble.loseText);
       out.push(...applyEventEffects(r, win ? e.gamble.win : e.gamble.lose));
     }
@@ -411,7 +483,8 @@ export function shopStock(r: RunState): Item[] {
   if (!r.shop) {
     const n = GAME_CONFIG.city.shopStock;
     const pool: Rarity[] = r.act === 0 ? ['common', 'uncommon', 'uncommon', 'rare'] : r.act === 1 ? ['uncommon', 'rare', 'rare', 'epic'] : ['rare', 'rare', 'epic', 'epic'];
-    r.shop = Array.from({ length: n }, () => rollItem(uiRng, 0, itemId(), { rarity: pool[uiRng.int(pool.length)] }, r.party));
+    const { rng } = fluxo(r);
+    r.shop = Array.from({ length: n }, () => makeItem(r, pool[rng.int(pool.length)], undefined, r.party));
   }
   return r.shop;
 }
@@ -506,7 +579,7 @@ export function refineItem(r: RunState, it: Item): RefineResult {
   const cost = orePrice(r) + refineFee(it);
   if (!spend(r, cost)) return { ok: false, text: 'Zen insuficiente.' };
   const chance = REFINE.chance[cur + 1];
-  if (uiRng.next() < chance) {
+  if (fluxo(r).rng.next() < chance) {
     it.refine = cur + 1;
     return { ok: true, text: `Sucesso! Agora +${it.refine}.` };
   }
@@ -519,7 +592,7 @@ export function refineItem(r: RunState, it: Item): RefineResult {
 export function rerollItem(r: RunState, it: Item): string | undefined {
   if (!spend(r, rerollPrice(r, it))) return 'Zen insuficiente.';
   // mantém tipo e Ataque da arma: só os atributos extras mudam
-  const fresh = rollItem(uiRng, 0, it.id, { rarity: it.rarity, slot: it.slot, kind: it.kind });
+  const fresh = rollItem(fluxo(r).rng, 0, it.id, { rarity: it.rarity, slot: it.slot, kind: it.kind });
   it.rolls = fresh.rolls;
   return 'Atributos sorteados de novo.';
 }
@@ -598,6 +671,3 @@ export function resetAttrsFree(r: RunState, hero: HeroKind): void {
 
 /** Raridades acima de Épico existem (Lendário/Mítico) e só caem de chefes. */
 export const BOSS_RARITY: Rarity[] = RARITIES.slice(2);
-export function reseedUi(seed: number): void {
-  uiRng = new Rng(seed >>> 0 || 1);
-}

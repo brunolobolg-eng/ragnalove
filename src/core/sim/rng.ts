@@ -4,6 +4,10 @@ export class Rng {
   constructor(seed: number) {
     this.s = seed >>> 0;
   }
+  /** Posição atual: `new Rng(estado)` continua exatamente da mesma sequência (usado no save da jornada). */
+  get estado(): number {
+    return this.s;
+  }
   next(): number {
     let t = (this.s = (this.s + 0x6d2b79f5) >>> 0);
     t = Math.imul(t ^ (t >>> 15), t | 1);

@@ -26,7 +26,9 @@ import {
   revive,
   reviveCost,
   survivalRewards,
+  survivalScore,
   makeItem,
+  salvarJornada,
   starterGift,
   bossMythicReward,
   totalPhases,
@@ -186,7 +188,7 @@ function saveProfile(): void {
   autoGear();
   if (bastionSession.active) return bastionSession.saveState(); // no Bastião, o save da jornada não é tocado
   try {
-    if (!SaveStore.set(RUN_KEY, JSON.stringify(run))) hud.log('Não foi possível salvar o progresso (disco cheio ou sem permissão?).', 'warn');
+    if (!SaveStore.set(RUN_KEY, salvarJornada(run))) hud.log('Não foi possível salvar o progresso (disco cheio ou sem permissão?).', 'warn');
   } catch {
     /* ignora */
   }
@@ -829,7 +831,7 @@ function startHorde(): void {
     // a formação fica salva para as próximas hordas (a última e a desta zona)
     run.lastLayout = structuredClone(setup);
     run.layouts = { ...run.layouts, [ZONE_STATE.current.id]: structuredClone(setup) };
-    SaveStore.set(RUN_KEY, JSON.stringify(run));
+    SaveStore.set(RUN_KEY, salvarJornada(run));
   }
   sim.start();
   hud.log('A horda se aproxima!', 'warn');
@@ -856,7 +858,7 @@ function resumeBattle(seal: BattleSeal): void {
 // Ao fechar a janela (X, ALT+F4): grava o relógio da jornada. Queda/travamento não passa por aqui —
 // por isso o selo de batalha já está no disco desde o início da horda.
 window.addEventListener('beforeunload', () => {
-  if (hasSavedRun && !bastionSession.active) SaveStore.set(RUN_KEY, JSON.stringify(run));
+  if (hasSavedRun && !bastionSession.active) SaveStore.set(RUN_KEY, salvarJornada(run));
   SaveStore.flush(); // o Bastião pode ainda estar na fila de gravação em segundo plano
 });
 
@@ -1429,14 +1431,14 @@ function finishSurvival(): void {
     noteRecords();
     view.collectDrops();
     const seconds = Math.round(sim.tick / GAME_CONFIG.sim.tickRate);
-    const res = survivalRewards(sim.killed, seconds);
+    const res = survivalRewards(run, sim.killed, seconds);
     score = res.score;
-    prizes = res.rarities.map((ra) => makeItem(ra, undefined, run.party));
+    prizes = res.rarities.map((ra) => makeItem(run, ra, undefined, run.party));
     profile.inventory.push(...prizes);
     saveProfile();
   } else {
     const seconds = Math.round(sim.tick / GAME_CONFIG.sim.tickRate);
-    score = survivalRewards(sim.killed, seconds).score;
+    score = survivalScore(sim.killed, seconds);
   }
   const seconds = Math.round(sim.tick / GAME_CONFIG.sim.tickRate);
   const stage = sim.stage + 1;

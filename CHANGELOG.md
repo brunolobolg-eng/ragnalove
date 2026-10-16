@@ -3,6 +3,7 @@
 Histórico conciso (gameplay, arquitetura, sistemas maiores). Sem código.
 
 ## 2026-10-12 — v0.11 (em andamento)
+- Jornada: os sorteios (loja, loot, refino, aposta de evento, cofre e roleta de sobrevivência) continuam de onde pararam depois de salvar e recarregar. Antes, o gerador recomeçava a cada abertura do jogo. Os ids de item seguem únicos.
 - Monstros podem nascer com uma aura (velocidade, crítico, mitigação, regeneração ou queimação). No Bastião, a partir da noite 20; na campanha, depois de liberar Feiticeira, Bruxa e Assassino jogando. A queimação atinge heróis perto do monstro.
 - Cartas: raridade virou tier. Cinco cópias da mesma carta viram a versão "+" (escada 5-2-2-2 até o nível 5). Cada nível escala o bônus, e o nível 5 libera uma habilidade própria.
 - Cartas: 102 cartas com categoria (ofensiva, defensiva, sustentação, utilidade, mobilidade) e bônus refeitos com base na tabela de referência, adaptados aos efeitos que o jogo tem.

@@ -6,6 +6,7 @@ O histórico técnico de cada versão está no `CHANGELOG.md`; o estado atual do
 Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisões, pendências e commits.
 
 ## Pendências em aberto (resumo)
+- **Gerador de sorteios (v0.11, 2026-10-16):** o Último Bastião não grava o gerador (a run temporária dele usa seed nova); `banco:check` e `arvore:save:check` não existem (dizer o que o dono queria); `cardRuleCheck` já falhava no hash da campanha sem cartas antes dessa entrega.
 - **O Último Bastião (v0.11, em andamento):** prévia translúcida, muralhas em qualquer ponto, mover muralhas recentes, horda ordenada (mini-chefe a cada 5 noites, MVP a cada 10) e caminho aberto antes de quebrar, já no código (commits 35153a7 e 742b601). Pendências do dono: testar no PC; confirmar a ordem da horda e se o turno também avança na derrota; decidir se mover sai do modo depois de mover (hoje sai); zoom global ou só no Bastião. Detalhes na entrada de 2026-10-12 abaixo.
 - **Álbum de cartas e dica da revelação (v0.10):** Feiticeira e Bruxa não têm ícone de classe na folha 32 (usam o retrato); cartas não têm nível no jogo (o "Nv." da imagem virou ×N); conferir no PC do dono o álbum com cartas reais e a dica do pacote.
 - **Kit de interface nos menus (v0.9):** conferir visualmente no PC do dono o pacote de cartas e as configurações (não conferidos nesta rodada); a moldura do mítico é dourada porque a arte do vermelho está no miolo (decisão de arte); silhuetas de amuleto e anel saíram irregulares, e brinco e cinto não têm silhueta própria; a muralha do guerreiro não tem textura no arquivo do kit (decisão: textura própria ou a do cenário). Ranking do menu é arte da tela inicial, não foi trocado (v0.9).
@@ -931,6 +932,31 @@ Cada entrega grande ganha uma entrada nova no fim: data, pedido do dono, decisõ
   2. Parada seca: quando a unidade para (fila bloqueada), para no centro do tile sem freio; o andar segue por 0,45 s nos inimigos.
   3. FPS real na GPU do dono não medido (o SwiftShader leva 5 a 9 s por quadro).
 - **Testes:** `npm run build`, `sim:check` (determinístico: true, núcleo intocado), `bastion:check`.
+
+## 2026-10-16 — gerador de sorteios salvo na jornada (save, v0.11, em andamento)
+- **Pedido do dono:** guardar no save a posição do gerador de sorteios e o contador de ids, para a sequência continuar de onde parou depois de recarregar. Com migração para saves antigos e ids únicos.
+- **O que o pedido supunha e o código não tinha:**
+  - `fluxo(r)`, o WeakMap `fluxos`, `FluxoJornada` e `SALT_FLUXO_JORNADA` não existem em nenhum commit do repositório. Criei o gerador por run com esses nomes.
+  - `npm run determinismo:check` não existia. Criei o script com o caso pedido.
+  - O gerador real era um `uiRng` global, semeado pelo relógio (`Date.now`) quando o módulo carrega e nunca reseedado pela seed da run. Medido antes da mudança: a mesma seed, em dois processos, dava lojas diferentes. Ou seja, a sequência nunca era reproduzível, não só depois de recarregar.
+- **Como ficou:**
+  - `RunState.sorteio?: { rng, itens }`, campo opcional. `salvarJornada(run)` grava a posição junto com o save. O `main.ts` usa essa função em todo ponto que salva a jornada (ação, selo de batalha e fechar a janela).
+  - O gerador vive por objeto de run (`WeakMap`), não em global. A run temporária do Último Bastião não mexe na jornada.
+  - Ids novos: `it-<seed>-<n>`, com o contador da jornada. Antes eram `it-<relógio>-<aleatório>`; os antigos continuam válidos.
+  - Migração em `migrateRun`: save sem o campo, ou com o campo inválido, começa da seed da run, com o contador acima do maior id já existente.
+  - Roleta de sobrevivência saiu de `Math.random()`, que violava a regra 3 do `CLAUDE.md` (no core). Agora usa o mesmo gerador. `survivalScore` separa a pontuação do sorteio, para o caminho que só mostra o resultado não avançar o gerador.
+  - `Rng` ganhou o getter `estado` (leitura apenas; a simulação não muda).
+- **Testes:**
+  - `npm run determinismo:check` (novo): 3 seeds × 60 sorteios de todos os tipos. Recarga em 5 pontos diferentes dá a mesma sequência e os mesmos itens. O controle (recarga sem gravar o gerador) diverge, então o teste pega a regressão. Save antigo migra, a migração é idempotente e não repete id. Sorteio corrompido é refeito sem repetir id. A assinatura do log é igual em dois processos.
+  - `build`, `sim:check` (determinístico), `bastion:check`, `bastion:path`, `aura:check`, `vocation:check`, `systemsCheck`, `eventCheck`, `survivalCheck`, `cardCheck`, `runCheck`, `zoneReachCheck`, `skillArenaCheck`: ok.
+  - Navegador (dev, Chromium): save antigo carrega sem erro; uma ação grava o `sorteio`; a 2ª loja sorteada depois de recarregar é igual à de uma página sem recarga. Sem erro de página nem de console.
+- **Falha que já existia:** `cardRuleCheck` falha no hash da campanha sem cartas (`c1f9f114cebcd634`). Ela falha também no commit `9563824`, base desta branch, antes desta entrega. O hash fixo é de `b47efdc`. Não mexi no hash.
+- **Pendências e decisões para o dono:**
+  1. **Último Bastião:** a run temporária dele não grava o gerador, e cada entrada usa uma seed nova. Recarregar lá volta a sortear com outra sequência. Gravar isso no save do Bastião é decisão à parte.
+  2. **Comandos que não existem:** `banco:check` e `arvore:save:check`. Quais checagens vocês quiseram dizer? Não criei nomes no escuro.
+  3. **Saves antigos:** ganham o campo na primeira vez que carregam. O que já foi sorteado antes continua como está (a sequência antiga dependia do relógio e não dá para reproduzir).
+  4. **Não testado no executável** (IPC do save no Electron). Testei no navegador de desenvolvimento, que usa localStorage.
+- **Commit:** (ver o commit desta entrada).
 
 ## Lições (curtas)
 - **Terreno e água:** textura do dono em WebP nítido. Canvas pintado por código e esticado borra de perto.
