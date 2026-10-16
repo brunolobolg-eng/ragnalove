@@ -8,11 +8,11 @@
  *    então um alias (const r = Math.random) também cai nela. Cobre só o que essas execuções percorrem.
  * 3) Reprodutibilidade: para 3 sementes, a jornada e a batalha rodam 3 vezes no mesmo processo e dão o mesmo
  *    resultado (pega estado de módulo que vaza entre execuções). Sementes diferentes dão resultados diferentes.
+ * 4) Recarga de save: a jornada faz ida e volta em JSON e os sorteios seguintes têm que ser os que sairiam sem a
+ *    recarga (não repetem e não pulam). O save guarda o estado do sorteio (ver saves:check).
  *
  * O que NÃO é provado: caminhos que a jornada e a batalha não percorrem (cartas de combate, Arena, Bastião, sobrevivência
  * fora do teste). Para eles vale só a varredura estática.
- * Recarga de save: a jornada faz ida e volta em JSON. A checagem prova que a repetição é determinística, mas NÃO
- * prova que a sequência de sorteios continua de onde parou (decisão em aberto, ver LOG_SESSOES.md).
  *
  * Uso: npm run determinismo:check
  *      (opcional: `tsx scripts/determinismoCheck.ts <pasta>` varre outra pasta na parte estática)
@@ -164,13 +164,16 @@ async function main() {
       r.profile.inventory.push(extra);
       const refino = refineItem(r, extra);
       const rolagem = rerollItem(r, extra);
-      // recarga de save: ida e volta em JSON (como o save) e mais sorteios depois dela
+      // recarga de save: ida e volta em JSON (como o save). A sequência tem que continuar: os sorteios depois da
+      // recarga têm que ser os mesmos que sairiam sem ela (regra da recarga: não repete e não pula)
       const salva = JSON.parse(JSON.stringify(r));
       const depois = [makeItem(salva, 'rare'), makeItem(salva, 'epic')];
+      const continuo = [makeItem(r, 'rare'), makeItem(r, 'epic')];
+      const continuidade = JSON.stringify(depois) === JSON.stringify(continuo);
       salva.profile.inventory.push(...depois);
       const ids = [...salva.profile.inventory, ...(salva.shop ?? [])].map((it) => it.id);
       const dados = { ganhos, mitico, loja, comprado, evento, cofre, sobrevivencia, refino, rolagem, extra, depois, zeni: salva.profile.zeni, inventario: salva.profile.inventory, lojaDepois: salva.shop };
-      return { json: JSON.stringify(dados), idsUnicos: new Set(ids).size === ids.length };
+      return { json: JSON.stringify(dados), idsUnicos: new Set(ids).size === ids.length, continuidade };
     };
 
     /** Uma batalha inteira com a configuração padrão, com a semente dada. Devolve o desfecho e o hash dos eventos. */
@@ -189,11 +192,13 @@ async function main() {
       const jornadas = [];
       const batalhas = [];
       let idsUnicos = true;
+      let continuidade = true;
       try {
         for (let i = 0; i < REPETICOES; i++) {
           const j = jornada(seed);
           jornadas.push(j.json);
           idsUnicos = idsUnicos && j.idsUnicos;
+          continuidade = continuidade && j.continuidade;
           batalhas.push(batalha(seed).json);
         }
       } catch (e) {
@@ -205,11 +210,11 @@ async function main() {
         continue;
       }
       const iguais = jornadas.every((j) => j === jornadas[0]) && batalhas.every((b) => b === batalhas[0]);
-      const ok = iguais && idsUnicos;
+      const ok = iguais && idsUnicos && continuidade;
       if (!ok) falhas++;
       const assinatura = hashDe(jornadas[0] + batalhas[0]);
       assinaturas.push(assinatura);
-      console.log(`${ok ? 'ok  ' : 'FALHA'} semente ${seed}: jornada e batalha ${iguais ? 'iguais' : 'DIFERENTES'} em ${REPETICOES} execuções no mesmo processo · ids ${idsUnicos ? 'únicos' : 'REPETIDOS'} · hash ${assinatura}`);
+      console.log(`${ok ? 'ok  ' : 'FALHA'} semente ${seed}: jornada e batalha ${iguais ? 'iguais' : 'DIFERENTES'} em ${REPETICOES} execuções no mesmo processo · recarga ${continuidade ? 'continua a sequência' : 'REPETE OU PULA SORTEIOS'} · ids ${idsUnicos ? 'únicos' : 'REPETIDOS'} · hash ${assinatura}`);
     }
     const distintas = new Set(assinaturas).size === SEMENTES.length;
     if (!distintas) falhas++;

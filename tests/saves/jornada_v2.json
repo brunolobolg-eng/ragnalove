@@ -1,0 +1,280 @@
+{
+  "version": 2,
+  "seed": 4242,
+  "sorteio": {
+    "estado": 2883673993,
+    "itens": 6
+  },
+  "act": 0,
+  "node": 2,
+  "profile": {
+    "version": 2,
+    "souls": 0,
+    "zeni": 4690,
+    "zenGanho": 0,
+    "heroes": {
+      "warrior": {
+        "level": 1,
+        "exp": 0,
+        "attrs": {
+          "str": 5,
+          "int": 1,
+          "vit": 5,
+          "dex": 3,
+          "luk": 1
+        },
+        "points": 0,
+        "skills": {
+          "bash": 1,
+          "cleave": 1,
+          "shieldWall": 1
+        },
+        "skillPoints": 0,
+        "equipment": {
+          "weapon": {
+            "id": "starter-warrior",
+            "slot": "weapon",
+            "rarity": "common",
+            "rolls": [],
+            "kind": "sword",
+            "atk": 12
+          }
+        },
+        "cards": []
+      },
+      "mage": {
+        "level": 1,
+        "exp": 0,
+        "attrs": {
+          "str": 1,
+          "int": 5,
+          "vit": 2,
+          "dex": 3,
+          "luk": 2
+        },
+        "points": 0,
+        "skills": {
+          "frostBolt": 1,
+          "fireBarrier": 1
+        },
+        "skillPoints": 0,
+        "equipment": {
+          "weapon": {
+            "id": "starter-mage",
+            "slot": "weapon",
+            "rarity": "common",
+            "rolls": [],
+            "kind": "staff",
+            "matk": 11
+          }
+        },
+        "cards": []
+      },
+      "archer": {
+        "level": 1,
+        "exp": 0,
+        "attrs": {
+          "str": 2,
+          "int": 1,
+          "vit": 3,
+          "dex": 6,
+          "luk": 3
+        },
+        "points": 0,
+        "skills": {
+          "preciseShot": 1,
+          "arrowRain": 1,
+          "snareTrap": 1
+        },
+        "skillPoints": 0,
+        "equipment": {
+          "weapon": {
+            "id": "starter-archer",
+            "slot": "weapon",
+            "rarity": "common",
+            "rolls": [],
+            "kind": "bow",
+            "atk": 12
+          }
+        },
+        "cards": []
+      },
+      "sorcerer": {
+        "level": 1,
+        "exp": 0,
+        "attrs": {
+          "str": 1,
+          "int": 6,
+          "vit": 2,
+          "dex": 3,
+          "luk": 2
+        },
+        "points": 0,
+        "skills": {
+          "arcaneOrb": 1,
+          "meteorStrike": 1
+        },
+        "skillPoints": 0,
+        "equipment": {
+          "weapon": {
+            "id": "starter-sorcerer",
+            "slot": "weapon",
+            "rarity": "common",
+            "rolls": [],
+            "kind": "staff",
+            "matk": 11
+          }
+        },
+        "cards": []
+      },
+      "warlock": {
+        "level": 1,
+        "exp": 0,
+        "attrs": {
+          "str": 1,
+          "int": 5,
+          "vit": 3,
+          "dex": 2,
+          "luk": 3
+        },
+        "points": 0,
+        "skills": {
+          "lifeDrain": 1,
+          "curse": 1
+        },
+        "skillPoints": 0,
+        "equipment": {
+          "weapon": {
+            "id": "starter-warlock",
+            "slot": "weapon",
+            "rarity": "common",
+            "rolls": [],
+            "kind": "staff",
+            "matk": 11
+          }
+        },
+        "cards": []
+      },
+      "assassin": {
+        "level": 1,
+        "exp": 0,
+        "attrs": {
+          "str": 3,
+          "int": 1,
+          "vit": 3,
+          "dex": 6,
+          "luk": 4
+        },
+        "points": 0,
+        "skills": {
+          "backstab": 1,
+          "bladeFan": 1
+        },
+        "skillPoints": 0,
+        "equipment": {
+          "weapon": {
+            "id": "starter-assassin",
+            "slot": "weapon",
+            "rarity": "common",
+            "rolls": [],
+            "kind": "dagger",
+            "atk": 10
+          }
+        },
+        "cards": []
+      }
+    },
+    "inventory": [
+      {
+        "id": "it-1",
+        "slot": "armor",
+        "rarity": "common",
+        "rolls": [
+          {
+            "kind": "dodge",
+            "value": 2
+          }
+        ],
+        "kind": "vest",
+        "refine": 1
+      },
+      {
+        "id": "it-2",
+        "slot": "cloak",
+        "rarity": "common",
+        "rolls": [
+          {
+            "kind": "dodge",
+            "value": 4
+          }
+        ],
+        "kind": "cloak"
+      },
+      {
+        "id": "it-3",
+        "slot": "amulet",
+        "rarity": "uncommon",
+        "rolls": [
+          {
+            "kind": "hpRegen",
+            "value": 2
+          }
+        ],
+        "kind": "amulet"
+      }
+    ]
+  },
+  "dead": [],
+  "history": [],
+  "kills": 0,
+  "party": [
+    "warrior"
+  ],
+  "cityHp": 1000,
+  "cityMaxHp": 1000,
+  "nights": 0,
+  "reports": [],
+  "usedObjects": [],
+  "shop": [
+    {
+      "id": "it-4",
+      "slot": "belt",
+      "rarity": "rare",
+      "rolls": [
+        {
+          "kind": "hpRegen",
+          "value": 1
+        },
+        {
+          "kind": "skillHaste",
+          "value": 5
+        }
+      ],
+      "kind": "belt"
+    },
+    {
+      "id": "it-5",
+      "slot": "ring",
+      "rarity": "common",
+      "rolls": [
+        {
+          "kind": "block",
+          "value": 2
+        }
+      ],
+      "kind": "bracelet"
+    },
+    {
+      "id": "it-6",
+      "slot": "cloak",
+      "rarity": "common",
+      "rolls": [
+        {
+          "kind": "block",
+          "value": 3
+        }
+      ],
+      "kind": "cloak"
+    }
+  ]
+}

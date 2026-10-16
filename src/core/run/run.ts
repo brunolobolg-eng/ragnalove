@@ -12,13 +12,30 @@ import { HERO_INFO, HERO_ORDER, HERO_NAME as HERO_NAMES } from '../../config/her
 import { OBJECT_RULES } from '../sim/objects';
 import type { WaveReport } from '../sim/types';
 
+/** Versão atual do save da jornada. A v1 não tinha o campo `sorteio` (migrateRun converte). */
+export const VERSAO_JORNADA = 2;
+
+/** Sorteio da jornada: estado do gerador e contador de ids de item. Vai no save. */
+export interface Sorteio {
+  estado: number;
+  itens: number;
+}
+
+/** Constante que separa o sorteio da jornada do das ondas (mesmo padrão do Simulation). */
+const SALT_FLUXO_JORNADA = 0x2c1b3c6d;
+
+/** Sorteio inicial de uma jornada: a mesma seed dá a mesma sequência desde o começo. */
+export const sorteioInicial = (seed: number): Sorteio => ({ estado: (seed ^ SALT_FLUXO_JORNADA) >>> 0, itens: 0 });
+
 /**
  * Estado de uma run (jornada de 3 atos × 5 fases). Toda a progressão dos heróis vive aqui:
  * derrota completa encerra a run e a próxima começa do zero.
  */
 export interface RunState {
-  version: 1;
+  version: 2;
   seed: number;
+  /** Sorteio da jornada (loot, loja, refino, eventos, cofres). Vai no save: uma recarga continua a sequência. */
+  sorteio: Sorteio;
   act: number;
   node: number;
   /** Opção escolhida no nó atual (antes de concluir). */
@@ -88,7 +105,7 @@ export const HERO_NAME: Record<HeroKind, string> = HERO_NAMES;
  */
 export function newRun(starter: HeroKind, seed: number): RunState {
   const C = GAME_CONFIG.cityDefense;
-  return { version: 1, seed: seed >>> 0, act: 0, node: 0, profile: createProfile(), dead: [], history: [], kills: 0, party: [starter], cityHp: C.maxHp, cityMaxHp: C.maxHp, nights: 0, reports: [], usedObjects: [] };
+  return { version: VERSAO_JORNADA, seed: seed >>> 0, sorteio: sorteioInicial(seed >>> 0), act: 0, node: 0, profile: createProfile(), dead: [], history: [], kills: 0, party: [starter], cityHp: C.maxHp, cityMaxHp: C.maxHp, nights: 0, reports: [], usedObjects: [] };
 }
 
 /**
@@ -141,7 +158,19 @@ export function migrateRun(r: RunState): RunState {
   if (!Number.isFinite(r.seed)) r.seed = 1;
   r.damage ??= 0;
   r.playMs ??= 0;
+  // v1 → v2: o sorteio passa a ser guardado no save. Um save antigo começa a sequência da seed, como a versão anterior.
+  r.sorteio = sorteioValido(r.sorteio) ?? sorteioInicial(r.seed >>> 0);
+  r.version = VERSAO_JORNADA;
   return r;
+}
+
+/** Sorteio lido do save, se for válido (estado numérico e contador inteiro não negativo). */
+export function sorteioValido(s: unknown): Sorteio | undefined {
+  if (!s || typeof s !== 'object') return undefined;
+  const { estado, itens } = s as Partial<Sorteio>;
+  if (typeof estado !== 'number' || !Number.isFinite(estado)) return undefined;
+  if (typeof itens !== 'number' || !Number.isInteger(itens) || itens < 0) return undefined;
+  return { estado: estado >>> 0, itens };
 }
 
 // ---------------- Vida da cidade ----------------
@@ -266,39 +295,41 @@ export function survivalRewards(r: RunState, kills: number, seconds: number): { 
 
 // ---------------- Sorteios da jornada (loot, loja, refino, eventos, cofres) ----------------
 /**
- * Fluxo de sorteio da jornada fora da batalha. Vem da seed da run com uma constante fixa, no mesmo padrão
- * do Simulation (lootRng/combatRng), então não se mistura com o sorteio das ondas.
- * Há um fluxo por objeto de run. Não é salvo: ao carregar um save, o fluxo recomeça da seed
- * (determinístico, mas não continua de onde parou).
+ * Sorteio da jornada fora da batalha. O estado do gerador fica em r.sorteio, então vai no save: ao recarregar,
+ * a sequência continua de onde parou (não repete). Cada sorteio grava o novo estado na própria run.
  */
-const SALT_FLUXO_JORNADA = 0x2c1b3c6d;
-interface FluxoJornada {
-  rng: Rng;
-  /** Contador de ids de item deste fluxo (ver novoIdItem). */
-  itens: number;
-}
-const fluxos = new WeakMap<RunState, FluxoJornada>();
-function fluxo(r: RunState): FluxoJornada {
-  let f = fluxos.get(r);
-  if (!f) {
-    f = { rng: new Rng((r.seed ^ SALT_FLUXO_JORNADA) >>> 0), itens: 0 };
-    fluxos.set(r, f);
+class SorteioDaRun extends Rng {
+  constructor(private readonly r: RunState) {
+    super(r.sorteio.estado);
   }
-  return f;
+  next(): number {
+    this.estado = this.r.sorteio.estado; // sempre o estado atual da run, mesmo se outro fluxo já sorteou
+    const x = super.next();
+    this.r.sorteio.estado = this.estado;
+    return x;
+  }
+}
+/** Garante o sorteio em runs montadas à mão (sem newRun nem migrateRun). */
+function garanteSorteio(r: RunState): Sorteio {
+  return (r.sorteio ??= sorteioInicial(r.seed));
+}
+function fluxo(r: RunState): { rng: Rng } {
+  garanteSorteio(r);
+  return { rng: new SorteioDaRun(r) };
 }
 
 /**
- * Id de item: `it-<contador>`. O contador é do fluxo (não salvo) e pula os ids que já estão na run
+ * Id de item: `it-<contador>`. O contador fica em r.sorteio (vai no save) e pula os ids que já estão na run
  * (inventário, equipados, loja). Assim, um save recarregado nunca gera id repetido.
  */
 function novoIdItem(r: RunState): string {
-  const f = fluxo(r);
+  const sorteio = garanteSorteio(r);
   const emUso = new Set<string>(r.profile.inventory.map((it) => it.id));
   for (const h of Object.values(r.profile.heroes)) for (const it of Object.values(h.equipment)) if (it) emUso.add(it.id);
   for (const it of r.shop ?? []) emUso.add(it.id);
   let id: string;
   do {
-    id = `it-${(++f.itens).toString(36)}`;
+    id = `it-${(++sorteio.itens).toString(36)}`;
   } while (emUso.has(id));
   return id;
 }
