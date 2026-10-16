@@ -378,7 +378,7 @@ export class BastionSession {
     if (this.ctx) return;
     const b = this.ensure();
     this.ctx = { run: this.d.run(), profile: this.d.profile() };
-    const r = newRun(b.party[0]);
+    const r = newRun(b.party[0], b.seed);
     r.profile = b.profile;
     r.party = [...b.party];
     r.dead = [];

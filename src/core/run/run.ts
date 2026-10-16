@@ -82,9 +82,13 @@ export interface BattleSeal {
 export const HEROES: HeroKind[] = HERO_ORDER;
 export const HERO_NAME: Record<HeroKind, string> = HERO_NAMES;
 
-export function newRun(starter: HeroKind = 'warrior', seed = (Date.now() ^ (Math.random() * 1e9)) >>> 0): RunState {
+/**
+ * Jornada nova. A semente vem de quem chama (a interface escolhe a dela; o núcleo não usa relógio nem acaso):
+ * mesma seed + mesmas escolhas = mesma jornada.
+ */
+export function newRun(starter: HeroKind, seed: number): RunState {
   const C = GAME_CONFIG.cityDefense;
-  return { version: 1, seed, act: 0, node: 0, profile: createProfile(), dead: [], history: [], kills: 0, party: [starter], cityHp: C.maxHp, cityMaxHp: C.maxHp, nights: 0, reports: [], usedObjects: [] };
+  return { version: 1, seed: seed >>> 0, act: 0, node: 0, profile: createProfile(), dead: [], history: [], kills: 0, party: [starter], cityHp: C.maxHp, cityMaxHp: C.maxHp, nights: 0, reports: [], usedObjects: [] };
 }
 
 /**
@@ -205,12 +209,13 @@ export function useMapObject(r: RunState, type: keyof typeof OBJECT_RULES, id: n
   if (type === 'cart') {
     const C = GAME_CONFIG.objects.cart;
     const k = priceMult(r);
-    if (uiRng.next() < C.soulChance) {
-      const v = Math.round((C.souls[0] + uiRng.int(C.souls[1] - C.souls[0] + 1)) * k);
+    const g = fluxo(r).rng;
+    if (g.next() < C.soulChance) {
+      const v = Math.round((C.souls[0] + g.int(C.souls[1] - C.souls[0] + 1)) * k);
       p.souls += v;
       msg = `Entre os escombros, almas presas: +${v} almas.`;
     } else {
-      const v = Math.round((C.zeni[0] + uiRng.int(C.zeni[1] - C.zeni[0] + 1)) * k);
+      const v = Math.round((C.zeni[0] + g.int(C.zeni[1] - C.zeni[0] + 1)) * k);
       ganharZeni(p, v);
       msg = `Uma bolsa esquecida na carga: +${v} Zen.`;
     }
@@ -237,8 +242,11 @@ export const currentNode = (r: RunState) => currentAct(r).nodes[Math.min(r.node,
 export const currentRegion = (r: RunState): Region => REGION_BY_ID[currentNode(r).region];
 export const isCombat = (t: NodeType) => t === 'horde' || t === 'elite' || t === 'boss' || t === 'survival';
 
-/** Sobrevivência: pontuação (abates + tempo) → raridades dos prêmios da roleta. */
-export function survivalRewards(kills: number, seconds: number): { score: number; rarities: Rarity[] } {
+/** Constante fixa que separa o sorteio da Sobrevivência dos outros (só muda a sequência, não é segredo). */
+const SALT_SOBREVIVENCIA = 0x6a09e667;
+
+/** Sobrevivência: pontuação (abates + tempo) → raridades dos prêmios da roleta. Sorteio pela seed da run e pelo nó. */
+export function survivalRewards(r: RunState, kills: number, seconds: number): { score: number; rarities: Rarity[] } {
   const score = Math.round(kills + seconds / 2);
   const tiers: [number, Rarity, Rarity][] = [
     [0, 'common', 'uncommon'],
@@ -249,9 +257,50 @@ export function survivalRewards(kills: number, seconds: number): { score: number
   ];
   const t = [...tiers].reverse().find(([min]) => score >= min)!;
   const n = Math.min(3, 1 + Math.floor(score / 60));
-  const rarities = Array.from({ length: n }, (_, i) => (i === 0 ? t[2] : Math.random() < 0.5 ? t[2] : t[1]));
+  // fluxo próprio do nó (seed da run + ato/nó): repetir o mesmo nó dá o mesmo prêmio e não mexe no fluxo da loja/loot
+  const rng = new Rng(((r.seed ^ SALT_SOBREVIVENCIA) + r.act * 7919 + r.node * 131) >>> 0);
+  const rarities = Array.from({ length: n }, (_, i) => (i === 0 ? t[2] : rng.next() < 0.5 ? t[2] : t[1]));
   // o melhor prêmio sai por último (clímax da roleta)
   return { score, rarities: rarities.sort((a, b) => RARITIES.indexOf(a) - RARITIES.indexOf(b)) };
+}
+
+// ---------------- Sorteios da jornada (loot, loja, refino, eventos, cofres) ----------------
+/**
+ * Fluxo de sorteio da jornada fora da batalha. Vem da seed da run com uma constante fixa, no mesmo padrão
+ * do Simulation (lootRng/combatRng), então não se mistura com o sorteio das ondas.
+ * Há um fluxo por objeto de run. Não é salvo: ao carregar um save, o fluxo recomeça da seed
+ * (determinístico, mas não continua de onde parou).
+ */
+const SALT_FLUXO_JORNADA = 0x2c1b3c6d;
+interface FluxoJornada {
+  rng: Rng;
+  /** Contador de ids de item deste fluxo (ver novoIdItem). */
+  itens: number;
+}
+const fluxos = new WeakMap<RunState, FluxoJornada>();
+function fluxo(r: RunState): FluxoJornada {
+  let f = fluxos.get(r);
+  if (!f) {
+    f = { rng: new Rng((r.seed ^ SALT_FLUXO_JORNADA) >>> 0), itens: 0 };
+    fluxos.set(r, f);
+  }
+  return f;
+}
+
+/**
+ * Id de item: `it-<contador>`. O contador é do fluxo (não salvo) e pula os ids que já estão na run
+ * (inventário, equipados, loja). Assim, um save recarregado nunca gera id repetido.
+ */
+function novoIdItem(r: RunState): string {
+  const f = fluxo(r);
+  const emUso = new Set<string>(r.profile.inventory.map((it) => it.id));
+  for (const h of Object.values(r.profile.heroes)) for (const it of Object.values(h.equipment)) if (it) emUso.add(it.id);
+  for (const it of r.shop ?? []) emUso.add(it.id);
+  let id: string;
+  do {
+    id = `it-${(++f.itens).toString(36)}`;
+  } while (emUso.has(id));
+  return id;
 }
 
 /**
@@ -260,14 +309,15 @@ export function survivalRewards(kills: number, seconds: number): { score: number
  */
 export function starterGift(r: RunState): Item[] {
   const G = GAME_CONFIG.loot.starterGift;
+  const rng = fluxo(r).rng;
   const entries = Object.entries(G.weights) as [Rarity, number][];
   const pick = (): Rarity => {
-    let x = uiRng.next() * entries.reduce((s, [, w]) => s + w, 0);
+    let x = rng.next() * entries.reduce((s, [, w]) => s + w, 0);
     for (const [k, w] of entries) if ((x -= w) < 0) return k;
     return entries[0][0];
   };
-  const n = uiRng.next() < G.secondChance ? 2 : 1;
-  return Array.from({ length: n }, () => makeItem(pick(), undefined, r.party));
+  const n = rng.next() < G.secondChance ? 2 : 1;
+  return Array.from({ length: n }, () => makeItem(r, pick(), undefined, r.party));
 }
 
 /**
@@ -278,11 +328,12 @@ export function bossMythicReward(r: RunState, nodeType: NodeType | undefined, dr
   if (nodeType !== 'boss' || r.mythicGranted) return undefined;
   r.mythicGranted = true;
   if (drops.some((d) => d.rarity === 'mythic')) return undefined;
-  return makeItem('mythic', undefined, r.party);
+  return makeItem(r, 'mythic', undefined, r.party);
 }
 
-export function makeItem(rarity: Rarity, slot?: Slot, users: string[] = []): Item {
-  return rollItem(uiRng, 0, itemId(), { rarity, slot }, users);
+/** Item sorteado da jornada: raridade/slot/tipo pelo fluxo da run, id pelo contador (sem relógio). */
+export function makeItem(r: RunState, rarity: Rarity, slot?: Slot, users: string[] = []): Item {
+  return rollItem(fluxo(r).rng, 0, novoIdItem(r), { rarity, slot }, users);
 }
 /** Número da fase (1..15). */
 export const phaseNumber = (r: RunState) => ACTS.slice(0, r.act).reduce((s, a) => s + a.nodes.length, 0) + r.node + 1;
@@ -375,9 +426,6 @@ export function pickEvent(r: RunState): EventDef {
   return list[rng.int(list.length)];
 }
 
-let uiRng = new Rng((Date.now() >>> 0) || 1);
-const itemId = () => `it-${Date.now().toString(36)}-${uiRng.int(1e9)}`;
-
 /** Aplica os efeitos de uma opção de evento. Devolve o texto do resultado. */
 export function applyEventEffects(r: RunState, effects: EventEffect[]): string[] {
   const p = r.profile;
@@ -399,7 +447,7 @@ export function applyEventEffects(r: RunState, effects: EventEffect[]): string[]
       for (const h of r.party) if (!r.dead.includes(h)) addExperience(p, h, v);
       out.push(`+${v} EXP para a party`);
     } else if ('item' in e) {
-      const it = rollItem(uiRng, 0, itemId(), { rarity: e.item }, r.party);
+      const it = makeItem(r, e.item, undefined, r.party);
       p.inventory.push(it);
       out.push(`Item ${RARITY_INFO[e.item].label} no inventário`);
     } else if ('attrPoints' in e) {
@@ -416,7 +464,7 @@ export function applyEventEffects(r: RunState, effects: EventEffect[]): string[]
       if (r.dead.length) out.push(`${r.dead.map((h) => HERO_NAME[h]).join(' e ')} revivido(s)`);
       r.dead = [];
     } else if ('gamble' in e) {
-      const win = uiRng.next() < e.gamble.chance;
+      const win = fluxo(r).rng.next() < e.gamble.chance;
       out.push(win ? e.gamble.winText : e.gamble.loseText);
       out.push(...applyEventEffects(r, win ? e.gamble.win : e.gamble.lose));
     }
@@ -429,7 +477,8 @@ export function shopStock(r: RunState): Item[] {
   if (!r.shop) {
     const n = GAME_CONFIG.city.shopStock + Math.floor(economiaDoPerfil(r.profile).sorteLoja);
     const pool: Rarity[] = r.act === 0 ? ['common', 'uncommon', 'uncommon', 'rare'] : r.act === 1 ? ['uncommon', 'rare', 'rare', 'epic'] : ['rare', 'rare', 'epic', 'epic'];
-    r.shop = Array.from({ length: n }, () => rollItem(uiRng, 0, itemId(), { rarity: pool[uiRng.int(pool.length)] }, r.party));
+    const g = fluxo(r).rng;
+    r.shop = Array.from({ length: n }, () => makeItem(r, pool[g.int(pool.length)], undefined, r.party));
   }
   return r.shop;
 }
@@ -524,7 +573,7 @@ export function refineItem(r: RunState, it: Item): RefineResult {
   const cost = orePrice(r) + refineFee(it);
   if (!spend(r, cost)) return { ok: false, text: 'Zen insuficiente.' };
   const chance = REFINE.chance[cur + 1];
-  if (uiRng.next() < chance) {
+  if (fluxo(r).rng.next() < chance) {
     it.refine = cur + 1;
     return { ok: true, text: `Sucesso! Agora +${it.refine}.` };
   }
@@ -537,7 +586,7 @@ export function refineItem(r: RunState, it: Item): RefineResult {
 export function rerollItem(r: RunState, it: Item): string | undefined {
   if (!spend(r, rerollPrice(r, it))) return 'Zen insuficiente.';
   // mantém tipo e Ataque da arma: só os atributos extras mudam
-  const fresh = rollItem(uiRng, 0, it.id, { rarity: it.rarity, slot: it.slot, kind: it.kind });
+  const fresh = rollItem(fluxo(r).rng, 0, it.id, { rarity: it.rarity, slot: it.slot, kind: it.kind });
   it.rolls = fresh.rolls;
   return 'Atributos sorteados de novo.';
 }
@@ -618,6 +667,3 @@ export function resetAttrsFree(r: RunState, hero: HeroKind): void {
 
 /** Raridades acima de Épico existem (Lendário/Mítico) e só caem de chefes. */
 export const BOSS_RARITY: Rarity[] = RARITIES.slice(2);
-export function reseedUi(seed: number): void {
-  uiRng = new Rng(seed >>> 0 || 1);
-}

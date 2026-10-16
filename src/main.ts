@@ -295,7 +295,9 @@ function noteSurvivalBest(seconds: number, stage: number, kills: number): Record
 }
 const savedRun = loadRun();
 let hasSavedRun = !!savedRun;
-let run: RunState = savedRun ?? newRun();
+/** Semente de jornada nova: é aqui (interface) que entram relógio e acaso; o núcleo só recebe o número. */
+const novaSemente = (): number => (Date.now() ^ (Math.random() * 1e9)) >>> 0;
+let run: RunState = savedRun ?? newRun('warrior', novaSemente());
 let profile: Profile = run.profile;
 // Árvore Global: mora no save de meta (persiste entre jornadas e não zera na derrota). Saves de jornada antigos
 // que ainda traziam a árvore são adotados pelo meta na primeira abertura.
@@ -832,7 +834,7 @@ function openCharSelect(): void {
   audio.preloadSamples(CHARSELECT_ART.hoverSounds);
   charSelect.open((h) => {
     charSelect.close();
-    run = newRun(h);
+    run = newRun(h, novaSemente());
     anexarArvore(run.profile, arvoreMeta);
     profile = run.profile;
     applyCardLoadout(run.profile, loadMetaStats().collection ?? emptyCollection());
@@ -1509,14 +1511,14 @@ function finishSurvival(): void {
     noteRecords();
     view.collectDrops();
     const seconds = Math.round(sim.tick / GAME_CONFIG.sim.tickRate);
-    const res = survivalRewards(sim.killed, seconds);
+    const res = survivalRewards(run, sim.killed, seconds);
     score = res.score;
-    prizes = res.rarities.map((ra) => makeItem(ra, undefined, run.party));
+    prizes = res.rarities.map((ra) => makeItem(run, ra, undefined, run.party));
     profile.inventory.push(...prizes);
     saveProfile();
   } else {
     const seconds = Math.round(sim.tick / GAME_CONFIG.sim.tickRate);
-    score = survivalRewards(sim.killed, seconds).score;
+    score = survivalRewards(run, sim.killed, seconds).score;
   }
   const seconds = Math.round(sim.tick / GAME_CONFIG.sim.tickRate);
   const stage = sim.stage + 1;

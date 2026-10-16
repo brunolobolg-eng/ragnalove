@@ -94,7 +94,7 @@ const ida = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 }
 {
   const r = newRun('warrior', 5);
-  r.profile.inventory.push(makeItem('common'));
+  r.profile.inventory.push(makeItem(r, 'common'));
   const id = r.profile.inventory[0].id;
   const antes = r.profile.zenGanho ?? 0;
   const erro = sellItem(r, id);
