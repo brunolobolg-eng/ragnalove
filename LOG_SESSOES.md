@@ -1510,3 +1510,27 @@ Portais: a abertura dos extras acontece, por exemplo, aos ticks 294 e 481 (bridg
 **Não verificado:** encaixe da construção 4×4 no chão, de perto. A câmera não chegou ao foco no navegador de teste (cerca de 1 quadro por segundo). Conferir no PC do dono.
 
 **Pendências:** arte das construções 4×4; calibrar custos do templo e o Zen inicial; decidir se a vida passa a ser por tile; `PROJECTS.castle` ainda descreve só as muralhas (texto).
+
+## Ponte de Valdrec: praça e tabuleiro com pedra clara (2026-10-17)
+
+**Pedido do dono:** o primeiro mapa (a ponte) é o cartão de visita e estava escuro demais; a cidade parecia só umas barracas. Trocar a pedra escura por uma clara, procedural e bem detalhada.
+
+**O que estava escuro:** a praça e o mercado usavam `pedras/pedra_cinza.webp` (97 px, marrom-acinzentada, média RGB ~ (104,89,78)) com filtro azul. Sob a luz de lua, ficava roxo-escuro. Além disso, o tabuleiro apontava para `pedra_lousa.webp`, que foi apagado no commit a001bfd: o tabuleiro saía sem textura. Os dois problemas foram resolvidos juntos.
+
+**Decisão:** três abordagens procedurais geradas em paralelo (lajes de calcário, calçamento de seixos, aparelho de blocos) e julgadas por um painel de três juízes com lentes diferentes (cor, detalhe e repetição, coerência com cidade). Venceu o calcário em lajes (31 pontos; aparelho de blocos 26; seixos 24). Os juízes pediram quatro ajustes, aplicados: grão e cavidades mais visíveis, rejunte mais claro, mais trincas e lascas nas bordas, e média local afastada do piso.
+
+**O que mudou:**
+- `scripts/gerarPedraPraca.py` (novo) gera `public/textures/cenario/pedra_praca.webp` (1024 px, 124 KB, repete sem costura). Sementes fixas; as verificações falham alto se a textura sair da faixa combinada.
+- `BridgeScenery.ts`: tabuleiro, praça e mercado usam a nova textura. As cores de filtro azul (`0xc4c8d0` e `0xc8ccd6`) viraram `0xffffff`, para a pedra não escurecer.
+- `sceneryTextures.ts`: a textura entra na lista de pré-carregamento.
+
+**Conferido:**
+- `npm run check`: 31 de 31 ok.
+- Montagem da batalha (`chooseNode`, síncrona): 29 ms antes e 26 ms depois. Sem erros de console.
+- Navegador (dev, 1600×900): captura antes e depois, mesma cena. A praça saiu de roxo-escuro para calçamento claro e legível.
+
+**Pendências e pontos para o dono:**
+- Tabuleiro e praça usam a mesma pedra. A ponte deixa de se destacar da praça só pelo material. Se quiser contraste, pede-se uma segunda textura para o tabuleiro.
+- A luz de lua do tema da ponte (`VISUAL_THEMES.bridge`) ainda dá um tom lilás. Mexer nela é decisão de iluminação, não de textura.
+- A cidade continua com poucas barracas (`town/stall`, a cada 3 a 5 tiles). Mais construções ou barracas é decisão de layout, não foi feito.
+- Verificação de perto não foi conclusa: a câmera de teste anda devagar no Chromium sem GPU. Conferir no PC do dono.

@@ -15,6 +15,7 @@ export const CENARIO_DIR = 'textures/cenario/';
 export const TEXTURAS_CENARIO: readonly string[] = [
   'chao_planicie', 'chao_fora', 'grama_vila', 'losango_vila', 'arenito', 'tufo_grama', 'raio_floresta',
   'bloco_ponte_12', 'bloco_ponte_21', 'bloco_ponte_57', 'ponte_lateral', 'runa_portal', 'grade_casa', 'laje_portao',
+  'pedra_praca',
 ].map((nome) => `${CENARIO_DIR}${nome}.webp`);
 
 /** Cor da terra batida da trilha da horda (a mesma do canvas antigo). */

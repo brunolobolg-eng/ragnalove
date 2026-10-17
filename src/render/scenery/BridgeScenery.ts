@@ -22,6 +22,8 @@ export interface SceneryHandle {
 }
 
 const WATER_Y = -2.8;
+/** Pedra clara da praça, do tabuleiro e do mercado: calcário em lajes (gerada por scripts/gerarPedraPraca.py). */
+const PEDRA_PRACA = 'textures/cenario/pedra_praca.webp';
 
 export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   const root = new THREE.Group();
@@ -56,19 +58,20 @@ export function buildBridgeScenery(zone: ParsedZone): SceneryHandle {
   const lambert = (p: THREE.MeshLambertMaterialParameters) => new THREE.MeshLambertMaterial(p);
 
   // ---------------- Tabuleiro da ponte e praça ----------------
-  const deckTex = loadTexture('textures/pedras/pedra_lousa.webp');
+  const deckTex = loadTexture(PEDRA_PRACA);
   const deckLen = plazaN - FAR_Z;
   deckTex.repeat.set((deckR - deckL) / 4, deckLen / 4);
-  // tabuleiro: piso de pedra do dono, em plano (a beira do rio é a lateral de arcos, logo abaixo)
+  // tabuleiro: lajes claras, em plano (a beira do rio é a lateral de arcos, logo abaixo). Antes apontava para
+  // pedra_lousa.webp, que já não existe: o tabuleiro saía sem textura.
   const deck = new THREE.Mesh(new THREE.PlaneGeometry(deckR - deckL, deckLen).rotateX(-Math.PI / 2), lambert({ map: deckTex }));
   deck.position.set((deckL + deckR) / 2, 0.005, (FAR_Z + plazaN) / 2);
   deck.receiveShadow = true;
   root.add(deck);
 
-  const plazaTex = loadTexture('textures/pedras/pedra_cinza.webp');
+  const plazaTex = loadTexture(PEDRA_PRACA);
   const plazaDepth = wallZ + 1.5 - plazaN;
   plazaTex.repeat.set((plazaR - plazaL) / 4, plazaDepth / 4);
-  const plazaMesh = new THREE.Mesh(new THREE.PlaneGeometry(plazaR - plazaL, plazaDepth).rotateX(-Math.PI / 2), lambert({ map: plazaTex, color: 0xc4c8d0 }));
+  const plazaMesh = new THREE.Mesh(new THREE.PlaneGeometry(plazaR - plazaL, plazaDepth).rotateX(-Math.PI / 2), lambert({ map: plazaTex, color: 0xffffff }));
   plazaMesh.position.set((plazaL + plazaR) / 2, 0.005, plazaN + plazaDepth / 2);
   plazaMesh.receiveShadow = true;
   root.add(plazaMesh);
@@ -600,9 +603,9 @@ function buildBanks(root: THREE.Group, L: BankLayout): void {
 
   // ---- dentro dos muros (ao sul da muralha): o largo do mercado de Valdrec ----
   const cityDepth = 26;
-  const plaza = loadTexture('textures/pedras/pedra_cinza.webp');
+  const plaza = loadTexture(PEDRA_PRACA);
   plaza.repeat.set((W + 60) / 4, cityDepth / 4);
-  const city = new THREE.Mesh(new THREE.PlaneGeometry(W + 60, cityDepth).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: plaza, color: 0xc8ccd6 }));
+  const city = new THREE.Mesh(new THREE.PlaneGeometry(W + 60, cityDepth).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ map: plaza, color: 0xffffff }));
   city.position.set(0, 0.005, wallZ + 1 + cityDepth / 2);
   city.receiveShadow = true;
   root.add(city);
